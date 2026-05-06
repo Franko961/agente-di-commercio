@@ -28,6 +28,14 @@ Build a complete sales agent management system (Italian "gestionale per agenti d
 - **Digital signature on offers**: react-signature-canvas pad + jsPDF auto-generation of branded PDF (header, items, totals, signature, signer name + date); `POST /api/offers/{id}/sign` stores base64 signature, sets status=accettata, idempotent commission creation
 - 100% iteration 3 frontend tests pass; 12/12 P1 backend pytest pass
 
+## Implemented (2026-02-06 — third session)
+- **Auth UX hardening**: register form clears demo creds on mode switch, validates password length client-side, shows inline + toast error messages translated to Italian for FastAPI 422 validation errors, auto-seeds demo data for newly registered users
+- **File uploads in Documents area**: PDF / Excel / Word / CSV / images / videos (mp4, mov, webm, avi, mkv) up to 50 MB via Emergent Object Storage (`https://integrations.emergentagent.com/objstore/api/v1/storage`)
+  - Endpoints: `POST /api/documents/upload` (multipart), `GET /api/documents/{id}/download` (Bearer or `?auth=` query token), `DELETE /api/documents/{id}` (soft-delete `is_deleted=true`)
+  - Storage path convention: `agente-crm/uploads/{user_id}/{uuid}.{ext}`
+  - UI: drag-and-drop zone, file picker, progress bar, optimistic state updates (no list-refresh races), category filter chips, color-coded file-type icons (PDF=red, Excel=green, Video=violet, Image=orange), file size + date display, download via fetch+blob to preserve auth header
+- 11/11 backend tests pass; iter 5 frontend test 100% pass
+
 ## Test Credentials
 - agente@demo.it / demo1234
 
