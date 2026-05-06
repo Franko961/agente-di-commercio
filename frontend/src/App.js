@@ -1,52 +1,53 @@
-import { useEffect } from "react";
-import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
-
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
-  return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
-};
+import "@/App.css";
+import { AuthProvider } from "./contexts/AuthContext";
+import { MandanteProvider } from "./contexts/MandanteContext";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Layout from "./components/Layout";
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
+import Clients from "./pages/Clients";
+import ClientDetail from "./pages/ClientDetail";
+import Leads from "./pages/Leads";
+import Agenda from "./pages/Agenda";
+import MapView from "./pages/MapView";
+import Offers from "./pages/Offers";
+import Commissions from "./pages/Commissions";
+import Mandanti from "./pages/Mandanti";
+import Products from "./pages/Products";
+import Documents from "./pages/Documents";
+import Automations from "./pages/Automations";
+import AIAssistant from "./pages/AIAssistant";
+import { Toaster } from "./components/ui/sonner";
 
 function App() {
   return (
     <div className="App">
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
-        </Routes>
+        <AuthProvider>
+          <MandanteProvider>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/clienti" element={<Clients />} />
+                <Route path="/clienti/:id" element={<ClientDetail />} />
+                <Route path="/lead" element={<Leads />} />
+                <Route path="/agenda" element={<Agenda />} />
+                <Route path="/mappa" element={<MapView />} />
+                <Route path="/offerte" element={<Offers />} />
+                <Route path="/provvigioni" element={<Commissions />} />
+                <Route path="/mandanti" element={<Mandanti />} />
+                <Route path="/prodotti" element={<Products />} />
+                <Route path="/documenti" element={<Documents />} />
+                <Route path="/automazioni" element={<Automations />} />
+                <Route path="/ai" element={<AIAssistant />} />
+              </Route>
+            </Routes>
+          </MandanteProvider>
+        </AuthProvider>
       </BrowserRouter>
+      <Toaster richColors position="top-right" />
     </div>
   );
 }

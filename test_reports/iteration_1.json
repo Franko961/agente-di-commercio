@@ -1,0 +1,41 @@
+{
+  "summary": "End-to-end testing of Gestionale Agenti di Commercio (Italian sales-agent CRM). Backend: 28/28 pytest tests passed against the public preview URL covering auth (login/me/invalid), dashboard KPIs, clients (list+filters by zone/sector/potential/q, full CRUD + nested aggregations), leads (CRUD + status PATCH), appointments CRUD, mandanti (3 demo + CRUD), products (filter by mandante + CRUD), offers (CRUD + status PATCH that auto-creates commission), commissions (>=2 demo + status toggle), documents CRUD, automations (3 demo + CRUD), AI chat with real Gemini 3 Flash via EMERGENT_LLM_KEY (returns valid Italian response), AI suggestions. Frontend: login page renders, rejects/accepts credentials, all 11 protected routes (Italian paths /clienti, /lead, /agenda, /mappa, /offerte, /provvigioni, /mandanti, /prodotti, /documenti, /automazioni, /ai) load successfully. Dashboard shows KPIs (11.690€ won, 8710€ pipeline, 785€ commissions, 8 clients), monthly chart, lead pipeline donut. Leads Kanban shows all 6 status columns. Mappa renders Leaflet with 8 client markers across Italy. Offerte page shows 5 cards with Invia/Accetta/Rifiuta buttons. Provvigioni shows 285,20€ maturato / 499,50€ incassato totals. Client detail page with all 5 tabs (info/offerte/agenda/documenti/provvigioni) reachable. AI Assistant sends message and receives detailed Italian response from Gemini 3 Flash. Logout works. Mobile viewport (390px) shows bottom nav (Home, Clienti, Agenda, Offerte, Mappa) and renders client cards instead of tables.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/ai/suggestions", "issue": "Silently swallows all exceptions and returns empty suggestions array; no observability for failures other than logger.error"}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_backend_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Optional: split /app/backend/server.py (902 lines) into focused routers (auth, clients, leads, offers, ai, dashboard, seed) for maintainability — exceeds the 700-line guideline.",
+    "Optional: harden auth per the auth playbook — add brute-force lockout after 5 failed logins (currently absent), and update seeded admin password if ADMIN_PASSWORD env changes (current code only inserts if missing). Cookies are httpOnly (good) but secure=False; OK for preview, set True in prod.",
+    "Optional: Test credentials file states 'JWT auth via httpOnly cookies' but server also accepts Authorization: Bearer header (frontend uses bearer via localStorage). Documentation could clarify both modes."
+  ],
+  "critical_code_review_comments": [
+    "server.py is 902 lines — should be split into routers per resource for maintainability.",
+    "Seed admin in startup() does NOT update password when ADMIN_PASSWORD changes (idempotency issue per auth playbook).",
+    "No brute-force lockout on /api/auth/login — playbook recommends lock after 5 failed attempts.",
+    "AI endpoints catch broad Exception and either swallow (suggestions) or expose stack-trace prefix to clients (chat) — consider stricter error categorisation.",
+    "Cookies are set with secure=False; acceptable for HTTP preview but should be conditional on environment in production.",
+    "Frontend stores JWT in localStorage (XSS-exposable). Since backend already issues httpOnly cookie, the bearer/localStorage path is redundant and weakens security posture."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_backend_api.py (new pytest suite — 28 tests, all passing)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "agente@demo.it / demo1234 (auto-seeded admin in /app/memory/test_credentials.md)",
+  "seed_data_creation": "Demo data is auto-seeded on backend startup if user has no mandanti: 3 mandanti, 5 products, 8 clients (geolocated across Italy), 5 leads (one per status), 7 appointments (next 7 days), 5 offers, 3 commissions, 3 documents, 3 automations.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Routes use ITALIAN paths: /clienti, /lead, /agenda, /mappa, /offerte, /provvigioni, /mandanti, /prodotti, /documenti, /automazioni, /ai. Client detail is /clienti/:id. AI input has data-testid='ai-input'. Frontend uses Authorization: Bearer header from localStorage (no cookie reliance). Backend supports BOTH cookie and bearer auth. Demo data seeded automatically; do NOT reseed. Test pytest entrypoint: pytest /app/backend/tests/test_backend_api.py -v",
+  "rca of the issue": "No issues found. Initial Playwright test attempted English routes (/clients, /leads, /map, /offers, /products, /documents, /automations) which 404 because the app uses Italian routes; corrected to Italian paths and all 11 routes loaded correctly. AI input was missed because it is a regular <input> (not <textarea>) inside a form; using data-testid='ai-input' resolves the lookup. No code changes were required — the implementation is solid."
+}

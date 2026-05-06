@@ -1,0 +1,172 @@
+import { useEffect, useState } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import api from "../api";
+import { ArrowLeft, MapPin, Phone, Mail, Building, Trash2, Edit, Calendar, FileText, Folder, Coins } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { it } from "date-fns/locale";
+import { toast } from "sonner";
+
+const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
+
+const TABS = [
+  { id: "info", label: "Informazioni", icon: Building },
+  { id: "offerte", label: "Offerte", icon: FileText },
+  { id: "agenda", label: "Visite", icon: Calendar },
+  { id: "documenti", label: "Documenti", icon: Folder },
+  { id: "provvigioni", label: "Provvigioni", icon: Coins },
+];
+
+export default function ClientDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [tab, setTab] = useState("info");
+  const [data, setData] = useState(null);
+
+  const load = () => api.get(`/clients/${id}`).then(({ data }) => setData(data));
+  useEffect(() => { load(); }, [id]);
+
+  const remove = async () => {
+    if (!window.confirm("Eliminare il cliente?")) return;
+    await api.delete(`/clients/${id}`);
+    toast.success("Cliente eliminato");
+    navigate("/clienti");
+  };
+
+  if (!data) return <div className="p-8 font-mono text-sm text-[#A1A1AA]">caricamento…</div>;
+  const c = data.client;
+
+  return (
+    <div className="p-4 md:p-8 space-y-6">
+      <Link to="/clienti" className="inline-flex items-center gap-2 text-[12px] font-mono uppercase tracking-widest text-[#52525B]">
+        <ArrowLeft className="w-3.5 h-3.5" /> Torna ai clienti
+      </Link>
+
+      <div className="bg-white border border-[#E4E4E1] rounded-md p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00] mb-2">{c.zone || "Italia"} · {c.sector || "Settore"}</div>
+            <h1 className="font-cabinet font-black text-3xl tracking-tight">{c.company_name}</h1>
+            <div className="text-[14px] text-[#52525B] mt-1">{c.contact_name}</div>
+            <div className="flex flex-wrap gap-4 mt-4 text-[13px] text-[#52525B]">
+              {c.email && <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" />{c.email}</span>}
+              {c.phone && <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" />{c.phone}</span>}
+              {c.city && <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" />{c.address}, {c.city} ({c.province})</span>}
+            </div>
+          </div>
+          <button data-testid="delete-client-button" onClick={remove} className="text-[#A1A1AA] hover:text-[#DC2626] p-2"><Trash2 className="w-4 h-4" /></button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-[#E4E4E1] overflow-x-auto">
+        {TABS.map(({ id: t, label, icon: Icon }) => (
+          <button key={t} onClick={() => setTab(t)} data-testid={`tab-${t}`}
+                  className={`flex items-center gap-2 px-4 py-3 text-[13px] font-medium whitespace-nowrap border-b-2 transition-colors ${tab === t ? "border-[#FF5A00] text-[#0A0A0A]" : "border-transparent text-[#52525B]"}`}>
+            <Icon className="w-3.5 h-3.5" /> {label}
+          </button>
+        ))}
+      </div>
+
+      <div>
+        {tab === "info" && (
+          <div className="grid md:grid-cols-2 gap-4">
+            <InfoCard label="P.IVA" value={c.vat_number || "—"} />
+            <InfoCard label="Potenziale" value={c.potential} />
+            <InfoCard label="Settore" value={c.sector || "—"} />
+            <InfoCard label="Zona" value={c.zone || "—"} />
+            {c.lat && c.lng && <InfoCard label="Coordinate" value={`${c.lat.toFixed(4)}, ${c.lng.toFixed(4)}`} />}
+            <div className="md:col-span-2 bg-white border border-[#E4E4E1] rounded-md p-5">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-2">Note</div>
+              <div className="text-[14px] text-[#0A0A0A] whitespace-pre-wrap">{c.notes || "Nessuna nota."}</div>
+            </div>
+          </div>
+        )}
+
+        {tab === "offerte" && (
+          <div className="space-y-2">
+            {data.offers.length === 0 && <Empty>Nessuna offerta per questo cliente.</Empty>}
+            {data.offers.map((o) => (
+              <div key={o.id} className="bg-white border border-[#E4E4E1] rounded-md p-4 flex items-center justify-between">
+                <div>
+                  <div className="font-medium text-[14px]">{o.title}</div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-1">{format(parseISO(o.created_at), "dd MMM yyyy", { locale: it })}</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-cabinet font-bold text-lg">{fmt(o.total)}</div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00]">{o.status}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === "agenda" && (
+          <div className="space-y-2">
+            {data.appointments.length === 0 && <Empty>Nessuna visita registrata.</Empty>}
+            {data.appointments.map((a) => (
+              <div key={a.id} className="bg-white border border-[#E4E4E1] rounded-md p-4 flex items-center gap-4">
+                <div className="w-14 text-center">
+                  <div className="font-cabinet font-black text-xl">{format(parseISO(a.start), "d")}</div>
+                  <div className="font-mono text-[10px] uppercase text-[#A1A1AA]">{format(parseISO(a.start), "MMM yy", { locale: it })}</div>
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium text-[14px]">{a.title}</div>
+                  <div className="text-[12px] text-[#52525B]">{format(parseISO(a.start), "HH:mm")} · {a.location}</div>
+                </div>
+                <span className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00]">{a.status}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === "documenti" && (
+          <div className="space-y-2">
+            {data.documents.length === 0 && <Empty>Nessun documento archiviato.</Empty>}
+            {data.documents.map((d) => (
+              <div key={d.id} className="bg-white border border-[#E4E4E1] rounded-md p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Folder className="w-5 h-5 text-[#FF5A00]" />
+                  <div>
+                    <div className="font-medium text-[14px]">{d.name}</div>
+                    <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">{d.category}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === "provvigioni" && (
+          <div className="space-y-2">
+            {data.commissions.length === 0 && <Empty>Nessuna provvigione registrata.</Empty>}
+            {data.commissions.map((cm) => (
+              <div key={cm.id} className="bg-white border border-[#E4E4E1] rounded-md p-4 flex items-center justify-between">
+                <div>
+                  <div className="font-medium text-[14px]">Periodo {cm.period}</div>
+                  <div className="text-[12px] text-[#52525B]">Aliquota {cm.rate}%</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-cabinet font-bold text-lg">{fmt(cm.amount)}</div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest" style={{ color: cm.status === "incassato" ? "#059669" : "#FF5A00" }}>{cm.status}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function InfoCard({ label, value }) {
+  return (
+    <div className="bg-white border border-[#E4E4E1] rounded-md p-4">
+      <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-1">{label}</div>
+      <div className="text-[14px] font-medium">{value}</div>
+    </div>
+  );
+}
+
+function Empty({ children }) {
+  return <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#A1A1AA] text-[13px]">{children}</div>;
+}
