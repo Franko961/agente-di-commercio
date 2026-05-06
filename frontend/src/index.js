@@ -10,16 +10,21 @@ root.render(
   </React.StrictMode>,
 );
 
-// Register Service Worker for PWA offline mode
-if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
+// Register Service Worker for PWA offline mode + auto-update
+if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch((err) => {
+    navigator.serviceWorker.register("/sw.js").then((reg) => {
+      // When a new SW takes control, reload once so the user gets the fresh JS bundle
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
+      // Force SW update check on every load
+      reg.update?.().catch(() => {});
+    }).catch((err) => {
       console.warn("SW registration failed:", err);
     });
-  });
-} else if ("serviceWorker" in navigator) {
-  // Also register in dev for offline testing
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
   });
 }

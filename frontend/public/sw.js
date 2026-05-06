@@ -1,12 +1,10 @@
-/* AGENTE Gestionale - Service Worker (read-only offline) */
-const CACHE_VERSION = 'agente-v1';
+/* AGENTE Gestionale - Service Worker v3 (read-only offline + always-fresh app shell) */
+const CACHE_VERSION = 'agente-v3';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const API_CACHE = `${CACHE_VERSION}-api`;
 
-// Static shell to pre-cache
-const STATIC_FILES = ['/', '/manifest.json'];
+const STATIC_FILES = ['/manifest.json'];
 
-// API GETs we cache (read-only offline data)
 const CACHEABLE_API_PATHS = [
   '/api/clients',
   '/api/appointments',
@@ -23,15 +21,15 @@ const CACHEABLE_API_PATHS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(STATIC_CACHE).then((cache) => cache.addAll(STATIC_FILES)).then(() => self.skipWaiting())
+    caches.open(STATIC_CACHE).then((c) => c.addAll(STATIC_FILES)).then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => !k.startsWith(CACHE_VERSION)).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => !k.startsWith(CACHE_VERSION)).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
@@ -44,14 +42,16 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 
-  // Same-origin static -> cache-first
+  // Same-origin: network-first so users always get the latest app shell
   if (url.origin === self.location.origin) {
     event.respondWith(
-      caches.match(req).then((cached) => cached || fetch(req).then((res) => {
-        const copy = res.clone();
-        caches.open(STATIC_CACHE).then((c) => c.put(req, copy)).catch(() => {});
+      fetch(req).then((res) => {
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(STATIC_CACHE).then((c) => c.put(req, copy)).catch(() => {});
+        }
         return res;
-      }).catch(() => caches.match('/')))
+      }).catch(() => caches.match(req).then((cached) => cached || caches.match('/manifest.json')))
     );
     return;
   }
