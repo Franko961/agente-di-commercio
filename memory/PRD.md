@@ -1,0 +1,40 @@
+# PRD — Gestionale Agenti di Commercio
+
+## Original Problem Statement
+Build a complete sales agent management system (Italian "gestionale per agenti di commercio") covering: customer database, order/revenue history, segmentation, leads/prospects, automatic commissions (multi-mandate, accrued vs collected), agenda with visit routes & geolocation, quotes/offers with deadlines & follow-ups, reports & KPIs, multi-mandate (separate brands, price lists, commissions), document archive, automation pipeline, mobile-first + offline, AI suggestions, predictive sales analysis, WhatsApp/email integration, digital signature, ERP integration.
+
+## Architecture
+- **Backend**: FastAPI + Motor (MongoDB) + JWT (Bearer/cookie) + bcrypt
+- **Frontend**: React 19 + Tailwind + Shadcn UI + Recharts + Leaflet + lucide-react
+- **AI**: Gemini 3 Flash via emergentintegrations + EMERGENT_LLM_KEY
+- **Design**: Swiss high-contrast + Sartorial Italian (Cabinet Grotesk + Manrope, Navy #0A192F + Warning Orange #FF5A00)
+
+## Implemented (2026-02-06)
+- Auth: JWT login/register/me/logout + admin seed
+- 12 modules CRUD: Mandanti, Products & Listini, Clients (segmentation+geolocation), Leads (Kanban), Appointments (week view), Offers (line items+commission auto-creation), Commissions (maturato/incassato), Documents, Automations
+- Dashboard with KPIs, monthly revenue chart, pipeline donut, by-zone bar chart, upcoming visits, monthly goal
+- Leaflet map with custom orange pins for all geolocated clients
+- AI Assistant chat (Gemini 3 Flash) + Suggestions panel
+- Auto-seeded demo data (3 mandanti, 5 products, 8 clients across Italy, 5 leads, 7 appointments, 5 offers, 3 commissions, 3 documents, 3 automations)
+- Mobile-first: bottom tab nav + drawer menu, card layouts vs tables
+- Mandante context switcher (top header + sidebar)
+- 100% backend tests pass (28/28), 100% frontend routes work
+
+## Test Credentials
+- agente@demo.it / demo1234
+
+## Backlog (P1)
+- Email follow-up sender (real SMTP/Resend)
+- WhatsApp click-to-chat integration
+- Digital signature on offers (PDF + signature pad)
+- Offline mode (PWA + IndexedDB sync)
+- Real-time map route optimization (visit planner)
+- Excel/CSV export for commissions/clients/offers
+- Notifications & reminders (browser + email)
+
+## Backlog (P2)
+- ERP integration (Fatture in Cloud / TeamSystem)
+- Multi-agent / team mode (admin sees all agents)
+- Forecasting AI report (PDF export)
+- Custom dashboards per mandante
+- Audit log
