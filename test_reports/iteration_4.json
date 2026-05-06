@@ -1,0 +1,64 @@
+{
+  "summary": "Tested Document Upload/Download feature (Emergent object storage). Backend 100% passing (11/11 pytest). Frontend partially working: upload, download (blob), category filter, and modal UI all work; a real-time list refresh issue was observed after in-modal upload (and possibly after delete) where the new card does not appear/old card does not disappear without a full session restart, even though the backend API has the correct soft-delete/insert applied.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Documents.jsx (UploadForm onDone callback)",
+        "issue": "After successful upload via the modal, toast 'Documento caricato' fires and modal closes, but the new document card does NOT appear in the grid even after waiting 4s. A fresh page navigation (logout/login or hard reload via Documents menu re-click) shows the doc correctly. Same symptom seen after delete: the deleted card remains visible despite backend confirming soft-delete. Network tab confirms /api/documents IS re-fetched and returns 200 after the mutation.",
+        "selector": "[data-testid^='doc-']",
+        "priority": "HIGH"
+      },
+      {
+        "component": "DialogContent (Documents upload modal)",
+        "issue": "Console warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. Add a <DialogDescription> or aria-describedby to satisfy Radix accessibility.",
+        "selector": "DialogContent",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Upload → list refresh",
+        "issue": "POST /api/documents/upload returns 200 with the new doc; subsequent GET /api/documents (triggered by load()) also returns 200 and contains the new doc in DB, yet React state/grid doesn't reflect it within the same session. Suspected stale closure or unmount race when Dialog closes.",
+        "affected_selectors": ["[data-testid^='doc-']", "[data-testid='save-doc-button']"]
+      },
+      {
+        "flow": "Delete → list refresh",
+        "issue": "DELETE /api/documents/{id} executes (DB has is_deleted=true) but the card stays in the rendered grid until manual reload.",
+        "affected_selectors": ["[data-testid^='delete-doc-']"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_documents_upload.py",
+    "/app/test_reports/pytest/iter4_documents.xml"
+  ],
+  "action_items": [
+    "Investigate Documents.jsx load() refresh after onDone(): suggest awaiting load() before setOpen(false), e.g. `onDone={async () => { setOpen(false); await load(); }}`. Also consider passing a fresh callback via useCallback or storing docs via React Query to ensure no stale closure.",
+    "Add a DialogDescription (or aria-describedby) to the Nuovo documento DialogContent to remove Radix accessibility warning.",
+    "Optional: have the upload endpoint response push into local docs state directly (setDocs(prev => [doc, ...prev])) instead of relying on a refetch."
+  ],
+  "critical_code_review_comments": [
+    "server.py line 60-66: when storage init fails, the function returns None silently; init_storage() is then re-tried on every put/get. OK but logs only WARN at startup. Consider failing the upload endpoint earlier with a clear 503.",
+    "Documents.jsx: load() is recreated on every render and not memoized. UploadForm's onDone closes over a possibly stale `load` reference relative to the open modal lifecycle. Use useCallback or a ref.",
+    "Backend GET /api/documents/{id}/download: filename in Content-Disposition is not RFC 5987 escaped (would break for accented filenames like 'Contratto è.pdf'). Use filename* / urllib.parse.quote.",
+    "Documents.jsx download(): when storage_path is missing the legacy doc path opens doc.url with window.open — but legacy seeded docs have no url either, only a toast. Acceptable but worth noting in UX."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_documents_upload.py"
+  ],
+  "success_rate": {
+    "backend": "100% (11/11)",
+    "frontend": "75% (upload network OK, download OK, filters OK, modal OK; list refresh fails)"
+  },
+  "test_credentials": "agente@demo.it / demo1234 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "All test docs were prefixed TEST_ and cleaned up via the API at end of run.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend tests live in /app/backend/tests/test_documents_upload.py and pass 100%. Use BASE_URL from REACT_APP_BACKEND_URL=https://visit-planner-32.preview.emergentagent.com. The known frontend bug is that after upload (and after delete) within the same session, the docs grid in /documenti does not refresh to reflect the change even though /api/documents is re-fetched and returns the new state. Fix candidate: in Documents.jsx pass `onDone={async () => { setOpen(false); await load(); }}` or refactor to manage docs via state-update-on-response.",
+  "rca_of_the_issue": "Backend storage_put/get works correctly with Emergent objstore (verified via download bytes equality). The 'Object storage initialized' log appears once at startup as expected. Frontend list refresh failure: hypothesis is that UploadForm calls onDone() which schedules both setOpen(false) and load() (non-awaited). When setOpen(false) unmounts the Dialog body the parent re-renders, possibly recreating closures. Combined with React 18 batching, the setDocs(d.data) update may be applied to a state slice that is subsequently overwritten/ignored. Reproduction: login → /documenti → click 'Carica documento' → pick PDF → save → toast appears, modal closes, but new card does not show until user navigates away and back (or full reload triggers fresh useEffect)."
+}

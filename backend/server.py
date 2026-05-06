@@ -11,10 +11,11 @@ import bcrypt
 import jwt
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Any, Dict
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, Body
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, Body, UploadFile, File, Form, Header, Query
 from fastapi.responses import JSONResponse, StreamingResponse
 import csv
 import io
+import requests as http_requests
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr
@@ -26,6 +27,85 @@ db = client[os.environ['DB_NAME']]
 
 JWT_SECRET = os.environ.get('JWT_SECRET', 'devsecret')
 JWT_ALG = 'HS256'
+
+# Object Storage (Emergent)
+STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
+EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
+APP_NAME = "agente-crm"
+MAX_FILE_BYTES = 50 * 1024 * 1024  # 50 MB cap
+ALLOWED_EXT = {
+    "pdf": "application/pdf",
+    "xls": "application/vnd.ms-excel",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "csv": "text/csv",
+    "doc": "application/msword",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "txt": "text/plain",
+    "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+    "mp4": "video/mp4", "mov": "video/quicktime", "webm": "video/webm",
+    "avi": "video/x-msvideo", "mkv": "video/x-matroska",
+}
+_storage_key: Optional[str] = None
+
+
+def init_storage() -> Optional[str]:
+    """Initialize storage session - call once at startup."""
+    global _storage_key
+    if _storage_key:
+        return _storage_key
+    if not EMERGENT_KEY:
+        return None
+    try:
+        r = http_requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_KEY}, timeout=30)
+        r.raise_for_status()
+        _storage_key = r.json()["storage_key"]
+        return _storage_key
+    except Exception as e:
+        logging.error(f"Storage init failed: {e}")
+        return None
+
+
+def storage_put(path: str, data: bytes, content_type: str) -> dict:
+    key = init_storage()
+    if not key:
+        raise HTTPException(500, "Storage non disponibile")
+    r = http_requests.put(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key, "Content-Type": content_type},
+        data=data, timeout=120,
+    )
+    if r.status_code == 403:
+        # Refresh key once
+        global _storage_key
+        _storage_key = None
+        key = init_storage()
+        r = http_requests.put(
+            f"{STORAGE_URL}/objects/{path}",
+            headers={"X-Storage-Key": key, "Content-Type": content_type},
+            data=data, timeout=120,
+        )
+    r.raise_for_status()
+    return r.json()
+
+
+def storage_get(path: str) -> tuple:
+    key = init_storage()
+    if not key:
+        raise HTTPException(500, "Storage non disponibile")
+    r = http_requests.get(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key}, timeout=60,
+    )
+    if r.status_code == 403:
+        global _storage_key
+        _storage_key = None
+        key = init_storage()
+        r = http_requests.get(
+            f"{STORAGE_URL}/objects/{path}",
+            headers={"X-Storage-Key": key}, timeout=60,
+        )
+    r.raise_for_status()
+    return r.content, r.headers.get("Content-Type", "application/octet-stream")
 
 app = FastAPI(title="Gestionale Agenti di Commercio")
 api = APIRouter(prefix="/api")
@@ -509,19 +589,104 @@ async def update_commission_status(cid: str, payload: dict = Body(...), user=Dep
 # ----------------- Documents -----------------
 @api.get("/documents")
 async def list_documents(user=Depends(get_current_user)):
-    return await db.documents.find({"user_id": user["id"]}, {"_id": 0}).to_list(2000)
+    return await db.documents.find({"user_id": user["id"], "is_deleted": {"$ne": True}}, {"_id": 0}).sort("created_at", -1).to_list(2000)
 
 
 @api.post("/documents")
 async def create_document(payload: DocumentIn, user=Depends(get_current_user)):
-    doc = {"id": gen_id(), "user_id": user["id"], **payload.model_dump(), "created_at": now_iso()}
+    doc = {"id": gen_id(), "user_id": user["id"], **payload.model_dump(),
+           "is_deleted": False, "created_at": now_iso()}
     await db.documents.insert_one(doc)
     return clean(doc)
 
 
+@api.post("/documents/upload")
+async def upload_document(
+    file: UploadFile = File(...),
+    name: str = Form(...),
+    category: str = Form("altro"),
+    client_id: Optional[str] = Form(None),
+    notes: str = Form(""),
+    user=Depends(get_current_user),
+):
+    if not file.filename:
+        raise HTTPException(400, "File mancante")
+    ext = (file.filename.rsplit(".", 1)[-1] if "." in file.filename else "bin").lower()
+    if ext not in ALLOWED_EXT:
+        raise HTTPException(400, f"Estensione .{ext} non supportata. Consentite: PDF, Excel, Word, video, immagini.")
+    data = await file.read()
+    if len(data) > MAX_FILE_BYTES:
+        raise HTTPException(413, f"File troppo grande (max {MAX_FILE_BYTES // (1024*1024)} MB)")
+    if not data:
+        raise HTTPException(400, "File vuoto")
+
+    content_type = file.content_type or ALLOWED_EXT.get(ext, "application/octet-stream")
+    storage_path = f"{APP_NAME}/uploads/{user['id']}/{gen_id()}.{ext}"
+
+    try:
+        result = storage_put(storage_path, data, content_type)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Upload failed: {e}")
+        raise HTTPException(500, f"Errore caricamento: {str(e)[:200]}")
+
+    doc = {
+        "id": gen_id(), "user_id": user["id"],
+        "client_id": client_id or None,
+        "name": name or file.filename,
+        "category": category,
+        "url": "",
+        "notes": notes,
+        "storage_path": result.get("path", storage_path),
+        "original_filename": file.filename,
+        "content_type": content_type,
+        "size": len(data),
+        "is_deleted": False,
+        "created_at": now_iso(),
+    }
+    await db.documents.insert_one(doc)
+    return clean(doc)
+
+
+@api.get("/documents/{did}/download")
+async def download_document(did: str, authorization: Optional[str] = Header(None), auth: Optional[str] = Query(None)):
+    # Allow auth via Authorization header OR ?auth=token query param (for direct browser links)
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:]
+    elif auth:
+        token = auth
+    if not token:
+        raise HTTPException(401, "Not authenticated")
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
+    except jwt.InvalidTokenError:
+        raise HTTPException(401, "Invalid token")
+
+    doc = await db.documents.find_one({"id": did, "user_id": payload["sub"], "is_deleted": {"$ne": True}}, {"_id": 0})
+    if not doc or not doc.get("storage_path"):
+        raise HTTPException(404, "Documento non trovato")
+
+    content, ctype = storage_get(doc["storage_path"])
+    filename = doc.get("original_filename") or doc.get("name") or "file"
+    return Response(
+        content=content,
+        media_type=doc.get("content_type") or ctype,
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
+            "Cache-Control": "private, max-age=300",
+        },
+    )
+
+
 @api.delete("/documents/{did}")
 async def delete_document(did: str, user=Depends(get_current_user)):
-    await db.documents.delete_one({"id": did, "user_id": user["id"]})
+    # Soft delete (storage has no delete API)
+    await db.documents.update_one(
+        {"id": did, "user_id": user["id"]},
+        {"$set": {"is_deleted": True}}
+    )
     return {"ok": True}
 
 
@@ -1012,9 +1177,19 @@ async def seed_demo(user_id: str):
 # ----------------- Startup -----------------
 @app.on_event("startup")
 async def startup():
+    # Init object storage (non-blocking on failure)
+    try:
+        if init_storage():
+            logger.info("Object storage initialized")
+        else:
+            logger.warning("Object storage NOT initialized — uploads will fail")
+    except Exception as e:
+        logger.error(f"Storage init error: {e}")
+
     await db.users.create_index("email", unique=True)
     await db.clients.create_index([("user_id", 1)])
     await db.offers.create_index([("user_id", 1)])
+    await db.documents.create_index([("user_id", 1), ("is_deleted", 1)])
     # Seed admin
     admin_email = os.environ.get("ADMIN_EMAIL", "agente@demo.it").lower()
     admin_pwd = os.environ.get("ADMIN_PASSWORD", "demo1234")
