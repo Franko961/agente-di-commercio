@@ -218,9 +218,11 @@ class EmailLogIn(BaseModel):
 # ----------------- Auth -----------------
 @api.post("/auth/register")
 async def register(payload: RegisterIn, response: Response):
-    email = payload.email.lower()
+    email = payload.email.lower().strip()
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="Email gia' registrata")
+    if len(payload.password) < 6:
+        raise HTTPException(status_code=400, detail="Password troppo corta (min 6 caratteri)")
     user_id = gen_id()
     doc = {
         "id": user_id, "email": email, "name": payload.name,
@@ -228,6 +230,11 @@ async def register(payload: RegisterIn, response: Response):
         "role": "agent", "created_at": now_iso(),
     }
     await db.users.insert_one(doc)
+    # Seed starter demo data so the new user lands on a populated app
+    try:
+        await seed_demo(user_id)
+    except Exception as e:
+        logger.warning(f"Seed for new user failed: {e}")
     token = create_access_token(user_id, email)
     response.set_cookie("access_token", token, httponly=True, secure=False,
                         samesite="lax", max_age=7*24*3600, path="/")

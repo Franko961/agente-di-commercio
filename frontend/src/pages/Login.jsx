@@ -101,23 +101,31 @@ export default function Login() {
                 {busy ? "Attendere…" : mode === "login" ? "Accedi al gestionale" : "Crea account"}
                 <span className="text-[#FF5A00]">→</span>
               </button>
+
+              {error && (
+                <div data-testid="auth-error" className="bg-[#DC2626]/5 border border-[#DC2626]/30 rounded-md p-3 text-[12px] text-[#DC2626] font-medium">
+                  {error}
+                </div>
+              )}
             </form>
 
             <div className="mt-6 text-[13px] text-[#52525B]">
               {mode === "login" ? "Non hai un account? " : "Hai già un account? "}
               <button
                 data-testid="toggle-auth-mode"
-                onClick={() => setMode(mode === "login" ? "register" : "login")}
+                onClick={() => switchMode(mode === "login" ? "register" : "login")}
                 className="text-[#0A192F] font-semibold underline underline-offset-4 decoration-[#FF5A00]"
               >
                 {mode === "login" ? "Registrati" : "Accedi"}
               </button>
             </div>
 
-            <div className="mt-8 pt-6 border-t border-[#E4E4E1]">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-2">Demo</div>
-              <div className="font-mono text-[12px] text-[#52525B]">agente@demo.it / demo1234</div>
-            </div>
+            {mode === "login" && (
+              <div className="mt-8 pt-6 border-t border-[#E4E4E1]">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-2">Demo</div>
+                <div className="font-mono text-[12px] text-[#52525B]">agente@demo.it / demo1234</div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -142,6 +150,25 @@ export default function Login() {
             </div>
             <div className="grid grid-cols-3 gap-2 text-center font-mono text-[11px]">
               <div className="border border-[#E4E4E1] rounded-md py-2">
+                <div className="text-[#FF5A00] text-base font-bold">€42K</div>
+                <div className="text-[#A1A1AA] uppercase tracking-widest text-[9px]">pipeline</div>
+              </div>
+              <div className="border border-[#E4E4E1] rounded-md py-2">
+                <div className="text-[#0A192F] text-base font-bold">3</div>
+                <div className="text-[#A1A1AA] uppercase tracking-widest text-[9px]">mandanti</div>
+              </div>
+              <div className="border border-[#E4E4E1] rounded-md py-2">
+                <div className="text-[#059669] text-base font-bold">+18%</div>
+                <div className="text-[#A1A1AA] uppercase tracking-widest text-[9px]">vs mese prec.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+className="border border-[#E4E4E1] rounded-md py-2">
                 <div className="text-[#FF5A00] text-base font-bold">€42K</div>
                 <div className="text-[#A1A1AA] uppercase tracking-widest text-[9px]">pipeline</div>
               </div>
