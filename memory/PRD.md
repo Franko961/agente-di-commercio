@@ -20,6 +20,14 @@ Build a complete sales agent management system (Italian "gestionale per agenti d
 - Mandante context switcher (top header + sidebar)
 - 100% backend tests pass (28/28), 100% frontend routes work
 
+## Implemented P1 (2026-02-06 — second session)
+- **PWA read-only offline**: manifest.json + service worker (`/sw.js`) caching all GET API responses (clienti, agenda, offerte, provvigioni, mandanti, products, leads, documents, automations, dashboard, auth/me); install banner + theme color #0A192F; OfflineBanner global indicator that defaults visible when navigator.onLine===false at mount
+- **CSV exports** (UTF-8 BOM + semicolon delimiter, Italian Excel-friendly): `/api/export/clients.csv`, `/api/export/offers.csv`, `/api/export/commissions.csv`, `/api/export/leads.csv` + Esporta CSV buttons on all 4 list pages
+- **WhatsApp click-to-chat**: ClientDetail page shows WhatsApp/Call/Email action buttons with prefilled Italian message via `wa.me/<phone>?text=...`
+- **Email mock**: `/api/email/send` logs to `db.email_logs` (NO real delivery — flagged `mocked: true`); `/api/email/logs` for history
+- **Digital signature on offers**: react-signature-canvas pad + jsPDF auto-generation of branded PDF (header, items, totals, signature, signer name + date); `POST /api/offers/{id}/sign` stores base64 signature, sets status=accettata, idempotent commission creation
+- 100% iteration 3 frontend tests pass; 12/12 P1 backend pytest pass
+
 ## Test Credentials
 - agente@demo.it / demo1234
 
