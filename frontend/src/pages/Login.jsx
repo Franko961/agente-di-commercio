@@ -13,20 +13,56 @@ export default function Login() {
   const [name, setName] = useState("");
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   if (user) return <Navigate to="/" replace />;
 
+  const switchMode = (next) => {
+    setMode(next);
+    setError("");
+    if (next === "register") {
+      setEmail("");
+      setPassword("");
+    } else {
+      setEmail("agente@demo.it");
+      setPassword("demo1234");
+      setName("");
+    }
+  };
+
+  const formatError = (err) => {
+    const detail = err?.response?.data?.detail;
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) {
+      return detail.map((e) => {
+        const field = e?.loc?.[e.loc.length - 1];
+        const msg = e?.msg || "valore non valido";
+        if (field === "email") return "Email non valida";
+        if (field === "password") return "Password non valida";
+        return `${field}: ${msg}`;
+      }).join(" · ");
+    }
+    if (!err?.response) return "Connessione al server fallita. Verifica internet e riprova.";
+    return `Errore ${err.response.status || ""}: riprova tra poco`;
+  };
+
   const submit = async (e) => {
     e.preventDefault();
+    setError("");
+    if (mode === "register") {
+      if (!name.trim()) { setError("Inserisci nome e cognome"); return; }
+      if (password.length < 6) { setError("La password deve avere almeno 6 caratteri"); return; }
+    }
     setBusy(true);
     try {
       if (mode === "login") await login(email, password);
-      else await register(name, email, password);
+      else await register(name.trim(), email.trim().toLowerCase(), password);
       toast.success(mode === "login" ? "Accesso effettuato" : "Account creato");
       navigate("/");
     } catch (err) {
-      const detail = err?.response?.data?.detail;
-      toast.error(typeof detail === "string" ? detail : "Errore di autenticazione");
+      const msg = formatError(err);
+      setError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
@@ -150,25 +186,6 @@ export default function Login() {
             </div>
             <div className="grid grid-cols-3 gap-2 text-center font-mono text-[11px]">
               <div className="border border-[#E4E4E1] rounded-md py-2">
-                <div className="text-[#FF5A00] text-base font-bold">€42K</div>
-                <div className="text-[#A1A1AA] uppercase tracking-widest text-[9px]">pipeline</div>
-              </div>
-              <div className="border border-[#E4E4E1] rounded-md py-2">
-                <div className="text-[#0A192F] text-base font-bold">3</div>
-                <div className="text-[#A1A1AA] uppercase tracking-widest text-[9px]">mandanti</div>
-              </div>
-              <div className="border border-[#E4E4E1] rounded-md py-2">
-                <div className="text-[#059669] text-base font-bold">+18%</div>
-                <div className="text-[#A1A1AA] uppercase tracking-widest text-[9px]">vs mese prec.</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-className="border border-[#E4E4E1] rounded-md py-2">
                 <div className="text-[#FF5A00] text-base font-bold">€42K</div>
                 <div className="text-[#A1A1AA] uppercase tracking-widest text-[9px]">pipeline</div>
               </div>
