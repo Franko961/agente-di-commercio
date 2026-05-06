@@ -12,7 +12,9 @@ import jwt
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Any, Dict
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, Body
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
+import csv
+import io
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr
@@ -198,6 +200,19 @@ class AutomationIn(BaseModel):
 class AIQuery(BaseModel):
     message: str
     context: Optional[str] = None
+
+
+class SignatureIn(BaseModel):
+    signature: str  # base64 PNG data URL
+    signer_name: Optional[str] = ""
+
+
+class EmailLogIn(BaseModel):
+    to: str
+    subject: str
+    body: str
+    client_id: Optional[str] = None
+    offer_id: Optional[str] = None
 
 
 # ----------------- Auth -----------------
@@ -700,6 +715,131 @@ async def ai_suggestions(user=Depends(get_current_user)):
     except Exception as e:
         logger.error(f"AI suggestions error: {e}")
     return {"suggestions": []}
+
+
+# ----------------- Offer Signature -----------------
+@api.post("/offers/{oid}/sign")
+async def sign_offer(oid: str, payload: SignatureIn, user=Depends(get_current_user)):
+    res = await db.offers.update_one(
+        {"id": oid, "user_id": user["id"]},
+        {"$set": {
+            "signature": payload.signature,
+            "signer_name": payload.signer_name,
+            "signed_at": now_iso(),
+            "status": "accettata",
+        }}
+    )
+    if res.matched_count == 0:
+        raise HTTPException(404, "Offerta non trovata")
+    # Auto-create commission if needed
+    offer = await db.offers.find_one({"id": oid, "user_id": user["id"]}, {"_id": 0})
+    existing = await db.commissions.find_one({"offer_id": oid, "user_id": user["id"]})
+    if not existing and offer:
+        mandante = await db.mandanti.find_one({"id": offer["mandante_id"], "user_id": user["id"]}, {"_id": 0})
+        rate = mandante.get("commission_rate", 5.0) if mandante else 5.0
+        amount = offer.get("total", 0) * rate / 100
+        comm = {
+            "id": gen_id(), "user_id": user["id"], "offer_id": oid,
+            "client_id": offer["client_id"], "mandante_id": offer["mandante_id"],
+            "amount": round(amount, 2), "rate": rate, "status": "maturato",
+            "period": datetime.now(timezone.utc).strftime("%Y-%m"),
+            "created_at": now_iso(),
+        }
+        await db.commissions.insert_one(comm)
+    return {"ok": True}
+
+
+# ----------------- Email Mock -----------------
+@api.post("/email/send")
+async def send_email_mock(payload: EmailLogIn, user=Depends(get_current_user)):
+    """MOCKED email sender - logs to db.email_logs only. No real delivery."""
+    log = {
+        "id": gen_id(), "user_id": user["id"],
+        **payload.model_dump(),
+        "status": "logged",
+        "mocked": True,
+        "created_at": now_iso(),
+    }
+    await db.email_logs.insert_one(log)
+    logger.info(f"[MOCK EMAIL] To: {payload.to} | Subject: {payload.subject}")
+    return {"ok": True, "mocked": True, "id": log["id"]}
+
+
+@api.get("/email/logs")
+async def list_email_logs(user=Depends(get_current_user)):
+    return await db.email_logs.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
+
+
+# ----------------- Export CSV -----------------
+def csv_response(rows: List[dict], headers: List[str], filename: str):
+    buf = io.StringIO()
+    buf.write("\ufeff")  # UTF-8 BOM for Excel
+    writer = csv.DictWriter(buf, fieldnames=headers, delimiter=";", extrasaction="ignore")
+    writer.writeheader()
+    for r in rows:
+        writer.writerow({h: r.get(h, "") for h in headers})
+    buf.seek(0)
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@api.get("/export/clients.csv")
+async def export_clients(user=Depends(get_current_user)):
+    clients = await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
+    headers = ["company_name", "contact_name", "email", "phone", "vat_number",
+               "address", "city", "province", "zone", "sector", "potential", "notes"]
+    return csv_response(clients, headers, "clienti.csv")
+
+
+@api.get("/export/offers.csv")
+async def export_offers(user=Depends(get_current_user)):
+    offers = await db.offers.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
+    clients = {c["id"]: c for c in await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)}
+    mandanti = {m["id"]: m for m in await db.mandanti.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)}
+    rows = []
+    for o in offers:
+        rows.append({
+            "title": o.get("title"),
+            "client": clients.get(o.get("client_id"), {}).get("company_name", ""),
+            "mandante": mandanti.get(o.get("mandante_id"), {}).get("name", ""),
+            "total": o.get("total", 0),
+            "status": o.get("status"),
+            "items_count": len(o.get("items", [])),
+            "expires_at": (o.get("expires_at") or "")[:10],
+            "created_at": (o.get("created_at") or "")[:10],
+        })
+    headers = ["title", "client", "mandante", "total", "status", "items_count", "expires_at", "created_at"]
+    return csv_response(rows, headers, "offerte.csv")
+
+
+@api.get("/export/commissions.csv")
+async def export_commissions(user=Depends(get_current_user)):
+    commissions = await db.commissions.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
+    clients = {c["id"]: c for c in await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)}
+    mandanti = {m["id"]: m for m in await db.mandanti.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)}
+    rows = []
+    for c in commissions:
+        rows.append({
+            "period": c.get("period"),
+            "client": clients.get(c.get("client_id"), {}).get("company_name", ""),
+            "mandante": mandanti.get(c.get("mandante_id"), {}).get("name", ""),
+            "amount": c.get("amount", 0),
+            "rate": c.get("rate", 0),
+            "status": c.get("status"),
+        })
+    headers = ["period", "client", "mandante", "amount", "rate", "status"]
+    return csv_response(rows, headers, "provvigioni.csv")
+
+
+@api.get("/export/leads.csv")
+async def export_leads(user=Depends(get_current_user)):
+    leads = await db.leads.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
+    headers = ["company_name", "contact_name", "email", "phone", "source",
+               "estimated_value", "status", "notes", "created_at"]
+    return csv_response(leads, headers, "lead.csv")
 
 
 # ----------------- Seed Demo Data -----------------

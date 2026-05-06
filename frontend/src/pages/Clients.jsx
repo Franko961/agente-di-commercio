@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import api from "../api";
 import { Link } from "react-router-dom";
-import { Plus, Search, MapPin, Phone, Mail, Filter } from "lucide-react";
+import { Plus, Search, MapPin, Phone, Mail, Filter, Download, MessageCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { toast } from "sonner";
 import { useMandante } from "../contexts/MandanteContext";
+import { exportClients, whatsappLink } from "../utils/export";
 
 const POTENTIAL_COLOR = { alto: "#059669", medio: "#FF5A00", basso: "#A1A1AA" };
 
@@ -110,7 +111,15 @@ export default function Clients() {
           <h1 className="font-cabinet font-black text-4xl tracking-tight">Clienti</h1>
           <p className="text-[14px] text-[#52525B] mt-2">{clients.length} aziende nel tuo portafoglio.</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <div className="flex items-center gap-2">
+          <button
+            data-testid="export-clients-button"
+            onClick={() => exportClients().then(() => toast.success("Export scaricato")).catch(() => toast.error("Errore export"))}
+            className="flex items-center gap-2 px-4 py-2.5 border border-[#E4E4E1] hover:border-[#0A192F] rounded-md text-[13px] font-medium"
+          >
+            <Download className="w-4 h-4" /> Esporta CSV
+          </button>
+          <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <button data-testid="new-client-button" className="flex items-center gap-2 px-4 py-2.5 bg-[#0A192F] hover:bg-[#172A45] text-white rounded-md text-[13px] font-medium">
               <Plus className="w-4 h-4" /> Nuovo cliente
@@ -121,6 +130,7 @@ export default function Clients() {
             <ClientForm mandanti={mandanti} onSave={async (f) => { await api.post("/clients", f); load(); }} onClose={() => setOpen(false)} />
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Filters */}

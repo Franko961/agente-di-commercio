@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import api from "../api";
-import { Plus, Trash2, GripVertical } from "lucide-react";
+import { Plus, Trash2, GripVertical, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { toast } from "sonner";
+import { exportLeads } from "../utils/export";
 
 const COLUMNS = [
   { id: "nuovo", label: "Nuovo", color: "#52525B" },
@@ -49,6 +50,13 @@ export default function Leads() {
             <LeadForm onSave={async (f) => { await api.post("/leads", f); load(); toast.success("Lead creato"); setOpen(false); }} />
           </DialogContent>
         </Dialog>
+        <button
+          data-testid="export-leads-button"
+          onClick={() => exportLeads().then(() => toast.success("Export scaricato")).catch(() => toast.error("Errore export"))}
+          className="hidden sm:flex items-center gap-2 px-4 py-2.5 border border-[#E4E4E1] hover:border-[#0A192F] rounded-md text-[13px] font-medium ml-2"
+        >
+          <Download className="w-4 h-4" /> CSV
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 overflow-x-auto">

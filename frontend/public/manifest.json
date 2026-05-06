@@ -1,0 +1,25 @@
+{
+  "short_name": "AGENTE",
+  "name": "AGENTE — Gestionale Agenti di Commercio",
+  "description": "Gestionale completo per agenti di commercio plurimandatari",
+  "lang": "it-IT",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#0A192F",
+  "background_color": "#F9F9F8",
+  "orientation": "portrait-primary"
+}

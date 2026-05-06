@@ -31,9 +31,18 @@ export default function Commissions() {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="border-b border-[#E4E4E1] pb-6 mb-6">
-        <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Guadagni</div>
-        <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Provvigioni</h1>
+      <div className="border-b border-[#E4E4E1] pb-6 mb-6 flex items-end justify-between">
+        <div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Guadagni</div>
+          <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Provvigioni</h1>
+        </div>
+        <button
+          data-testid="export-commissions-button"
+          onClick={() => exportCommissions().then(() => toast.success("Export scaricato")).catch(() => toast.error("Errore export"))}
+          className="flex items-center gap-2 px-4 py-2.5 border border-[#E4E4E1] hover:border-[#0A192F] rounded-md text-[13px] font-medium"
+        >
+          <Download className="w-4 h-4" /> Esporta CSV
+        </button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">

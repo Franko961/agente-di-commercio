@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import api from "../api";
-import { Plus, Trash2, FileText, Send, Check, X } from "lucide-react";
+import { Plus, Trash2, FileText, Send, Check, X, Download, PenLine } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { toast } from "sonner";
+import { exportOffers } from "../utils/export";
+import SignaturePad from "../components/SignaturePad";
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
 
@@ -18,6 +20,7 @@ export default function Offers() {
   const [mandanti, setMandanti] = useState([]);
   const [products, setProducts] = useState([]);
   const [open, setOpen] = useState(false);
+  const [signOffer, setSignOffer] = useState(null);
 
   const load = async () => {
     const [o, c, m, p] = await Promise.all([api.get("/offers"), api.get("/clients"), api.get("/mandanti"), api.get("/products")]);
@@ -32,6 +35,12 @@ export default function Offers() {
     load();
   };
 
+  const onSignSubmit = async (signatureDataUrl, signerName) => {
+    await api.post(`/offers/${signOffer.id}/sign`, { signature: signatureDataUrl, signer_name: signerName });
+    toast.success("Offerta firmata. PDF in download.");
+    load();
+  };
+
   return (
     <div className="p-4 md:p-8">
       <div className="flex items-end justify-between border-b border-[#E4E4E1] pb-6 mb-6">
@@ -39,7 +48,15 @@ export default function Offers() {
           <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Trattative</div>
           <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Offerte & Preventivi</h1>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <div className="flex items-center gap-2">
+          <button
+            data-testid="export-offers-button"
+            onClick={() => exportOffers().then(() => toast.success("Export scaricato")).catch(() => toast.error("Errore export"))}
+            className="hidden sm:flex items-center gap-2 px-4 py-2.5 border border-[#E4E4E1] hover:border-[#0A192F] rounded-md text-[13px] font-medium"
+          >
+            <Download className="w-4 h-4" /> CSV
+          </button>
+          <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <button data-testid="new-offer-button" className="flex items-center gap-2 px-4 py-2.5 bg-[#0A192F] text-white rounded-md text-[13px] font-medium">
               <Plus className="w-4 h-4" /> Nuova offerta
@@ -50,6 +67,7 @@ export default function Offers() {
             <OfferForm clients={clients} mandanti={mandanti} products={products} onSave={async (f) => { await api.post("/offers", f); load(); toast.success("Offerta creata"); setOpen(false); }} />
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -78,11 +96,35 @@ export default function Offers() {
                 {o.status !== "accettata" && <button onClick={() => setStatus(o.id, "accettata")} className="flex-1 text-[11px] font-mono uppercase tracking-widest bg-[#059669] text-white py-1.5 rounded">accetta</button>}
                 {o.status !== "rifiutata" && <button onClick={() => setStatus(o.id, "rifiutata")} className="flex-1 text-[11px] font-mono uppercase tracking-widest border border-[#E4E4E1] py-1.5 rounded">rifiuta</button>}
               </div>
+              <button
+                data-testid={`sign-offer-${o.id}`}
+                onClick={() => setSignOffer(o)}
+                className="mt-2 w-full flex items-center justify-center gap-1.5 text-[11px] font-mono uppercase tracking-widest bg-[#0A192F] hover:bg-[#172A45] text-white py-2 rounded"
+              >
+                <PenLine className="w-3 h-3 text-[#FF5A00]" />
+                {o.signature ? "ri-firma & PDF" : "firma & PDF"}
+              </button>
             </div>
           );
         })}
       </div>
       {offers.length === 0 && <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#A1A1AA] text-[13px]">Nessuna offerta. Creane una.</div>}
+
+      {/* Signature dialog */}
+      <Dialog open={!!signOffer} onOpenChange={(v) => !v && setSignOffer(null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader><DialogTitle className="font-cabinet">Firma offerta</DialogTitle></DialogHeader>
+          {signOffer && (
+            <SignaturePad
+              offer={signOffer}
+              client={clients.find(c => c.id === signOffer.client_id)}
+              mandante={mandanti.find(m => m.id === signOffer.mandante_id)}
+              onSign={onSignSubmit}
+              onClose={() => setSignOffer(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

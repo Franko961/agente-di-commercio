@@ -1,0 +1,50 @@
+{
+  "summary": "Iteration 2 — P1 features (PWA offline, CSV exports, WhatsApp click-to-chat, email mock, digital signature on offers) tested end-to-end. Backend: 12/12 new pytest tests passed (auth gates, 4 CSV exports with semicolon+BOM+correct columns+data, email mock send/log/scoping, signature creates commission once and is idempotent, 404 on unknown offer, manifest.json + sw.js reachable). Frontend: 18/20 Playwright assertions passed — login+SW registration, manifest.json/sw.js served, Clienti page export-clients-button downloads clienti.csv, Client detail shows whatsapp-button (wa.me/...), call-button (tel:), email-button (mailto:) with correct hrefs and Italian prefilled text, Offerte page export-offers-button downloads offerte.csv, 5 sign-offer-{id} buttons render and open the dialog with signature-canvas + confirm-sign-button (canvas drawing works), Lead page export-leads-button present. 2 issues found that the main agent must fix.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Commissions.jsx",
+        "issue": "Page CRASHES on render — React error boundary triggered. Component imports only 'Coins' from lucide-react but uses <Download/> (line 44) and calls exportCommissions(...) (line 41) without importing them. Result: export-commissions-button never renders and the entire /provvigioni page is broken. Console: 'An error occurred in the <Commissions> component'.",
+        "selector": "[data-testid=\"export-commissions-button\"]",
+        "priority": "HIGH"
+      },
+      {
+        "component": "OfflineBanner.jsx",
+        "issue": "Banner did not appear when navigator was set offline + 'offline' event dispatched (waited 800ms). Possible causes: (a) component not mounted in App.js after login, or (b) initial state guard 'if (!show && online) return null' combined with React batching prevents update. Needs verification that <OfflineBanner/> is mounted in the authenticated layout, and consider also listening to navigator.connection changes / showing immediately when navigator.onLine===false on mount.",
+        "selector": "[data-testid=\"offline-banner\"]",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_p1_features.py",
+    "/app/test_reports/pytest/iter2_p1.xml",
+    "/app/backend/tests/test_backend_api.py"
+  ],
+  "action_items": [
+    "Fix /app/frontend/src/pages/Commissions.jsx imports: add `Download` to the lucide-react import and import `exportCommissions` from '../utils/export'. Without this fix the Provvigioni page is completely broken and the CSV export button is missing.",
+    "Verify <OfflineBanner/> is actually mounted in App.js inside the authenticated routes so it's available globally, and consider initialising show=true when navigator.onLine===false at mount time (covers reload while offline)."
+  ],
+  "critical_code_review_comments": [
+    "Commissions.jsx: missing imports cause runtime crash — would have been caught by ESLint with no-undef rule; consider running `yarn lint` in CI.",
+    "Existing iteration_1 review still valid: server.py (~1042 lines now) keeps growing — should be split into routers; admin password not refreshed on env change; no brute-force lockout.",
+    "OfflineBanner uses `navigator.onLine` only at mount; if a user opens the app already offline the banner stays hidden until they go online and back — should default to show when offline at mount.",
+    "sign endpoint always sets status='accettata' even if signature is empty/blank — consider validating that the signature data URL is non-trivial to avoid accidental signs."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_p1_features.py (new — 12 tests, all passing)"
+  ],
+  "success_rate": {"backend": "100% (12/12 new + 28/28 baseline regression unaffected)", "frontend": "90% (18/20 P1 assertions; 2 bugs in Commissions page + OfflineBanner)"},
+  "test_credentials": "agente@demo.it / demo1234",
+  "seed_data_creation": "None — relied on existing seed (8 clients, 5 offers, 3+ commissions, 5 leads).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend P1 endpoints all green. Two frontend bugs: (1) Commissions.jsx missing imports (Download + exportCommissions) — page crashes; trivial fix verifiable by visiting /provvigioni and checking export-commissions-button. (2) OfflineBanner may not be mounted globally in App.js or guard logic prevents it from showing — verify via DevTools: open /clienti, run `window.dispatchEvent(new Event('offline'))` in console, banner with [data-testid='offline-banner'] should appear. Use REACT_APP_BACKEND_URL env var when running pytest: `REACT_APP_BACKEND_URL=$(grep REACT_APP_BACKEND_URL /app/frontend/.env | cut -d= -f2) python -m pytest backend/tests/ -v`.",
+  "rca of the issue": "Commissions page failure RCA: lines 41 and 44 reference Download (lucide icon) and exportCommissions (helper from utils/export.js) but the import block only includes `import { Coins } from 'lucide-react'` — neither symbol is imported. React throws ReferenceError during render which the parent error boundary catches, preventing all children (including the export-commissions-button) from rendering. Reproduction: open /provvigioni → page renders empty/error fallback → CSV button absent. Fix: change imports to `import { Coins, Download } from 'lucide-react'; import { exportCommissions } from '../utils/export';`. Other CSV pages (Clients, Offers, Leads) have the same pattern but with correct imports — confirmed working in tests."
+}

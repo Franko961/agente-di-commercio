@@ -18,6 +18,7 @@ import Products from "./pages/Products";
 import Documents from "./pages/Documents";
 import Automations from "./pages/Automations";
 import AIAssistant from "./pages/AIAssistant";
+import OfflineBanner from "./components/OfflineBanner";
 import { Toaster } from "./components/ui/sonner";
 
 function App() {

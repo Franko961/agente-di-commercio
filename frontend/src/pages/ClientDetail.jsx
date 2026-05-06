@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import api from "../api";
-import { ArrowLeft, MapPin, Phone, Mail, Building, Trash2, Edit, Calendar, FileText, Folder, Coins } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Mail, Building, Trash2, Edit, Calendar, FileText, Folder, Coins, MessageCircle, Send } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { toast } from "sonner";
+import { whatsappLink } from "../utils/export";
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
 
@@ -51,6 +52,36 @@ export default function ClientDetail() {
               {c.email && <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" />{c.email}</span>}
               {c.phone && <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" />{c.phone}</span>}
               {c.city && <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" />{c.address}, {c.city} ({c.province})</span>}
+            </div>
+            <div className="flex flex-wrap gap-2 mt-4">
+              {c.phone && (
+                <a
+                  data-testid="whatsapp-button"
+                  href={whatsappLink(c.phone, `Buongiorno ${c.contact_name || ""}, sono il vostro agente di commercio.`)}
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 bg-[#25D366] hover:opacity-90 text-white rounded-md text-[12px] font-medium"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+                </a>
+              )}
+              {c.phone && (
+                <a
+                  data-testid="call-button"
+                  href={`tel:${c.phone.replace(/\s/g, "")}`}
+                  className="flex items-center gap-2 px-3 py-2 border border-[#E4E4E1] hover:border-[#0A192F] rounded-md text-[12px] font-medium"
+                >
+                  <Phone className="w-3.5 h-3.5" /> Chiama
+                </a>
+              )}
+              {c.email && (
+                <a
+                  data-testid="email-button"
+                  href={`mailto:${c.email}?subject=Saluti%20da%20parte%20del%20vostro%20agente`}
+                  className="flex items-center gap-2 px-3 py-2 border border-[#E4E4E1] hover:border-[#0A192F] rounded-md text-[12px] font-medium"
+                >
+                  <Send className="w-3.5 h-3.5" /> Email
+                </a>
+              )}
             </div>
           </div>
           <button data-testid="delete-client-button" onClick={remove} className="text-[#A1A1AA] hover:text-[#DC2626] p-2"><Trash2 className="w-4 h-4" /></button>
