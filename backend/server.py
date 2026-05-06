@@ -267,6 +267,7 @@ class DocumentIn(BaseModel):
     category: str = "contratto"  # contratto, offerta, fattura, altro
     url: Optional[str] = ""
     notes: Optional[str] = ""
+    tags: List[str] = []
 
 
 class AutomationIn(BaseModel):
@@ -607,6 +608,7 @@ async def upload_document(
     category: str = Form("altro"),
     client_id: Optional[str] = Form(None),
     notes: str = Form(""),
+    tags: str = Form(""),
     user=Depends(get_current_user),
 ):
     if not file.filename:
@@ -631,6 +633,7 @@ async def upload_document(
         logger.error(f"Upload failed: {e}")
         raise HTTPException(500, f"Errore caricamento: {str(e)[:200]}")
 
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
     doc = {
         "id": gen_id(), "user_id": user["id"],
         "client_id": client_id or None,
@@ -638,6 +641,7 @@ async def upload_document(
         "category": category,
         "url": "",
         "notes": notes,
+        "tags": tag_list,
         "storage_path": result.get("path", storage_path),
         "original_filename": file.filename,
         "content_type": content_type,
@@ -647,6 +651,21 @@ async def upload_document(
     }
     await db.documents.insert_one(doc)
     return clean(doc)
+
+
+@api.patch("/documents/{did}")
+async def update_document_meta(did: str, payload: dict = Body(...), user=Depends(get_current_user)):
+    """Update metadata (tags, name, category, notes, client_id) without re-uploading the file."""
+    allowed = {k: v for k, v in payload.items() if k in {"name", "category", "notes", "client_id", "tags"}}
+    if "tags" in allowed and isinstance(allowed["tags"], list):
+        allowed["tags"] = [str(t).strip() for t in allowed["tags"] if str(t).strip()]
+    res = await db.documents.update_one(
+        {"id": did, "user_id": user["id"], "is_deleted": {"$ne": True}},
+        {"$set": allowed},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(404, "Documento non trovato")
+    return {"ok": True}
 
 
 @api.get("/documents/{did}/download")

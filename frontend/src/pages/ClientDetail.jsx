@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import api from "../api";
-import { ArrowLeft, MapPin, Phone, Mail, Building, Trash2, Edit, Calendar, FileText, Folder, Coins, MessageCircle, Send } from "lucide-react";
+import { ArrowLeft, MapPin, Phone, Mail, Building, Trash2, Edit, Calendar, FileText, Folder, Coins, MessageCircle, Send, Eye, Download } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { toast } from "sonner";
 import { whatsappLink } from "../utils/export";
+import DocumentPreview from "../components/DocumentPreview";
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
 
@@ -22,6 +23,7 @@ export default function ClientDetail() {
   const navigate = useNavigate();
   const [tab, setTab] = useState("info");
   const [data, setData] = useState(null);
+  const [previewDoc, setPreviewDoc] = useState(null);
 
   const load = () => api.get(`/clients/${id}`).then(({ data }) => setData(data));
   useEffect(() => { load(); }, [id]);
@@ -153,17 +155,41 @@ export default function ClientDetail() {
         {tab === "documenti" && (
           <div className="space-y-2">
             {data.documents.length === 0 && <Empty>Nessun documento archiviato.</Empty>}
-            {data.documents.map((d) => (
-              <div key={d.id} className="bg-white border border-[#E4E4E1] rounded-md p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Folder className="w-5 h-5 text-[#FF5A00]" />
-                  <div>
-                    <div className="font-medium text-[14px]">{d.name}</div>
-                    <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">{d.category}</div>
-                  </div>
+            {data.documents.map((d) => {
+              const ct = (d.content_type || "").toLowerCase();
+              const ext = (d.original_filename || d.name || "").split(".").pop().toLowerCase();
+              const isVideo = ct.startsWith("video/") || ["mp4", "mov", "webm"].includes(ext);
+              const isPdf = ct.includes("pdf") || ext === "pdf";
+              const isImg = ct.startsWith("image/");
+              const color = isVideo ? "#7C3AED" : isPdf ? "#DC2626" : isImg ? "#FF5A00" : "#52525B";
+              return (
+                <div key={d.id} className="bg-white border border-[#E4E4E1] rounded-md p-4 flex items-center justify-between gap-3">
+                  <button
+                    onClick={() => d.storage_path && setPreviewDoc(d)}
+                    data-testid={`client-doc-${d.id}`}
+                    className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                  >
+                    <div className="w-9 h-9 rounded-md flex items-center justify-center shrink-0" style={{ background: `${color}15` }}>
+                      <Folder className="w-4 h-4" style={{ color }} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-[14px] truncate">{d.name}</div>
+                      <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">{d.category}{d.size ? ` · ${(d.size / 1024 / 1024).toFixed(1)} MB` : ""}</div>
+                      {d.tags?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {d.tags.map(t => <span key={t} className="bg-[#F3F3F1] text-[#52525B] text-[10px] font-mono lowercase px-1.5 py-0.5 rounded">#{t}</span>)}
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                  {d.storage_path && (
+                    <button onClick={() => setPreviewDoc(d)} className="flex items-center gap-1 text-[11px] font-mono uppercase tracking-widest text-[#FF5A00] shrink-0">
+                      <Eye className="w-3 h-3" /> apri
+                    </button>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -185,6 +211,8 @@ export default function ClientDetail() {
           </div>
         )}
       </div>
+
+      <DocumentPreview document={previewDoc} open={!!previewDoc} onClose={() => setPreviewDoc(null)} />
     </div>
   );
 }

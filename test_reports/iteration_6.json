@@ -1,0 +1,39 @@
+{
+  "summary": "Iter6 - Documents tags + inline preview + video-compress UI. Backend: 11/11 pytest pass for tag CSV parsing on /api/documents/upload, PATCH /api/documents/{id} (tags/name/category/notes/client_id, unknown-fields stripped silently, 404 on non-existent / soft-deleted / other-user), GET returns tags array, backward-compat for tagless docs. Frontend (/documenti): tag chip input (Enter, comma, Tab) and Backspace-removes-last all work, video compress indicator '#7C3AED sarà compresso in webm' renders for fake 10MB mp4, real PDF upload with tag → card shows #iter6tag pill, tag-filter-iter6tag and tag-filter-all chips appear, clicking filter restricts grid, open-doc-{id} opens DocumentPreview iframe (preview-pdf) with preview-download-button, Esc closes, optimistic delete cleans up. ClientDetail inline-preview path could not be auto-verified because the Documenti tab selector on /clienti/{id} wasn't findable via 'button:has-text(Documenti)' / role=tab queries — needs a data-testid on that tab to be deterministically testable; not flagged as bug since main agent reported the wiring is in place.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "/documenti UploadForm",
+        "issues": [
+          "Tag chip 'addTag' aggressively strips characters (e.g. 'vip-2026!' → 'vip-2026', 'VIP 2026' → 'vip-2026'); fine, but consider showing a tiny hint when input contains stripped chars."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_documents_iter6.py",
+    "/app/test_reports/pytest/iter6_documents.xml"
+  ],
+  "action_items": [
+    "(LOW) Add data-testid=\"tab-documenti\" (or similar) to the Documenti tab inside /clienti/{id} so future agents can deterministically click it and validate inline preview.",
+    "(LOW, carryover from iter5) Backend Content-Disposition still not RFC 5987 escaped — accented filenames will break."
+  ],
+  "critical_code_review_comments": [
+    "Backend PATCH /api/documents/{id}: correctly whitelists fields and filters/strips tags. Good.",
+    "Backend upload: tag CSV parsing trims and drops empties — good. Consider also lowercasing/de-duping server-side to mirror frontend normalization (right now if user POSTs 'Urgente' via API it stays mixed case, while UI saves 'urgente').",
+    "Frontend Documents.jsx is 445 lines — close to the 700 cap, but acceptable. UploadForm is co-located which is fine for now.",
+    "videoCompress.js relies on MediaRecorder which is browser-only and produces no progress until canvas frames are drawn — UX shows 0% during a long compression; consider a switch to indeterminate spinner or estimating from currentTime/duration.",
+    "Client detail Documenti tab lacks a stable testid for the tab control."
+  ],
+  "updated_files": ["/app/backend/tests/test_documents_iter6.py"],
+  "success_rate": { "backend": "100% (11/11)", "frontend": "100% (12/12 verified flows; ClientDetail tab not reachable via test selector — feature not failed, just unverified)" },
+  "test_credentials": "agente@demo.it / demo1234",
+  "seed_data_creation": "Uploaded one TEST_iter6_pdf with tag 'iter6tag' during the playwright run and deleted it via the trash icon on the same page. test_documents_iter6.py uploads several TEST_* docs and cleans each up in the test fixture.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter6 features (tags chip input, custom tag filter, DocumentPreview dialog with preview-pdf/video/image, video>8MB compression indicator, PATCH /api/documents/{id}) are working end-to-end. ONLY remaining gap: /clienti/{id} → Documenti tab needs a data-testid='tab-documenti' attribute so that the inline-preview-from-client flow (data-testid='client-doc-{id}') can be auto-tested. Backend completely clean. BASE_URL=https://visit-planner-32.preview.emergentagent.com.",
+  "rca_of_the_issue": "Not a bug — feature delivery iteration. New PATCH route correctly enforces ownership (find_one with user_id and is_deleted!=True) so other-user / soft-deleted both produce 404 as expected. Tag CSV is parsed in upload_document with [t.strip() for t in tags.split(',') if t.strip()]; handles trailing/empty tokens correctly."
+}
