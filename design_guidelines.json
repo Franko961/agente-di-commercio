@@ -1,0 +1,111 @@
+{
+  "project_name": "Italian Sales Agent CRM (Gestionale per Agenti di Commercio)",
+  "theme": "light",
+  "archetype": "Archetype 4 (Swiss & High-Contrast) + Sartorial Italian Detail",
+  "rationale": "Designed for field agents who are mobile and need high legibility outdoors (light theme). The Swiss/High-Contrast archetype provides objective clarity for dense data (commissions, KPIs, pipelines), while the Sartorial Navy and Warning Orange accents bring a tailored European business elegance, actively avoiding the generic SaaS purple-blue gradient.",
+  "colors": {
+    "background": {
+      "default": "#F9F9F8",
+      "paper": "#FFFFFF",
+      "subtle": "#F3F3F1"
+    },
+    "text": {
+      "primary": "#0A0A0A",
+      "secondary": "#52525B",
+      "tertiary": "#A1A1AA",
+      "inverse": "#FFFFFF"
+    },
+    "primary": {
+      "main": "#0A192F",
+      "hover": "#172A45",
+      "contrastText": "#FFFFFF"
+    },
+    "accent": {
+      "main": "#FF5A00",
+      "hover": "#E04F00",
+      "success": "#059669",
+      "danger": "#DC2626"
+    },
+    "border": {
+      "default": "#E4E4E1",
+      "strong": "#D4D4D2"
+    }
+  },
+  "typography": {
+    "headings": {
+      "fontFamily": "Cabinet Grotesk",
+      "weights": ["400", "700", "900"],
+      "classes": "font-cabinet tracking-tight"
+    },
+    "body": {
+      "fontFamily": "Manrope",
+      "weights": ["400", "500", "600"],
+      "classes": "font-manrope"
+    },
+    "mono": {
+      "fontFamily": "IBM Plex Mono",
+      "weights": ["400", "500"],
+      "classes": "font-mono"
+    }
+  },
+  "spacing_and_layout": {
+    "philosophy": "Generous Spacing + Control Room Grid for data dense views on desktop.",
+    "mobile_strategy": "Mobile-first. Use a native-feeling bottom navigation bar fixed to the screen bottom. Hide complex tables on mobile; use full-width stackable cards instead.",
+    "grid": {
+      "desktop": "grid-cols-1 md:grid-cols-4 lg:grid-cols-12 gap-6",
+      "widgets": "col-span-full md:col-span-4 lg:col-span-3"
+    },
+    "surface": "The 'Grid Borders' look. Flat backgrounds with 1px solid borders (border-[#E4E4E1]). Minimal to zero soft shadows to maintain a brutalist/tactile hybrid. Use small corner radiuses (rounded-md / 6px)."
+  },
+  "components": {
+    "buttons": "Square or minimal radius (rounded-md). Solid high-contrast colors. No gradients. Hover state must increase contrast or shift to a slightly lighter hue.",
+    "cards": "Flat, pure white background against the off-white #F9F9F8 canvas. 1px stark border. No shadow.",
+    "tables": "Dense rows. Sticky headers. Use Shadcn Table component. For mobile screens, use a repetitive card layout instead of a horizontal scrolling table.",
+    "map": "Leaflet map with a custom monochrome light tile layer to match the #F9F9F8 background. Geolocation pins should use the #FF5A00 (Warning Orange) brand color for high visibility.",
+    "kanban": "For the prospect pipeline. Tight columns, distinct column backgrounds (subtle #F3F3F1) with crisp white cards.",
+    "navigation": "Bottom tab bar for mobile containing the 4 core sections (Dashboard, Clients, Agenda/Map, Quotes). Desktop gets a collapsible left sidebar.",
+    "ai_assistant": "Should not look like a magical consumer chatbot. It must be a sterile, analytical sidebar or slide-out sheet titled 'Analisi Previsionale & Suggerimenti', using the mono font for data points."
+  },
+  "icons": {
+    "library": "@phosphor-icons/react",
+    "style": "Duotone or Regular weight. Crisp, professional, avoiding overly rounded 'cute' tech vectors."
+  },
+  "motion": {
+    "philosophy": "Crisp, immediate, unnoticeable but felt.",
+    "classes": "transition-all duration-200 ease-out"
+  },
+  "image_urls": [
+    {
+      "category": "dashboard_texture",
+      "url": "https://static.prod-images.emergentagent.com/jobs/2f05b7f6-ecbe-43c3-87fc-56b6480994e2/images/a6b30211cfcd23951d76ee37822502ff6368043bf73ad07ffcae337902988532.png",
+      "description": "Abstract minimalist geometric texture, use minimally as a subtle overlay on auth page or header."
+    },
+    {
+      "category": "login_background",
+      "url": "https://images.unsplash.com/photo-1649585067848-50efdd21835b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzd8MHwxfHNlYXJjaHwxfHxpdGFsaWFuJTIwYnVzaW5lc3MlMjBtaWxhbiUyMHN0cmVldCUyMGx1eHVyeSUyMGFyY2hpdGVjdHVyZXxlbnwwfHx8fDE3NzgwNzE2MDB8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Italian architectural scene for the login page hero section. Add a light #F9F9F8 gradient overlay so the login form remains legible."
+    },
+    {
+      "category": "avatar_agent",
+      "url": "https://images.unsplash.com/photo-1762522927402-f390672558d8?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzZ8MHwxfHNlYXJjaHw0fHxwcm9mZXNzaW9uYWwlMjBidXNpbmVzcyUyMGhlYWRzaG90JTIwcG9ydHJhaXR8ZW58MHx8fHwxNzc4MDcxNTg1fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Profile picture of the logged-in sales agent."
+    },
+    {
+      "category": "avatar_client_1",
+      "url": "https://images.unsplash.com/photo-1655249481446-25d575f1c054?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzZ8MHwxfHNlYXJjaHwzfHxwcm9mZXNzaW9uYWwlMjBidXNpbmVzcyUyMGhlYWRzaG90JTIwcG9ydHJhaXR8ZW58MHx8fHwxNzc4MDcxNTg1fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Profile picture for Client 1."
+    },
+    {
+      "category": "avatar_client_2",
+      "url": "https://images.pexels.com/photos/14589344/pexels-photo-14589344.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "description": "Profile picture for Client 2."
+    }
+  ],
+  "instructions_to_main_agent": {
+    "mobile_first_execution": "CRUCIAL: Build all layouts from the mobile view first (`w-full` / `grid-cols-1`). Hide complex data tables on mobile using `hidden md:table` and display stackable info cards instead. Implement a fixed bottom navigation tab bar on mobile (`fixed bottom-0`).",
+    "mandanti_multi_brand": "Provide a quick 'Context Switcher' dropdown in the top header to change the active 'Mandante' (Brand). Change the primary accent color tag to remind the user of the active scope.",
+    "map_integration": "Ensure the Leaflet map container has a responsive defined height (e.g., `h-[50vh] md:h-full`). Add interactive geolocation markers using the Warning Orange accent for immediate attention.",
+    "testing": "All interactive elements, buttons, and form inputs MUST have `data-testid` attributes with a role-based naming convention (e.g., `data-testid=\"login-submit-button\"`).",
+    "component_usage": "Use raw Tailwind classes for layout structures (flex, grid). Limit the use of pre-made Shadcn layout cards if they enforce unwanted padding. Prefer direct div construction with the specified 1px border grid system for high-density pages."
+  }
+}
