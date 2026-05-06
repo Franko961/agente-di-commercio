@@ -36,6 +36,13 @@ Build a complete sales agent management system (Italian "gestionale per agenti d
   - UI: drag-and-drop zone, file picker, progress bar, optimistic state updates (no list-refresh races), category filter chips, color-coded file-type icons (PDF=red, Excel=green, Video=violet, Image=orange), file size + date display, download via fetch+blob to preserve auth header
 - 11/11 backend tests pass; iter 5 frontend test 100% pass
 
+## Implemented (2026-02-06 — fourth session)
+- **Inline document preview** (`DocumentPreview` component): PDF in `<iframe>`, video in `<video controls autoPlay>`, image in `<img>`, text in `<pre>`. Uses `fetch()` with Bearer auth → blob URL (no token in URL). Available both in `/documenti` (click icon or "apri" button) and in `/clienti/{id} → Documenti` tab (no navigation away).
+- **Custom tags**: chip-style input on upload form (Enter / comma / Tab / Backspace shortcuts), normalized to lowercase kebab-case, suggested tags from existing set, server-side parsing of comma-separated `tags` form field. Tag pills displayed on document cards. Tag filter chip-bar above the grid.
+- **PATCH `/api/documents/{id}`**: update tags / name / category / notes / client_id without re-uploading the file. Whitelisted fields, ownership-enforced.
+- **Client-side video compression** (`utils/videoCompress.js`): canvas + MediaRecorder pipeline. Triggers automatically when `video/* > 8 MB`. Re-encodes to WebM (VP9/Opus or VP8/Opus fallback) at max 1280px width and 1.2 Mbps. UI shows two-phase progress (compressione → caricamento). Falls back to original file if compression doesn't reduce size by ≥5%.
+- 11/11 backend pytest pass + 12/12 frontend flows verified (iteration 6)
+
 ## Test Credentials
 - agente@demo.it / demo1234
 
