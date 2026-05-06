@@ -24,6 +24,7 @@ import { Toaster } from "./components/ui/sonner";
 function App() {
   return (
     <div className="App">
+      <OfflineBanner />
       <BrowserRouter>
         <AuthProvider>
           <MandanteProvider>
