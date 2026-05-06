@@ -1,0 +1,37 @@
+{
+  "summary": "Re-test of Documents list-refresh bug from iter4. Logged in as agente@demo.it, navigated to /documenti, uploaded a 435-byte real PDF via the modal. Verified the new card appeared IMMEDIATELY (no reload) with correct testid, name, size, FileText icon and download button. Download triggered a real browser download with filename 'iter5_test.pdf' and 435 bytes / %PDF header (content match). Delete removed the card optimistically (gone within 150ms of click), DELETE returned 200, and after a hard reload + direct GET /api/documents the doc was no longer present. Iteration-4 HIGH-priority bug is FIXED.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "DialogContent (Documents upload modal)",
+        "issue": "Console warning persists: 'Missing Description or aria-describedby={undefined} for {DialogContent}'. Add a <DialogDescription> (or aria-describedby) to silence Radix a11y warning. Non-blocking.",
+        "selector": "DialogContent",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_documents_upload.py",
+    "/app/test_reports/pytest/iter4_documents.xml"
+  ],
+  "action_items": [
+    "(Optional, LOW) Add DialogDescription/aria-describedby to the 'Nuovo documento' DialogContent to remove the Radix accessibility warning."
+  ],
+  "critical_code_review_comments": [
+    "Documents.jsx remove(): optimistic filter is correct; rollback on failure currently calls load() — good. Consider also showing the previous toast text and re-inserting the exact removed item to preserve order without an extra GET.",
+    "Documents.jsx download(): for legacy docs without storage_path it falls back to doc.url/window.open or a toast. Acceptable but worth noting in UX.",
+    "Backend GET /api/documents/{id}/download: filename in Content-Disposition is still not RFC 5987 escaped (would break for accented filenames like 'Contratto è.pdf'). Use filename* with urllib.parse.quote.",
+    "DialogContent missing DialogDescription — minor a11y warning."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "100% (untouched, 11/11 prior pytest)", "frontend": "100% (upload-immediate-render, optimistic delete, download content match all PASS)" },
+  "test_credentials": "agente@demo.it / demo1234 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Uploaded one TEST_iter5_<ts>.pdf (435 B) and deleted it via the UI within the same run. No leftover test data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter4 HIGH bug 'list refresh after upload/delete in /documenti' is verified FIXED via optimistic state updates in Documents.jsx (setDocs(prev => [newDoc, ...prev]) on upload; optimistic filter on delete with rollback). Only remaining minor item is the Radix DialogDescription a11y warning. Backend untouched. Use REACT_APP_BACKEND_URL=https://visit-planner-32.preview.emergentagent.com.",
+  "rca_of_the_issue": "Iter4 root cause: UploadForm.onDone fired setOpen(false) and then a non-awaited load() — combined with React 18 batching and the Dialog unmount/re-render cycle, the refetched docs setState was being applied to a stale closure and dropped. Iter5 fix: backend response from POST /api/documents/upload is passed directly to onDone(newDoc) and Documents prepends it via setDocs(prev => [newDoc, ...prev]); delete uses optimistic filter before await api.delete(). Both behaviours now confirmed in-browser: new card appears within ~800 ms with no GET dependency, and deleted card disappears within 150 ms; backend persistence verified by full reload + direct GET /api/documents."
+}

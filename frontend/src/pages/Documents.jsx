@@ -51,9 +51,15 @@ export default function Documents() {
 
   const remove = async (id) => {
     if (!window.confirm("Eliminare il documento?")) return;
-    await api.delete(`/documents/${id}`);
-    toast.success("Documento eliminato");
-    load();
+    // Optimistic update + backend confirmation
+    setDocs(prev => prev.filter(d => d.id !== id));
+    try {
+      await api.delete(`/documents/${id}`);
+      toast.success("Documento eliminato");
+    } catch (e) {
+      toast.error("Errore eliminazione");
+      load();
+    }
   };
 
   const download = async (doc) => {
@@ -101,7 +107,13 @@ export default function Documents() {
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle className="font-cabinet">Nuovo documento</DialogTitle></DialogHeader>
-            <UploadForm clients={clients} onDone={() => { load(); setOpen(false); }} />
+            <UploadForm
+              clients={clients}
+              onDone={(newDoc) => {
+                if (newDoc) setDocs(prev => [newDoc, ...prev]);
+                setOpen(false);
+              }}
+            />
           </DialogContent>
         </Dialog>
       </div>
@@ -198,12 +210,12 @@ function UploadForm({ clients, onDone }) {
     if (clientId) fd.append("client_id", clientId);
     fd.append("notes", notes);
     try {
-      await api.post("/documents/upload", fd, {
+      const { data } = await api.post("/documents/upload", fd, {
         headers: { "Content-Type": "multipart/form-data" },
         onUploadProgress: (p) => setProgress(Math.round((p.loaded / p.total) * 100)),
       });
       toast.success("Documento caricato");
-      onDone();
+      onDone(data);
     } catch (err) {
       const detail = err?.response?.data?.detail;
       toast.error(typeof detail === "string" ? detail : "Errore caricamento");
