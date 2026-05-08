@@ -28,11 +28,36 @@ db = client[os.environ['DB_NAME']]
 JWT_SECRET = os.environ.get('JWT_SECRET', 'devsecret')
 JWT_ALG = 'HS256'
 
-# Object Storage (Emergent)
-STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
-EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
+# Object Storage (AWS S3)
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+
 APP_NAME = "agente-crm"
 MAX_FILE_BYTES = 50 * 1024 * 1024  # 50 MB cap
+
+AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
+AWS_REGION = os.environ.get("AWS_REGION", os.environ.get("S3_REGION", "eu-west-1"))
+S3_BUCKET = os.environ.get("AWS_S3_BUCKET", os.environ.get("S3_BUCKET"))
+S3_ENDPOINT = os.environ.get("S3_ENDPOINT")  # None = AWS standard
+
+_s3_client = None
+
+def get_s3():
+    global _s3_client
+    if _s3_client:
+        return _s3_client
+    if not AWS_ACCESS_KEY_ID or not S3_BUCKET:
+        return None
+    kwargs = dict(
+        region_name=AWS_REGION,
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    )
+    if S3_ENDPOINT:
+        kwargs["endpoint_url"] = S3_ENDPOINT
+    _s3_client = boto3.client("s3", **kwargs)
+    return _s3_client
 ALLOWED_EXT = {
     "pdf": "application/pdf",
     "xls": "application/vnd.ms-excel",
@@ -45,67 +70,43 @@ ALLOWED_EXT = {
     "mp4": "video/mp4", "mov": "video/quicktime", "webm": "video/webm",
     "avi": "video/x-msvideo", "mkv": "video/x-matroska",
 }
-_storage_key: Optional[str] = None
 
-
-def init_storage() -> Optional[str]:
-    """Initialize storage session - call once at startup."""
-    global _storage_key
-    if _storage_key:
-        return _storage_key
-    if not EMERGENT_KEY:
-        return None
-    try:
-        r = http_requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_KEY}, timeout=30)
-        r.raise_for_status()
-        _storage_key = r.json()["storage_key"]
-        return _storage_key
-    except Exception as e:
-        logging.error(f"Storage init failed: {e}")
-        return None
+def init_storage() -> bool:
+    """Check S3 is configured."""
+    return get_s3() is not None
 
 
 def storage_put(path: str, data: bytes, content_type: str) -> dict:
-    key = init_storage()
-    if not key:
-        raise HTTPException(500, "Storage non disponibile")
-    r = http_requests.put(
-        f"{STORAGE_URL}/objects/{path}",
-        headers={"X-Storage-Key": key, "Content-Type": content_type},
-        data=data, timeout=120,
-    )
-    if r.status_code == 403:
-        # Refresh key once
-        global _storage_key
-        _storage_key = None
-        key = init_storage()
-        r = http_requests.put(
-            f"{STORAGE_URL}/objects/{path}",
-            headers={"X-Storage-Key": key, "Content-Type": content_type},
-            data=data, timeout=120,
+    s3 = get_s3()
+    if not s3:
+        raise HTTPException(500, "Storage S3 non disponibile — controlla AWS_ACCESS_KEY_ID e AWS_S3_BUCKET")
+    try:
+        s3.put_object(
+            Bucket=S3_BUCKET,
+            Key=path,
+            Body=data,
+            ContentType=content_type,
         )
-    r.raise_for_status()
-    return r.json()
+        return {"path": path}
+    except (BotoCoreError, ClientError) as e:
+        logger.error(f"S3 put error: {e}")
+        raise HTTPException(500, f"Errore upload S3: {str(e)[:200]}")
+
+
 
 
 def storage_get(path: str) -> tuple:
-    key = init_storage()
-    if not key:
-        raise HTTPException(500, "Storage non disponibile")
-    r = http_requests.get(
-        f"{STORAGE_URL}/objects/{path}",
-        headers={"X-Storage-Key": key}, timeout=60,
-    )
-    if r.status_code == 403:
-        global _storage_key
-        _storage_key = None
-        key = init_storage()
-        r = http_requests.get(
-            f"{STORAGE_URL}/objects/{path}",
-            headers={"X-Storage-Key": key}, timeout=60,
-        )
-    r.raise_for_status()
-    return r.content, r.headers.get("Content-Type", "application/octet-stream")
+    s3 = get_s3()
+    if not s3:
+        raise HTTPException(500, "Storage S3 non disponibile")
+    try:
+        obj = s3.get_object(Bucket=S3_BUCKET, Key=path)
+        data = obj["Body"].read()
+        content_type = obj.get("ContentType", "application/octet-stream")
+        return data, content_type
+    except (BotoCoreError, ClientError) as e:
+        logger.error(f"S3 get error: {e}")
+        raise HTTPException(500, f"Errore download S3: {str(e)[:200]}")
 
 app = FastAPI(title="Gestionale Agenti di Commercio")
 api = APIRouter(prefix="/api")
@@ -847,13 +848,10 @@ async def gather_ai_context(user_id: str) -> str:
 
 @api.post("/ai/chat")
 async def ai_chat(payload: AIQuery, user=Depends(get_current_user)):
-    try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
-    except ImportError:
-        raise HTTPException(500, "Libreria AI non disponibile")
-    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    import google.generativeai as genai
+    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not api_key:
-        raise HTTPException(500, "EMERGENT_LLM_KEY mancante")
+        raise HTTPException(500, "GEMINI_API_KEY mancante")
 
     context = await gather_ai_context(user["id"])
     system = (
@@ -864,14 +862,14 @@ async def ai_chat(payload: AIQuery, user=Depends(get_current_user)):
         f"DATI ATTUALI:\n{context}"
     )
 
-    chat = LlmChat(
-        api_key=api_key,
-        session_id=f"agent-{user['id']}",
-        system_message=system,
-    ).with_model("gemini", "gemini-3-flash-preview")
-
     try:
-        response = await chat.send_message(UserMessage(text=payload.message))
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(
+            model_name="gemini-2.0-flash",
+            system_instruction=system,
+        )
+        result = model.generate_content(payload.message)
+        response = result.text
     except Exception as e:
         logger.error(f"AI error: {e}")
         raise HTTPException(500, f"Errore AI: {str(e)[:200]}")
@@ -884,20 +882,21 @@ async def ai_chat(payload: AIQuery, user=Depends(get_current_user)):
 
 @api.get("/ai/suggestions")
 async def ai_suggestions(user=Depends(get_current_user)):
-    try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
-    except ImportError:
-        return {"suggestions": []}
-    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    import google.generativeai as genai
+    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not api_key:
         return {"suggestions": []}
     context = await gather_ai_context(user["id"])
-    chat = LlmChat(
-        api_key=api_key, session_id=f"sug-{user['id']}",
-        system_message="Sei un consulente vendite italiano. Sulla base dei dati, suggerisci in italiano i 5 clienti più importanti da visitare questa settimana. Rispondi in JSON puro con questa struttura: {\"suggestions\":[{\"client\":\"nome\",\"reason\":\"motivo breve\",\"priority\":\"alta|media|bassa\"}]} senza markdown."
-    ).with_model("gemini", "gemini-3-flash-preview")
+    system = (
+        "Sei un consulente vendite italiano. Sulla base dei dati, suggerisci in italiano i 5 clienti "
+        "più importanti da visitare questa settimana. Rispondi SOLO in JSON puro senza markdown, "
+        "con questa struttura: {\"suggestions\":[{\"client\":\"nome\",\"reason\":\"motivo breve\",\"priority\":\"alta|media|bassa\"}]}"
+    )
     try:
-        response = await chat.send_message(UserMessage(text=f"DATI:\n{context}\n\nSuggerisci 5 clienti da visitare."))
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(model_name="gemini-2.0-flash", system_instruction=system)
+        result = model.generate_content(f"DATI:\n{context}\n\nSuggerisci 5 clienti da visitare.")
+        response = result.text
         import json, re
         m = re.search(r'\{.*\}', response, re.DOTALL)
         if m:
