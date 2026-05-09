@@ -185,6 +185,10 @@ class MandanteIn(BaseModel):
     brand_color: Optional[str] = "#0A192F"
     commission_rate: float = 5.0
     notes: Optional[str] = ""
+    target_monthly: Optional[float] = None
+    target_yearly: Optional[float] = None
+    target_clients: Optional[int] = None
+    target_notes: Optional[str] = ""
 
 
 class ProductIn(BaseModel):
