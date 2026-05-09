@@ -867,7 +867,7 @@ async def ai_chat(payload: AIQuery, user=Depends(get_current_user)):
     try:
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash",
+            model_name="gemini-1.5-flash",
             system_instruction=system,
         )
         result = model.generate_content(payload.message)
@@ -896,7 +896,7 @@ async def ai_suggestions(user=Depends(get_current_user)):
     )
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(model_name="gemini-2.0-flash", system_instruction=system)
+        model = genai.GenerativeModel(model_name="gemini-1.5-flash", system_instruction=system)
         result = model.generate_content(f"DATI:\n{context}\n\nSuggerisci 5 clienti da visitare.")
         response = result.text
         import json, re
