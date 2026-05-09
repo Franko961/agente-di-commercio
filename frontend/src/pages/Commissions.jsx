@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../api";
-import { Coins, Download } from "lucide-react";
+import { Coins, Download, Trash2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { toast } from "sonner";
@@ -27,6 +27,13 @@ export default function Commissions() {
   const setStatus = async (id, status) => {
     await api.patch(`/commissions/${id}/status`, { status });
     toast.success("Stato aggiornato");
+    load();
+  };
+
+  const deleteCommission = async (id) => {
+    if (!window.confirm("Eliminare questa provvigione?")) return;
+    await api.delete(`/commissions/${id}`);
+    toast.success("Provvigione eliminata");
     load();
   };
 
@@ -74,14 +81,14 @@ export default function Commissions() {
       </div>
 
       <div className="bg-white border border-[#E4E4E1] rounded-md overflow-hidden">
-        <div className="hidden md:grid grid-cols-6 gap-2 px-4 py-3 bg-[#F3F3F1] border-b border-[#E4E4E1] font-mono text-[10px] uppercase tracking-widest text-[#52525B]">
-          <div>Periodo</div><div className="col-span-2">Cliente</div><div>Mandante</div><div>Aliquota</div><div className="text-right">Importo</div>
+        <div className="hidden md:grid grid-cols-7 gap-2 px-4 py-3 bg-[#F3F3F1] border-b border-[#E4E4E1] font-mono text-[10px] uppercase tracking-widest text-[#52525B]">
+          <div>Periodo</div><div className="col-span-2">Cliente</div><div>Mandante</div><div>Aliquota</div><div className="text-right">Importo</div><div></div>
         </div>
         {filtered.map(c => {
           const cli = clients.find(x => x.id === c.client_id);
           const m = mandanti.find(x => x.id === c.mandante_id);
           return (
-            <div key={c.id} data-testid={`commission-${c.id}`} className="grid grid-cols-2 md:grid-cols-6 gap-2 px-4 py-3 border-b border-[#E4E4E1] items-center text-[13px]">
+            <div key={c.id} data-testid={`commission-${c.id}`} className="grid grid-cols-2 md:grid-cols-7 gap-2 px-4 py-3 border-b border-[#E4E4E1] items-center text-[13px]">
               <div className="font-mono">{c.period}</div>
               <div className="col-span-2 font-medium">{cli?.company_name || "—"}</div>
               <div className="text-[#52525B]">{m?.name || "—"}</div>
@@ -91,6 +98,15 @@ export default function Commissions() {
                 <button onClick={() => setStatus(c.id, c.status === "maturato" ? "incassato" : "maturato")}
                         className="font-mono text-[10px] uppercase tracking-widest mt-1" style={{ color: c.status === "incassato" ? "#059669" : "#FF5A00" }}>
                   {c.status} ↻
+                </button>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => deleteCommission(c.id)}
+                  className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                  title="Elimina provvigione"
+                >
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </div>
             </div>

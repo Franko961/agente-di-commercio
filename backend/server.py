@@ -590,6 +590,12 @@ async def update_commission_status(cid: str, payload: dict = Body(...), user=Dep
     return {"ok": True}
 
 
+@api.delete("/commissions/{cid}")
+async def delete_commission(cid: str, user=Depends(get_current_user)):
+    await db.commissions.delete_one({"id": cid, "user_id": user["id"]})
+    return {"ok": True}
+
+
 # ----------------- Documents -----------------
 @api.get("/documents")
 async def list_documents(user=Depends(get_current_user)):
