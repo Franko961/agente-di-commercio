@@ -39,7 +39,9 @@ AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
 AWS_REGION = os.environ.get("AWS_REGION", os.environ.get("S3_REGION", "eu-west-1"))
 S3_BUCKET = os.environ.get("AWS_S3_BUCKET", os.environ.get("S3_BUCKET"))
-S3_ENDPOINT = os.environ.get("S3_ENDPOINT")  # None = AWS standard
+# S3_ENDPOINT: se è un endpoint AWS standard, ignoralo (boto3 lo gestisce da solo tramite AWS_REGION)
+_raw_endpoint = os.environ.get("S3_ENDPOINT", "").strip().strip("[]")
+S3_ENDPOINT = None if (not _raw_endpoint or "amazonaws.com" in _raw_endpoint) else _raw_endpoint
 
 _s3_client = None
 
