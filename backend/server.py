@@ -850,10 +850,10 @@ async def gather_ai_context(user_id: str) -> str:
 
 @api.post("/ai/chat")
 async def ai_chat(payload: AIQuery, user=Depends(get_current_user)):
-    from google import genai as google_genai
-    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    import anthropic as anthropic_sdk
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
-        raise HTTPException(500, "GEMINI_API_KEY mancante")
+        raise HTTPException(500, "ANTHROPIC_API_KEY mancante")
 
     context = await gather_ai_context(user["id"])
     system = (
@@ -865,13 +865,14 @@ async def ai_chat(payload: AIQuery, user=Depends(get_current_user)):
     )
 
     try:
-        client_ai = google_genai.Client(api_key=api_key)
-        result = client_ai.models.generate_content(
-            model="gemini-2.0-flash-lite",
-            contents=payload.message,
-            config=google_genai.types.GenerateContentConfig(system_instruction=system),
+        client_ai = anthropic_sdk.Anthropic(api_key=api_key)
+        message = client_ai.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1024,
+            system=system,
+            messages=[{"role": "user", "content": payload.message}],
         )
-        response = result.text
+        response = message.content[0].text
     except Exception as e:
         logger.error(f"AI error: {e}")
         raise HTTPException(500, f"Errore AI: {str(e)[:200]}")
@@ -884,8 +885,8 @@ async def ai_chat(payload: AIQuery, user=Depends(get_current_user)):
 
 @api.get("/ai/suggestions")
 async def ai_suggestions(user=Depends(get_current_user)):
-    from google import genai as google_genai
-    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    import anthropic as anthropic_sdk
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         return {"suggestions": []}
     context = await gather_ai_context(user["id"])
@@ -895,13 +896,14 @@ async def ai_suggestions(user=Depends(get_current_user)):
         "con questa struttura: {\"suggestions\":[{\"client\":\"nome\",\"reason\":\"motivo breve\",\"priority\":\"alta|media|bassa\"}]}"
     )
     try:
-        client_ai = google_genai.Client(api_key=api_key)
-        result = client_ai.models.generate_content(
-            model="gemini-2.0-flash-lite",
-            contents=f"DATI:\n{context}\n\nSuggerisci 5 clienti da visitare.",
-            config=google_genai.types.GenerateContentConfig(system_instruction=system),
+        client_ai = anthropic_sdk.Anthropic(api_key=api_key)
+        message = client_ai.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1024,
+            system=system,
+            messages=[{"role": "user", "content": f"DATI:\n{context}\n\nSuggerisci 5 clienti da visitare."}],
         )
-        response = result.text
+        response = message.content[0].text
         import json, re
         m = re.search(r'\{.*\}', response, re.DOTALL)
         if m:
