@@ -16,6 +16,13 @@ export default function Products() {
   const load = async () => { const { data } = await api.get("/products"); setProducts(data); };
   useEffect(() => { load(); }, []);
 
+  const deleteProduct = async (id, name) => {
+    if (!window.confirm(`Eliminare il prodotto "${name}"?`)) return;
+    await api.delete(`/products/${id}`);
+    toast.success("Prodotto eliminato");
+    load();
+  };
+
   const filtered = filter ? products.filter(p => p.mandante_id === filter) : products;
 
   return (
@@ -48,14 +55,14 @@ export default function Products() {
       </div>
 
       <div className="bg-white border border-[#E4E4E1] rounded-md overflow-hidden">
-        <div className="hidden md:grid grid-cols-6 gap-2 px-4 py-3 bg-[#F3F3F1] border-b border-[#E4E4E1] font-mono text-[10px] uppercase tracking-widest text-[#52525B]">
-          <div className="col-span-2">Prodotto</div><div>SKU</div><div>Mandante</div><div className="text-right">Prezzo</div><div className="text-right">Margine</div>
+        <div className="hidden md:grid grid-cols-7 gap-2 px-4 py-3 bg-[#F3F3F1] border-b border-[#E4E4E1] font-mono text-[10px] uppercase tracking-widest text-[#52525B]">
+          <div className="col-span-2">Prodotto</div><div>SKU</div><div>Mandante</div><div className="text-right">Prezzo</div><div className="text-right">Margine</div><div></div>
         </div>
         {filtered.map(p => {
           const mand = mandanti.find(m => m.id === p.mandante_id);
           const margin = ((p.price - (p.cost || 0)) / p.price * 100).toFixed(0);
           return (
-            <div key={p.id} data-testid={`product-${p.id}`} className="grid grid-cols-2 md:grid-cols-6 gap-2 px-4 py-3 border-b border-[#E4E4E1] items-center text-[13px]">
+            <div key={p.id} data-testid={`product-${p.id}`} className="grid grid-cols-2 md:grid-cols-7 gap-2 px-4 py-3 border-b border-[#E4E4E1] items-center text-[13px]">
               <div className="col-span-2">
                 <div className="font-medium">{p.name}</div>
                 <div className="font-mono text-[10px] text-[#A1A1AA]">{p.category}</div>
@@ -67,6 +74,15 @@ export default function Products() {
               </div>
               <div className="text-right font-cabinet font-bold">{fmt(p.price)}</div>
               <div className="text-right font-mono text-[12px] text-[#059669]">{margin}%</div>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => deleteProduct(p.id, p.name)}
+                  className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                  title="Elimina prodotto"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           );
         })}
