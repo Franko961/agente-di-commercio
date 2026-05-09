@@ -850,7 +850,7 @@ async def gather_ai_context(user_id: str) -> str:
 
 @api.post("/ai/chat")
 async def ai_chat(payload: AIQuery, user=Depends(get_current_user)):
-    import google.generativeai as genai
+    from google import genai as google_genai
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not api_key:
         raise HTTPException(500, "GEMINI_API_KEY mancante")
@@ -865,12 +865,12 @@ async def ai_chat(payload: AIQuery, user=Depends(get_current_user)):
     )
 
     try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
-            system_instruction=system,
+        client_ai = google_genai.Client(api_key=api_key)
+        result = client_ai.models.generate_content(
+            model="gemini-2.0-flash-lite",
+            contents=payload.message,
+            config=google_genai.types.GenerateContentConfig(system_instruction=system),
         )
-        result = model.generate_content(payload.message)
         response = result.text
     except Exception as e:
         logger.error(f"AI error: {e}")
@@ -884,7 +884,7 @@ async def ai_chat(payload: AIQuery, user=Depends(get_current_user)):
 
 @api.get("/ai/suggestions")
 async def ai_suggestions(user=Depends(get_current_user)):
-    import google.generativeai as genai
+    from google import genai as google_genai
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not api_key:
         return {"suggestions": []}
@@ -895,9 +895,12 @@ async def ai_suggestions(user=Depends(get_current_user)):
         "con questa struttura: {\"suggestions\":[{\"client\":\"nome\",\"reason\":\"motivo breve\",\"priority\":\"alta|media|bassa\"}]}"
     )
     try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(model_name="gemini-1.5-flash", system_instruction=system)
-        result = model.generate_content(f"DATI:\n{context}\n\nSuggerisci 5 clienti da visitare.")
+        client_ai = google_genai.Client(api_key=api_key)
+        result = client_ai.models.generate_content(
+            model="gemini-2.0-flash-lite",
+            contents=f"DATI:\n{context}\n\nSuggerisci 5 clienti da visitare.",
+            config=google_genai.types.GenerateContentConfig(system_instruction=system),
+        )
         response = result.text
         import json, re
         m = re.search(r'\{.*\}', response, re.DOTALL)
