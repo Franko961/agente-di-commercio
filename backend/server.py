@@ -40,6 +40,11 @@ PLANS = {
 }
 JWT_ALG = 'HS256'
 
+# Resend email
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+ADMIN_NOTIFY_EMAIL = os.environ.get("ADMIN_NOTIFY_EMAIL", "franco.bruni.art@gmail.com")
+APP_FROM_EMAIL = os.environ.get("APP_FROM_EMAIL", "AGENTE <noreply@salesfly.it>")
+
 # Object Storage (AWS S3)
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
@@ -121,6 +126,24 @@ def storage_get(path: str) -> tuple:
     except (BotoCoreError, ClientError) as e:
         logger.error(f"S3 get error: {e}")
         raise HTTPException(500, f"Errore download S3: {str(e)[:200]}")
+
+async def send_email(to: str, subject: str, html: str):
+    if not RESEND_API_KEY:
+        logger.warning("RESEND_API_KEY non configurata — email non inviata")
+        return
+    try:
+        import resend
+        resend.api_key = RESEND_API_KEY
+        resend.Emails.send({
+            "from": APP_FROM_EMAIL,
+            "to": to,
+            "subject": subject,
+            "html": html,
+        })
+        logger.info(f"Email inviata a {to}: {subject}")
+    except Exception as e:
+        logger.error(f"Errore invio email a {to}: {e}")
+
 
 app = FastAPI(title="Gestionale Agenti di Commercio")
 api = APIRouter(prefix="/api")
