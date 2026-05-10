@@ -9,6 +9,19 @@ import { exportClients, whatsappLink } from "../utils/export";
 
 const POTENTIAL_COLOR = { alto: "#059669", medio: "#FF5A00", basso: "#A1A1AA" };
 
+const SETTORI = [
+  "Ristorazione",
+  "Edilizia",
+  "Commercio al dettaglio",
+  "Servizi Professionali",
+  "Artigianato",
+  "Trasporti e Logistica",
+  "Turismo e Hotel",
+  "Informatica e Digitale",
+  "Salute e Benessere",
+  "Agricoltura",
+];
+
 function ClientForm({ initial, onSave, onClose, mandanti }) {
   const [f, setF] = useState(initial || {
     company_name: "", contact_name: "", email: "", phone: "", vat_number: "",
@@ -31,7 +44,14 @@ function ClientForm({ initial, onSave, onClose, mandanti }) {
         <Field label="Città" v={f.city} on={(v) => update("city", v)} />
         <Field label="Provincia" v={f.province} on={(v) => update("province", v)} />
         <Field label="Zona / Regione" v={f.zone} on={(v) => update("zone", v)} />
-        <Field label="Settore" v={f.sector} on={(v) => update("sector", v)} />
+        <div>
+          <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Settore merceologico</label>
+          <select value={f.sector || ""} onChange={(e) => update("sector", e.target.value)}
+            className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]">
+            <option value="">— seleziona —</option>
+            {SETTORI.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
         <div>
           <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Potenziale</label>
           <select value={f.potential} onChange={(e) => update("potential", e.target.value)}
@@ -87,6 +107,7 @@ export default function Clients() {
   const [q, setQ] = useState("");
   const [zone, setZone] = useState("");
   const [potential, setPotential] = useState("");
+  const [sector, setSector] = useState("");
   const [open, setOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
 
@@ -95,11 +116,12 @@ export default function Clients() {
     if (q) params.append("q", q);
     if (zone) params.append("zone", zone);
     if (potential) params.append("potential", potential);
+    if (sector) params.append("sector", sector);
     const { data } = await api.get(`/clients?${params}`);
     setClients(data);
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [q, zone, potential]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [q, zone, potential, sector]);
 
   const zones = [...new Set(clients.map((c) => c.zone).filter(Boolean))];
 
@@ -172,6 +194,11 @@ export default function Clients() {
                 className="bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]">
           <option value="">Ogni potenziale</option>
           <option value="alto">Alto</option><option value="medio">Medio</option><option value="basso">Basso</option>
+        </select>
+        <select value={sector} onChange={(e) => setSector(e.target.value)}
+                className="bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]">
+          <option value="">Tutti i settori</option>
+          {SETTORI.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <div className="md:hidden">
           <Dialog open={open} onOpenChange={setOpen}>
