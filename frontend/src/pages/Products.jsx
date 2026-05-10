@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
 import api from "../api";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { toast } from "sonner";
 import { useMandante } from "../contexts/MandanteContext";
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
+const EMPTY = { mandante_id: "", name: "", sku: "", price: 0, cost: 0, category: "", commission_rate: null };
 
 export default function Products() {
   const { mandanti } = useMandante();
   const [products, setProducts] = useState([]);
   const [open, setOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
   const [filter, setFilter] = useState("");
 
   const load = async () => { const { data } = await api.get("/products"); setProducts(data); };
@@ -40,10 +42,23 @@ export default function Products() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Nuovo prodotto</DialogTitle></DialogHeader>
-            <ProductForm mandanti={mandanti} onSave={async (f) => { await api.post("/products", f); load(); toast.success("Prodotto creato"); setOpen(false); }} />
+            <ProductForm mandanti={mandanti} initial={EMPTY} onSave={async (f) => { await api.post("/products", f); load(); toast.success("Prodotto creato"); setOpen(false); }} />
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Dialog modifica */}
+      <Dialog open={!!editTarget} onOpenChange={(v) => !v && setEditTarget(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Modifica prodotto</DialogTitle></DialogHeader>
+          {editTarget && (
+            <ProductForm mandanti={mandanti} initial={editTarget} submitLabel="Aggiorna" onSave={async (f) => {
+              await api.put(`/products/${editTarget.id}`, f);
+              load(); toast.success("Prodotto aggiornato"); setEditTarget(null);
+            }} />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <div className="flex gap-2 mb-4 overflow-x-auto">
         <button onClick={() => setFilter("")} className={`px-3 py-1.5 rounded-md text-[12px] font-medium whitespace-nowrap ${filter === "" ? "bg-[#0A192F] text-white" : "bg-white border border-[#E4E4E1]"}`}>Tutti</button>
@@ -55,14 +70,14 @@ export default function Products() {
       </div>
 
       <div className="bg-white border border-[#E4E4E1] rounded-md overflow-hidden">
-        <div className="hidden md:grid grid-cols-7 gap-2 px-4 py-3 bg-[#F3F3F1] border-b border-[#E4E4E1] font-mono text-[10px] uppercase tracking-widest text-[#52525B]">
-          <div className="col-span-2">Prodotto</div><div>SKU</div><div>Mandante</div><div className="text-right">Prezzo</div><div className="text-right">Margine</div><div></div>
+        <div className="hidden md:grid grid-cols-8 gap-2 px-4 py-3 bg-[#F3F3F1] border-b border-[#E4E4E1] font-mono text-[10px] uppercase tracking-widest text-[#52525B]">
+          <div className="col-span-2">Prodotto</div><div>SKU</div><div>Mandante</div><div className="text-right">Prezzo</div><div className="text-right">Margine</div><div className="col-span-2"></div>
         </div>
         {filtered.map(p => {
           const mand = mandanti.find(m => m.id === p.mandante_id);
           const margin = ((p.price - (p.cost || 0)) / p.price * 100).toFixed(0);
           return (
-            <div key={p.id} data-testid={`product-${p.id}`} className="grid grid-cols-2 md:grid-cols-7 gap-2 px-4 py-3 border-b border-[#E4E4E1] items-center text-[13px]">
+            <div key={p.id} data-testid={`product-${p.id}`} className="grid grid-cols-2 md:grid-cols-8 gap-2 px-4 py-3 border-b border-[#E4E4E1] items-center text-[13px]">
               <div className="col-span-2">
                 <div className="font-medium">{p.name}</div>
                 <div className="font-mono text-[10px] text-[#A1A1AA]">{p.category}</div>
@@ -74,12 +89,11 @@ export default function Products() {
               </div>
               <div className="text-right font-cabinet font-bold">{fmt(p.price)}</div>
               <div className="text-right font-mono text-[12px] text-[#059669]">{margin}%</div>
-              <div className="flex justify-end">
-                <button
-                  onClick={() => deleteProduct(p.id, p.name)}
-                  className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                  title="Elimina prodotto"
-                >
+              <div className="col-span-2 flex justify-end gap-1">
+                <button onClick={() => setEditTarget(p)} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica">
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button onClick={() => deleteProduct(p.id, p.name)} className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors" title="Elimina">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -92,14 +106,15 @@ export default function Products() {
   );
 }
 
-function ProductForm({ mandanti, onSave }) {
-  const [f, setF] = useState({ mandante_id: "", name: "", sku: "", price: 0, cost: 0, category: "", commission_rate: null });
+function ProductForm({ mandanti, initial, onSave, submitLabel = "Salva" }) {
+  const [f, setF] = useState(initial);
+  useEffect(() => { setF(initial); }, [initial]);
   return (
     <form onSubmit={async (e) => { e.preventDefault(); await onSave(f); }} className="space-y-3">
       <div>
         <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Mandante *</label>
         <select required value={f.mandante_id} onChange={(e) => setF({ ...f, mandante_id: e.target.value })}
-                className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]">
+          className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]">
           <option value="">— seleziona —</option>
           {mandanti.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
@@ -111,7 +126,7 @@ function ProductForm({ mandanti, onSave }) {
         <Field label="Prezzo *" v={f.price} on={(v) => setF({ ...f, price: parseFloat(v) || 0 })} type="number" required />
         <Field label="Costo" v={f.cost} on={(v) => setF({ ...f, cost: parseFloat(v) || 0 })} type="number" />
       </div>
-      <button data-testid="save-product-button" type="submit" className="w-full bg-[#0A192F] text-white py-2.5 rounded-md text-[13px] font-medium">Salva</button>
+      <button data-testid="save-product-button" type="submit" className="w-full bg-[#0A192F] text-white py-2.5 rounded-md text-[13px] font-medium">{submitLabel}</button>
     </form>
   );
 }
@@ -121,7 +136,7 @@ function Field({ label, v, on, type = "text", required }) {
     <div>
       <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">{label}</label>
       <input type={type} required={required} value={v ?? ""} onChange={(e) => on(e.target.value)}
-             className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
+        className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
     </div>
   );
 }
