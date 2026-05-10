@@ -812,6 +812,12 @@ async def dashboard(user=Depends(get_current_user)):
             zone = cli.get("zone") or "N/D"
             by_zone[zone] = by_zone.get(zone, 0) + o.get("total", 0)
 
+    # Clienti per settore merceologico
+    by_sector: Dict[str, int] = {}
+    for c in clients:
+        sector = c.get("sector") or "Non specificato"
+        by_sector[sector] = by_sector.get(sector, 0) + 1
+
     # Monthly revenue (last 6 months) from accepted offers
     months: Dict[str, float] = {}
     for o in offers:
@@ -854,6 +860,7 @@ async def dashboard(user=Depends(get_current_user)):
             "goal_pct": round(min(100, (current_month_rev / goal) * 100) if goal else 0, 1),
         },
         "by_zone": [{"zone": k, "revenue": round(v, 2)} for k, v in by_zone.items()],
+        "by_sector": sorted([{"sector": k, "count": v} for k, v in by_sector.items()], key=lambda x: -x["count"]),
         "monthly": monthly,
         "upcoming_appointments": upcoming[:10],
         "pipeline": {

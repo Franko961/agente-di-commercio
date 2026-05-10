@@ -31,8 +31,9 @@ export default function Dashboard() {
 
   if (!data) return <div className="p-8 font-mono text-sm text-[#A1A1AA]">caricamento dashboard…</div>;
 
-  const { kpi, by_zone, monthly, upcoming_appointments, pipeline } = data;
+  const { kpi, by_zone, monthly, upcoming_appointments, pipeline, by_sector } = data;
   const pipelineData = Object.entries(pipeline).map(([k, v]) => ({ name: k, value: v }));
+  const sectorData = (by_sector || []).filter(s => s.sector !== "Non specificato");
   const PIE_COLORS = ["#0A192F", "#172A45", "#52525B", "#FF5A00", "#059669", "#DC2626"];
 
   return (
@@ -168,6 +169,34 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
+
+        {/* Grafico settori merceologici */}
+        {sectorData.length > 0 && (
+          <div className="bg-white border border-[#E4E4E1] rounded-md p-5">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-4">Clienti per settore</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie data={sectorData} dataKey="count" nameKey="sector" innerRadius={45} outerRadius={80} paddingAngle={2}>
+                    {sectorData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip formatter={(v) => [`${v} clienti`]} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-2">
+                {sectorData.map((s, i) => (
+                  <div key={s.sector} className="flex items-center justify-between text-[12px]">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                      <span className="text-[#52525B]">{s.sector}</span>
+                    </div>
+                    <span className="font-cabinet font-bold">{s.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
