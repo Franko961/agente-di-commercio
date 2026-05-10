@@ -141,7 +141,14 @@ export default function Clients() {
           {editTarget && (
             <ClientForm
               mandanti={mandanti}
-              initial={editTarget}
+              initial={{
+                company_name: "", contact_name: "", email: "", phone: "",
+                vat_number: "", address: "", city: "", province: "", zone: "",
+                sector: "", potential: "medio", lat: null, lng: null, notes: "",
+                mandante_ids: [],
+                ...editTarget,
+                mandante_ids: editTarget.mandante_ids || [],
+              }}
               onSave={async (f) => { await api.put(`/clients/${editTarget.id}`, f); load(); toast.success("Cliente aggiornato"); }}
               onClose={() => setEditTarget(null)}
             />
