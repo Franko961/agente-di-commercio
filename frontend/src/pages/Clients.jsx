@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../api";
 import { Link } from "react-router-dom";
-import { Plus, Search, MapPin, Phone, Mail, Filter, Download, MessageCircle } from "lucide-react";
+import { Plus, Search, MapPin, Phone, Mail, Filter, Download, MessageCircle, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { toast } from "sonner";
 import { useMandante } from "../contexts/MandanteContext";
@@ -88,6 +88,7 @@ export default function Clients() {
   const [zone, setZone] = useState("");
   const [potential, setPotential] = useState("");
   const [open, setOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
 
   const load = async () => {
     const params = new URLSearchParams();
@@ -132,6 +133,21 @@ export default function Clients() {
         </Dialog>
         </div>
       </div>
+
+      {/* Dialog modifica cliente */}
+      <Dialog open={!!editTarget} onOpenChange={(v) => !v && setEditTarget(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Modifica cliente</DialogTitle></DialogHeader>
+          {editTarget && (
+            <ClientForm
+              mandanti={mandanti}
+              initial={editTarget}
+              onSave={async (f) => { await api.put(`/clients/${editTarget.id}`, f); load(); toast.success("Cliente aggiornato"); }}
+              onClose={() => setEditTarget(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 mb-4">
@@ -189,7 +205,14 @@ export default function Clients() {
                 <td className="px-4 py-3 text-[13px]"><div>{c.city}</div><div className="text-[11px] text-[#A1A1AA]">{c.zone}</div></td>
                 <td className="px-4 py-3 text-[13px]">{c.sector || "—"}</td>
                 <td className="px-4 py-3"><span className="font-mono text-[10px] uppercase tracking-widest px-2 py-1 rounded" style={{ background: `${POTENTIAL_COLOR[c.potential]}20`, color: POTENTIAL_COLOR[c.potential] }}>{c.potential}</span></td>
-                <td className="px-4 py-3 text-right"><Link to={`/clienti/${c.id}`} className="text-[#FF5A00] text-[12px] font-mono uppercase tracking-widest">apri</Link></td>
+                <td className="px-4 py-3 text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <button onClick={() => setEditTarget(c)} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <Link to={`/clienti/${c.id}`} className="text-[#FF5A00] text-[12px] font-mono uppercase tracking-widest">apri</Link>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -200,7 +223,13 @@ export default function Clients() {
       {/* Mobile cards */}
       <div className="md:hidden space-y-2">
         {clients.map((c) => (
-          <Link key={c.id} to={`/clienti/${c.id}`} data-testid={`client-card-${c.id}`} className="block bg-white border border-[#E4E4E1] rounded-md p-4">
+          <div key={c.id} className="block bg-white border border-[#E4E4E1] rounded-md p-4">
+            <div className="flex justify-end mb-1">
+              <button onClick={() => setEditTarget(c)} className="p-1 text-[#A1A1AA] hover:text-[#0A192F]" title="Modifica">
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <Link to={`/clienti/${c.id}`} data-testid={`client-card-${c.id}`}>
             <div className="flex items-start justify-between mb-2">
               <div className="font-cabinet font-bold text-[15px] truncate">{c.company_name}</div>
               <span className="font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0 ml-2" style={{ background: `${POTENTIAL_COLOR[c.potential]}20`, color: POTENTIAL_COLOR[c.potential] }}>{c.potential}</span>
@@ -210,7 +239,8 @@ export default function Clients() {
               {c.city && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{c.city}</span>}
               {c.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{c.phone}</span>}
             </div>
-          </Link>
+            </Link>
+          </div>
         ))}
         {clients.length === 0 && <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#A1A1AA] text-[13px]">Nessun cliente trovato.</div>}
       </div>
