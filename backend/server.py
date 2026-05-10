@@ -351,6 +351,59 @@ async def register(payload: RegisterIn, response: Response):
     token = create_access_token(user_id, email)
     response.set_cookie("access_token", token, httponly=True, secure=False,
                         samesite="lax", max_age=7*24*3600, path="/")
+
+    # Email benvenuto all'utente
+    await send_email(
+        to=email,
+        subject="Benvenuto su AGENTE — il tuo gestionale è pronto!",
+        html=f"""
+        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#F9F9F8;">
+          <div style="background:#0A192F;padding:20px 24px;border-radius:8px;margin-bottom:24px;">
+            <span style="color:#FF5A00;font-weight:900;font-size:22px;letter-spacing:2px;">AGENTE.</span>
+          </div>
+          <h2 style="color:#0A192F;margin:0 0 12px;">Benvenuto, {doc.get('name', '')}!</h2>
+          <p style="color:#52525B;font-size:15px;line-height:1.6;">
+            Il tuo account è stato creato con successo. Hai <strong>14 giorni di prova gratuita</strong> 
+            per esplorare tutte le funzionalità di AGENTE.
+          </p>
+          <div style="background:#fff;border:1px solid #E4E4E1;border-radius:8px;padding:20px;margin:24px 0;">
+            <div style="font-size:12px;color:#A1A1AA;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Piano attivo</div>
+            <div style="font-size:20px;font-weight:900;color:#FF5A00;">{plan.upper()} — €{PLANS[plan]['price_eur']:.0f}/mese</div>
+            <div style="font-size:13px;color:#52525B;margin-top:4px;">14 giorni gratuiti, nessuna carta richiesta</div>
+          </div>
+          <a href="https://salesfly.netlify.app" 
+             style="display:inline-block;background:#0A192F;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">
+            Accedi al gestionale →
+          </a>
+          <p style="color:#A1A1AA;font-size:12px;margin-top:32px;">
+            AGENTE — Gestionale per agenti di commercio<br>
+            Se non hai creato questo account, ignora questa email.
+          </p>
+        </div>
+        """
+    )
+
+    # Email notifica admin
+    await send_email(
+        to=ADMIN_EMAIL,
+        subject=f"🆕 Nuovo utente registrato: {email}",
+        html=f"""
+        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;">
+          <h2 style="color:#0A192F;">Nuovo utente registrato</h2>
+          <table style="width:100%;border-collapse:collapse;font-size:14px;">
+            <tr><td style="padding:8px;color:#52525B;width:120px;">Nome</td><td style="padding:8px;font-weight:600;">{doc.get('name','')}</td></tr>
+            <tr style="background:#F9F9F8;"><td style="padding:8px;color:#52525B;">Email</td><td style="padding:8px;font-weight:600;">{email}</td></tr>
+            <tr><td style="padding:8px;color:#52525B;">Piano</td><td style="padding:8px;font-weight:600;color:#FF5A00;">{plan.upper()}</td></tr>
+            <tr style="background:#F9F9F8;"><td style="padding:8px;color:#52525B;">Data</td><td style="padding:8px;">{now_iso()[:16].replace('T',' ')}</td></tr>
+          </table>
+          <a href="https://salesfly.netlify.app/admin"
+             style="display:inline-block;margin-top:20px;background:#FF5A00;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">
+            Vedi Admin Dashboard →
+          </a>
+        </div>
+        """
+    )
+
     out = clean(doc)
     out["token"] = token
     return out
