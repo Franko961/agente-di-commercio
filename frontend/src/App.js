@@ -3,6 +3,7 @@ import "@/App.css";
 import { AuthProvider } from "./contexts/AuthContext";
 import { MandanteProvider } from "./contexts/MandanteContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -18,6 +19,9 @@ import Products from "./pages/Products";
 import Documents from "./pages/Documents";
 import Automations from "./pages/Automations";
 import AIAssistant from "./pages/AIAssistant";
+import Subscription from "./pages/Subscription";
+import Admin from "./pages/Admin";
+import Pricing from "./pages/Pricing";
 import OfflineBanner from "./components/OfflineBanner";
 import { Toaster } from "./components/ui/sonner";
 
@@ -30,6 +34,7 @@ function App() {
           <MandanteProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/prezzi" element={<Pricing />} />
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/clienti" element={<Clients />} />
@@ -44,6 +49,8 @@ function App() {
                 <Route path="/documenti" element={<Documents />} />
                 <Route path="/automazioni" element={<Automations />} />
                 <Route path="/ai" element={<AIAssistant />} />
+                <Route path="/abbonamento" element={<Subscription />} />
+                <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
               </Route>
             </Routes>
           </MandanteProvider>

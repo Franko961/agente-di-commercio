@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, KanbanSquare, CalendarDays, Map, FileText,
-  Coins, Building2, Package, Folder, Sparkles, Zap, LogOut, ArrowLeftRight
+  Coins, Building2, Package, Folder, Sparkles, Zap, LogOut, ArrowLeftRight, ShieldCheck, CreditCard
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useMandante } from "../contexts/MandanteContext";
@@ -23,6 +23,7 @@ const navItems = [
 
 export default function Sidebar({ collapsed, onToggle }) {
   const { user, logout } = useAuth();
+  const isAdmin = user?.role === "admin";
   const { mandanti, activeMandante, setActiveMandante } = useMandante();
   const navigate = useNavigate();
 
@@ -100,6 +101,13 @@ export default function Sidebar({ collapsed, onToggle }) {
             <div className="font-mono text-[10px] text-[#A1A1AA] truncate">{user?.email}</div>
           </div>
         </div>
+        {isAdmin && (
+          <NavLink to="/admin"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-[#FF5A00] text-white rounded-md text-[12px] font-medium mb-2"
+          >
+            <ShieldCheck className="w-3.5 h-3.5" /> Admin
+          </NavLink>
+        )}
         <button
           data-testid="logout-button"
           onClick={handleLogout}

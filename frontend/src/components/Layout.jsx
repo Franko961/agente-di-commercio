@@ -7,7 +7,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useMandante } from "../contexts/MandanteContext";
 import {
   LayoutDashboard, Users, KanbanSquare, CalendarDays, Map, FileText,
-  Coins, Building2, Package, Folder, Sparkles, Zap, LogOut
+  Coins, Building2, Package, Folder, Sparkles, Zap, LogOut, CreditCard, ShieldCheck
 } from "lucide-react";
 
 const fullNav = [
@@ -23,11 +23,13 @@ const fullNav = [
   { to: "/documenti", label: "Documenti", icon: Folder },
   { to: "/automazioni", label: "Automazioni", icon: Zap },
   { to: "/ai", label: "Assistente AI", icon: Sparkles },
+  { to: "/abbonamento", label: "Abbonamento", icon: CreditCard },
 ];
 
 export default function Layout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { user, logout } = useAuth();
+  const isAdmin = user?.role === "admin";
   const { mandanti, activeMandante, setActiveMandante } = useMandante();
   const location = useLocation();
   const navigate = useNavigate();
@@ -100,6 +102,11 @@ export default function Layout() {
                   </NavLink>
                 ))}
               </nav>
+              {isAdmin && (
+                <NavLink to="/admin" className="mx-4 mb-1 flex items-center gap-2 px-3 py-2.5 bg-[#FF5A00] text-white rounded-md text-sm font-medium">
+                  <ShieldCheck className="w-4 h-4" /> Admin
+                </NavLink>
+              )}
               <button
                 data-testid="drawer-logout"
                 onClick={async () => { await logout(); navigate("/login"); }}

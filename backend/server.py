@@ -26,6 +26,18 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 JWT_SECRET = os.environ.get('JWT_SECRET', 'devsecret')
+
+# Stripe & PayPal
+STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
+PAYPAL_CLIENT_ID = os.environ.get('PAYPAL_CLIENT_ID', '')
+PAYPAL_CLIENT_SECRET = os.environ.get('PAYPAL_CLIENT_SECRET', '')
+PAYPAL_MODE = os.environ.get('PAYPAL_MODE', 'sandbox')  # 'sandbox' o 'live'
+
+PLANS = {
+    'base': {'name': 'Base', 'price_eur': 6.00, 'stripe_price_id': os.environ.get('STRIPE_PRICE_BASE', ''), 'paypal_plan_id': os.environ.get('PAYPAL_PLAN_BASE', '')},
+    'pro':  {'name': 'Pro',  'price_eur': 11.00, 'stripe_price_id': os.environ.get('STRIPE_PRICE_PRO', ''),  'paypal_plan_id': os.environ.get('PAYPAL_PLAN_PRO', '')},
+}
 JWT_ALG = 'HS256'
 
 # Object Storage (AWS S3)
@@ -178,6 +190,7 @@ class RegisterIn(BaseModel):
     email: EmailStr
     password: str
     name: str
+    plan: Optional[str] = "base"  # 'base' o 'pro'
 
 
 class BonusTier(BaseModel):
@@ -317,10 +330,17 @@ async def register(payload: RegisterIn, response: Response):
     if len(payload.password) < 6:
         raise HTTPException(status_code=400, detail="Password troppo corta (min 6 caratteri)")
     user_id = gen_id()
+    plan = payload.plan if payload.plan in PLANS else "base"
     doc = {
         "id": user_id, "email": email, "name": payload.name,
         "password_hash": hash_password(payload.password),
         "role": "agent", "created_at": now_iso(),
+        "plan": plan,
+        "subscription_status": "trial",  # trial | active | cancelled | expired
+        "trial_ends_at": (datetime.now(timezone.utc) + timedelta(days=14)).isoformat(),
+        "stripe_customer_id": None,
+        "stripe_subscription_id": None,
+        "paypal_subscription_id": None,
     }
     await db.users.insert_one(doc)
     # Seed starter demo data so the new user lands on a populated app
@@ -1507,6 +1527,195 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     client.close()
+
+
+# ----------------- Subscription & Payments -----------------
+
+def is_admin(user: dict) -> bool:
+    return user.get("role") == "admin"
+
+def require_admin(user=Depends(get_current_user)):
+    if not is_admin(user):
+        raise HTTPException(403, "Accesso riservato agli amministratori")
+    return user
+
+def subscription_active(user: dict) -> bool:
+    status = user.get("subscription_status", "trial")
+    if status == "active":
+        return True
+    if status == "trial":
+        trial_end = user.get("trial_ends_at", "")
+        try:
+            from datetime import datetime, timezone
+            end = datetime.fromisoformat(trial_end.replace("Z", "+00:00"))
+            return datetime.now(timezone.utc) < end
+        except Exception:
+            return True
+    return False
+
+
+@api.get("/subscription/plans")
+async def get_plans():
+    return [{"id": k, **v} for k, v in PLANS.items()]
+
+
+@api.get("/subscription/status")
+async def subscription_status(user=Depends(get_current_user)):
+    u = await db.users.find_one({"id": user["id"]}, {"_id": 0, "password_hash": 0})
+    return {
+        "plan": u.get("plan", "base"),
+        "status": u.get("subscription_status", "trial"),
+        "trial_ends_at": u.get("trial_ends_at"),
+        "active": subscription_active(u),
+    }
+
+
+@api.post("/subscription/create-stripe-session")
+async def create_stripe_session(payload: dict = Body(...), user=Depends(get_current_user)):
+    if not STRIPE_SECRET_KEY:
+        raise HTTPException(500, "Stripe non configurato")
+    try:
+        import stripe
+        stripe.api_key = STRIPE_SECRET_KEY
+        plan_id = payload.get("plan", "base")
+        plan = PLANS.get(plan_id)
+        if not plan:
+            raise HTTPException(400, "Piano non valido")
+
+        # Crea o recupera customer Stripe
+        u = await db.users.find_one({"id": user["id"]}, {"_id": 0})
+        customer_id = u.get("stripe_customer_id")
+        if not customer_id:
+            customer = stripe.Customer.create(email=user["email"], name=u.get("name", ""))
+            customer_id = customer.id
+            await db.users.update_one({"id": user["id"]}, {"$set": {"stripe_customer_id": customer_id}})
+
+        session = stripe.checkout.Session.create(
+            customer=customer_id,
+            payment_method_types=["card"],
+            mode="subscription",
+            line_items=[{"price": plan["stripe_price_id"], "quantity": 1}],
+            success_url=f"{payload.get('return_url', 'https://salesfly.netlify.app')}/abbonamento?success=stripe",
+            cancel_url=f"{payload.get('return_url', 'https://salesfly.netlify.app')}/abbonamento?cancelled=1",
+            metadata={"user_id": user["id"], "plan": plan_id},
+        )
+        return {"url": session.url}
+    except Exception as e:
+        logger.error(f"Stripe session error: {e}")
+        raise HTTPException(500, str(e)[:200])
+
+
+@api.post("/subscription/stripe-webhook")
+async def stripe_webhook(request: Request):
+    if not STRIPE_SECRET_KEY:
+        raise HTTPException(500, "Stripe non configurato")
+    try:
+        import stripe
+        stripe.api_key = STRIPE_SECRET_KEY
+        payload = await request.body()
+        sig = request.headers.get("stripe-signature", "")
+        event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+    if event["type"] == "checkout.session.completed":
+        meta = event["data"]["object"].get("metadata", {})
+        user_id = meta.get("user_id")
+        plan = meta.get("plan", "base")
+        sub_id = event["data"]["object"].get("subscription")
+        if user_id:
+            await db.users.update_one({"id": user_id}, {"$set": {
+                "plan": plan,
+                "subscription_status": "active",
+                "stripe_subscription_id": sub_id,
+            }})
+    elif event["type"] in ("customer.subscription.deleted", "customer.subscription.paused"):
+        sub = event["data"]["object"]
+        await db.users.update_one(
+            {"stripe_subscription_id": sub["id"]},
+            {"$set": {"subscription_status": "cancelled"}}
+        )
+    return {"ok": True}
+
+
+@api.post("/subscription/paypal-capture")
+async def paypal_capture(payload: dict = Body(...), user=Depends(get_current_user)):
+    """Conferma abbonamento PayPal dopo approvazione."""
+    subscription_id = payload.get("subscription_id")
+    plan_id = payload.get("plan", "base")
+    if not subscription_id:
+        raise HTTPException(400, "subscription_id mancante")
+    await db.users.update_one({"id": user["id"]}, {"$set": {
+        "plan": plan_id,
+        "subscription_status": "active",
+        "paypal_subscription_id": subscription_id,
+    }})
+    return {"ok": True}
+
+
+@api.post("/subscription/cancel")
+async def cancel_subscription(user=Depends(get_current_user)):
+    u = await db.users.find_one({"id": user["id"]}, {"_id": 0})
+    # Cancella su Stripe se presente
+    if u.get("stripe_subscription_id") and STRIPE_SECRET_KEY:
+        try:
+            import stripe
+            stripe.api_key = STRIPE_SECRET_KEY
+            stripe.Subscription.cancel(u["stripe_subscription_id"])
+        except Exception as e:
+            logger.warning(f"Stripe cancel error: {e}")
+    await db.users.update_one({"id": user["id"]}, {"$set": {"subscription_status": "cancelled"}})
+    return {"ok": True}
+
+
+# ----------------- Admin Dashboard -----------------
+
+@api.get("/admin/stats")
+async def admin_stats(admin=Depends(require_admin)):
+    total = await db.users.count_documents({"role": "agent"})
+    active = await db.users.count_documents({"role": "agent", "subscription_status": "active"})
+    trial = await db.users.count_documents({"role": "agent", "subscription_status": "trial"})
+    cancelled = await db.users.count_documents({"role": "agent", "subscription_status": "cancelled"})
+    base = await db.users.count_documents({"role": "agent", "plan": "base", "subscription_status": "active"})
+    pro = await db.users.count_documents({"role": "agent", "plan": "pro", "subscription_status": "active"})
+    mrr = (base * PLANS["base"]["price_eur"]) + (pro * PLANS["pro"]["price_eur"])
+    return {
+        "total_users": total,
+        "active": active,
+        "trial": trial,
+        "cancelled": cancelled,
+        "plan_base": base,
+        "plan_pro": pro,
+        "mrr": round(mrr, 2),
+        "arr": round(mrr * 12, 2),
+    }
+
+
+@api.get("/admin/users")
+async def admin_users(admin=Depends(require_admin), page: int = 1, limit: int = 50):
+    skip = (page - 1) * limit
+    users = await db.users.find(
+        {"role": "agent"},
+        {"_id": 0, "password_hash": 0}
+    ).sort("created_at", -1).skip(skip).to_list(limit)
+    total = await db.users.count_documents({"role": "agent"})
+    return {"users": users, "total": total, "page": page}
+
+
+@api.patch("/admin/users/{uid}")
+async def admin_update_user(uid: str, payload: dict = Body(...), admin=Depends(require_admin)):
+    allowed = {"plan", "subscription_status", "role"}
+    update = {k: v for k, v in payload.items() if k in allowed}
+    if not update:
+        raise HTTPException(400, "Nessun campo valido")
+    await db.users.update_one({"id": uid}, {"$set": update})
+    return {"ok": True}
+
+
+@api.delete("/admin/users/{uid}")
+async def admin_delete_user(uid: str, admin=Depends(require_admin)):
+    await db.users.delete_one({"id": uid})
+    return {"ok": True}
 
 
 # ----------------- App wiring -----------------
