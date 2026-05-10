@@ -43,7 +43,13 @@ export default function AIAssistant() {
     setBusy(true);
     try {
       const { data } = await api.post("/ai/chat", { message: text });
-      setMessages(m => [...m, { role: "assistant", text: data.response }]);
+      // Mostra azioni CRM eseguite + risposta
+      const actions = data.actions || [];
+      let fullText = data.response;
+      if (actions.length > 0) {
+        fullText = actions.join("\n") + (data.response ? "\n\n" + data.response : "");
+      }
+      setMessages(m => [...m, { role: "assistant", text: fullText, actions }]);
     } catch (err) {
       setMessages(m => [...m, { role: "assistant", text: "Errore di comunicazione con l'AI. Riprova tra poco." }]);
     } finally {

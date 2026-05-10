@@ -915,6 +915,148 @@ async def clear_ai_history(user=Depends(get_current_user)):
     return {"ok": True}
 
 
+# Definizione tools CRM per l'AI
+CRM_TOOLS = [
+    {
+        "name": "add_client",
+        "description": "Aggiunge un nuovo cliente al CRM. Usare quando l'utente chiede di aggiungere/creare un cliente.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "company_name": {"type": "string", "description": "Nome azienda o cliente"},
+                "contact_name": {"type": "string", "description": "Nome del referente"},
+                "email": {"type": "string", "description": "Email"},
+                "phone": {"type": "string", "description": "Telefono"},
+                "city": {"type": "string", "description": "Città"},
+                "notes": {"type": "string", "description": "Note aggiuntive"},
+            },
+            "required": ["company_name"]
+        }
+    },
+    {
+        "name": "add_appointment",
+        "description": "Aggiunge un nuovo appuntamento in agenda. Usare quando l'utente chiede di aggiungere/fissare un appuntamento o una visita.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "Titolo appuntamento"},
+                "start": {"type": "string", "description": "Data e ora ISO8601, es: 2026-05-15T10:00:00"},
+                "client_name": {"type": "string", "description": "Nome cliente (per trovarlo nel CRM)"},
+                "location": {"type": "string", "description": "Luogo"},
+                "description": {"type": "string", "description": "Note"},
+            },
+            "required": ["title", "start"]
+        }
+    },
+    {
+        "name": "add_lead",
+        "description": "Aggiunge un nuovo lead/prospect alla pipeline. Usare quando l'utente chiede di aggiungere un lead o un prospect.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "company_name": {"type": "string", "description": "Nome azienda"},
+                "contact_name": {"type": "string", "description": "Nome referente"},
+                "email": {"type": "string", "description": "Email"},
+                "phone": {"type": "string", "description": "Telefono"},
+                "value": {"type": "number", "description": "Valore stimato opportunità"},
+                "notes": {"type": "string", "description": "Note"},
+            },
+            "required": ["company_name"]
+        }
+    },
+    {
+        "name": "add_note_to_client",
+        "description": "Aggiunge una nota a un cliente esistente.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "client_name": {"type": "string", "description": "Nome del cliente"},
+                "note": {"type": "string", "description": "Testo della nota da aggiungere"},
+            },
+            "required": ["client_name", "note"]
+        }
+    },
+]
+
+
+async def execute_crm_tool(tool_name: str, tool_input: dict, user_id: str) -> str:
+    """Esegue un tool CRM e restituisce il risultato come stringa."""
+    try:
+        if tool_name == "add_client":
+            doc = {
+                "id": gen_id(), "user_id": user_id,
+                "company_name": tool_input.get("company_name", ""),
+                "contact_name": tool_input.get("contact_name", ""),
+                "email": tool_input.get("email", ""),
+                "phone": tool_input.get("phone", ""),
+                "city": tool_input.get("city", ""),
+                "notes": tool_input.get("notes", ""),
+                "segment": "prospect", "status": "attivo",
+                "created_at": now_iso(),
+            }
+            await db.clients.insert_one(doc)
+            return f"✅ Cliente '{doc['company_name']}' aggiunto con successo al CRM."
+
+        elif tool_name == "add_appointment":
+            # Cerca cliente per nome se specificato
+            client_id = ""
+            client_name = tool_input.get("client_name", "")
+            if client_name:
+                cli = await db.clients.find_one(
+                    {"user_id": user_id, "company_name": {"$regex": client_name, "$options": "i"}},
+                    {"_id": 0}
+                )
+                if cli:
+                    client_id = cli["id"]
+
+            doc = {
+                "id": gen_id(), "user_id": user_id,
+                "title": tool_input.get("title", ""),
+                "start": tool_input.get("start", ""),
+                "client_id": client_id,
+                "location": tool_input.get("location", ""),
+                "description": tool_input.get("description", ""),
+                "status": "pianificato",
+                "created_at": now_iso(),
+            }
+            await db.appointments.insert_one(doc)
+            return f"✅ Appuntamento '{doc['title']}' fissato per {doc['start'][:10]} alle {doc['start'][11:16]}."
+
+        elif tool_name == "add_lead":
+            doc = {
+                "id": gen_id(), "user_id": user_id,
+                "company_name": tool_input.get("company_name", ""),
+                "contact_name": tool_input.get("contact_name", ""),
+                "email": tool_input.get("email", ""),
+                "phone": tool_input.get("phone", ""),
+                "value": tool_input.get("value", 0),
+                "notes": tool_input.get("notes", ""),
+                "stage": "nuovo", "status": "aperto",
+                "created_at": now_iso(),
+            }
+            await db.leads.insert_one(doc)
+            return f"✅ Lead '{doc['company_name']}' aggiunto alla pipeline."
+
+        elif tool_name == "add_note_to_client":
+            client_name = tool_input.get("client_name", "")
+            note = tool_input.get("note", "")
+            cli = await db.clients.find_one(
+                {"user_id": user_id, "company_name": {"$regex": client_name, "$options": "i"}},
+                {"_id": 0}
+            )
+            if not cli:
+                return f"❌ Cliente '{client_name}' non trovato nel CRM."
+            existing_notes = cli.get("notes", "")
+            new_notes = f"{existing_notes}\n[{now_iso()[:10]}] {note}".strip()
+            await db.clients.update_one({"id": cli["id"]}, {"$set": {"notes": new_notes}})
+            return f"✅ Nota aggiunta al cliente '{cli['company_name']}'."
+
+        return f"❌ Tool '{tool_name}' non riconosciuto."
+    except Exception as e:
+        logger.error(f"CRM tool error: {e}")
+        return f"❌ Errore durante l'operazione: {str(e)[:200]}"
+
+
 @api.post("/ai/chat")
 async def ai_chat(payload: AIQuery, user=Depends(get_current_user)):
     import anthropic as anthropic_sdk
@@ -926,12 +1068,14 @@ async def ai_chat(payload: AIQuery, user=Depends(get_current_user)):
     system = (
         "Sei un assistente commerciale italiano per agenti di commercio. "
         "Aiuti l'agente a decidere quali clienti visitare, analizzare le vendite, "
-        "suggerire azioni concrete. Rispondi sempre in italiano, in modo conciso e pratico, "
+        "suggerire azioni concrete. Puoi anche modificare il CRM: aggiungere clienti, "
+        "appuntamenti, lead e note. Quando l'utente ti chiede di fare un'azione sul CRM, "
+        "usa i tool disponibili. Rispondi sempre in italiano, in modo conciso e pratico, "
         "con elenchi puntati quando possibile. Usa i dati forniti.\n\n"
         f"DATI ATTUALI:\n{context}"
     )
 
-    # Carica ultimi 10 scambi per mantenere il contesto conversazione
+    # Carica ultimi 10 scambi
     history = await db.ai_logs.find(
         {"user_id": user["id"]}, {"_id": 0}
     ).sort("created_at", -1).to_list(10)
@@ -945,13 +1089,48 @@ async def ai_chat(payload: AIQuery, user=Depends(get_current_user)):
 
     try:
         client_ai = anthropic_sdk.Anthropic(api_key=api_key)
+        actions_performed = []
+
+        # Primo turno — potrebbe usare tool
         message = client_ai.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=1024,
             system=system,
+            tools=CRM_TOOLS,
             messages=messages,
         )
-        response = message.content[0].text
+
+        # Gestisci tool use in loop
+        while message.stop_reason == "tool_use":
+            tool_results = []
+            for block in message.content:
+                if block.type == "tool_use":
+                    result = await execute_crm_tool(block.name, block.input, user["id"])
+                    actions_performed.append(result)
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": result,
+                    })
+
+            # Continua la conversazione con i risultati dei tool
+            messages_with_tools = messages + [
+                {"role": "assistant", "content": message.content},
+                {"role": "user", "content": tool_results},
+            ]
+            message = client_ai.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=1024,
+                system=system,
+                tools=CRM_TOOLS,
+                messages=messages_with_tools,
+            )
+
+        # Estrai risposta testuale finale
+        response = " ".join(
+            block.text for block in message.content if hasattr(block, "text")
+        )
+
     except Exception as e:
         logger.error(f"AI error: {e}")
         raise HTTPException(500, f"Errore AI: {str(e)[:200]}")
@@ -959,7 +1138,7 @@ async def ai_chat(payload: AIQuery, user=Depends(get_current_user)):
     log = {"id": gen_id(), "user_id": user["id"], "message": payload.message,
            "response": response, "created_at": now_iso()}
     await db.ai_logs.insert_one(log)
-    return {"response": response}
+    return {"response": response, "actions": actions_performed}
 
 
 @api.get("/ai/suggestions")
