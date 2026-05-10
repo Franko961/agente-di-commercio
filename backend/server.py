@@ -899,6 +899,22 @@ async def gather_ai_context(user_id: str) -> str:
     return "\n".join(summary)
 
 
+@api.get("/ai/history")
+async def ai_history(user=Depends(get_current_user)):
+    """Restituisce gli ultimi 30 messaggi della cronologia AI."""
+    logs = await db.ai_logs.find(
+        {"user_id": user["id"]}, {"_id": 0}
+    ).sort("created_at", 1).to_list(30)
+    return logs
+
+
+@api.delete("/ai/history")
+async def clear_ai_history(user=Depends(get_current_user)):
+    """Cancella tutta la cronologia AI dell'utente."""
+    await db.ai_logs.delete_many({"user_id": user["id"]})
+    return {"ok": True}
+
+
 @api.post("/ai/chat")
 async def ai_chat(payload: AIQuery, user=Depends(get_current_user)):
     import anthropic as anthropic_sdk
@@ -915,13 +931,25 @@ async def ai_chat(payload: AIQuery, user=Depends(get_current_user)):
         f"DATI ATTUALI:\n{context}"
     )
 
+    # Carica ultimi 10 scambi per mantenere il contesto conversazione
+    history = await db.ai_logs.find(
+        {"user_id": user["id"]}, {"_id": 0}
+    ).sort("created_at", -1).to_list(10)
+    history.reverse()
+
+    messages = []
+    for h in history:
+        messages.append({"role": "user", "content": h["message"]})
+        messages.append({"role": "assistant", "content": h["response"]})
+    messages.append({"role": "user", "content": payload.message})
+
     try:
         client_ai = anthropic_sdk.Anthropic(api_key=api_key)
         message = client_ai.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=1024,
             system=system,
-            messages=[{"role": "user", "content": payload.message}],
+            messages=messages,
         )
         response = message.content[0].text
     except Exception as e:
