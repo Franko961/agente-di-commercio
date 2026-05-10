@@ -1529,6 +1529,23 @@ async def shutdown():
     client.close()
 
 
+# ----------------- Admin Setup -----------------
+
+@api.post("/auth/make-admin")
+async def make_admin(payload: dict = Body(...)):
+    """Route temporanea per promuovere un utente ad admin. Richiede ADMIN_SECRET."""
+    secret = os.environ.get("ADMIN_SECRET", "")
+    if not secret or payload.get("secret") != secret:
+        raise HTTPException(403, "Secret non valido")
+    email = payload.get("email", "").lower().strip()
+    if not email:
+        raise HTTPException(400, "Email mancante")
+    res = await db.users.update_one({"email": email}, {"$set": {"role": "admin"}})
+    if res.matched_count == 0:
+        raise HTTPException(404, f"Utente {email} non trovato")
+    return {"ok": True, "message": f"{email} è ora admin"}
+
+
 # ----------------- Subscription & Payments -----------------
 
 def is_admin(user: dict) -> bool:
