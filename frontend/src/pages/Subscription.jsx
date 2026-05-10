@@ -116,7 +116,7 @@ export default function Subscription() {
 
                 {/* PayPal */}
                 <div className="text-center text-[11px] text-[#A1A1AA] mb-2">oppure</div>
-                <a href={`https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=${id === "base" ? import.meta?.env?.REACT_APP_PAYPAL_PLAN_BASE || "" : import.meta?.env?.REACT_APP_PAYPAL_PLAN_PRO || ""}`}
+                <a href={`https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=${id === "base" ? process.env.REACT_APP_PAYPAL_PLAN_BASE || "" : process.env.REACT_APP_PAYPAL_PLAN_PRO || ""}`}
                   className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#FFC439] text-[#003087] rounded-md text-[13px] font-bold">
                   <ExternalLink className="w-4 h-4" /> Paga con PayPal
                 </a>
