@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, Link, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, KanbanSquare, CalendarDays, Map, FileText,
   Coins, Building2, Package, Folder, Sparkles, Zap, LogOut, ArrowLeftRight, ShieldCheck, CreditCard
@@ -108,6 +108,13 @@ export default function Sidebar({ collapsed, onToggle }) {
             <ShieldCheck className="w-3.5 h-3.5" /> Admin
           </NavLink>
         )}
+        <Link to="/abbonamento" className="mx-1 mb-2 flex items-center justify-between px-3 py-2 bg-[#F3F3F1] hover:bg-[#E4E4E1] rounded-md transition-colors">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-[#52525B]">Abbonamento</span>
+          <span className="font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded"
+            style={{ background: user?.plan === "pro" ? "#FF5A0020" : "#0A192F15", color: user?.plan === "pro" ? "#FF5A00" : "#0A192F" }}>
+            {user?.plan || "base"}
+          </span>
+        </Link>
         <button
           data-testid="logout-button"
           onClick={handleLogout}
