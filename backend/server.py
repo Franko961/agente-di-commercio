@@ -180,6 +180,10 @@ class RegisterIn(BaseModel):
     name: str
 
 
+class BonusTier(BaseModel):
+    threshold: float   # fatturato minimo per ottenere il bonus
+    bonus: float       # importo premio
+
 class MandanteIn(BaseModel):
     name: str
     brand_color: Optional[str] = "#0A192F"
@@ -189,6 +193,7 @@ class MandanteIn(BaseModel):
     target_yearly: Optional[float] = None
     target_clients: Optional[int] = None
     target_notes: Optional[str] = ""
+    bonus_tiers: Optional[List[BonusTier]] = []
 
 
 class ProductIn(BaseModel):
@@ -585,6 +590,42 @@ async def delete_offer(oid: str, user=Depends(get_current_user)):
 @api.get("/commissions")
 async def list_commissions(user=Depends(get_current_user)):
     return await db.commissions.find({"user_id": user["id"]}, {"_id": 0}).to_list(2000)
+
+
+@api.get("/commissions/bonus-summary")
+async def bonus_summary(user=Depends(get_current_user)):
+    """Calcola i bonus raggiunti per ogni mandante in base al fatturato delle provvigioni."""
+    mandanti = await db.mandanti.find({"user_id": user["id"]}, {"_id": 0}).to_list(100)
+    commissions = await db.commissions.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
+
+    result = []
+    for m in mandanti:
+        tiers = m.get("bonus_tiers", [])
+        if not tiers:
+            continue
+        # Somma fatturato (base_amount) o amount delle provvigioni di questo mandante
+        fatturato = sum(
+            c.get("base_amount", c.get("amount", 0) / (m.get("commission_rate", 5) / 100))
+            for c in commissions if c.get("mandante_id") == m["id"]
+        )
+        # Ordina tiers per soglia crescente
+        sorted_tiers = sorted(tiers, key=lambda t: t["threshold"])
+        # Trova tutti i bonus raggiunti (tutti gli scaglioni superati)
+        earned_tiers = [t for t in sorted_tiers if fatturato >= t["threshold"]]
+        total_bonus = sum(t["bonus"] for t in earned_tiers)
+        next_tier = next((t for t in sorted_tiers if fatturato < t["threshold"]), None)
+
+        result.append({
+            "mandante_id": m["id"],
+            "mandante_name": m["name"],
+            "brand_color": m.get("brand_color", "#0A192F"),
+            "fatturato": round(fatturato, 2),
+            "total_bonus": round(total_bonus, 2),
+            "earned_tiers": earned_tiers,
+            "next_tier": next_tier,
+            "tiers": sorted_tiers,
+        })
+    return result
 
 
 @api.patch("/commissions/{cid}/status")

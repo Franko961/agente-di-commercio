@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import api from "../api";
-import { Plus, Trash2, Pencil, Target } from "lucide-react";
+import { Plus, Trash2, Pencil, Target, Trophy, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { useMandante } from "../contexts/MandanteContext";
 import { toast } from "sonner";
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
-const EMPTY = { name: "", brand_color: "#0A192F", commission_rate: 5, notes: "", target_monthly: "", target_yearly: "", target_clients: "", target_notes: "" };
+const EMPTY = { name: "", brand_color: "#0A192F", commission_rate: 5, notes: "", target_monthly: "", target_yearly: "", target_clients: "", target_notes: "", bonus_tiers: [] };
 
 export default function Mandanti() {
   const { mandanti, refreshMandanti } = useMandante();
@@ -47,7 +47,7 @@ export default function Mandanti() {
               <Plus className="w-4 h-4" /> Nuovo mandante
             </button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>Nuovo mandante</DialogTitle></DialogHeader>
             <MandanteForm initial={EMPTY} onSave={save} />
           </DialogContent>
@@ -55,7 +55,7 @@ export default function Mandanti() {
       </div>
 
       <Dialog open={!!editTarget} onOpenChange={(v) => !v && setEditTarget(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Modifica mandante</DialogTitle></DialogHeader>
           {editTarget && <MandanteForm initial={editTarget} onSave={(f) => update(editTarget.id, f)} submitLabel="Aggiorna" />}
         </DialogContent>
@@ -64,6 +64,7 @@ export default function Mandanti() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {mandanti.map(m => {
           const hasTargets = m.target_monthly || m.target_yearly || m.target_clients;
+          const hasTiers = m.bonus_tiers && m.bonus_tiers.length > 0;
           return (
             <div key={m.id} data-testid={`mandante-${m.id}`} className="bg-white border border-[#E4E4E1] rounded-md p-5">
               <div className="flex items-start justify-between mb-3">
@@ -71,7 +72,7 @@ export default function Mandanti() {
                   <span className="text-white font-cabinet font-black text-lg">{m.name[0]}</span>
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => setEditTarget(m)} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica">
+                  <button onClick={() => setEditTarget({ ...m, bonus_tiers: m.bonus_tiers || [] })} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica">
                     <Pencil className="w-4 h-4" />
                   </button>
                   <button onClick={() => remove(m.id)} className="p-1.5 text-[#A1A1AA] hover:text-[#DC2626] hover:bg-red-50 rounded transition-colors" title="Elimina">
@@ -90,26 +91,28 @@ export default function Mandanti() {
                     <Target className="w-3 h-3" /> Obiettivi
                   </div>
                   <div className="space-y-1">
-                    {m.target_monthly && (
-                      <div className="flex justify-between text-[12px]">
-                        <span className="text-[#A1A1AA]">Mensile</span>
-                        <span className="font-cabinet font-bold">{fmt(m.target_monthly)}</span>
-                      </div>
-                    )}
-                    {m.target_yearly && (
-                      <div className="flex justify-between text-[12px]">
-                        <span className="text-[#A1A1AA]">Annuale</span>
-                        <span className="font-cabinet font-bold">{fmt(m.target_yearly)}</span>
-                      </div>
-                    )}
-                    {m.target_clients && (
-                      <div className="flex justify-between text-[12px]">
-                        <span className="text-[#A1A1AA]">Clienti target</span>
-                        <span className="font-cabinet font-bold">{m.target_clients}</span>
-                      </div>
-                    )}
+                    {m.target_monthly && <div className="flex justify-between text-[12px]"><span className="text-[#A1A1AA]">Mensile</span><span className="font-cabinet font-bold">{fmt(m.target_monthly)}</span></div>}
+                    {m.target_yearly && <div className="flex justify-between text-[12px]"><span className="text-[#A1A1AA]">Annuale</span><span className="font-cabinet font-bold">{fmt(m.target_yearly)}</span></div>}
+                    {m.target_clients && <div className="flex justify-between text-[12px]"><span className="text-[#A1A1AA]">Clienti target</span><span className="font-cabinet font-bold">{m.target_clients}</span></div>}
                   </div>
                   {m.target_notes && <div className="text-[11px] text-[#52525B] mt-2 italic">{m.target_notes}</div>}
+                </div>
+              )}
+
+              {hasTiers && (
+                <div className="mt-3 pt-3 border-t border-[#E4E4E1]">
+                  <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-[#52525B] mb-2">
+                    <Trophy className="w-3 h-3 text-[#FF5A00]" /> Scala premi ({m.bonus_tiers.length} scaglioni)
+                  </div>
+                  <div className="space-y-1">
+                    {[...m.bonus_tiers].sort((a, b) => a.threshold - b.threshold).slice(0, 3).map((t, i) => (
+                      <div key={i} className="flex justify-between text-[12px]">
+                        <span className="text-[#A1A1AA]">da {fmt(t.threshold)}</span>
+                        <span className="font-cabinet font-bold text-[#059669]">+{fmt(t.bonus)}</span>
+                      </div>
+                    ))}
+                    {m.bonus_tiers.length > 3 && <div className="text-[11px] text-[#A1A1AA]">+{m.bonus_tiers.length - 3} altri scaglioni…</div>}
+                  </div>
                 </div>
               )}
 
@@ -123,18 +126,26 @@ export default function Mandanti() {
 }
 
 function MandanteForm({ initial, onSave, submitLabel = "Salva" }) {
-  const [f, setF] = useState(initial);
+  const [f, setF] = useState({ ...initial, bonus_tiers: initial.bonus_tiers || [] });
   const [tab, setTab] = useState("info");
 
-  useEffect(() => { setF(initial); setTab("info"); }, [initial]);
+  useEffect(() => { setF({ ...initial, bonus_tiers: initial.bonus_tiers || [] }); setTab("info"); }, [initial]);
+
+  const addTier = () => setF({ ...f, bonus_tiers: [...f.bonus_tiers, { threshold: "", bonus: "" }] });
+  const removeTier = (i) => setF({ ...f, bonus_tiers: f.bonus_tiers.filter((_, idx) => idx !== i) });
+  const updateTier = (i, field, val) => {
+    const tiers = [...f.bonus_tiers];
+    tiers[i] = { ...tiers[i], [field]: parseFloat(val) || "" };
+    setF({ ...f, bonus_tiers: tiers });
+  };
 
   return (
     <form onSubmit={async (e) => { e.preventDefault(); await onSave(f); }} className="space-y-3">
       <div className="flex border border-[#E4E4E1] rounded-md overflow-hidden mb-1">
-        {["info", "obiettivi"].map(t => (
+        {[["info", "Dati azienda"], ["obiettivi", "Obiettivi"], ["premi", "Scala premi"]].map(([t, label]) => (
           <button key={t} type="button" onClick={() => setTab(t)}
-            className={`flex-1 py-2 text-[12px] font-medium font-mono uppercase tracking-widest transition-colors ${tab === t ? "bg-[#0A192F] text-white" : "bg-white text-[#52525B]"}`}>
-            {t === "info" ? "Dati azienda" : "Obiettivi"}
+            className={`flex-1 py-2 text-[11px] font-medium font-mono uppercase tracking-widest transition-colors ${tab === t ? "bg-[#0A192F] text-white" : "bg-white text-[#52525B]"}`}>
+            {label}
           </button>
         ))}
       </div>
@@ -172,6 +183,66 @@ function MandanteForm({ initial, onSave, submitLabel = "Salva" }) {
               className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
           </div>
         </>
+      )}
+
+      {tab === "premi" && (
+        <div className="space-y-3">
+          <div className="text-[12px] text-[#52525B] bg-[#F3F3F1] rounded-md p-3">
+            Inserisci gli scaglioni di fatturato e il premio corrispondente. Il premio viene erogato al raggiungimento della soglia.
+          </div>
+
+          {/* Header colonne */}
+          {f.bonus_tiers.length > 0 && (
+            <div className="grid grid-cols-9 gap-2 px-1">
+              <div className="col-span-4 font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">Fatturato minimo (€)</div>
+              <div className="col-span-4 font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">Premio (€)</div>
+              <div />
+            </div>
+          )}
+
+          {/* Righe scaglioni */}
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {f.bonus_tiers.map((tier, i) => (
+              <div key={i} className="grid grid-cols-9 gap-2 items-center">
+                <input
+                  type="number" value={tier.threshold} placeholder="es. 2000"
+                  onChange={(e) => updateTier(i, "threshold", e.target.value)}
+                  className="col-span-4 bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+                />
+                <input
+                  type="number" value={tier.bonus} placeholder="es. 500"
+                  onChange={(e) => updateTier(i, "bonus", e.target.value)}
+                  className="col-span-4 bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+                />
+                <button type="button" onClick={() => removeTier(i)} className="text-[#A1A1AA] hover:text-red-500 transition-colors flex justify-center">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <button type="button" onClick={addTier}
+            className="w-full border border-dashed border-[#E4E4E1] hover:border-[#0A192F] rounded-md py-2 text-[12px] text-[#52525B] hover:text-[#0A192F] transition-colors flex items-center justify-center gap-1.5">
+            <Plus className="w-3.5 h-3.5" /> Aggiungi scaglione
+          </button>
+
+          {/* Anteprima scala */}
+          {f.bonus_tiers.filter(t => t.threshold && t.bonus).length > 0 && (
+            <div className="bg-[#F3F3F1] rounded-md p-3">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] mb-2">Anteprima scala premi</div>
+              <div className="space-y-1">
+                {[...f.bonus_tiers].filter(t => t.threshold && t.bonus)
+                  .sort((a, b) => a.threshold - b.threshold)
+                  .map((t, i) => (
+                    <div key={i} className="flex justify-between text-[12px]">
+                      <span className="text-[#52525B]">Fatturato ≥ {new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(t.threshold)}</span>
+                      <span className="font-cabinet font-bold text-[#059669]">+{new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(t.bonus)}</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       <button data-testid="save-mandante-button" type="submit"

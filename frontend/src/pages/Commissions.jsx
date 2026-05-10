@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../api";
-import { Coins, Download, Trash2 } from "lucide-react";
-import { format, parseISO } from "date-fns";
-import { it } from "date-fns/locale";
+import { Coins, Download, Trash2, Trophy, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { exportCommissions } from "../utils/export";
 
@@ -12,11 +10,20 @@ export default function Commissions() {
   const [commissions, setCommissions] = useState([]);
   const [clients, setClients] = useState([]);
   const [mandanti, setMandanti] = useState([]);
+  const [bonusSummary, setBonusSummary] = useState([]);
   const [filter, setFilter] = useState("all");
 
   const load = async () => {
-    const [c, cl, m] = await Promise.all([api.get("/commissions"), api.get("/clients"), api.get("/mandanti")]);
-    setCommissions(c.data); setClients(cl.data); setMandanti(m.data);
+    const [c, cl, m, bs] = await Promise.all([
+      api.get("/commissions"),
+      api.get("/clients"),
+      api.get("/mandanti"),
+      api.get("/commissions/bonus-summary").catch(() => ({ data: [] })),
+    ]);
+    setCommissions(c.data);
+    setClients(cl.data);
+    setMandanti(m.data);
+    setBonusSummary(bs.data);
   };
   useEffect(() => { load(); }, []);
 
@@ -53,6 +60,7 @@ export default function Commissions() {
         </button>
       </div>
 
+      {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <div className="bg-white border border-[#E4E4E1] rounded-md p-5">
           <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-2">Maturato</div>
@@ -71,15 +79,94 @@ export default function Commissions() {
         </div>
       </div>
 
+      {/* Scala premi bonus */}
+      {bonusSummary.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Trophy className="w-4 h-4 text-[#FF5A00]" />
+            <span className="font-mono text-[11px] uppercase tracking-widest text-[#52525B]">Scala premi maturati</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {bonusSummary.map(b => {
+              const sorted = [...b.tiers].sort((a, b) => a.threshold - b.threshold);
+              const maxThreshold = sorted[sorted.length - 1]?.threshold || 1;
+              const progress = Math.min((b.fatturato / maxThreshold) * 100, 100);
+              const nextThreshold = b.next_tier?.threshold;
+              const toNext = nextThreshold ? nextThreshold - b.fatturato : 0;
+
+              return (
+                <div key={b.mandante_id} className="bg-white border border-[#E4E4E1] rounded-md p-5">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-md flex items-center justify-center text-white text-[12px] font-black font-cabinet"
+                        style={{ background: b.brand_color }}>
+                        {b.mandante_name[0]}
+                      </div>
+                      <span className="font-cabinet font-bold text-[15px]">{b.mandante_name}</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">Bonus totale</div>
+                      <div className="font-cabinet font-black text-xl text-[#059669]">{fmt(b.total_bonus)}</div>
+                    </div>
+                  </div>
+
+                  {/* Fatturato + barra progresso */}
+                  <div className="mb-3">
+                    <div className="flex justify-between text-[12px] mb-1.5">
+                      <span className="text-[#52525B]">Fatturato attuale</span>
+                      <span className="font-cabinet font-bold">{fmt(b.fatturato)}</span>
+                    </div>
+                    <div className="w-full bg-[#F3F3F1] rounded-full h-2">
+                      <div className="h-2 rounded-full bg-[#FF5A00] transition-all"
+                        style={{ width: `${progress}%` }} />
+                    </div>
+                    {b.next_tier && (
+                      <div className="text-[11px] text-[#A1A1AA] mt-1.5 flex items-center gap-1">
+                        <ChevronRight className="w-3 h-3" />
+                        Mancano {fmt(toNext)} per il prossimo premio di {fmt(b.next_tier.bonus)}
+                      </div>
+                    )}
+                    {!b.next_tier && b.tiers.length > 0 && (
+                      <div className="text-[11px] text-[#059669] mt-1.5 font-medium">🏆 Tutti gli scaglioni raggiunti!</div>
+                    )}
+                  </div>
+
+                  {/* Scaglioni */}
+                  <div className="space-y-1 border-t border-[#E4E4E1] pt-3">
+                    {sorted.map((t, i) => {
+                      const reached = b.fatturato >= t.threshold;
+                      return (
+                        <div key={i} className={`flex justify-between items-center text-[12px] ${reached ? "opacity-100" : "opacity-40"}`}>
+                          <div className="flex items-center gap-1.5">
+                            <div className={`w-2 h-2 rounded-full ${reached ? "bg-[#059669]" : "bg-[#E4E4E1]"}`} />
+                            <span className="text-[#52525B]">≥ {fmt(t.threshold)}</span>
+                          </div>
+                          <span className={`font-cabinet font-bold ${reached ? "text-[#059669]" : "text-[#A1A1AA]"}`}>
+                            +{fmt(t.bonus)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Filtri */}
       <div className="flex gap-2 mb-4">
         {["all", "maturato", "incassato"].map(s => (
           <button key={s} onClick={() => setFilter(s)} data-testid={`filter-${s}`}
-                  className={`px-4 py-2 rounded-md text-[12px] font-medium ${filter === s ? "bg-[#0A192F] text-white" : "bg-white border border-[#E4E4E1]"}`}>
+            className={`px-4 py-2 rounded-md text-[12px] font-medium ${filter === s ? "bg-[#0A192F] text-white" : "bg-white border border-[#E4E4E1]"}`}>
             {s === "all" ? "Tutte" : s.charAt(0).toUpperCase() + s.slice(1)}
           </button>
         ))}
       </div>
 
+      {/* Tabella provvigioni */}
       <div className="bg-white border border-[#E4E4E1] rounded-md overflow-hidden">
         <div className="hidden md:grid grid-cols-7 gap-2 px-4 py-3 bg-[#F3F3F1] border-b border-[#E4E4E1] font-mono text-[10px] uppercase tracking-widest text-[#52525B]">
           <div>Periodo</div><div className="col-span-2">Cliente</div><div>Mandante</div><div>Aliquota</div><div className="text-right">Importo</div><div></div>
@@ -96,16 +183,15 @@ export default function Commissions() {
               <div className="text-right">
                 <div className="font-cabinet font-bold">{fmt(c.amount)}</div>
                 <button onClick={() => setStatus(c.id, c.status === "maturato" ? "incassato" : "maturato")}
-                        className="font-mono text-[10px] uppercase tracking-widest mt-1" style={{ color: c.status === "incassato" ? "#059669" : "#FF5A00" }}>
+                  className="font-mono text-[10px] uppercase tracking-widest mt-1"
+                  style={{ color: c.status === "incassato" ? "#059669" : "#FF5A00" }}>
                   {c.status} ↻
                 </button>
               </div>
               <div className="flex justify-end">
-                <button
-                  onClick={() => deleteCommission(c.id)}
+                <button onClick={() => deleteCommission(c.id)}
                   className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                  title="Elimina provvigione"
-                >
+                  title="Elimina provvigione">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
