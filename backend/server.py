@@ -375,8 +375,9 @@ async def register(payload: RegisterIn, response: Response):
     response.set_cookie("access_token", token, httponly=True, secure=False,
                         samesite="lax", max_age=7*24*3600, path="/")
 
-    # Email benvenuto all'utente
-    await send_email(
+    # Email benvenuto all'utente (non bloccante)
+    try:
+      await send_email(
         to=email,
         subject="Benvenuto su AGENTE — il tuo gestionale è pronto!",
         html=f"""
@@ -404,11 +405,14 @@ async def register(payload: RegisterIn, response: Response):
           </p>
         </div>
         """
-    )
+      )
+    except Exception as mail_err:
+        logger.warning(f"Email benvenuto non inviata: {mail_err}")
 
-    # Email notifica admin
-    await send_email(
-        to=ADMIN_EMAIL,
+    # Email notifica admin (non bloccante)
+    try:
+      await send_email(
+        to=ADMIN_NOTIFY_EMAIL,
         subject=f"🆕 Nuovo utente registrato: {email}",
         html=f"""
         <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;">
@@ -425,7 +429,9 @@ async def register(payload: RegisterIn, response: Response):
           </a>
         </div>
         """
-    )
+      )
+    except Exception as mail_err:
+        logger.warning(f"Email admin non inviata: {mail_err}")
 
     out = clean(doc)
     out["token"] = token
