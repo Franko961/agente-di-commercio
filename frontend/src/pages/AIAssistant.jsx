@@ -1,6 +1,6 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import api from "../api";
-import { Sparkles, Send, Lightbulb, Trash2 } from "lucide-react";
+import { Sparkles, Send, Lightbulb, Trash2, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 
 const WELCOME = { role: "assistant", text: "Ciao! Sono il tuo assistente commerciale. Posso suggerirti i clienti più importanti da visitare, analizzare il fatturato e darti consigli pratici. Cosa vuoi sapere?" };
 
@@ -10,7 +10,93 @@ export default function AIAssistant() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [suggestions, setSuggestions] = useState([]);
+  const [listening, setListening] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
   const endRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const synthRef = useRef(window.speechSynthesis);
+
+  // Inizializza Speech Recognition
+  const initRecognition = useCallback(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return null;
+    const rec = new SpeechRecognition();
+    rec.lang = "it-IT";
+    rec.continuous = false;
+    rec.interimResults = false;
+    rec.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      setInput(transcript);
+      setListening(false);
+      // Invia automaticamente dopo la trascrizione
+      setTimeout(() => sendVoice(transcript), 100);
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => setListening(false);
+    return rec;
+  }, []);
+
+  // Text-to-Speech
+  const speak = useCallback((text) => {
+    if (!voiceEnabled || !synthRef.current) return;
+    synthRef.current.cancel();
+    // Pulisci il testo da emoji e simboli
+    const clean = text.replace(/[^\x00-\x7F]/g, "").replace(/\n+/g, ". ").trim();
+    const utterance = new SpeechSynthesisUtterance(clean);
+    utterance.lang = "it-IT";
+    utterance.rate = 1.05;
+    utterance.pitch = 1;
+    // Cerca voce italiana
+    const voices = synthRef.current.getVoices();
+    const itVoice = voices.find(v => v.lang.startsWith("it")) || voices[0];
+    if (itVoice) utterance.voice = itVoice;
+    utterance.onstart = () => setSpeaking(true);
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
+    synthRef.current.speak(utterance);
+  }, [voiceEnabled]);
+
+  const stopSpeaking = () => {
+    synthRef.current?.cancel();
+    setSpeaking(false);
+  };
+
+  const toggleListening = () => {
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+    const rec = initRecognition();
+    if (!rec) {
+      alert("Il tuo browser non supporta il riconoscimento vocale. Usa Chrome o Edge.");
+      return;
+    }
+    recognitionRef.current = rec;
+    rec.start();
+    setListening(true);
+  };
+
+  const sendVoice = async (text) => {
+    if (!text.trim() || busy) return;
+    setMessages(m => [...m, { role: "user", text }]);
+    setInput("");
+    setBusy(true);
+    try {
+      const { data } = await api.post("/ai/chat", { message: text });
+      const actions = data.actions || [];
+      let fullText = data.response;
+      if (actions.length > 0) fullText = actions.join("\n") + (data.response ? "\n\n" + data.response : "");
+      setMessages(m => [...m, { role: "assistant", text: fullText, actions }]);
+      speak(data.response);
+    } catch {
+      const errMsg = "Errore di comunicazione con l\'AI.";
+      setMessages(m => [...m, { role: "assistant", text: errMsg }]);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
@@ -43,13 +129,13 @@ export default function AIAssistant() {
     setBusy(true);
     try {
       const { data } = await api.post("/ai/chat", { message: text });
-      // Mostra azioni CRM eseguite + risposta
       const actions = data.actions || [];
       let fullText = data.response;
       if (actions.length > 0) {
         fullText = actions.join("\n") + (data.response ? "\n\n" + data.response : "");
       }
       setMessages(m => [...m, { role: "assistant", text: fullText, actions }]);
+      speak(data.response);
     } catch (err) {
       setMessages(m => [...m, { role: "assistant", text: "Errore di comunicazione con l'AI. Riprova tra poco." }]);
     } finally {
@@ -81,9 +167,17 @@ export default function AIAssistant() {
           <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Assistente AI</h1>
           <p className="text-[14px] text-[#52525B] mt-2">Powered by Claude · Risponde in italiano sui tuoi dati.</p>
         </div>
-        <button onClick={clearHistory} className="flex items-center gap-2 px-3 py-2 border border-[#E4E4E1] hover:border-red-300 hover:text-red-500 rounded-md text-[12px] text-[#A1A1AA] transition-colors">
-          <Trash2 className="w-3.5 h-3.5" /> Cancella chat
-        </button>
+  <div className="flex items-center gap-2">
+          {/* Toggle audio output */}
+          <button onClick={() => { setVoiceEnabled(v => !v); stopSpeaking(); }}
+            className={`p-2 rounded-md border transition-colors ${voiceEnabled ? "border-[#0A192F] text-[#0A192F]" : "border-[#E4E4E1] text-[#A1A1AA]"}`}
+            title={voiceEnabled ? "Disattiva voce AI" : "Attiva voce AI"}>
+            {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+          </button>
+          <button onClick={clearHistory} className="flex items-center gap-2 px-3 py-2 border border-[#E4E4E1] hover:border-red-300 hover:text-red-500 rounded-md text-[12px] text-[#A1A1AA] transition-colors">
+            <Trash2 className="w-3.5 h-3.5" /> Cancella chat
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
@@ -103,6 +197,18 @@ export default function AIAssistant() {
                 </div>
               </div>
             ))}
+            {listening && (
+              <div className="flex gap-3">
+                <div className="w-7 h-7 rounded-md flex items-center justify-center bg-[#FF5A00]"><Mic className="w-3.5 h-3.5 text-white animate-pulse" /></div>
+                <div className="bg-[#FF5A0010] border border-[#FF5A0030] rounded-md p-3 font-mono text-[13px] text-[#FF5A00]">In ascolto… parla ora</div>
+              </div>
+            )}
+            {speaking && !listening && (
+              <div className="flex gap-3">
+                <div className="w-7 h-7 rounded-md flex items-center justify-center bg-[#059669]"><Volume2 className="w-3.5 h-3.5 text-white animate-pulse" /></div>
+                <div className="bg-[#05966910] border border-[#05966930] rounded-md p-3 font-mono text-[13px] text-[#059669]">L'AI sta parlando… <button onClick={stopSpeaking} className="underline ml-1">interrompi</button></div>
+              </div>
+            )}
             {busy && (
               <div className="flex gap-3">
                 <div className="w-7 h-7 rounded-md flex items-center justify-center bg-[#FF5A00]"><Sparkles className="w-3.5 h-3.5 text-white animate-pulse" /></div>
@@ -121,8 +227,23 @@ export default function AIAssistant() {
 
           {/* Input */}
           <form onSubmit={(e) => { e.preventDefault(); send(input); }} className="border-t border-[#E4E4E1] p-3 flex gap-2">
-            <input data-testid="ai-input" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Chiedi all'assistente…"
-              className="flex-1 bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px] focus:outline-none focus:border-[#0A192F]" />
+            <input data-testid="ai-input" value={input} onChange={(e) => setInput(e.target.value)}
+              placeholder={listening ? "Sto ascoltando…" : "Chiedi all'assistente o usa il microfono…"}
+              className={`flex-1 bg-white border rounded-md px-3 py-2 text-[13px] focus:outline-none transition-colors ${listening ? "border-[#FF5A00] bg-[#FF5A0005]" : "border-[#E4E4E1] focus:border-[#0A192F]"}`} />
+            {/* Bottone microfono */}
+            <button type="button" onClick={toggleListening}
+              className={`px-3 py-2 rounded-md text-[13px] font-medium transition-all ${listening ? "bg-[#FF5A00] text-white animate-pulse" : "border border-[#E4E4E1] text-[#52525B] hover:border-[#FF5A00] hover:text-[#FF5A00]"}`}
+              title={listening ? "Clicca per fermare" : "Parla con l'AI"}>
+              {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
+            {/* Stop audio */}
+            {speaking && (
+              <button type="button" onClick={stopSpeaking}
+                className="px-3 py-2 bg-[#0A192F] text-white rounded-md animate-pulse"
+                title="Interrompi lettura">
+                <VolumeX className="w-4 h-4" />
+              </button>
+            )}
             <button data-testid="ai-send" disabled={busy} className="px-4 py-2 bg-[#0A192F] text-white rounded-md text-[13px] font-medium disabled:opacity-50">
               <Send className="w-4 h-4" />
             </button>
