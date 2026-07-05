@@ -82,6 +82,11 @@ export default function Offers() {
                 <button onClick={async () => { await api.delete(`/offers/${o.id}`); load(); }} className="text-[#A1A1AA]"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
               <div className="font-cabinet font-bold text-[15px] leading-tight mb-2">{o.title}</div>
+              {o.sale_type && (
+                <div className={`inline-block font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded mb-2 ${o.sale_type === "rinnovo" ? "bg-[#F3F3F1] text-[#52525B]" : "bg-[#FFF3EC] text-[#FF5A00]"}`}>
+                  {o.sale_type === "rinnovo" ? "rinnovo" : "nuovo"}
+                </div>
+              )}
               <div className="text-[12px] text-[#52525B]">{cli?.company_name}</div>
               {mand && <div className="flex items-center gap-1.5 text-[11px] text-[#A1A1AA] mt-1"><span className="w-1.5 h-1.5 rounded-full" style={{ background: mand.brand_color }} />{mand.name}</div>}
               <div className="font-cabinet font-black text-2xl mt-3">{fmt(o.total)}</div>
@@ -132,7 +137,7 @@ export default function Offers() {
 function OfferForm({ clients, mandanti, products, onSave }) {
   const [f, setF] = useState({
     client_id: "", mandante_id: "", title: "", items: [{ description: "", quantity: 1, unit_price: 0, discount: 0 }],
-    expires_at: "", status: "bozza", notes: ""
+    expires_at: "", status: "bozza", sale_type: "nuovo", notes: ""
   });
   const filtered = f.mandante_id ? products.filter(p => p.mandante_id === f.mandante_id) : products;
   const addItem = () => setF({ ...f, items: [...f.items, { description: "", quantity: 1, unit_price: 0, discount: 0 }] });
@@ -167,6 +172,17 @@ function OfferForm({ clients, mandanti, products, onSave }) {
         <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Titolo *</label>
         <input required value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })}
                className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
+      </div>
+      <div>
+        <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Tipo vendita</label>
+        <div className="flex border border-[#E4E4E1] rounded-md overflow-hidden">
+          {[["nuovo", "Nuovo"], ["rinnovo", "Rinnovo"]].map(([val, label]) => (
+            <button key={val} type="button" onClick={() => setF({ ...f, sale_type: val })}
+              className={`flex-1 py-2 text-[12px] font-medium transition-colors ${f.sale_type === val ? "bg-[#0A192F] text-white" : "bg-white text-[#52525B]"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
       <div>
         <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-2">Righe offerta</label>

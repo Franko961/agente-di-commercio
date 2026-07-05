@@ -179,7 +179,10 @@ export default function Commissions() {
               <div className="font-mono">{c.period}</div>
               <div className="col-span-2 font-medium">{cli?.company_name || "—"}</div>
               <div className="text-[#52525B]">{m?.name || "—"}</div>
-              <div className="font-mono">{c.rate}%</div>
+              <div className="font-mono">
+                {c.rate}%
+                {c.sale_type && <span className="text-[#A1A1AA] ml-1">({c.sale_type})</span>}
+              </div>
               <div className="text-right">
                 <div className="font-cabinet font-bold">{fmt(c.amount)}</div>
                 <button onClick={() => setStatus(c.id, c.status === "maturato" ? "incassato" : "maturato")}

@@ -224,6 +224,8 @@ class MandanteIn(BaseModel):
     name: str
     brand_color: Optional[str] = "#0A192F"
     commission_rate: float = 5.0
+    commission_rate_new: Optional[float] = None      # override su vendite nuove, se impostato
+    commission_rate_renewal: Optional[float] = None  # override su rinnovi, se impostato
     notes: Optional[str] = ""
     target_monthly: Optional[float] = None
     target_yearly: Optional[float] = None
@@ -296,6 +298,7 @@ class OfferIn(BaseModel):
     items: List[OfferLineItem] = []
     expires_at: Optional[str] = None
     status: str = "bozza"  # bozza, inviata, accettata, rifiutata, scaduta
+    sale_type: str = "nuovo"  # nuovo, rinnovo — determina l'aliquota di provvigione applicata
     notes: Optional[str] = ""
 
 
@@ -637,6 +640,16 @@ def calc_offer_total(items: List[dict]) -> float:
     return round(total, 2)
 
 
+def get_commission_rate(mandante: dict, sale_type: str) -> float:
+    """Restituisce l'aliquota da applicare in base al tipo di vendita (nuovo/rinnovo).
+    Se il mandante non ha un'aliquota specifica impostata per quel tipo, usa quella standard."""
+    if sale_type == "rinnovo" and mandante.get("commission_rate_renewal") is not None:
+        return mandante["commission_rate_renewal"]
+    if sale_type == "nuovo" and mandante.get("commission_rate_new") is not None:
+        return mandante["commission_rate_new"]
+    return mandante.get("commission_rate", 5.0)
+
+
 @api.get("/offers")
 async def list_offers(user=Depends(get_current_user)):
     return await db.offers.find({"user_id": user["id"]}, {"_id": 0}).to_list(2000)
@@ -669,12 +682,13 @@ async def update_offer_status(oid: str, payload: dict = Body(...), user=Depends(
     # If accepted, create commission record
     if new_status == "accettata" and offer.get("status") != "accettata":
         mandante = await db.mandanti.find_one({"id": offer["mandante_id"], "user_id": user["id"]}, {"_id": 0})
-        rate = mandante.get("commission_rate", 5.0) if mandante else 5.0
+        sale_type = offer.get("sale_type", "nuovo")
+        rate = get_commission_rate(mandante, sale_type) if mandante else 5.0
         amount = offer.get("total", 0) * rate / 100
         comm = {
             "id": gen_id(), "user_id": user["id"], "offer_id": oid,
             "client_id": offer["client_id"], "mandante_id": offer["mandante_id"],
-            "amount": round(amount, 2), "rate": rate, "status": "maturato",
+            "amount": round(amount, 2), "rate": rate, "sale_type": sale_type, "status": "maturato",
             "period": datetime.now(timezone.utc).strftime("%Y-%m"),
             "created_at": now_iso(),
         }
@@ -1087,7 +1101,7 @@ CRM_TOOLS = [
     },
     {
         "name": "add_offer",
-        "description": "Registra una vendita/offerta per un cliente e un mandante. Usare quando l'utente chiede di registrare una vendita, un ordine o un'offerta. Se l'utente dice che la vendita è già conclusa/confermata, imposta accepted a true: in quel caso viene generata automaticamente anche la provvigione, secondo l'aliquota del mandante.",
+        "description": "Registra una vendita/offerta per un cliente e un mandante. Usare quando l'utente chiede di registrare una vendita, un ordine o un'offerta. Se l'utente dice che la vendita è già conclusa/confermata, imposta accepted a true: in quel caso viene generata automaticamente anche la provvigione, secondo l'aliquota del mandante (che può differire tra vendite nuove e rinnovi).",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -1099,6 +1113,7 @@ CRM_TOOLS = [
                 "unit_prices": {"type": "array", "items": {"type": "number"}, "description": "Prezzo unitario per ciascun prodotto; se omesso viene usato il prezzo di listino del prodotto"},
                 "total_amount": {"type": "number", "description": "Importo totale della vendita, da usare solo se non si conoscono i singoli prodotti/prezzi"},
                 "accepted": {"type": "boolean", "description": "True se la vendita è già confermata/conclusa (genera anche la provvigione), false se è solo un preventivo/bozza"},
+                "sale_type": {"type": "string", "enum": ["nuovo", "rinnovo"], "description": "Tipo di vendita: 'nuovo' per un nuovo cliente/contratto, 'rinnovo' per il rinnovo di uno esistente. Determina quale aliquota di provvigione del mandante viene applicata. Default 'nuovo' se non specificato."},
             },
             "required": ["client_name", "mandante_name"]
         }
@@ -1233,26 +1248,29 @@ async def execute_crm_tool(tool_name: str, tool_input: dict, user_id: str) -> st
             total = calc_offer_total(items)
             accepted = bool(tool_input.get("accepted", False))
             status = "accettata" if accepted else "bozza"
+            sale_type = tool_input.get("sale_type", "nuovo")
+            if sale_type not in ("nuovo", "rinnovo"):
+                sale_type = "nuovo"
 
             offer_doc = {
                 "id": gen_id(), "user_id": user_id,
                 "client_id": cli["id"], "mandante_id": mand["id"],
                 "title": tool_input.get("title") or f"Vendita {cli['company_name']}",
                 "items": items, "total": total,
-                "expires_at": None, "status": status, "notes": "",
+                "expires_at": None, "status": status, "sale_type": sale_type, "notes": "",
                 "created_at": now_iso(),
             }
             await db.offers.insert_one(offer_doc)
 
-            msg = f"✅ Vendita registrata: {cli['company_name']} - {mand['name']} - €{total:.2f}, stato: {status}."
+            msg = f"✅ Vendita registrata: {cli['company_name']} - {mand['name']} - €{total:.2f} ({sale_type}), stato: {status}."
 
             if accepted:
-                rate = mand.get("commission_rate", 5.0)
+                rate = get_commission_rate(mand, sale_type)
                 amount = round(total * rate / 100, 2)
                 comm = {
                     "id": gen_id(), "user_id": user_id, "offer_id": offer_doc["id"],
                     "client_id": cli["id"], "mandante_id": mand["id"],
-                    "amount": amount, "rate": rate, "status": "maturato",
+                    "amount": amount, "rate": rate, "sale_type": sale_type, "status": "maturato",
                     "period": datetime.now(timezone.utc).strftime("%Y-%m"),
                     "created_at": now_iso(),
                 }

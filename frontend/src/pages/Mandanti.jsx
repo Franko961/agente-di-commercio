@@ -6,7 +6,7 @@ import { useMandante } from "../contexts/MandanteContext";
 import { toast } from "sonner";
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
-const EMPTY = { name: "", brand_color: "#0A192F", commission_rate: 5, notes: "", target_monthly: "", target_yearly: "", target_clients: "", target_notes: "", bonus_tiers: [] };
+const EMPTY = { name: "", brand_color: "#0A192F", commission_rate: 5, commission_rate_new: "", commission_rate_renewal: "", notes: "", target_monthly: "", target_yearly: "", target_clients: "", target_notes: "", bonus_tiers: [] };
 
 export default function Mandanti() {
   const { mandanti, refreshMandanti } = useMandante();
@@ -84,6 +84,16 @@ export default function Mandanti() {
               <div className="font-cabinet font-bold text-lg leading-tight">{m.name}</div>
               <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-2">Provvigione standard</div>
               <div className="font-cabinet font-black text-2xl text-[#FF5A00]">{m.commission_rate}%</div>
+              {(m.commission_rate_new != null || m.commission_rate_renewal != null) && (
+                <div className="flex gap-4 mt-1.5">
+                  {m.commission_rate_new != null && (
+                    <div className="text-[11px] text-[#52525B]">Nuovi <span className="font-cabinet font-bold text-[#0A192F]">{m.commission_rate_new}%</span></div>
+                  )}
+                  {m.commission_rate_renewal != null && (
+                    <div className="text-[11px] text-[#52525B]">Rinnovi <span className="font-cabinet font-bold text-[#0A192F]">{m.commission_rate_renewal}%</span></div>
+                  )}
+                </div>
+              )}
 
               {hasTargets && (
                 <div className="mt-3 pt-3 border-t border-[#E4E4E1]">
@@ -140,7 +150,14 @@ function MandanteForm({ initial, onSave, submitLabel = "Salva" }) {
   };
 
   return (
-    <form onSubmit={async (e) => { e.preventDefault(); await onSave(f); }} className="space-y-3">
+    <form onSubmit={async (e) => {
+      e.preventDefault();
+      const clean = { ...f };
+      for (const k of ["commission_rate_new", "commission_rate_renewal", "target_monthly", "target_yearly", "target_clients"]) {
+        if (clean[k] === "") clean[k] = null;
+      }
+      await onSave(clean);
+    }} className="space-y-3">
       <div className="flex border border-[#E4E4E1] rounded-md overflow-hidden mb-1">
         {[["info", "Dati azienda"], ["obiettivi", "Obiettivi"], ["premi", "Scala premi"]].map(([t, label]) => (
           <button key={t} type="button" onClick={() => setTab(t)}
@@ -160,6 +177,16 @@ function MandanteForm({ initial, onSave, submitLabel = "Salva" }) {
                 className="w-full h-10 bg-white border border-[#E4E4E1] rounded-md cursor-pointer" />
             </div>
             <Field label="Aliquota %" v={f.commission_rate} on={(v) => setF({ ...f, commission_rate: parseFloat(v) || 0 })} type="number" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Field label="Aliquota nuovi % (opz.)" v={f.commission_rate_new} on={(v) => setF({ ...f, commission_rate_new: v === "" ? "" : parseFloat(v) || 0 })} type="number" />
+              <div className="text-[11px] text-[#A1A1AA] mt-1">Se vuota, usa l'aliquota standard</div>
+            </div>
+            <div>
+              <Field label="Aliquota rinnovi % (opz.)" v={f.commission_rate_renewal} on={(v) => setF({ ...f, commission_rate_renewal: v === "" ? "" : parseFloat(v) || 0 })} type="number" />
+              <div className="text-[11px] text-[#A1A1AA] mt-1">Se vuota, usa l'aliquota standard</div>
+            </div>
           </div>
           <div>
             <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Note</label>
