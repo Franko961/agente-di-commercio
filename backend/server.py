@@ -1085,6 +1085,24 @@ CRM_TOOLS = [
             "required": ["client_name", "note"]
         }
     },
+    {
+        "name": "add_offer",
+        "description": "Registra una vendita/offerta per un cliente e un mandante. Usare quando l'utente chiede di registrare una vendita, un ordine o un'offerta. Se l'utente dice che la vendita è già conclusa/confermata, imposta accepted a true: in quel caso viene generata automaticamente anche la provvigione, secondo l'aliquota del mandante.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "client_name": {"type": "string", "description": "Nome del cliente (per trovarlo nel CRM)"},
+                "mandante_name": {"type": "string", "description": "Nome del mandante (per trovarlo nel CRM)"},
+                "title": {"type": "string", "description": "Titolo/oggetto della vendita, es: 'Fornitura materiali maggio'"},
+                "product_names": {"type": "array", "items": {"type": "string"}, "description": "Nomi dei prodotti venduti, se noti"},
+                "quantities": {"type": "array", "items": {"type": "number"}, "description": "Quantità per ciascun prodotto, stesso ordine di product_names"},
+                "unit_prices": {"type": "array", "items": {"type": "number"}, "description": "Prezzo unitario per ciascun prodotto; se omesso viene usato il prezzo di listino del prodotto"},
+                "total_amount": {"type": "number", "description": "Importo totale della vendita, da usare solo se non si conoscono i singoli prodotti/prezzi"},
+                "accepted": {"type": "boolean", "description": "True se la vendita è già confermata/conclusa (genera anche la provvigione), false se è solo un preventivo/bozza"},
+            },
+            "required": ["client_name", "mandante_name"]
+        }
+    },
 ]
 
 
@@ -1167,6 +1185,81 @@ async def execute_crm_tool(tool_name: str, tool_input: dict, user_id: str) -> st
             new_notes = f"{existing_notes}\n[{now_iso()[:10]}] {note}".strip()
             await db.clients.update_one({"id": cli["id"]}, {"$set": {"notes": new_notes}})
             return f"✅ Nota aggiunta al cliente '{cli['company_name']}'."
+
+        elif tool_name == "add_offer":
+            client_name = tool_input.get("client_name", "")
+            mandante_name = tool_input.get("mandante_name", "")
+
+            cli = await db.clients.find_one(
+                {"user_id": user_id, "company_name": {"$regex": client_name, "$options": "i"}},
+                {"_id": 0}
+            )
+            if not cli:
+                return f"❌ Cliente '{client_name}' non trovato nel CRM."
+
+            mand = await db.mandanti.find_one(
+                {"user_id": user_id, "name": {"$regex": mandante_name, "$options": "i"}},
+                {"_id": 0}
+            )
+            if not mand:
+                return f"❌ Mandante '{mandante_name}' non trovato nel CRM."
+
+            product_names = tool_input.get("product_names") or []
+            quantities = tool_input.get("quantities") or []
+            unit_prices = tool_input.get("unit_prices") or []
+
+            items = []
+            if product_names:
+                for i, pname in enumerate(product_names):
+                    prod = await db.products.find_one(
+                        {"user_id": user_id, "mandante_id": mand["id"], "name": {"$regex": pname, "$options": "i"}},
+                        {"_id": 0}
+                    )
+                    qty = quantities[i] if i < len(quantities) else 1
+                    price = unit_prices[i] if i < len(unit_prices) else (prod.get("price", 0) if prod else 0)
+                    items.append({
+                        "product_id": prod["id"] if prod else None,
+                        "description": prod["name"] if prod else pname,
+                        "quantity": qty, "unit_price": price, "discount": 0,
+                    })
+            else:
+                total_amount = tool_input.get("total_amount", 0)
+                items.append({
+                    "product_id": None,
+                    "description": tool_input.get("title", "Vendita"),
+                    "quantity": 1, "unit_price": total_amount, "discount": 0,
+                })
+
+            total = calc_offer_total(items)
+            accepted = bool(tool_input.get("accepted", False))
+            status = "accettata" if accepted else "bozza"
+
+            offer_doc = {
+                "id": gen_id(), "user_id": user_id,
+                "client_id": cli["id"], "mandante_id": mand["id"],
+                "title": tool_input.get("title") or f"Vendita {cli['company_name']}",
+                "items": items, "total": total,
+                "expires_at": None, "status": status, "notes": "",
+                "created_at": now_iso(),
+            }
+            await db.offers.insert_one(offer_doc)
+
+            msg = f"✅ Vendita registrata: {cli['company_name']} - {mand['name']} - €{total:.2f}, stato: {status}."
+
+            if accepted:
+                rate = mand.get("commission_rate", 5.0)
+                amount = round(total * rate / 100, 2)
+                comm = {
+                    "id": gen_id(), "user_id": user_id, "offer_id": offer_doc["id"],
+                    "client_id": cli["id"], "mandante_id": mand["id"],
+                    "amount": amount, "rate": rate, "status": "maturato",
+                    "period": datetime.now(timezone.utc).strftime("%Y-%m"),
+                    "created_at": now_iso(),
+                }
+                await db.commissions.insert_one(comm)
+                msg += f" Provvigione generata: €{amount:.2f} ({rate}%)."
+
+            return msg
 
         return f"❌ Tool '{tool_name}' non riconosciuto."
     except Exception as e:
