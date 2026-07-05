@@ -22,7 +22,7 @@ export default function SignaturePad({ offer, client, mandante, onSign, onClose 
     doc.setTextColor(255, 90, 0);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(20);
-    doc.text("AGENTE.", 14, 15);
+    doc.text("SALESFLY.", 14, 15);
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
@@ -105,7 +105,7 @@ export default function SignaturePad({ offer, client, mandante, onSign, onClose 
     // Footer
     doc.setFontSize(7);
     doc.setTextColor(161, 161, 170);
-    doc.text("Generato da AGENTE — Gestionale per agenti di commercio", w / 2, 290, { align: "center" });
+    doc.text("Generato da SALESFLY — Gestionale per agenti di commercio", w / 2, 290, { align: "center" });
 
     doc.save(`offerta-${offer.title.replace(/[^a-z0-9]/gi, "-").toLowerCase()}.pdf`);
   };

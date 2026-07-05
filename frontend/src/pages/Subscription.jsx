@@ -87,7 +87,7 @@ export default function Subscription() {
 
         {isTrial && (
           <div className="bg-[#FF5A0010] border border-[#FF5A0030] rounded-md p-4 text-[13px] text-[#FF5A00]">
-            La tua prova gratuita scade tra <strong>{trialDaysLeft} giorni</strong>. Attiva un abbonamento per continuare ad usare AGENTE.
+            La tua prova gratuita scade tra <strong>{trialDaysLeft} giorni</strong>. Attiva un abbonamento per continuare ad usare SALESFLY.
           </div>
         )}
 

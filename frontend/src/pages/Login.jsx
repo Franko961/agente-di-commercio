@@ -75,7 +75,7 @@ export default function Login() {
   return (
     <div className="min-h-screen grid lg:grid-cols-[1fr_1.2fr] bg-[#F9F9F8]">
       <Helmet>
-        <title>Accedi — AGENTE</title>
+        <title>Accedi — SALESFLY</title>
         <meta name="robots" content="noindex, nofollow" />
       </Helmet>
       {/* Left: form */}
@@ -83,10 +83,10 @@ export default function Login() {
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-[#0A192F] flex items-center justify-center rounded-sm">
-              <span className="text-[#FF5A00] font-cabinet font-black text-base">A</span>
+              <span className="text-[#FF5A00] font-cabinet font-black text-base">S</span>
             </div>
             <div>
-              <div className="font-cabinet font-black text-[16px] leading-none">AGENTE.</div>
+              <div className="font-cabinet font-black text-[16px] leading-none">SALESFLY.</div>
               <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-0.5">gestionale per agenti di commercio</div>
             </div>
           </div>
@@ -185,7 +185,7 @@ export default function Login() {
         </div>
 
         <footer className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">
-          © 2026 AGENTE — Made in Italia
+          © 2026 SALESFLY — Made in Italia
         </footer>
       </div>
 

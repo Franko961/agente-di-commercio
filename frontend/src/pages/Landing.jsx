@@ -22,14 +22,14 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-[#F9F9F8]">
       <Helmet>
-        <title>AGENTE — Il CRM per Agenti di Commercio Plurimandatari</title>
+        <title>SALESFLY — Il CRM per Agenti di Commercio Plurimandatari</title>
         <meta
           name="description"
-          content="AGENTE è il gestionale pensato per agenti di commercio plurimandatari: clienti, agenda, provvigioni, offerte e assistente AI in un'unica piattaforma. Prova gratis 14 giorni."
+          content="SALESFLY è il gestionale pensato per agenti di commercio plurimandatari: clienti, agenda, provvigioni, offerte e assistente AI in un'unica piattaforma. Prova gratis 14 giorni."
         />
         <link rel="canonical" href="https://salesfly.it/" />
         <meta property="og:type" content="website" />
-        <meta property="og:title" content="AGENTE — Il CRM per Agenti di Commercio Plurimandatari" />
+        <meta property="og:title" content="SALESFLY — Il CRM per Agenti di Commercio Plurimandatari" />
         <meta
           property="og:description"
           content="Clienti, agenda, provvigioni, offerte e assistente AI in un'unica piattaforma pensata per chi vive di visite e provvigioni."
@@ -37,7 +37,7 @@ export default function Landing() {
         <meta property="og:url" content="https://salesfly.it/" />
         <meta property="og:locale" content="it_IT" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="AGENTE — Il CRM per Agenti di Commercio Plurimandatari" />
+        <meta name="twitter:title" content="SALESFLY — Il CRM per Agenti di Commercio Plurimandatari" />
         <meta
           name="twitter:description"
           content="Clienti, agenda, provvigioni, offerte e assistente AI in un'unica piattaforma pensata per chi vive di visite e provvigioni."
@@ -46,7 +46,7 @@ export default function Landing() {
           {JSON.stringify({
             "@context": "https://schema.org",
             "@type": "SoftwareApplication",
-            name: "AGENTE",
+            name: "SALESFLY",
             applicationCategory: "BusinessApplication",
             operatingSystem: "Web",
             description:
@@ -64,9 +64,9 @@ export default function Landing() {
       <header className="border-b border-[#E4E4E1] bg-white px-6 py-4 flex items-center justify-between sticky top-0 z-30">
         <Link to="/" className="flex items-center gap-2">
           <div className="w-8 h-8 bg-[#0A192F] rounded-md flex items-center justify-center">
-            <span className="text-white font-cabinet font-black text-sm">A</span>
+            <span className="text-white font-cabinet font-black text-sm">S</span>
           </div>
-          <span className="font-cabinet font-black text-lg">AGENTE.</span>
+          <span className="font-cabinet font-black text-lg">SALESFLY.</span>
         </Link>
         <nav className="hidden md:flex items-center gap-6 text-[13px] text-[#52525B]">
           <a href="#funzionalita" className="hover:text-[#0A192F]">Funzionalità</a>
@@ -95,7 +95,7 @@ export default function Landing() {
             Gestisci clienti, agenda e provvigioni. Tutto in un posto solo.
           </h1>
           <p className="text-[16px] md:text-[18px] text-[#52525B] max-w-2xl mx-auto mb-10">
-            AGENTE è il gestionale pensato per chi vive di visite, mandanti e provvigioni.
+            SALESFLY è il gestionale pensato per chi vive di visite, mandanti e provvigioni.
             Clienti, pipeline lead, agenda, offerte e calcolo provvigioni automatico, con
             un assistente AI che aggiorna il CRM per te.
           </p>
@@ -170,7 +170,7 @@ export default function Landing() {
               Pronto a semplificarti il lavoro?
             </h2>
             <p className="text-white/60 text-[15px] mb-8 max-w-xl mx-auto">
-              Prova AGENTE gratis per 14 giorni. Nessuna carta di credito, nessun vincolo.
+              Prova SALESFLY gratis per 14 giorni. Nessuna carta di credito, nessun vincolo.
             </p>
             <button
               onClick={() => navigate("/login?register")}
@@ -190,15 +190,15 @@ export default function Landing() {
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 bg-[#0A192F] rounded-md flex items-center justify-center">
-              <span className="text-white font-cabinet font-black text-[11px]">A</span>
+              <span className="text-white font-cabinet font-black text-[11px]">S</span>
             </div>
-            <span className="font-cabinet font-black text-[14px]">AGENTE.</span>
+            <span className="font-cabinet font-black text-[14px]">SALESFLY.</span>
           </div>
           <nav className="flex items-center gap-6 text-[12px] text-[#52525B]">
             <Link to="/prezzi" className="hover:text-[#0A192F]">Prezzi</Link>
             <Link to="/login" className="hover:text-[#0A192F]">Accedi</Link>
           </nav>
-          <div className="text-[12px] text-[#A1A1AA]">© 2026 AGENTE. · Gestionale per agenti di commercio</div>
+          <div className="text-[12px] text-[#A1A1AA]">© 2026 SALESFLY. · Gestionale per agenti di commercio</div>
         </div>
       </footer>
     </div>

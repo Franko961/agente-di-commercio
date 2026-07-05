@@ -43,7 +43,7 @@ JWT_ALG = 'HS256'
 # Resend email
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 ADMIN_NOTIFY_EMAIL = os.environ.get("ADMIN_NOTIFY_EMAIL", "franco.bruni.art@gmail.com")
-APP_FROM_EMAIL = os.environ.get("APP_FROM_EMAIL", "AGENTE <noreply@salesfly.it>")
+APP_FROM_EMAIL = os.environ.get("APP_FROM_EMAIL", "SALESFLY <noreply@salesfly.it>")
 
 # Object Storage (AWS S3)
 import boto3
@@ -382,16 +382,16 @@ async def register(payload: RegisterIn, response: Response):
     try:
       await send_email(
         to=email,
-        subject="Benvenuto su AGENTE — il tuo gestionale è pronto!",
+        subject="Benvenuto su SALESFLY — il tuo gestionale è pronto!",
         html=f"""
         <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#F9F9F8;">
           <div style="background:#0A192F;padding:20px 24px;border-radius:8px;margin-bottom:24px;">
-            <span style="color:#FF5A00;font-weight:900;font-size:22px;letter-spacing:2px;">AGENTE.</span>
+            <span style="color:#FF5A00;font-weight:900;font-size:22px;letter-spacing:2px;">SALESFLY.</span>
           </div>
           <h2 style="color:#0A192F;margin:0 0 12px;">Benvenuto, {doc.get('name', '')}!</h2>
           <p style="color:#52525B;font-size:15px;line-height:1.6;">
             Il tuo account è stato creato con successo. Hai <strong>14 giorni di prova gratuita</strong> 
-            per esplorare tutte le funzionalità di AGENTE.
+            per esplorare tutte le funzionalità di SALESFLY.
           </p>
           <div style="background:#fff;border:1px solid #E4E4E1;border-radius:8px;padding:20px;margin:24px 0;">
             <div style="font-size:12px;color:#A1A1AA;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Piano attivo</div>
@@ -403,7 +403,7 @@ async def register(payload: RegisterIn, response: Response):
             Accedi al gestionale →
           </a>
           <p style="color:#A1A1AA;font-size:12px;margin-top:32px;">
-            AGENTE — Gestionale per agenti di commercio<br>
+            SALESFLY — Gestionale per agenti di commercio<br>
             Se non hai creato questo account, ignora questa email.
           </p>
         </div>
