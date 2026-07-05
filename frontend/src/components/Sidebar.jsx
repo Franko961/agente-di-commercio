@@ -7,18 +7,18 @@ import { useAuth } from "../contexts/AuthContext";
 import { useMandante } from "../contexts/MandanteContext";
 
 const navItems = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/clienti", label: "Clienti", icon: Users },
-  { to: "/lead", label: "Lead & Pipeline", icon: KanbanSquare },
-  { to: "/agenda", label: "Agenda", icon: CalendarDays },
-  { to: "/mappa", label: "Mappa", icon: Map },
-  { to: "/offerte", label: "Offerte", icon: FileText },
-  { to: "/provvigioni", label: "Provvigioni", icon: Coins },
-  { to: "/mandanti", label: "Mandanti", icon: Building2 },
-  { to: "/prodotti", label: "Prodotti & Listini", icon: Package },
-  { to: "/documenti", label: "Documenti", icon: Folder },
-  { to: "/automazioni", label: "Automazioni", icon: Zap },
-  { to: "/ai", label: "Assistente AI", icon: Sparkles },
+  { to: "/app", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/app/clienti", label: "Clienti", icon: Users },
+  { to: "/app/lead", label: "Lead & Pipeline", icon: KanbanSquare },
+  { to: "/app/agenda", label: "Agenda", icon: CalendarDays },
+  { to: "/app/mappa", label: "Mappa", icon: Map },
+  { to: "/app/offerte", label: "Offerte", icon: FileText },
+  { to: "/app/provvigioni", label: "Provvigioni", icon: Coins },
+  { to: "/app/mandanti", label: "Mandanti", icon: Building2 },
+  { to: "/app/prodotti", label: "Prodotti & Listini", icon: Package },
+  { to: "/app/documenti", label: "Documenti", icon: Folder },
+  { to: "/app/automazioni", label: "Automazioni", icon: Zap },
+  { to: "/app/ai", label: "Assistente AI", icon: Sparkles },
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {
@@ -74,7 +74,7 @@ export default function Sidebar({ collapsed, onToggle }) {
           <NavLink
             key={to}
             to={to}
-            end={to === "/"}
+            end={to === "/app"}
             data-testid={`nav-${to.replace("/", "") || "dashboard"}`}
             className={({ isActive }) =>
               `flex items-center gap-3 px-6 py-2.5 text-[13px] transition-all duration-150 border-l-2 ${
@@ -102,13 +102,13 @@ export default function Sidebar({ collapsed, onToggle }) {
           </div>
         </div>
         {isAdmin && (
-          <NavLink to="/admin"
+          <NavLink to="/app/admin"
             className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-[#FF5A00] text-white rounded-md text-[12px] font-medium mb-2"
           >
             <ShieldCheck className="w-3.5 h-3.5" /> Admin
           </NavLink>
         )}
-        <Link to="/abbonamento" className="mx-1 mb-2 flex items-center justify-between px-3 py-2 bg-[#F3F3F1] hover:bg-[#E4E4E1] rounded-md transition-colors">
+        <Link to="/app/abbonamento" className="mx-1 mb-2 flex items-center justify-between px-3 py-2 bg-[#F3F3F1] hover:bg-[#E4E4E1] rounded-md transition-colors">
           <span className="font-mono text-[10px] uppercase tracking-widest text-[#52525B]">Abbonamento</span>
           <span className="font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded"
             style={{ background: user?.plan === "pro" ? "#FF5A0020" : "#0A192F15", color: user?.plan === "pro" ? "#FF5A00" : "#0A192F" }}>

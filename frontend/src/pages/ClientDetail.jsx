@@ -32,7 +32,7 @@ export default function ClientDetail() {
     if (!window.confirm("Eliminare il cliente?")) return;
     await api.delete(`/clients/${id}`);
     toast.success("Cliente eliminato");
-    navigate("/clienti");
+    navigate("/app/clienti");
   };
 
   if (!data) return <div className="p-8 font-mono text-sm text-[#A1A1AA]">caricamento…</div>;
@@ -40,7 +40,7 @@ export default function ClientDetail() {
 
   return (
     <div className="p-4 md:p-8 space-y-6">
-      <Link to="/clienti" className="inline-flex items-center gap-2 text-[12px] font-mono uppercase tracking-widest text-[#52525B]">
+      <Link to="/app/clienti" className="inline-flex items-center gap-2 text-[12px] font-mono uppercase tracking-widest text-[#52525B]">
         <ArrowLeft className="w-3.5 h-3.5" /> Torna ai clienti
       </Link>
 

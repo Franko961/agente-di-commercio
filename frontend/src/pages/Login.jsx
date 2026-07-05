@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Navigate, useSearchParams, Link } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import { Eye, EyeOff } from "lucide-react";
@@ -26,7 +27,7 @@ export default function Login() {
     }
   }, []);
 
-  if (user) return <Navigate to="/" replace />;
+  if (user) return <Navigate to="/app" replace />;
 
   const switchMode = (next) => {
     setMode(next);
@@ -61,7 +62,7 @@ export default function Login() {
       if (mode === "login") await login(email, password);
       else await register(name.trim(), email.trim().toLowerCase(), password, plan);
       toast.success(mode === "login" ? "Accesso effettuato" : "Account creato — benvenuto!");
-      navigate("/");
+      navigate("/app");
     } catch (err) {
       const msg = formatError(err);
       setError(msg);
@@ -73,6 +74,10 @@ export default function Login() {
 
   return (
     <div className="min-h-screen grid lg:grid-cols-[1fr_1.2fr] bg-[#F9F9F8]">
+      <Helmet>
+        <title>Accedi — AGENTE</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
       {/* Left: form */}
       <div className="flex flex-col justify-between p-6 sm:p-10 lg:p-14">
         <header className="flex items-center justify-between">

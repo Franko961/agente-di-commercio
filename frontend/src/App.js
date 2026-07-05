@@ -5,6 +5,7 @@ import { MandanteProvider } from "./contexts/MandanteContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import Layout from "./components/Layout";
+import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
@@ -33,24 +34,25 @@ function App() {
         <AuthProvider>
           <MandanteProvider>
             <Routes>
+              <Route path="/" element={<Landing />} />
               <Route path="/login" element={<Login />} />
               <Route path="/prezzi" element={<Pricing />} />
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/clienti" element={<Clients />} />
-                <Route path="/clienti/:id" element={<ClientDetail />} />
-                <Route path="/lead" element={<Leads />} />
-                <Route path="/agenda" element={<Agenda />} />
-                <Route path="/mappa" element={<MapView />} />
-                <Route path="/offerte" element={<Offers />} />
-                <Route path="/provvigioni" element={<Commissions />} />
-                <Route path="/mandanti" element={<Mandanti />} />
-                <Route path="/prodotti" element={<Products />} />
-                <Route path="/documenti" element={<Documents />} />
-                <Route path="/automazioni" element={<Automations />} />
-                <Route path="/ai" element={<AIAssistant />} />
-                <Route path="/abbonamento" element={<Subscription />} />
-                <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+                <Route path="/app" element={<Dashboard />} />
+                <Route path="/app/clienti" element={<Clients />} />
+                <Route path="/app/clienti/:id" element={<ClientDetail />} />
+                <Route path="/app/lead" element={<Leads />} />
+                <Route path="/app/agenda" element={<Agenda />} />
+                <Route path="/app/mappa" element={<MapView />} />
+                <Route path="/app/offerte" element={<Offers />} />
+                <Route path="/app/provvigioni" element={<Commissions />} />
+                <Route path="/app/mandanti" element={<Mandanti />} />
+                <Route path="/app/prodotti" element={<Products />} />
+                <Route path="/app/documenti" element={<Documents />} />
+                <Route path="/app/automazioni" element={<Automations />} />
+                <Route path="/app/ai" element={<AIAssistant />} />
+                <Route path="/app/abbonamento" element={<Subscription />} />
+                <Route path="/app/admin" element={<AdminRoute><Admin /></AdminRoute>} />
               </Route>
             </Routes>
           </MandanteProvider>

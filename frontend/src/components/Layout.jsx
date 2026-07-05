@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Outlet, useLocation, NavLink, useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
 import { Sheet, SheetContent } from "./ui/sheet";
@@ -11,19 +12,19 @@ import {
 } from "lucide-react";
 
 const fullNav = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/clienti", label: "Clienti", icon: Users },
-  { to: "/lead", label: "Lead & Pipeline", icon: KanbanSquare },
-  { to: "/agenda", label: "Agenda", icon: CalendarDays },
-  { to: "/mappa", label: "Mappa", icon: Map },
-  { to: "/offerte", label: "Offerte", icon: FileText },
-  { to: "/provvigioni", label: "Provvigioni", icon: Coins },
-  { to: "/mandanti", label: "Mandanti", icon: Building2 },
-  { to: "/prodotti", label: "Prodotti & Listini", icon: Package },
-  { to: "/documenti", label: "Documenti", icon: Folder },
-  { to: "/automazioni", label: "Automazioni", icon: Zap },
-  { to: "/ai", label: "Assistente AI", icon: Sparkles },
-  { to: "/abbonamento", label: "Abbonamento", icon: CreditCard },
+  { to: "/app", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/app/clienti", label: "Clienti", icon: Users },
+  { to: "/app/lead", label: "Lead & Pipeline", icon: KanbanSquare },
+  { to: "/app/agenda", label: "Agenda", icon: CalendarDays },
+  { to: "/app/mappa", label: "Mappa", icon: Map },
+  { to: "/app/offerte", label: "Offerte", icon: FileText },
+  { to: "/app/provvigioni", label: "Provvigioni", icon: Coins },
+  { to: "/app/mandanti", label: "Mandanti", icon: Building2 },
+  { to: "/app/prodotti", label: "Prodotti & Listini", icon: Package },
+  { to: "/app/documenti", label: "Documenti", icon: Folder },
+  { to: "/app/automazioni", label: "Automazioni", icon: Zap },
+  { to: "/app/ai", label: "Assistente AI", icon: Sparkles },
+  { to: "/app/abbonamento", label: "Abbonamento", icon: CreditCard },
 ];
 
 export default function Layout() {
@@ -36,16 +37,20 @@ export default function Layout() {
   const active = mandanti.find(m => m.id === activeMandante);
 
   const titles = {
-    "/": "Dashboard", "/clienti": "Clienti", "/lead": "Pipeline Lead",
-    "/agenda": "Agenda", "/mappa": "Mappa Clienti", "/offerte": "Offerte",
-    "/provvigioni": "Provvigioni", "/mandanti": "Mandanti",
-    "/prodotti": "Prodotti & Listini", "/documenti": "Documenti",
-    "/automazioni": "Automazioni", "/ai": "Assistente AI",
+    "/app": "Dashboard", "/app/clienti": "Clienti", "/app/lead": "Pipeline Lead",
+    "/app/agenda": "Agenda", "/app/mappa": "Mappa Clienti", "/app/offerte": "Offerte",
+    "/app/provvigioni": "Provvigioni", "/app/mandanti": "Mandanti",
+    "/app/prodotti": "Prodotti & Listini", "/app/documenti": "Documenti",
+    "/app/automazioni": "Automazioni", "/app/ai": "Assistente AI",
   };
-  const baseTitle = Object.entries(titles).find(([k]) => location.pathname === k || (k !== "/" && location.pathname.startsWith(k)))?.[1] || "";
+  const baseTitle = Object.entries(titles).find(([k]) => location.pathname === k || (k !== "/app" && location.pathname.startsWith(k)))?.[1] || "";
 
   return (
     <div className="flex min-h-screen bg-[#F9F9F8]">
+      <Helmet>
+        {/* Le pagine dell'app sono private: non devono essere indicizzate da Google */}
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
       <Sidebar />
       <main className="flex-1 min-w-0 pb-20 md:pb-0">
         {/* Mobile top header */}
@@ -86,7 +91,7 @@ export default function Layout() {
                   <NavLink
                     key={to}
                     to={to}
-                    end={to === "/"}
+                    end={to === "/app"}
                     onClick={() => setDrawerOpen(false)}
                     data-testid={`drawer-nav-${to.replace("/", "") || "dashboard"}`}
                     className={({ isActive }) =>
@@ -103,7 +108,7 @@ export default function Layout() {
                 ))}
               </nav>
               {isAdmin && (
-                <NavLink to="/admin" className="mx-4 mb-1 flex items-center gap-2 px-3 py-2.5 bg-[#FF5A00] text-white rounded-md text-sm font-medium">
+                <NavLink to="/app/admin" className="mx-4 mb-1 flex items-center gap-2 px-3 py-2.5 bg-[#FF5A00] text-white rounded-md text-sm font-medium">
                   <ShieldCheck className="w-4 h-4" /> Admin
                 </NavLink>
               )}

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { Check, Zap, Star } from "lucide-react";
 
 const FEATURES_BASE = [
@@ -32,17 +33,25 @@ export default function Pricing() {
 
   return (
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
+      <Helmet>
+        <title>Prezzi — AGENTE, il CRM per Agenti di Commercio</title>
+        <meta
+          name="description"
+          content="Piani Base (€6/mese) e Pro (€11/mese) per il CRM AGENTE. 14 giorni di prova gratuita, nessuna carta di credito richiesta."
+        />
+        <link rel="canonical" href="https://salesfly.it/prezzi" />
+      </Helmet>
       {/* Header */}
       <header className="border-b border-[#E4E4E1] bg-white px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2">
           <div className="w-8 h-8 bg-[#0A192F] rounded-md flex items-center justify-center">
             <span className="text-white font-cabinet font-black text-sm">A</span>
           </div>
           <span className="font-cabinet font-black text-lg">AGENTE.</span>
-        </div>
+        </Link>
         <div className="flex items-center gap-3">
           <button onClick={() => navigate("/login")} className="text-[13px] text-[#52525B] hover:text-[#0A192F]">Accedi</button>
-          <button onClick={() => navigate("/register")} className="px-4 py-2 bg-[#0A192F] text-white rounded-md text-[13px] font-medium">Inizia gratis</button>
+          <button onClick={() => navigate("/login?register")} className="px-4 py-2 bg-[#0A192F] text-white rounded-md text-[13px] font-medium">Inizia gratis</button>
         </div>
       </header>
 

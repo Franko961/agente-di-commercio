@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /app
+Disallow: /login
+Disallow: /admin
+
+Sitemap: https://salesfly.it/sitemap.xml

@@ -2,10 +2,10 @@ import { NavLink } from "react-router-dom";
 import { LayoutDashboard, Users, CalendarDays, FileText, Menu } from "lucide-react";
 
 const items = [
-  { to: "/", label: "Home", icon: LayoutDashboard },
-  { to: "/clienti", label: "Clienti", icon: Users },
-  { to: "/agenda", label: "Agenda", icon: CalendarDays },
-  { to: "/offerte", label: "Offerte", icon: FileText },
+  { to: "/app", label: "Home", icon: LayoutDashboard },
+  { to: "/app/clienti", label: "Clienti", icon: Users },
+  { to: "/app/agenda", label: "Agenda", icon: CalendarDays },
+  { to: "/app/offerte", label: "Offerte", icon: FileText },
 ];
 
 export default function MobileNav({ onMenu }) {
@@ -18,7 +18,7 @@ export default function MobileNav({ onMenu }) {
         <NavLink
           key={to}
           to={to}
-          end={to === "/"}
+          end={to === "/app"}
           data-testid={`mobile-nav-${to.replace("/", "") || "home"}`}
           className={({ isActive }) =>
             `flex flex-col items-center justify-center gap-1 py-2.5 transition-colors duration-150 ${

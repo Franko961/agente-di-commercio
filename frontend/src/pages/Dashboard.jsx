@@ -45,7 +45,7 @@ export default function Dashboard() {
           <h1 className="font-cabinet font-black text-4xl tracking-tight">Buongiorno, agente.</h1>
           <p className="text-[14px] text-[#52525B] mt-2">Una panoramica viva del tuo portafoglio commerciale.</p>
         </div>
-        <Link to="/ai" data-testid="dashboard-ai-cta" className="hidden md:flex items-center gap-2 px-4 py-2.5 bg-[#0A192F] hover:bg-[#172A45] text-white rounded-md text-[13px] font-medium transition-all">
+        <Link to="/app/ai" data-testid="dashboard-ai-cta" className="hidden md:flex items-center gap-2 px-4 py-2.5 bg-[#0A192F] hover:bg-[#172A45] text-white rounded-md text-[13px] font-medium transition-all">
           Apri assistente AI <ArrowUpRight className="w-4 h-4 text-[#FF5A00]" />
         </Link>
       </div>
@@ -151,7 +151,7 @@ export default function Dashboard() {
               <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">Prossimi 7 giorni</div>
               <div className="font-cabinet font-bold text-lg mt-1">Visite in agenda</div>
             </div>
-            <Link to="/agenda" className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00]">Vedi tutto</Link>
+            <Link to="/app/agenda" className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00]">Vedi tutto</Link>
           </div>
           <div className="space-y-2">
             {upcoming_appointments.length === 0 && <div className="text-[13px] text-[#A1A1AA] py-6 text-center">Nessuna visita pianificata.</div>}
