@@ -688,7 +688,8 @@ async def update_offer_status(oid: str, payload: dict = Body(...), user=Depends(
         comm = {
             "id": gen_id(), "user_id": user["id"], "offer_id": oid,
             "client_id": offer["client_id"], "mandante_id": offer["mandante_id"],
-            "amount": round(amount, 2), "rate": rate, "sale_type": sale_type, "status": "maturato",
+            "amount": round(amount, 2), "rate": rate, "base_amount": offer.get("total", 0),
+            "sale_type": sale_type, "status": "maturato",
             "period": datetime.now(timezone.utc).strftime("%Y-%m"),
             "created_at": now_iso(),
         }
@@ -719,10 +720,17 @@ async def bonus_summary(user=Depends(get_current_user)):
         tiers = m.get("bonus_tiers", [])
         if not tiers:
             continue
-        # Somma fatturato (base_amount) o amount delle provvigioni di questo mandante
+        # Somma fatturato: usa base_amount se salvato (accurato), altrimenti
+        # ricalcola dall'aliquota storica della singola commissione (non quella
+        # attuale del mandante, che potrebbe essere cambiata nel frattempo)
+        def _base_amount(c: dict) -> float:
+            if c.get("base_amount") is not None:
+                return c["base_amount"]
+            rate = c.get("rate") or m.get("commission_rate", 5)
+            return c.get("amount", 0) / (rate / 100) if rate else 0.0
+
         fatturato = sum(
-            c.get("base_amount", c.get("amount", 0) / (m.get("commission_rate", 5) / 100))
-            for c in commissions if c.get("mandante_id") == m["id"]
+            _base_amount(c) for c in commissions if c.get("mandante_id") == m["id"]
         )
         # Ordina tiers per soglia crescente
         sorted_tiers = sorted(tiers, key=lambda t: t["threshold"])
@@ -1270,7 +1278,8 @@ async def execute_crm_tool(tool_name: str, tool_input: dict, user_id: str) -> st
                 comm = {
                     "id": gen_id(), "user_id": user_id, "offer_id": offer_doc["id"],
                     "client_id": cli["id"], "mandante_id": mand["id"],
-                    "amount": amount, "rate": rate, "sale_type": sale_type, "status": "maturato",
+                    "amount": amount, "rate": rate, "base_amount": total,
+                    "sale_type": sale_type, "status": "maturato",
                     "period": datetime.now(timezone.utc).strftime("%Y-%m"),
                     "created_at": now_iso(),
                 }
