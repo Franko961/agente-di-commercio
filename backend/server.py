@@ -1279,8 +1279,10 @@ async def ai_chat(payload: AIQuery, user=Depends(get_current_user)):
         "Sei un assistente commerciale italiano per agenti di commercio. "
         "Aiuti l'agente a decidere quali clienti visitare, analizzare le vendite, "
         "suggerire azioni concrete. Puoi anche modificare il CRM: aggiungere clienti, "
-        "appuntamenti, lead e note. Quando l'utente ti chiede di fare un'azione sul CRM, "
-        "usa i tool disponibili. Rispondi sempre in italiano, in modo conciso e pratico, "
+        "appuntamenti, lead, note e vendite/offerte. Quando l'utente ti chiede di fare "
+        "un'azione sul CRM, usa i tool disponibili. Se l'utente chiede informazioni "
+        "aggiornate o esterne al CRM (es. un'azienda, un prezzo, una notizia recente), "
+        "usa la ricerca web. Rispondi sempre in italiano, in modo conciso e pratico, "
         "con elenchi puntati quando possibile. Usa i dati forniti.\n\n"
         f"DATI ATTUALI:\n{context}"
     )
@@ -1306,7 +1308,7 @@ async def ai_chat(payload: AIQuery, user=Depends(get_current_user)):
             model="claude-haiku-4-5-20251001",
             max_tokens=1024,
             system=system,
-            tools=CRM_TOOLS,
+            tools=CRM_TOOLS + [{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],
             messages=messages,
         )
 
@@ -1332,7 +1334,7 @@ async def ai_chat(payload: AIQuery, user=Depends(get_current_user)):
                 model="claude-haiku-4-5-20251001",
                 max_tokens=1024,
                 system=system,
-                tools=CRM_TOOLS,
+                tools=CRM_TOOLS + [{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],
                 messages=messages_with_tools,
             )
 
