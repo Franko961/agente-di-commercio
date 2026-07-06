@@ -44,8 +44,8 @@ export default function Pricing() {
       {/* Header */}
       <header className="border-b border-[#E4E4E1] bg-white px-6 py-4 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-[#0A192F] rounded-md flex items-center justify-center">
-            <span className="text-white font-cabinet font-black text-sm">S</span>
+          <div className="w-9 h-9 flex items-center justify-center shrink-0">
+            <img src="/logo-mark.png" alt="SALESFLY" className="w-full h-full object-contain" />
           </div>
           <span className="font-cabinet font-black text-lg">SALESFLY.</span>
         </Link>

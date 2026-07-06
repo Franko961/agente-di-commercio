@@ -38,8 +38,8 @@ export default function Sidebar({ collapsed, onToggle }) {
       {/* Brand */}
       <div className="px-6 py-5 border-b border-[#E4E4E1]">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-[#0A192F] flex items-center justify-center rounded-sm">
-            <span className="text-[#FF5A00] font-cabinet font-black text-sm">S</span>
+          <div className="w-9 h-9 flex items-center justify-center shrink-0">
+            <img src="/logo-mark.png" alt="SALESFLY" className="w-full h-full object-contain" />
           </div>
           <div>
             <div className="font-cabinet font-black text-[15px] leading-none">SALESFLY.</div>

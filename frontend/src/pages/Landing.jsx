@@ -63,8 +63,8 @@ export default function Landing() {
       {/* Header */}
       <header className="border-b border-[#E4E4E1] bg-white px-6 py-4 flex items-center justify-between sticky top-0 z-30">
         <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-[#0A192F] rounded-md flex items-center justify-center">
-            <span className="text-white font-cabinet font-black text-sm">S</span>
+          <div className="w-9 h-9 flex items-center justify-center shrink-0">
+            <img src="/logo-mark.png" alt="SALESFLY" className="w-full h-full object-contain" />
           </div>
           <span className="font-cabinet font-black text-lg">SALESFLY.</span>
         </Link>
@@ -189,8 +189,8 @@ export default function Landing() {
       <footer className="border-t border-[#E4E4E1] py-10 px-6">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-[#0A192F] rounded-md flex items-center justify-center">
-              <span className="text-white font-cabinet font-black text-[11px]">S</span>
+            <div className="w-7 h-7 flex items-center justify-center shrink-0">
+              <img src="/logo-mark.png" alt="SALESFLY" className="w-full h-full object-contain" />
             </div>
             <span className="font-cabinet font-black text-[14px]">SALESFLY.</span>
           </div>
