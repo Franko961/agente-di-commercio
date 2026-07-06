@@ -226,8 +226,9 @@ const provvigioniCliente = data.commissions.reduce((s, cm) => s + (cm.amount || 
   </div>
 )}
 
-      <DocumentPreview document={previewDoc} open={!!previewDoc} onClose={() => setPreviewDoc(null)} />
+<DocumentPreview document={previewDoc} open={!!previewDoc} onClose={() => setPreviewDoc(null)} />
     </div>
+  </div>
   );
 }
 
