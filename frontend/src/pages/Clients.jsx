@@ -232,7 +232,7 @@ export default function Clients() {
             {clients.map((c) => (
               <tr key={c.id} className="border-b border-[#E4E4E1] hover:bg-[#F9F9F8] transition-colors">
                 <td className="px-4 py-3">
-                  <Link to={`/clienti/${c.id}`} data-testid={`client-row-${c.id}`} className="font-semibold text-[13px] hover:text-[#FF5A00]">{c.company_name}</Link>
+                  <Link to={`/app/clienti/${c.id}`} data-testid={`client-row-${c.id}`} className="font-semibold text-[13px] hover:text-[#FF5A00]">{c.company_name}</Link>
                   {c.email && <div className="text-[11px] text-[#A1A1AA]">{c.email}</div>}
                 </td>
                 <td className="px-4 py-3 text-[13px]">{c.contact_name || "—"}</td>
@@ -244,7 +244,7 @@ export default function Clients() {
                     <button onClick={() => setEditTarget(c)} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica">
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <Link to={`/clienti/${c.id}`} className="text-[#FF5A00] text-[12px] font-mono uppercase tracking-widest">apri</Link>
+                    <Link to={`/app/clienti/${c.id}`} className="text-[#FF5A00] text-[12px] font-mono uppercase tracking-widest">apri</Link>
                   </div>
                 </td>
               </tr>
@@ -263,7 +263,7 @@ export default function Clients() {
                 <Pencil className="w-3.5 h-3.5" />
               </button>
             </div>
-            <Link to={`/clienti/${c.id}`} data-testid={`client-card-${c.id}`}>
+            <Link to={`/app/clienti/${c.id}`} data-testid={`client-card-${c.id}`}>
             <div className="flex items-start justify-between mb-2">
               <div className="font-cabinet font-bold text-[15px] truncate">{c.company_name}</div>
               <span className="font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0 ml-2" style={{ background: `${POTENTIAL_COLOR[c.potential]}20`, color: POTENTIAL_COLOR[c.potential] }}>{c.potential}</span>
