@@ -37,6 +37,9 @@ export default function ClientDetail() {
 
   if (!data) return <div className="p-8 font-mono text-sm text-[#A1A1AA]">caricamento…</div>;
   const c = data.client;
+  const baseAmount = (cm) => cm.base_amount ?? (cm.rate ? cm.amount / (cm.rate / 100) : 0);
+const fatturatoCliente = data.commissions.reduce((s, cm) => s + baseAmount(cm), 0);
+const provvigioniCliente = data.commissions.reduce((s, cm) => s + (cm.amount || 0), 0);
 
   return (
     <div className="p-4 md:p-8 space-y-6">
@@ -193,24 +196,35 @@ export default function ClientDetail() {
           </div>
         )}
 
-        {tab === "provvigioni" && (
-          <div className="space-y-2">
-            {data.commissions.length === 0 && <Empty>Nessuna provvigione registrata.</Empty>}
-            {data.commissions.map((cm) => (
-              <div key={cm.id} className="bg-white border border-[#E4E4E1] rounded-md p-4 flex items-center justify-between">
-                <div>
-                  <div className="font-medium text-[14px]">Periodo {cm.period}</div>
-                  <div className="text-[12px] text-[#52525B]">Aliquota {cm.rate}%</div>
-                </div>
-                <div className="text-right">
-                  <div className="font-cabinet font-bold text-lg">{fmt(cm.amount)}</div>
-                  <div className="font-mono text-[10px] uppercase tracking-widest" style={{ color: cm.status === "incassato" ? "#059669" : "#FF5A00" }}>{cm.status}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+    {tab === "provvigioni" && (
+  <div className="space-y-2">
+    {data.commissions.length > 0 && (
+      <div className="bg-[#0A192F] text-white rounded-md p-5 flex items-center justify-between mb-3">
+        <div>
+          <div className="font-mono text-[10px] uppercase tracking-widest text-white/60 mb-1">Fatturato generato da questo cliente</div>
+          <div className="font-cabinet font-black text-2xl">{fmt(fatturatoCliente)}</div>
+        </div>
+        <div className="text-right">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00] mb-1">Provvigioni totali</div>
+          <div className="font-cabinet font-black text-2xl">{fmt(provvigioniCliente)}</div>
+        </div>
       </div>
+    )}
+    {data.commissions.length === 0 && <Empty>Nessuna provvigione registrata.</Empty>}
+    {data.commissions.map((cm) => (
+      <div key={cm.id} className="bg-white border border-[#E4E4E1] rounded-md p-4 flex items-center justify-between">
+        <div>
+          <div className="font-medium text-[14px]">Periodo {cm.period}</div>
+          <div className="text-[12px] text-[#52525B]">Aliquota {cm.rate}%</div>
+        </div>
+        <div className="text-right">
+          <div className="font-cabinet font-bold text-lg">{fmt(cm.amount)}</div>
+          <div className="font-mono text-[10px] uppercase tracking-widest" style={{ color: cm.status === "incassato" ? "#059669" : "#FF5A00" }}>{cm.status}</div>
+        </div>
+      </div>
+    ))}
+  </div>
+)}
 
       <DocumentPreview document={previewDoc} open={!!previewDoc} onClose={() => setPreviewDoc(null)} />
     </div>
