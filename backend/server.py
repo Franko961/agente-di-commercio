@@ -649,6 +649,41 @@ def get_commission_rate(mandante: dict, sale_type: str) -> float:
         return mandante["commission_rate_new"]
     return mandante.get("commission_rate", 5.0)
 
+async def check_and_award_bonus(user_id: str, mandante_id: str):
+    """Controlla se il mandante ha raggiunto nuovi scaglioni della scala premi
+    e, in tal caso, crea automaticamente una provvigione bonus per ogni scaglione
+    appena raggiunto (una sola volta per scaglione)."""
+    mandante = await db.mandanti.find_one({"id": mandante_id, "user_id": user_id}, {"_id": 0})
+    if not mandante:
+        return
+    tiers = mandante.get("bonus_tiers", [])
+    if not tiers:
+        return
+
+    commissions = await db.commissions.find({"user_id": user_id, "mandante_id": mandante_id}, {"_id": 0}).to_list(5000)
+
+    def _base_amount(c):
+        if c.get("base_amount") is not None:
+            return c["base_amount"]
+        rate = c.get("rate") or mandante.get("commission_rate", 5)
+        return c.get("amount", 0) / (rate / 100) if rate else 0.0
+
+    fatturato = sum(_base_amount(c) for c in commissions if c.get("sale_type") != "bonus")
+    already_awarded = {c.get("bonus_tier_threshold") for c in commissions if c.get("sale_type") == "bonus"}
+
+    for tier in tiers:
+        threshold = tier.get("threshold")
+        if fatturato >= threshold and threshold not in already_awarded:
+            bonus_comm = {
+                "id": gen_id(), "user_id": user_id, "offer_id": None,
+                "client_id": None, "mandante_id": mandante_id,
+                "amount": round(tier.get("bonus", 0), 2), "rate": None, "base_amount": None,
+                "sale_type": "bonus", "status": "maturato",
+                "bonus_tier_threshold": threshold,
+                "period": datetime.now(timezone.utc).strftime("%Y-%m"),
+                "created_at": now_iso(),
+            }
+            await db.commissions.insert_one(bonus_comm)
 
 @api.get("/offers")
 async def list_offers(user=Depends(get_current_user)):
@@ -693,8 +728,9 @@ async def update_offer_status(oid: str, payload: dict = Body(...), user=Depends(
             "period": datetime.now(timezone.utc).strftime("%Y-%m"),
             "created_at": now_iso(),
         }
-        await db.commissions.insert_one(comm)
-    return {"ok": True}
+    await db.commissions.insert_one(comm)
+    await check_and_award_bonus(user["id"], offer["mandante_id"])
+return {"ok": True}
 
 
 @api.delete("/offers/{oid}")
@@ -730,7 +766,8 @@ async def bonus_summary(user=Depends(get_current_user)):
             return c.get("amount", 0) / (rate / 100) if rate else 0.0
 
         fatturato = sum(
-            _base_amount(c) for c in commissions if c.get("mandante_id") == m["id"]
+            _base_amount(c) for c in commissions
+            if c.get("mandante_id") == m["id"] and c.get("sale_type") != "bonus"
         )
         # Ordina tiers per soglia crescente
         sorted_tiers = sorted(tiers, key=lambda t: t["threshold"])
@@ -1284,6 +1321,7 @@ async def execute_crm_tool(tool_name: str, tool_input: dict, user_id: str) -> st
                     "created_at": now_iso(),
                 }
                 await db.commissions.insert_one(comm)
+                await check_and_award_bonus(user_id, mand["id"])
                 msg += f" Provvigione generata: €{amount:.2f} ({rate}%)."
 
             return msg
@@ -1440,6 +1478,7 @@ async def sign_offer(oid: str, payload: SignatureIn, user=Depends(get_current_us
             "created_at": now_iso(),
         }
         await db.commissions.insert_one(comm)
+        await check_and_award_bonus(user["id"], offer["mandante_id"])
     return {"ok": True}
 
 
