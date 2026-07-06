@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Download, ExternalLink, FileText, Video, FileSpreadsheet, FileImage, File as FileIcon } from "lucide-react";
+import mammoth from "mammoth";
 import api from "../api";
 
 const FILE_BASE = process.env.REACT_APP_BACKEND_URL;
@@ -12,12 +13,17 @@ function detectKind(doc) {
   if (ct.startsWith("video/") || ["mp4", "mov", "webm", "avi", "mkv"].includes(ext)) return "video";
   if (ct.startsWith("image/") || ["png", "jpg", "jpeg", "webp", "gif"].includes(ext)) return "image";
   if (ct.startsWith("text/") || ["txt", "csv"].includes(ext)) return "text";
+  if (
+    ct.includes("wordprocessingml.document") ||
+    ext === "docx"
+  ) return "docx";
   return "other";
 }
 
 export default function DocumentPreview({ document: doc, open, onClose }) {
   const [blobUrl, setBlobUrl] = useState(null);
   const [textContent, setTextContent] = useState("");
+  const [docxHtml, setDocxHtml] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -27,7 +33,7 @@ export default function DocumentPreview({ document: doc, open, onClose }) {
     if (!open || !doc?.id || !doc?.storage_path) return;
     let revoked = false;
     let url = null;
-    setBusy(true); setErr(""); setTextContent("");
+    setBusy(true); setErr(""); setTextContent(""); setDocxHtml("");
 
     const token = localStorage.getItem("token");
     fetch(`${FILE_BASE}/api/documents/${doc.id}/download`, {
@@ -38,6 +44,14 @@ export default function DocumentPreview({ document: doc, open, onClose }) {
         if (kind === "text") {
           const t = await r.text();
           if (!revoked) setTextContent(t);
+        } else if (kind === "docx") {
+          const arrayBuffer = await r.arrayBuffer();
+          const result = await mammoth.convertToHtml({ arrayBuffer });
+          if (!revoked) setDocxHtml(result.value);
+          // Manteniamo comunque il blob per il download
+          const blob = new Blob([arrayBuffer], { type: doc?.content_type || "application/octet-stream" });
+          url = URL.createObjectURL(blob);
+          if (!revoked) setBlobUrl(url);
         } else {
           const blob = await r.blob();
           url = URL.createObjectURL(blob);
@@ -105,6 +119,13 @@ export default function DocumentPreview({ document: doc, open, onClose }) {
           {!busy && !err && kind === "text" && textContent && (
             <pre data-testid="preview-text" className="bg-white text-[#0A0A0A] p-6 font-mono text-[12px] w-full max-h-[80vh] overflow-auto whitespace-pre-wrap">{textContent}</pre>
           )}
+          {!busy && !err && kind === "docx" && docxHtml && (
+            <div
+              data-testid="preview-docx"
+              className="docx-preview bg-white text-[#0A0A0A] p-8 w-full max-h-[80vh] overflow-auto"
+              dangerouslySetInnerHTML={{ __html: docxHtml }}
+            />
+          )}
           {!busy && !err && kind === "other" && (
             <div className="text-center p-10">
               <FileIcon className="w-12 h-12 text-[#A1A1AA] mx-auto mb-3" />
@@ -121,3 +142,4 @@ export default function DocumentPreview({ document: doc, open, onClose }) {
     </Dialog>
   );
 }
+anteprima docx con mammoth
