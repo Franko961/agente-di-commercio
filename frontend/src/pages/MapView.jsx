@@ -37,7 +37,7 @@ export default function MapView() {
                 <div className="font-cabinet font-bold text-[14px]">{c.company_name}</div>
                 <div className="text-[11px] text-[#52525B] mt-1">{c.city} ({c.province})</div>
                 <div className="text-[11px] text-[#52525B]">{c.sector}</div>
-                <Link to={`/clienti/${c.id}`} className="block mt-2 text-[11px] font-mono uppercase tracking-widest text-[#FF5A00]">Apri scheda →</Link>
+                <Link to={`/app/clienti/${c.id}`} className="block mt-2 text-[11px] font-mono uppercase tracking-widest text-[#FF5A00]">Apri scheda →</Link>
               </Popup>
             </Marker>
           ))}
