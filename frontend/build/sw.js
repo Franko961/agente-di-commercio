@@ -1,5 +1,5 @@
-/* AGENTE Gestionale - Service Worker v3 (read-only offline + always-fresh app shell) */
-const CACHE_VERSION = 'agente-v3';
+/* SALESFLY Gestionale - Service Worker v3 (read-only offline + always-fresh app shell) */
+const CACHE_VERSION = 'salesfly-v4';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const API_CACHE = `${CACHE_VERSION}-api`;
 
