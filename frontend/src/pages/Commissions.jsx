@@ -12,6 +12,7 @@ export default function Commissions() {
   const [mandanti, setMandanti] = useState([]);
   const [bonusSummary, setBonusSummary] = useState([]);
   const [filter, setFilter] = useState("all");
+  const [clientFilter, setClientFilter] = useState("all");
 
   const load = async () => {
     const [c, cl, m, bs] = await Promise.all([
@@ -26,10 +27,12 @@ export default function Commissions() {
     setBonusSummary(bs.data);
   };
   useEffect(() => { load(); }, []);
-
-  const filtered = filter === "all" ? commissions : commissions.filter(c => c.status === filter);
-  const accrued = commissions.filter(c => c.status === "maturato").reduce((s, c) => s + c.amount, 0);
-  const collected = commissions.filter(c => c.status === "incassato").reduce((s, c) => s + c.amount, 0);
+  
+const byClient = clientFilter === "all" ? commissions : commissions.filter(c => c.client_id === clientFilter);
+const filtered = filter === "all" ? byClient : byClient.filter(c => c.status === filter);
+const accrued = byClient.filter(c => c.status === "maturato").reduce((s, c) => s + c.amount, 0);
+const collected = byClient.filter(c => c.status === "incassato").reduce((s, c) => s + c.amount, 0);
+const fatturatoClienteSelezionato = clientFilter === "all" ? null : byClient.reduce((s, c) => s + (c.base_amount ?? (c.rate ? c.amount / (c.rate / 100) : 0)), 0);
 
   const setStatus = async (id, status) => {
     await api.patch(`/commissions/${id}/status`, { status });
@@ -165,7 +168,24 @@ export default function Commissions() {
           </button>
         ))}
       </div>
-
+{/* Filtro cliente */}
+<div className="flex items-center gap-2 mb-4">
+  <select
+    value={clientFilter}
+    onChange={(e) => setClientFilter(e.target.value)}
+    className="px-3 py-2 rounded-md text-[12px] font-medium bg-white border border-[#E4E4E1]"
+  >
+    <option value="all">Tutti i clienti</option>
+    {[...clients].sort((a, b) => (a.company_name || "").localeCompare(b.company_name || "")).map(cl => (
+      <option key={cl.id} value={cl.id}>{cl.company_name}</option>
+    ))}
+  </select>
+  {clientFilter !== "all" && fatturatoClienteSelezionato !== null && (
+    <span className="font-mono text-[11px] text-[#52525B]">
+      Fatturato generato: <span className="font-bold text-[#0A192F]">{fmt(fatturatoClienteSelezionato)}</span>
+    </span>
+  )}
+</div>
       {/* Tabella provvigioni */}
       <div className="bg-white border border-[#E4E4E1] rounded-md overflow-hidden">
         <div className="hidden md:grid grid-cols-7 gap-2 px-4 py-3 bg-[#F3F3F1] border-b border-[#E4E4E1] font-mono text-[10px] uppercase tracking-widest text-[#52525B]">
