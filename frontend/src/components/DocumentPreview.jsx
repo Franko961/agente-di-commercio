@@ -35,9 +35,8 @@ export default function DocumentPreview({ document: doc, open, onClose }) {
     let url = null;
     setBusy(true); setErr(""); setTextContent(""); setDocxHtml("");
 
-    const token = localStorage.getItem("token");
-    fetch(`${FILE_BASE}/api/documents/${doc.id}/download`, {
-      headers: { Authorization: `Bearer ${token}` },
+   fetch(`${FILE_BASE}/api/documents/${doc.id}/download`, {
+      credentials: "include",
     })
       .then(async (r) => {
         if (!r.ok) throw new Error("HTTP " + r.status);
