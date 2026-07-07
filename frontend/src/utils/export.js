@@ -3,9 +3,8 @@ import api from "../api";
 const FILE_BASE = process.env.REACT_APP_BACKEND_URL;
 
 export async function downloadCsv(path, filename) {
-  const token = localStorage.getItem("token");
   const res = await fetch(`${FILE_BASE}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: "include",
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const blob = await res.blob();
