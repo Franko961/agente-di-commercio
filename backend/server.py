@@ -728,9 +728,9 @@ async def update_offer_status(oid: str, payload: dict = Body(...), user=Depends(
             "period": datetime.now(timezone.utc).strftime("%Y-%m"),
             "created_at": now_iso(),
         }
-    await db.commissions.insert_one(comm)
-    await check_and_award_bonus(user["id"], offer["mandante_id"])
- return {"ok": True}
+        await db.commissions.insert_one(comm)
+        await check_and_award_bonus(user["id"], offer["mandante_id"])
+    return {"ok": True}
 
 
 @api.delete("/offers/{oid}")
