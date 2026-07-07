@@ -437,7 +437,7 @@ async def register(payload: RegisterIn, response: Response):
         logger.warning(f"Email admin non inviata: {mail_err}")
 
     out = clean(doc)
-    out["token"] = token
+    
     return out
 
 
@@ -451,13 +451,13 @@ async def login(payload: LoginIn, response: Response):
     response.set_cookie("access_token", token, httponly=True, secure=True,
                         samesite="none", max_age=7*24*3600, path="/")
     out = clean(user)
-    out["token"] = token
+    
     return out
 
 
 @api.post("/auth/logout")
 async def logout(response: Response):
-    response.delete_cookie("access_token", path="/")
+    response.delete_cookie("access_token", path="/", secure=True, samesite="none")
     return {"ok": True}
 
 
