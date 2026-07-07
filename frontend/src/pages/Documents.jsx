@@ -65,10 +65,9 @@ export default function Documents() {
       else toast.info("Questo documento non ha un file allegato");
       return;
     }
-    const token = localStorage.getItem("token");
     try {
       const res = await fetch(`${FILE_BASE}/api/documents/${doc.id}/download`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
       });
       if (!res.ok) throw new Error("HTTP " + res.status);
       const blob = await res.blob();
