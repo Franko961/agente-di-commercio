@@ -775,7 +775,7 @@ async def bonus_summary(user=Depends(get_current_user)):
         earned_tiers = [t for t in sorted_tiers if fatturato >= t["threshold"]]
         total_bonus = sum(t["bonus"] for t in earned_tiers)
         next_tier = next((t for t in sorted_tiers if fatturato < t["threshold"]), None)
-
+        await check_and_award_bonus(user["id"], m["id"])
         result.append({
             "mandante_id": m["id"],
             "mandante_name": m["name"],
