@@ -650,9 +650,9 @@ def get_commission_rate(mandante: dict, sale_type: str) -> float:
     return mandante.get("commission_rate", 5.0)
 
 async def check_and_award_bonus(user_id: str, mandante_id: str):
-    """Controlla se il mandante ha raggiunto nuovi scaglioni della scala premi
-    e, in tal caso, crea automaticamente una provvigione bonus per ogni scaglione
-    appena raggiunto (una sola volta per scaglione)."""
+    """Controlla lo scaglione piu alto della scala premi raggiunto dal mandante
+    e mantiene una sola provvigione bonus corrispondente (non cumulativa):
+    ogni nuovo scaglione raggiunto sostituisce quello precedente, non si somma."""
     mandante = await db.mandanti.find_one({"id": mandante_id, "user_id": user_id}, {"_id": 0})
     if not mandante:
         return
@@ -669,21 +669,36 @@ async def check_and_award_bonus(user_id: str, mandante_id: str):
         return c.get("amount", 0) / (rate / 100) if rate else 0.0
 
     fatturato = sum(_base_amount(c) for c in commissions if c.get("sale_type") != "bonus")
-    already_awarded = {c.get("bonus_tier_threshold") for c in commissions if c.get("sale_type") == "bonus"}
+    sorted_tiers = sorted(tiers, key=lambda t: t["threshold"])
+    earned = [t for t in sorted_tiers if fatturato >= t["threshold"]]
 
-    for tier in tiers:
-        threshold = tier.get("threshold")
-        if fatturato >= threshold and threshold not in already_awarded:
-            bonus_comm = {
-                "id": gen_id(), "user_id": user_id, "offer_id": None,
-                "client_id": None, "mandante_id": mandante_id,
-                "amount": round(tier.get("bonus", 0), 2), "rate": None, "base_amount": None,
-                "sale_type": "bonus", "status": "maturato",
-                "bonus_tier_threshold": threshold,
-                "period": datetime.now(timezone.utc).strftime("%Y-%m"),
-                "created_at": now_iso(),
-            }
-            await db.commissions.insert_one(bonus_comm)
+    existing_bonus = [c for c in commissions if c.get("sale_type") == "bonus"]
+
+    if not earned:
+        for c in existing_bonus:
+            await db.commissions.delete_one({"id": c["id"], "user_id": user_id})
+        return
+
+    highest = earned[-1]
+
+    to_remove = [c for c in existing_bonus if c.get("bonus_tier_threshold") != highest["threshold"]]
+    for c in to_remove:
+        await db.commissions.delete_one({"id": c["id"], "user_id": user_id})
+
+    already_correct = any(c.get("bonus_tier_threshold") == highest["threshold"] for c in existing_bonus)
+    if already_correct:
+        return
+
+    bonus_comm = {
+        "id": gen_id(), "user_id": user_id, "offer_id": None,
+        "client_id": None, "mandante_id": mandante_id,
+        "amount": round(highest.get("bonus", 0), 2), "rate": None, "base_amount": None,
+        "sale_type": "bonus", "status": "maturato",
+        "bonus_tier_threshold": highest["threshold"],
+        "period": datetime.now(timezone.utc).strftime("%Y-%m"),
+        "created_at": now_iso(),
+    }
+    await db.commissions.insert_one(bonus_comm)
 
 @api.get("/offers")
 async def list_offers(user=Depends(get_current_user)):
@@ -773,7 +788,7 @@ async def bonus_summary(user=Depends(get_current_user)):
         sorted_tiers = sorted(tiers, key=lambda t: t["threshold"])
         # Trova tutti i bonus raggiunti (tutti gli scaglioni superati)
         earned_tiers = [t for t in sorted_tiers if fatturato >= t["threshold"]]
-        total_bonus = sum(t["bonus"] for t in earned_tiers)
+        total_bonus = earned_tiers[-1]["bonus"] if earned_tiers else 0
         next_tier = next((t for t in sorted_tiers if fatturato < t["threshold"]), None)
         await check_and_award_bonus(user["id"], m["id"])
         result.append({
