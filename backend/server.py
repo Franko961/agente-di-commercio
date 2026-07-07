@@ -375,8 +375,8 @@ async def register(payload: RegisterIn, response: Response):
     except Exception as e:
         logger.warning(f"Seed for new user failed: {e}")
     token = create_access_token(user_id, email)
-    response.set_cookie("access_token", token, httponly=True, secure=False,
-                        samesite="lax", max_age=7*24*3600, path="/")
+    response.set_cookie("access_token", token, httponly=True, secure=True,
+                        samesite="none", max_age=7*24*3600, path="/")
 
     # Email benvenuto all'utente (non bloccante)
     try:
@@ -448,8 +448,8 @@ async def login(payload: LoginIn, response: Response):
     if not user or not verify_password(payload.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Credenziali non valide")
     token = create_access_token(user["id"], email)
-    response.set_cookie("access_token", token, httponly=True, secure=False,
-                        samesite="lax", max_age=7*24*3600, path="/")
+    response.set_cookie("access_token", token, httponly=True, secure=True,
+                        samesite="none", max_age=7*24*3600, path="/")
     out = clean(user)
     out["token"] = token
     return out
@@ -1999,7 +1999,7 @@ app.include_router(api)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["*"],
+    allow_origins=["https://salesfly.it", "https://www.salesfly.it", "https://main--salesfly.netlify.app"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
