@@ -1855,6 +1855,9 @@ async def admin_delete_user(uid: str, admin=Depends(require_admin)):
 
 # ----------------- App wiring -----------------
 app.include_router(api)
+app.include_router(clients_router)
+app.include_router(leads_router)
+app.include_router(appointments_router)
 
 app.add_middleware(
     CORSMiddleware,
