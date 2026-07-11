@@ -30,6 +30,8 @@ from routers.products import router as products_router
 from services.commission_service import calc_offer_total, get_commission_rate, check_and_award_bonus
 from routers.offers import router as offers_router
 from routers.commissions import router as commissions_router
+from routers.documents import router as documents_router
+from routers.automations import router as automations_router
 
 # ----------------- Setup -----------------
 
@@ -54,87 +56,8 @@ RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 ADMIN_NOTIFY_EMAIL = os.environ.get("ADMIN_NOTIFY_EMAIL", "franco.bruni.art@gmail.com")
 APP_FROM_EMAIL = os.environ.get("APP_FROM_EMAIL", "SALESFLY <noreply@salesfly.it>")
 
-# Object Storage (AWS S3)
-import boto3
-from botocore.exceptions import BotoCoreError, ClientError
-
-APP_NAME = "agente-crm"
-MAX_FILE_BYTES = 50 * 1024 * 1024  # 50 MB cap
-
-AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
-AWS_REGION = os.environ.get("AWS_REGION", os.environ.get("S3_REGION", "eu-west-1"))
-S3_BUCKET = os.environ.get("AWS_S3_BUCKET", os.environ.get("S3_BUCKET"))
-# S3_ENDPOINT: se è un endpoint AWS standard, ignoralo (boto3 lo gestisce da solo tramite AWS_REGION)
-_raw_endpoint = os.environ.get("S3_ENDPOINT", "").strip().strip("[]")
-S3_ENDPOINT = None if (not _raw_endpoint or "amazonaws.com" in _raw_endpoint) else _raw_endpoint
-
-_s3_client = None
-
-def get_s3():
-    global _s3_client
-    if _s3_client:
-        return _s3_client
-    if not AWS_ACCESS_KEY_ID or not S3_BUCKET:
-        return None
-    kwargs = dict(
-        region_name=AWS_REGION,
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    )
-    if S3_ENDPOINT:
-        kwargs["endpoint_url"] = S3_ENDPOINT
-    _s3_client = boto3.client("s3", **kwargs)
-    return _s3_client
-ALLOWED_EXT = {
-    "pdf": "application/pdf",
-    "xls": "application/vnd.ms-excel",
-    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "csv": "text/csv",
-    "doc": "application/msword",
-    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "txt": "text/plain",
-    "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
-    "mp4": "video/mp4", "mov": "video/quicktime", "webm": "video/webm",
-    "avi": "video/x-msvideo", "mkv": "video/x-matroska",
-}
-
-def init_storage() -> bool:
-    """Check S3 is configured."""
-    return get_s3() is not None
-
-
-def storage_put(path: str, data: bytes, content_type: str) -> dict:
-    s3 = get_s3()
-    if not s3:
-        raise HTTPException(500, "Storage S3 non disponibile — controlla AWS_ACCESS_KEY_ID e AWS_S3_BUCKET")
-    try:
-        s3.put_object(
-            Bucket=S3_BUCKET,
-            Key=path,
-            Body=data,
-            ContentType=content_type,
-        )
-        return {"path": path}
-    except (BotoCoreError, ClientError) as e:
-        logger.error(f"S3 put error: {e}")
-        raise HTTPException(500, f"Errore upload S3: {str(e)[:200]}")
-
-
-
-
-def storage_get(path: str) -> tuple:
-    s3 = get_s3()
-    if not s3:
-        raise HTTPException(500, "Storage S3 non disponibile")
-    try:
-        obj = s3.get_object(Bucket=S3_BUCKET, Key=path)
-        data = obj["Body"].read()
-        content_type = obj.get("ContentType", "application/octet-stream")
-        return data, content_type
-    except (BotoCoreError, ClientError) as e:
-        logger.error(f"S3 get error: {e}")
-        raise HTTPException(500, f"Errore download S3: {str(e)[:200]}")
+# Object Storage (AWS S3) — configurazione e funzioni centralizzate in services/storage_service.py
+from services.storage_service import init_storage
 
 async def send_email(to: str, subject: str, html: str):
     if not RESEND_API_KEY:
@@ -156,6 +79,7 @@ async def send_email(to: str, subject: str, html: str):
 
 app = FastAPI(title="Gestionale Agenti di Commercio")
 api = APIRouter(prefix="/api")
+
 from core.exceptions import AppError
 
 @app.exception_handler(AppError)
@@ -242,23 +166,6 @@ class CommissionIn(BaseModel):
     rate: float
     status: str = "maturato"  # maturato, incassato
     period: Optional[str] = None  # YYYY-MM
-
-
-class DocumentIn(BaseModel):
-    client_id: Optional[str] = None
-    name: str
-    category: str = "contratto"  # contratto, offerta, fattura, altro
-    url: Optional[str] = ""
-    notes: Optional[str] = ""
-    tags: List[str] = []
-
-
-class AutomationIn(BaseModel):
-    name: str
-    trigger: str  # offer_expiring, no_visit_30d, lead_inactive
-    action: str  # send_reminder, create_task, send_email
-    enabled: bool = True
-    config: Dict[str, Any] = {}
 
 
 class AIQuery(BaseModel):
@@ -396,153 +303,6 @@ async def logout(response: Response):
 @api.get("/auth/me")
 async def me(user=Depends(get_current_user)):
     return user
-
-
-# ----------------- Documents -----------------
-@api.get("/documents")
-async def list_documents(user=Depends(get_current_user)):
-    return await db.documents.find({"user_id": user["id"], "is_deleted": {"$ne": True}}, {"_id": 0}).sort("created_at", -1).to_list(2000)
-
-
-@api.post("/documents")
-async def create_document(payload: DocumentIn, user=Depends(get_current_user)):
-    doc = {"id": gen_id(), "user_id": user["id"], **payload.model_dump(),
-           "is_deleted": False, "created_at": now_iso()}
-    await db.documents.insert_one(doc)
-    return clean(doc)
-
-
-@api.post("/documents/upload")
-async def upload_document(
-    file: UploadFile = File(...),
-    name: str = Form(...),
-    category: str = Form("altro"),
-    client_id: Optional[str] = Form(None),
-    notes: str = Form(""),
-    tags: str = Form(""),
-    user=Depends(get_current_user),
-):
-    if not file.filename:
-        raise HTTPException(400, "File mancante")
-    ext = (file.filename.rsplit(".", 1)[-1] if "." in file.filename else "bin").lower()
-    if ext not in ALLOWED_EXT:
-        raise HTTPException(400, f"Estensione .{ext} non supportata. Consentite: PDF, Excel, Word, video, immagini.")
-    data = await file.read()
-    if len(data) > MAX_FILE_BYTES:
-        raise HTTPException(413, f"File troppo grande (max {MAX_FILE_BYTES // (1024*1024)} MB)")
-    if not data:
-        raise HTTPException(400, "File vuoto")
-
-    content_type = file.content_type or ALLOWED_EXT.get(ext, "application/octet-stream")
-    storage_path = f"{APP_NAME}/uploads/{user['id']}/{gen_id()}.{ext}"
-
-    try:
-        result = storage_put(storage_path, data, content_type)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Upload failed: {e}")
-        raise HTTPException(500, f"Errore caricamento: {str(e)[:200]}")
-
-    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
-    doc = {
-        "id": gen_id(), "user_id": user["id"],
-        "client_id": client_id or None,
-        "name": name or file.filename,
-        "category": category,
-        "url": "",
-        "notes": notes,
-        "tags": tag_list,
-        "storage_path": result.get("path", storage_path),
-        "original_filename": file.filename,
-        "content_type": content_type,
-        "size": len(data),
-        "is_deleted": False,
-        "created_at": now_iso(),
-    }
-    await db.documents.insert_one(doc)
-    return clean(doc)
-
-
-@api.patch("/documents/{did}")
-async def update_document_meta(did: str, payload: dict = Body(...), user=Depends(get_current_user)):
-    """Update metadata (tags, name, category, notes, client_id) without re-uploading the file."""
-    allowed = {k: v for k, v in payload.items() if k in {"name", "category", "notes", "client_id", "tags"}}
-    if "tags" in allowed and isinstance(allowed["tags"], list):
-        allowed["tags"] = [str(t).strip() for t in allowed["tags"] if str(t).strip()]
-    res = await db.documents.update_one(
-        {"id": did, "user_id": user["id"], "is_deleted": {"$ne": True}},
-        {"$set": allowed},
-    )
-    if res.matched_count == 0:
-        raise HTTPException(404, "Documento non trovato")
-    return {"ok": True}
-
-
-@api.get("/documents/{did}/download")
-async def download_document(did: str, authorization: Optional[str] = Header(None), auth: Optional[str] = Query(None)):
-    # Allow auth via Authorization header OR ?auth=token query param (for direct browser links)
-    token = None
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization[7:]
-    elif auth:
-        token = auth
-    if not token:
-        raise HTTPException(401, "Not authenticated")
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
-    except jwt.InvalidTokenError:
-        raise HTTPException(401, "Invalid token")
-
-    doc = await db.documents.find_one({"id": did, "user_id": payload["sub"], "is_deleted": {"$ne": True}}, {"_id": 0})
-    if not doc or not doc.get("storage_path"):
-        raise HTTPException(404, "Documento non trovato")
-
-    content, ctype = storage_get(doc["storage_path"])
-    filename = doc.get("original_filename") or doc.get("name") or "file"
-    return Response(
-        content=content,
-        media_type=doc.get("content_type") or ctype,
-        headers={
-            "Content-Disposition": f'inline; filename="{filename}"',
-            "Cache-Control": "private, max-age=300",
-        },
-    )
-
-
-@api.delete("/documents/{did}")
-async def delete_document(did: str, user=Depends(get_current_user)):
-    # Soft delete (storage has no delete API)
-    await db.documents.update_one(
-        {"id": did, "user_id": user["id"]},
-        {"$set": {"is_deleted": True}}
-    )
-    return {"ok": True}
-
-
-# ----------------- Automations -----------------
-@api.get("/automations")
-async def list_automations(user=Depends(get_current_user)):
-    return await db.automations.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)
-
-
-@api.post("/automations")
-async def create_automation(payload: AutomationIn, user=Depends(get_current_user)):
-    doc = {"id": gen_id(), "user_id": user["id"], **payload.model_dump(), "created_at": now_iso()}
-    await db.automations.insert_one(doc)
-    return clean(doc)
-
-
-@api.put("/automations/{aid}")
-async def update_automation(aid: str, payload: AutomationIn, user=Depends(get_current_user)):
-    await db.automations.update_one({"id": aid, "user_id": user["id"]}, {"$set": payload.model_dump()})
-    return {"ok": True}
-
-
-@api.delete("/automations/{aid}")
-async def delete_automation(aid: str, user=Depends(get_current_user)):
-    await db.automations.delete_one({"id": aid, "user_id": user["id"]})
-    return {"ok": True}
 
 
 # ----------------- Dashboard -----------------
@@ -1583,6 +1343,8 @@ app.include_router(mandanti_router)
 app.include_router(products_router)
 app.include_router(offers_router)
 app.include_router(commissions_router)
+app.include_router(documents_router)
+app.include_router(automations_router)
 
 app.add_middleware(
     CORSMiddleware,
