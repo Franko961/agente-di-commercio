@@ -25,6 +25,8 @@ from core.utils import now_iso, gen_id, clean
 from routers.clients import router as clients_router
 from routers.leads import router as leads_router
 from routers.appointments import router as appointments_router
+from routers.mandanti import router as mandanti_router
+from routers.products import router as products_router
 
 # ----------------- Setup -----------------
 
@@ -220,32 +222,7 @@ class RegisterIn(BaseModel):
     plan: Optional[str] = "base"  # 'base' o 'pro'
 
 
-class BonusTier(BaseModel):
-    threshold: float   # fatturato minimo per ottenere il bonus
-    bonus: float       # importo premio
 
-class MandanteIn(BaseModel):
-    name: str
-    brand_color: Optional[str] = "#0A192F"
-    commission_rate: float = 5.0
-    commission_rate_new: Optional[float] = None      # override su vendite nuove, se impostato
-    commission_rate_renewal: Optional[float] = None  # override su rinnovi, se impostato
-    notes: Optional[str] = ""
-    target_monthly: Optional[float] = None
-    target_yearly: Optional[float] = None
-    target_clients: Optional[int] = None
-    target_notes: Optional[str] = ""
-    bonus_tiers: Optional[List[BonusTier]] = []
-
-
-class ProductIn(BaseModel):
-    mandante_id: str
-    name: str
-    sku: Optional[str] = ""
-    price: float
-    cost: Optional[float] = 0.0
-    commission_rate: Optional[float] = None  # override mandante if set
-    category: Optional[str] = ""
 
 
 
@@ -430,65 +407,6 @@ async def logout(response: Response):
 @api.get("/auth/me")
 async def me(user=Depends(get_current_user)):
     return user
-
-
-# ----------------- Mandanti -----------------
-@api.get("/mandanti")
-async def list_mandanti(user=Depends(get_current_user)):
-    docs = await db.mandanti.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)
-    return docs
-
-
-@api.post("/mandanti")
-async def create_mandante(payload: MandanteIn, user=Depends(get_current_user)):
-    doc = {"id": gen_id(), "user_id": user["id"], **payload.model_dump(),
-           "created_at": now_iso()}
-    await db.mandanti.insert_one(doc)
-    return clean(doc)
-
-
-@api.put("/mandanti/{mid}")
-async def update_mandante(mid: str, payload: MandanteIn, user=Depends(get_current_user)):
-    res = await db.mandanti.update_one({"id": mid, "user_id": user["id"]},
-                                       {"$set": payload.model_dump()})
-    if res.matched_count == 0:
-        raise HTTPException(404, "Mandante non trovato")
-    return {"ok": True}
-
-
-@api.delete("/mandanti/{mid}")
-async def delete_mandante(mid: str, user=Depends(get_current_user)):
-    await db.mandanti.delete_one({"id": mid, "user_id": user["id"]})
-    return {"ok": True}
-
-
-# ----------------- Products -----------------
-@api.get("/products")
-async def list_products(mandante_id: Optional[str] = None, user=Depends(get_current_user)):
-    q = {"user_id": user["id"]}
-    if mandante_id:
-        q["mandante_id"] = mandante_id
-    return await db.products.find(q, {"_id": 0}).to_list(1000)
-
-
-@api.post("/products")
-async def create_product(payload: ProductIn, user=Depends(get_current_user)):
-    doc = {"id": gen_id(), "user_id": user["id"], **payload.model_dump(), "created_at": now_iso()}
-    await db.products.insert_one(doc)
-    return clean(doc)
-
-
-@api.put("/products/{pid}")
-async def update_product(pid: str, payload: ProductIn, user=Depends(get_current_user)):
-    await db.products.update_one({"id": pid, "user_id": user["id"]}, {"$set": payload.model_dump()})
-    return {"ok": True}
-
-
-@api.delete("/products/{pid}")
-async def delete_product(pid: str, user=Depends(get_current_user)):
-    await db.products.delete_one({"id": pid, "user_id": user["id"]})
-    return {"ok": True}
-
 
 
 # ----------------- Offers -----------------
@@ -1858,6 +1776,8 @@ app.include_router(api)
 app.include_router(clients_router)
 app.include_router(leads_router)
 app.include_router(appointments_router)
+app.include_router(mandanti_router)
+app.include_router(products_router)
 
 app.add_middleware(
     CORSMiddleware,
