@@ -19,11 +19,17 @@ import requests as http_requests
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr
+from core.database import db
+from core.security import get_current_user, hash_password, verify_password, create_access_token
+from core.utils import now_iso, gen_id, clean
+from routers.clients import router as clients_router
+from routers.leads import router as leads_router
+from routers.appointments import router as appointments_router
+from routers.mandanti import router as mandanti_router
+from routers.products import router as products_router
 
 # ----------------- Setup -----------------
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+
 
 JWT_SECRET = os.environ.get('JWT_SECRET', 'devsecret')
 
@@ -216,71 +222,8 @@ class RegisterIn(BaseModel):
     plan: Optional[str] = "base"  # 'base' o 'pro'
 
 
-class BonusTier(BaseModel):
-    threshold: float   # fatturato minimo per ottenere il bonus
-    bonus: float       # importo premio
-
-class MandanteIn(BaseModel):
-    name: str
-    brand_color: Optional[str] = "#0A192F"
-    commission_rate: float = 5.0
-    commission_rate_new: Optional[float] = None      # override su vendite nuove, se impostato
-    commission_rate_renewal: Optional[float] = None  # override su rinnovi, se impostato
-    notes: Optional[str] = ""
-    target_monthly: Optional[float] = None
-    target_yearly: Optional[float] = None
-    target_clients: Optional[int] = None
-    target_notes: Optional[str] = ""
-    bonus_tiers: Optional[List[BonusTier]] = []
 
 
-class ProductIn(BaseModel):
-    mandante_id: str
-    name: str
-    sku: Optional[str] = ""
-    price: float
-    cost: Optional[float] = 0.0
-    commission_rate: Optional[float] = None  # override mandante if set
-    category: Optional[str] = ""
-
-
-class ClientIn(BaseModel):
-    company_name: str
-    contact_name: Optional[str] = ""
-    email: Optional[str] = ""
-    phone: Optional[str] = ""
-    vat_number: Optional[str] = ""
-    address: Optional[str] = ""
-    city: Optional[str] = ""
-    province: Optional[str] = ""
-    zone: Optional[str] = ""
-    sector: Optional[str] = ""
-    potential: Optional[str] = "medio"  # basso/medio/alto
-    lat: Optional[float] = None
-    lng: Optional[float] = None
-    notes: Optional[str] = ""
-    mandante_ids: List[str] = []
-
-
-class LeadIn(BaseModel):
-    company_name: str
-    contact_name: Optional[str] = ""
-    email: Optional[str] = ""
-    phone: Optional[str] = ""
-    source: Optional[str] = ""
-    estimated_value: Optional[float] = 0.0
-    status: str = "nuovo"  # nuovo, contattato, qualificato, trattativa, vinto, perso
-    notes: Optional[str] = ""
-
-
-class AppointmentIn(BaseModel):
-    client_id: Optional[str] = None
-    title: str
-    description: Optional[str] = ""
-    start: str  # ISO
-    end: Optional[str] = None
-    location: Optional[str] = ""
-    status: str = "pianificato"  # pianificato, completato, annullato
 
 
 class OfferLineItem(BaseModel):
@@ -464,171 +407,6 @@ async def logout(response: Response):
 @api.get("/auth/me")
 async def me(user=Depends(get_current_user)):
     return user
-
-
-# ----------------- Mandanti -----------------
-@api.get("/mandanti")
-async def list_mandanti(user=Depends(get_current_user)):
-    docs = await db.mandanti.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)
-    return docs
-
-
-@api.post("/mandanti")
-async def create_mandante(payload: MandanteIn, user=Depends(get_current_user)):
-    doc = {"id": gen_id(), "user_id": user["id"], **payload.model_dump(),
-           "created_at": now_iso()}
-    await db.mandanti.insert_one(doc)
-    return clean(doc)
-
-
-@api.put("/mandanti/{mid}")
-async def update_mandante(mid: str, payload: MandanteIn, user=Depends(get_current_user)):
-    res = await db.mandanti.update_one({"id": mid, "user_id": user["id"]},
-                                       {"$set": payload.model_dump()})
-    if res.matched_count == 0:
-        raise HTTPException(404, "Mandante non trovato")
-    return {"ok": True}
-
-
-@api.delete("/mandanti/{mid}")
-async def delete_mandante(mid: str, user=Depends(get_current_user)):
-    await db.mandanti.delete_one({"id": mid, "user_id": user["id"]})
-    return {"ok": True}
-
-
-# ----------------- Products -----------------
-@api.get("/products")
-async def list_products(mandante_id: Optional[str] = None, user=Depends(get_current_user)):
-    q = {"user_id": user["id"]}
-    if mandante_id:
-        q["mandante_id"] = mandante_id
-    return await db.products.find(q, {"_id": 0}).to_list(1000)
-
-
-@api.post("/products")
-async def create_product(payload: ProductIn, user=Depends(get_current_user)):
-    doc = {"id": gen_id(), "user_id": user["id"], **payload.model_dump(), "created_at": now_iso()}
-    await db.products.insert_one(doc)
-    return clean(doc)
-
-
-@api.put("/products/{pid}")
-async def update_product(pid: str, payload: ProductIn, user=Depends(get_current_user)):
-    await db.products.update_one({"id": pid, "user_id": user["id"]}, {"$set": payload.model_dump()})
-    return {"ok": True}
-
-
-@api.delete("/products/{pid}")
-async def delete_product(pid: str, user=Depends(get_current_user)):
-    await db.products.delete_one({"id": pid, "user_id": user["id"]})
-    return {"ok": True}
-
-
-# ----------------- Clients -----------------
-@api.get("/clients")
-async def list_clients(zone: Optional[str] = None, sector: Optional[str] = None,
-                       potential: Optional[str] = None, q: Optional[str] = None,
-                       user=Depends(get_current_user)):
-    query = {"user_id": user["id"]}
-    if zone: query["zone"] = zone
-    if sector: query["sector"] = sector
-    if potential: query["potential"] = potential
-    if q:
-        query["$or"] = [
-            {"company_name": {"$regex": q, "$options": "i"}},
-            {"contact_name": {"$regex": q, "$options": "i"}},
-            {"city": {"$regex": q, "$options": "i"}},
-        ]
-    return await db.clients.find(query, {"_id": 0}).to_list(2000)
-
-
-@api.post("/clients")
-async def create_client(payload: ClientIn, user=Depends(get_current_user)):
-    doc = {"id": gen_id(), "user_id": user["id"], **payload.model_dump(), "created_at": now_iso()}
-    await db.clients.insert_one(doc)
-    return clean(doc)
-
-
-@api.get("/clients/{cid}")
-async def get_client(cid: str, user=Depends(get_current_user)):
-    c = await db.clients.find_one({"id": cid, "user_id": user["id"]}, {"_id": 0})
-    if not c:
-        raise HTTPException(404, "Cliente non trovato")
-    offers = await db.offers.find({"client_id": cid, "user_id": user["id"]}, {"_id": 0}).to_list(500)
-    appts = await db.appointments.find({"client_id": cid, "user_id": user["id"]}, {"_id": 0}).to_list(500)
-    docs = await db.documents.find({"client_id": cid, "user_id": user["id"]}, {"_id": 0}).to_list(500)
-    commissions = await db.commissions.find({"client_id": cid, "user_id": user["id"]}, {"_id": 0}).to_list(500)
-    return {"client": c, "offers": offers, "appointments": appts, "documents": docs, "commissions": commissions}
-
-
-@api.put("/clients/{cid}")
-async def update_client(cid: str, payload: ClientIn, user=Depends(get_current_user)):
-    res = await db.clients.update_one({"id": cid, "user_id": user["id"]}, {"$set": payload.model_dump()})
-    if res.matched_count == 0:
-        raise HTTPException(404, "Cliente non trovato")
-    return {"ok": True}
-
-
-@api.delete("/clients/{cid}")
-async def delete_client(cid: str, user=Depends(get_current_user)):
-    await db.clients.delete_one({"id": cid, "user_id": user["id"]})
-    return {"ok": True}
-
-
-# ----------------- Leads -----------------
-@api.get("/leads")
-async def list_leads(user=Depends(get_current_user)):
-    return await db.leads.find({"user_id": user["id"]}, {"_id": 0}).to_list(2000)
-
-
-@api.post("/leads")
-async def create_lead(payload: LeadIn, user=Depends(get_current_user)):
-    doc = {"id": gen_id(), "user_id": user["id"], **payload.model_dump(), "created_at": now_iso()}
-    await db.leads.insert_one(doc)
-    return clean(doc)
-
-
-@api.put("/leads/{lid}")
-async def update_lead(lid: str, payload: LeadIn, user=Depends(get_current_user)):
-    await db.leads.update_one({"id": lid, "user_id": user["id"]}, {"$set": payload.model_dump()})
-    return {"ok": True}
-
-
-@api.patch("/leads/{lid}/status")
-async def update_lead_status(lid: str, payload: dict = Body(...), user=Depends(get_current_user)):
-    await db.leads.update_one({"id": lid, "user_id": user["id"]}, {"$set": {"status": payload.get("status")}})
-    return {"ok": True}
-
-
-@api.delete("/leads/{lid}")
-async def delete_lead(lid: str, user=Depends(get_current_user)):
-    await db.leads.delete_one({"id": lid, "user_id": user["id"]})
-    return {"ok": True}
-
-
-# ----------------- Appointments -----------------
-@api.get("/appointments")
-async def list_appointments(user=Depends(get_current_user)):
-    return await db.appointments.find({"user_id": user["id"]}, {"_id": 0}).to_list(2000)
-
-
-@api.post("/appointments")
-async def create_appointment(payload: AppointmentIn, user=Depends(get_current_user)):
-    doc = {"id": gen_id(), "user_id": user["id"], **payload.model_dump(), "created_at": now_iso()}
-    await db.appointments.insert_one(doc)
-    return clean(doc)
-
-
-@api.put("/appointments/{aid}")
-async def update_appointment(aid: str, payload: AppointmentIn, user=Depends(get_current_user)):
-    await db.appointments.update_one({"id": aid, "user_id": user["id"]}, {"$set": payload.model_dump()})
-    return {"ok": True}
-
-
-@api.delete("/appointments/{aid}")
-async def delete_appointment(aid: str, user=Depends(get_current_user)):
-    await db.appointments.delete_one({"id": aid, "user_id": user["id"]})
-    return {"ok": True}
 
 
 # ----------------- Offers -----------------
@@ -1995,6 +1773,11 @@ async def admin_delete_user(uid: str, admin=Depends(require_admin)):
 
 # ----------------- App wiring -----------------
 app.include_router(api)
+app.include_router(clients_router)
+app.include_router(leads_router)
+app.include_router(appointments_router)
+app.include_router(mandanti_router)
+app.include_router(products_router)
 
 app.add_middleware(
     CORSMiddleware,
