@@ -19,11 +19,15 @@ import requests as http_requests
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr
+from core.database import db
+from core.security import get_current_user, hash_password, verify_password, create_access_token
+from core.utils import now_iso, gen_id, clean
+from routers.clients import router as clients_router
+from routers.leads import router as leads_router
+from routers.appointments import router as appointments_router
 
 # ----------------- Setup -----------------
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+
 
 JWT_SECRET = os.environ.get('JWT_SECRET', 'devsecret')
 
