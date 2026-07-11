@@ -156,6 +156,11 @@ async def send_email(to: str, subject: str, html: str):
 
 app = FastAPI(title="Gestionale Agenti di Commercio")
 api = APIRouter(prefix="/api")
+from core.exceptions import AppError
+
+@app.exception_handler(AppError)
+async def app_error_handler(request, exc: AppError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
