@@ -27,6 +27,9 @@ from routers.leads import router as leads_router
 from routers.appointments import router as appointments_router
 from routers.mandanti import router as mandanti_router
 from routers.products import router as products_router
+from services.commission_service import calc_offer_total, get_commission_rate, check_and_award_bonus
+from routers.offers import router as offers_router
+from routers.commissions import router as commissions_router
 
 # ----------------- Setup -----------------
 
@@ -226,25 +229,6 @@ class RegisterIn(BaseModel):
 
 
 
-class OfferLineItem(BaseModel):
-    product_id: Optional[str] = None
-    description: str
-    quantity: float = 1
-    unit_price: float = 0.0
-    discount: float = 0.0
-
-
-class OfferIn(BaseModel):
-    client_id: str
-    mandante_id: str
-    title: str
-    items: List[OfferLineItem] = []
-    expires_at: Optional[str] = None
-    status: str = "bozza"  # bozza, inviata, accettata, rifiutata, scaduta
-    sale_type: str = "nuovo"  # nuovo, rinnovo — determina l'aliquota di provvigione applicata
-    notes: Optional[str] = ""
-
-
 class CommissionIn(BaseModel):
     offer_id: Optional[str] = None
     client_id: str
@@ -407,192 +391,6 @@ async def logout(response: Response):
 @api.get("/auth/me")
 async def me(user=Depends(get_current_user)):
     return user
-
-
-# ----------------- Offers -----------------
-def calc_offer_total(items: List[dict]) -> float:
-    total = 0.0
-    for it in items:
-        sub = it.get("quantity", 1) * it.get("unit_price", 0) * (1 - it.get("discount", 0)/100)
-        total += sub
-    return round(total, 2)
-
-
-def get_commission_rate(mandante: dict, sale_type: str) -> float:
-    """Restituisce l'aliquota da applicare in base al tipo di vendita (nuovo/rinnovo).
-    Se il mandante non ha un'aliquota specifica impostata per quel tipo, usa quella standard."""
-    if sale_type == "rinnovo" and mandante.get("commission_rate_renewal") is not None:
-        return mandante["commission_rate_renewal"]
-    if sale_type == "nuovo" and mandante.get("commission_rate_new") is not None:
-        return mandante["commission_rate_new"]
-    return mandante.get("commission_rate", 5.0)
-
-async def check_and_award_bonus(user_id: str, mandante_id: str):
-    """Controlla lo scaglione piu alto della scala premi raggiunto dal mandante
-    e mantiene una sola provvigione bonus corrispondente (non cumulativa):
-    ogni nuovo scaglione raggiunto sostituisce quello precedente, non si somma."""
-    mandante = await db.mandanti.find_one({"id": mandante_id, "user_id": user_id}, {"_id": 0})
-    if not mandante:
-        return
-    tiers = mandante.get("bonus_tiers", [])
-    if not tiers:
-        return
-
-    commissions = await db.commissions.find({"user_id": user_id, "mandante_id": mandante_id}, {"_id": 0}).to_list(5000)
-
-    def _base_amount(c):
-        if c.get("base_amount") is not None:
-            return c["base_amount"]
-        rate = c.get("rate") or mandante.get("commission_rate", 5)
-        return c.get("amount", 0) / (rate / 100) if rate else 0.0
-
-    fatturato = sum(_base_amount(c) for c in commissions if c.get("sale_type") != "bonus")
-    sorted_tiers = sorted(tiers, key=lambda t: t["threshold"])
-    earned = [t for t in sorted_tiers if fatturato >= t["threshold"]]
-
-    existing_bonus = [c for c in commissions if c.get("sale_type") == "bonus"]
-
-    if not earned:
-        for c in existing_bonus:
-            await db.commissions.delete_one({"id": c["id"], "user_id": user_id})
-        return
-
-    highest = earned[-1]
-
-    to_remove = [c for c in existing_bonus if c.get("bonus_tier_threshold") != highest["threshold"]]
-    for c in to_remove:
-        await db.commissions.delete_one({"id": c["id"], "user_id": user_id})
-
-    already_correct = any(c.get("bonus_tier_threshold") == highest["threshold"] for c in existing_bonus)
-    if already_correct:
-        return
-
-    bonus_comm = {
-        "id": gen_id(), "user_id": user_id, "offer_id": None,
-        "client_id": None, "mandante_id": mandante_id,
-        "amount": round(highest.get("bonus", 0), 2), "rate": None, "base_amount": None,
-        "sale_type": "bonus", "status": "maturato",
-        "bonus_tier_threshold": highest["threshold"],
-        "period": datetime.now(timezone.utc).strftime("%Y-%m"),
-        "created_at": now_iso(),
-    }
-    await db.commissions.insert_one(bonus_comm)
-
-@api.get("/offers")
-async def list_offers(user=Depends(get_current_user)):
-    return await db.offers.find({"user_id": user["id"]}, {"_id": 0}).to_list(2000)
-
-
-@api.post("/offers")
-async def create_offer(payload: OfferIn, user=Depends(get_current_user)):
-    data = payload.model_dump()
-    data["total"] = calc_offer_total(data["items"])
-    doc = {"id": gen_id(), "user_id": user["id"], **data, "created_at": now_iso()}
-    await db.offers.insert_one(doc)
-    return clean(doc)
-
-
-@api.put("/offers/{oid}")
-async def update_offer(oid: str, payload: OfferIn, user=Depends(get_current_user)):
-    data = payload.model_dump()
-    data["total"] = calc_offer_total(data["items"])
-    await db.offers.update_one({"id": oid, "user_id": user["id"]}, {"$set": data})
-    return {"ok": True}
-
-
-@api.patch("/offers/{oid}/status")
-async def update_offer_status(oid: str, payload: dict = Body(...), user=Depends(get_current_user)):
-    new_status = payload.get("status")
-    offer = await db.offers.find_one({"id": oid, "user_id": user["id"]}, {"_id": 0})
-    if not offer:
-        raise HTTPException(404, "Offerta non trovata")
-    await db.offers.update_one({"id": oid, "user_id": user["id"]}, {"$set": {"status": new_status}})
-    # If accepted, create commission record
-    if new_status == "accettata" and offer.get("status") != "accettata":
-        mandante = await db.mandanti.find_one({"id": offer["mandante_id"], "user_id": user["id"]}, {"_id": 0})
-        sale_type = offer.get("sale_type", "nuovo")
-        rate = get_commission_rate(mandante, sale_type) if mandante else 5.0
-        amount = offer.get("total", 0) * rate / 100
-        comm = {
-            "id": gen_id(), "user_id": user["id"], "offer_id": oid,
-            "client_id": offer["client_id"], "mandante_id": offer["mandante_id"],
-            "amount": round(amount, 2), "rate": rate, "base_amount": offer.get("total", 0),
-            "sale_type": sale_type, "status": "maturato",
-            "period": datetime.now(timezone.utc).strftime("%Y-%m"),
-            "created_at": now_iso(),
-        }
-        await db.commissions.insert_one(comm)
-        await check_and_award_bonus(user["id"], offer["mandante_id"])
-    return {"ok": True}
-
-
-@api.delete("/offers/{oid}")
-async def delete_offer(oid: str, user=Depends(get_current_user)):
-    await db.offers.delete_one({"id": oid, "user_id": user["id"]})
-    return {"ok": True}
-
-
-# ----------------- Commissions -----------------
-@api.get("/commissions")
-async def list_commissions(user=Depends(get_current_user)):
-    return await db.commissions.find({"user_id": user["id"]}, {"_id": 0}).to_list(2000)
-
-
-@api.get("/commissions/bonus-summary")
-async def bonus_summary(user=Depends(get_current_user)):
-    """Calcola i bonus raggiunti per ogni mandante in base al fatturato delle provvigioni."""
-    mandanti = await db.mandanti.find({"user_id": user["id"]}, {"_id": 0}).to_list(100)
-    commissions = await db.commissions.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
-
-    result = []
-    for m in mandanti:
-        tiers = m.get("bonus_tiers", [])
-        if not tiers:
-            continue
-        # Somma fatturato: usa base_amount se salvato (accurato), altrimenti
-        # ricalcola dall'aliquota storica della singola commissione (non quella
-        # attuale del mandante, che potrebbe essere cambiata nel frattempo)
-        def _base_amount(c: dict) -> float:
-            if c.get("base_amount") is not None:
-                return c["base_amount"]
-            rate = c.get("rate") or m.get("commission_rate", 5)
-            return c.get("amount", 0) / (rate / 100) if rate else 0.0
-
-        fatturato = sum(
-            _base_amount(c) for c in commissions
-            if c.get("mandante_id") == m["id"] and c.get("sale_type") != "bonus"
-        )
-        # Ordina tiers per soglia crescente
-        sorted_tiers = sorted(tiers, key=lambda t: t["threshold"])
-        # Trova tutti i bonus raggiunti (tutti gli scaglioni superati)
-        earned_tiers = [t for t in sorted_tiers if fatturato >= t["threshold"]]
-        total_bonus = earned_tiers[-1]["bonus"] if earned_tiers else 0
-        next_tier = next((t for t in sorted_tiers if fatturato < t["threshold"]), None)
-        await check_and_award_bonus(user["id"], m["id"])
-        result.append({
-            "mandante_id": m["id"],
-            "mandante_name": m["name"],
-            "brand_color": m.get("brand_color", "#0A192F"),
-            "fatturato": round(fatturato, 2),
-            "total_bonus": round(total_bonus, 2),
-            "earned_tiers": earned_tiers,
-            "next_tier": next_tier,
-            "tiers": sorted_tiers,
-        })
-    return result
-
-
-@api.patch("/commissions/{cid}/status")
-async def update_commission_status(cid: str, payload: dict = Body(...), user=Depends(get_current_user)):
-    await db.commissions.update_one({"id": cid, "user_id": user["id"]},
-                                    {"$set": {"status": payload.get("status")}})
-    return {"ok": True}
-
-
-@api.delete("/commissions/{cid}")
-async def delete_commission(cid: str, user=Depends(get_current_user)):
-    await db.commissions.delete_one({"id": cid, "user_id": user["id"]})
-    return {"ok": True}
 
 
 # ----------------- Documents -----------------
@@ -1778,6 +1576,8 @@ app.include_router(leads_router)
 app.include_router(appointments_router)
 app.include_router(mandanti_router)
 app.include_router(products_router)
+app.include_router(offers_router)
+app.include_router(commissions_router)
 
 app.add_middleware(
     CORSMiddleware,
