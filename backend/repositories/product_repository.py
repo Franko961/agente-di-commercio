@@ -13,6 +13,7 @@ class ProductRepository:
 
     async def insert(self, doc: dict) -> dict:
         await self.collection.insert_one(doc)
+        doc.pop("_id", None)
         return doc
 
     async def update(self, pid: str, user_id: str, data: dict) -> None:
