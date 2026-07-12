@@ -6,6 +6,7 @@ from core.security import hash_password, verify_password, create_access_token
 from core.config import PLANS, ADMIN_NOTIFY_EMAIL
 from repositories.user_repository import user_repository
 from services.email_service import send_email
+from services.seed_service import seed_service
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +37,8 @@ class AuthService:
         await self.repo.insert(doc)
 
         # Seed starter demo data so the new user lands on a populated app.
-        # Import ritardato per evitare una dipendenza circolare con server.py.
         try:
-            from server import seed_demo
-            await seed_demo(user_id)
+            await seed_service.seed_demo(user_id)
         except Exception as e:
             logger.warning(f"Seed for new user failed: {e}")
 
