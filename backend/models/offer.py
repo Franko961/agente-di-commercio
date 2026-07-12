@@ -19,3 +19,8 @@ class OfferIn(BaseModel):
     status: str = "bozza"  # bozza, inviata, accettata, rifiutata, scaduta
     sale_type: str = "nuovo"  # nuovo, rinnovo — determina l'aliquota di provvigione applicata
     notes: Optional[str] = ""
+
+
+class SignatureIn(BaseModel):
+    signature: str  # base64 PNG data URL
+    signer_name: Optional[str] = ""
