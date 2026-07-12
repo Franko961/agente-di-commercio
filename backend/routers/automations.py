@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from core.security import get_current_user
+from core.security import get_current_user, forbid_demo_write
 from services.automation_service import automation_service
 from models.automation import AutomationIn
 
@@ -23,6 +23,6 @@ async def update_automation(aid: str, payload: AutomationIn, user=Depends(get_cu
 
 
 @router.delete("/{aid}")
-async def delete_automation(aid: str, user=Depends(get_current_user)):
+async def delete_automation(aid: str, user=Depends(forbid_demo_write)):
     await automation_service.delete_automation(user, aid)
     return {"ok": True}
