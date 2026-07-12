@@ -50,5 +50,30 @@ class OfferService:
     async def delete_offer(self, user: dict, oid: str) -> None:
         await self.repo.delete(oid, user["id"])
 
+    async def sign_offer(self, user: dict, oid: str, signature: str, signer_name: str) -> None:
+        signed_at = now_iso()
+        matched = await self.repo.sign(oid, user["id"], signature, signer_name, signed_at)
+        if not matched:
+            raise NotFoundError("Offerta non trovata")
+
+        # Auto-crea la commissione se non esiste già per questa offerta
+        offer = await self.repo.find_one(oid, user["id"])
+        existing = await commission_service.repo.find_by_offer(oid, user["id"])
+        if not existing and offer:
+            mandante = await self.mandante_repo.find_one(offer["mandante_id"], user["id"])
+            sale_type = offer.get("sale_type", "nuovo")
+            rate = get_commission_rate(mandante, sale_type) if mandante else 5.0
+            amount = offer.get("total", 0) * rate / 100
+            comm = {
+                "id": gen_id(), "user_id": user["id"], "offer_id": oid,
+                "client_id": offer["client_id"], "mandante_id": offer["mandante_id"],
+                "amount": round(amount, 2), "rate": rate, "base_amount": offer.get("total", 0),
+                "sale_type": sale_type, "status": "maturato",
+                "period": datetime.now(timezone.utc).strftime("%Y-%m"),
+                "created_at": now_iso(),
+            }
+            await commission_service.repo.insert(comm)
+            await commission_service.check_and_award_bonus(user["id"], offer["mandante_id"])
+
 
 offer_service = OfferService()
