@@ -26,6 +26,7 @@ from routers.admin import router as admin_router
 from routers.subscription import router as subscription_router
 from services.startup_service import run_startup, run_shutdown
 from core.exceptions import AppError
+from core.config import CORS_ORIGINS
 
 app = FastAPI(title="Gestionale Agenti di Commercio")
 
@@ -69,7 +70,7 @@ app.include_router(subscription_router)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["https://salesfly.it", "https://www.salesfly.it", "https://main--salesfly.netlify.app"],
+    allow_origins=CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
