@@ -1,0 +1,33 @@
+from fastapi import APIRouter, Depends, Response
+from core.security import get_current_user
+from services.auth_service import auth_service
+from models.auth import LoginIn, RegisterIn
+
+router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+
+@router.post("/register")
+async def register(payload: RegisterIn, response: Response):
+    token, out = await auth_service.register(payload)
+    response.set_cookie("access_token", token, httponly=True, secure=True,
+                         samesite="none", max_age=7 * 24 * 3600, path="/")
+    return out
+
+
+@router.post("/login")
+async def login(payload: LoginIn, response: Response):
+    token, out = await auth_service.login(payload)
+    response.set_cookie("access_token", token, httponly=True, secure=True,
+                         samesite="none", max_age=7 * 24 * 3600, path="/")
+    return out
+
+
+@router.post("/logout")
+async def logout(response: Response):
+    response.delete_cookie("access_token", path="/", secure=True, samesite="none")
+    return {"ok": True}
+
+
+@router.get("/me")
+async def me(user=Depends(get_current_user)):
+    return user
