@@ -1,7 +1,7 @@
 import bcrypt
 import jwt
 from datetime import datetime, timezone, timedelta
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Request, Depends
 from core.config import JWT_SECRET, JWT_ALG
 from core.database import db
 
@@ -37,4 +37,14 @@ async def get_current_user(request: Request) -> dict:
     user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    return user
+
+
+def is_admin(user: dict) -> bool:
+    return user.get("role") == "admin"
+
+
+async def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    if not is_admin(user):
+        raise HTTPException(status_code=403, detail="Accesso riservato agli amministratori")
     return user
