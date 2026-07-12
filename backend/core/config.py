@@ -19,6 +19,13 @@ PAYPAL_CLIENT_ID = os.environ.get('PAYPAL_CLIENT_ID', '')
 PAYPAL_CLIENT_SECRET = os.environ.get('PAYPAL_CLIENT_SECRET', '')
 PAYPAL_MODE = os.environ.get('PAYPAL_MODE', 'sandbox')
 
+CORS_ORIGINS = [
+    origin.strip() for origin in os.environ.get(
+        'CORS_ORIGINS',
+        'https://salesfly.it,https://www.salesfly.it,https://main--salesfly.netlify.app'
+    ).split(',') if origin.strip()
+]
+
 PLANS = {
     'base': {'name': 'Base', 'price_eur': 6.00, 'stripe_price_id': os.environ.get('STRIPE_PRICE_BASE', ''), 'paypal_plan_id': os.environ.get('PAYPAL_PLAN_BASE', '')},
     'pro':  {'name': 'Pro',  'price_eur': 11.00, 'stripe_price_id': os.environ.get('STRIPE_PRICE_PRO', ''),  'paypal_plan_id': os.environ.get('PAYPAL_PLAN_PRO', '')},
