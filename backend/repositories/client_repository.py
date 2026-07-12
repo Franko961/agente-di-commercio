@@ -22,6 +22,10 @@ class ClientRepository:
         doc.pop("_id", None)
         return doc
 
+    async def insert_many(self, docs: list) -> None:
+        if docs:
+            await self.collection.insert_many(docs)
+
     async def update(self, cid: str, user_id: str, data: dict) -> bool:
         res = await self.collection.update_one({"id": cid, "user_id": user_id}, {"$set": data})
         return res.matched_count > 0
