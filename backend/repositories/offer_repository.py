@@ -21,6 +21,18 @@ class OfferRepository:
     async def update_status(self, oid: str, user_id: str, status: str) -> None:
         await self.collection.update_one({"id": oid, "user_id": user_id}, {"$set": {"status": status}})
 
+    async def sign(self, oid: str, user_id: str, signature: str, signer_name: str, signed_at: str) -> bool:
+        res = await self.collection.update_one(
+            {"id": oid, "user_id": user_id},
+            {"$set": {
+                "signature": signature,
+                "signer_name": signer_name,
+                "signed_at": signed_at,
+                "status": "accettata",
+            }}
+        )
+        return res.matched_count > 0
+
     async def delete(self, oid: str, user_id: str) -> None:
         await self.collection.delete_one({"id": oid, "user_id": user_id})
 
