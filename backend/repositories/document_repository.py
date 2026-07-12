@@ -21,6 +21,10 @@ class DocumentRepository:
         doc.pop("_id", None)
         return doc
 
+    async def insert_many(self, docs: list) -> None:
+        if docs:
+            await self.collection.insert_many(docs)
+
     async def update_meta(self, did: str, user_id: str, data: dict) -> bool:
         res = await self.collection.update_one(
             {"id": did, "user_id": user_id, "is_deleted": {"$ne": True}},
