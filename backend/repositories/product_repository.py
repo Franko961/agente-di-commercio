@@ -22,6 +22,10 @@ class ProductRepository:
         doc.pop("_id", None)
         return doc
 
+    async def insert_many(self, docs: list) -> None:
+        if docs:
+            await self.collection.insert_many(docs)
+
     async def update(self, pid: str, user_id: str, data: dict) -> None:
         await self.collection.update_one({"id": pid, "user_id": user_id}, {"$set": data})
 
