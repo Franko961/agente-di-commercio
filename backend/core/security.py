@@ -48,3 +48,10 @@ async def require_admin(user: dict = Depends(get_current_user)) -> dict:
     if not is_admin(user):
         raise HTTPException(status_code=403, detail="Accesso riservato agli amministratori")
     return user
+
+
+async def forbid_demo_write(user: dict = Depends(get_current_user)) -> dict:
+    """Blocca operazioni distruttive (es. cancellazioni) per l'account demo condiviso."""
+    if user.get("is_demo"):
+        raise HTTPException(status_code=403, detail="Questa azione non è disponibile nell'account demo")
+    return user
