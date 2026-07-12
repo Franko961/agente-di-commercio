@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from typing import Optional
-from core.security import get_current_user
+from core.security import get_current_user, forbid_demo_write
 from services.client_service import client_service
 from models.client import ClientIn
 
@@ -26,6 +26,6 @@ async def update_client(cid: str, payload: ClientIn, user=Depends(get_current_us
     return {"ok": True}
 
 @router.delete("/{cid}")
-async def delete_client(cid: str, user=Depends(get_current_user)):
+async def delete_client(cid: str, user=Depends(forbid_demo_write)):
     await client_service.delete_client(user, cid)
     return {"ok": True}
