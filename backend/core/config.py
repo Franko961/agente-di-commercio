@@ -11,7 +11,7 @@ if not JWT_SECRET:
         "JWT_SECRET non impostata. Imposta la variabile d'ambiente JWT_SECRET "
         "prima di avviare l'app — è obbligatoria per la sicurezza dei token di accesso."
     )
-JWT_ALG = 'HS256''
+JWT_ALG = 'HS256'
 
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
