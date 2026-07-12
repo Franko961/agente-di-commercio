@@ -415,4 +415,11 @@ class AiService:
             response = message.content[0].text
             m = re.search(r'\{.*\}', response, re.DOTALL)
             if m:
-                data =
+                data = json.loads(m.group(0))
+                return data
+        except Exception as e:
+            logger.error(f"AI suggestions error: {e}")
+        return {"suggestions": []}
+
+
+ai_service = AiService()
