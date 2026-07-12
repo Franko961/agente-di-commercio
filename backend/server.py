@@ -531,7 +531,8 @@ async def sign_offer(oid: str, payload: SignatureIn, user=Depends(get_current_us
     existing = await db.commissions.find_one({"offer_id": oid, "user_id": user["id"]})
     if not existing and offer:
         mandante = await db.mandanti.find_one({"id": offer["mandante_id"], "user_id": user["id"]}, {"_id": 0})
-        rate = mandante.get("commission_rate", 5.0) if mandante else 5.0
+        sale_type = offer.get("sale_type", "nuovo")
+        rate = get_commission_rate(mandante, sale_type) if mandante else 5.0
         amount = offer.get("total", 0) * rate / 100
         comm = {
             "id": gen_id(), "user_id": user["id"], "offer_id": oid,
