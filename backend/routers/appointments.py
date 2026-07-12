@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from core.security import get_current_user
+from core.security import get_current_user, forbid_demo_write
 from services.appointment_service import appointment_service
 from models.appointment import AppointmentIn
 
@@ -19,6 +19,6 @@ async def update_appointment(aid: str, payload: AppointmentIn, user=Depends(get_
     return {"ok": True}
 
 @router.delete("/{aid}")
-async def delete_appointment(aid: str, user=Depends(get_current_user)):
+async def delete_appointment(aid: str, user=Depends(forbid_demo_write)):
     await appointment_service.delete_appointment(user, aid)
     return {"ok": True}
