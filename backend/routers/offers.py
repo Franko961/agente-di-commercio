@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Body
 from core.security import get_current_user
 from services.offer_service import offer_service
-from models.offer import OfferIn
+from models.offer import OfferIn, SignatureIn
 
 router = APIRouter(prefix="/api/offers", tags=["offers"])
 
@@ -31,4 +31,10 @@ async def update_offer_status(oid: str, payload: dict = Body(...), user=Depends(
 @router.delete("/{oid}")
 async def delete_offer(oid: str, user=Depends(get_current_user)):
     await offer_service.delete_offer(user, oid)
+    return {"ok": True}
+
+
+@router.post("/{oid}/sign")
+async def sign_offer(oid: str, payload: SignatureIn, user=Depends(get_current_user)):
+    await offer_service.sign_offer(user, oid, payload.signature, payload.signer_name)
     return {"ok": True}
