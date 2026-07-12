@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from core.security import get_current_user
+from core.security import get_current_user, forbid_demo_write
 from services.ai_service import ai_service
 from models.ai import AIQuery
 
@@ -12,7 +12,7 @@ async def ai_history(user=Depends(get_current_user)):
 
 
 @router.delete("/history")
-async def clear_ai_history(user=Depends(get_current_user)):
+async def clear_ai_history(user=Depends(forbid_demo_write)):
     await ai_service.clear_history(user["id"])
     return {"ok": True}
 
