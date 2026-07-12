@@ -1,7 +1,7 @@
 import jwt
 from typing import Optional
 from fastapi import APIRouter, Depends, Body, UploadFile, File, Form, Header, Query, HTTPException, Response
-from core.security import get_current_user
+from core.security import get_current_user, forbid_demo_write
 from core.config import JWT_SECRET, JWT_ALG
 from services.document_service import document_service
 from services.storage_service import storage_get
@@ -69,6 +69,6 @@ async def download_document(did: str, authorization: Optional[str] = Header(None
 
 
 @router.delete("/{did}")
-async def delete_document(did: str, user=Depends(get_current_user)):
+async def delete_document(did: str, user=Depends(forbid_demo_write)):
     await document_service.delete_document(user, did)
     return {"ok": True}
