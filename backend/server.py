@@ -32,6 +32,8 @@ from routers.offers import router as offers_router
 from routers.commissions import router as commissions_router
 from routers.documents import router as documents_router
 from routers.automations import router as automations_router
+from routers.dashboard import router as dashboard_router
+from routers.export import router as export_router
 
 # ----------------- Setup -----------------
 
@@ -303,92 +305,6 @@ async def logout(response: Response):
 @api.get("/auth/me")
 async def me(user=Depends(get_current_user)):
     return user
-
-
-# ----------------- Dashboard -----------------
-@api.get("/dashboard/stats")
-async def dashboard(user=Depends(get_current_user)):
-    clients = await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
-    offers = await db.offers.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
-    leads = await db.leads.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
-    appts = await db.appointments.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
-    commissions = await db.commissions.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
-
-    revenue_won = sum(o.get("total", 0) for o in offers if o.get("status") == "accettata")
-    revenue_pipeline = sum(o.get("total", 0) for o in offers if o.get("status") in ("inviata", "bozza"))
-    accrued = sum(c.get("amount", 0) for c in commissions if c.get("status") == "maturato")
-    collected = sum(c.get("amount", 0) for c in commissions if c.get("status") == "incassato")
-
-    # Revenue by zone
-    by_zone: Dict[str, float] = {}
-    for o in offers:
-        if o.get("status") != "accettata":
-            continue
-        cli = next((c for c in clients if c["id"] == o.get("client_id")), None)
-        if cli:
-            zone = cli.get("zone") or "N/D"
-            by_zone[zone] = by_zone.get(zone, 0) + o.get("total", 0)
-
-    # Clienti per settore merceologico
-    by_sector: Dict[str, int] = {}
-    for c in clients:
-        sector = c.get("sector") or "Non specificato"
-        by_sector[sector] = by_sector.get(sector, 0) + 1
-
-    # Monthly revenue (last 6 months) from accepted offers
-    months: Dict[str, float] = {}
-    for o in offers:
-        if o.get("status") != "accettata":
-            continue
-        ca = o.get("created_at", "")
-        if len(ca) >= 7:
-            key = ca[:7]
-            months[key] = months.get(key, 0) + o.get("total", 0)
-    monthly = sorted([{"month": k, "revenue": round(v, 2)} for k, v in months.items()])[-6:]
-
-    # Upcoming appointments (next 7 days)
-    today = datetime.now(timezone.utc)
-    week_later = today + timedelta(days=7)
-    upcoming = []
-    for a in appts:
-        try:
-            start = datetime.fromisoformat(a["start"].replace("Z", "+00:00"))
-            if today <= start <= week_later and a.get("status") == "pianificato":
-                upcoming.append(a)
-        except Exception:
-            pass
-
-    # Goal: monthly target = 10000
-    current_month_key = today.strftime("%Y-%m")
-    current_month_rev = months.get(current_month_key, 0)
-    goal = 10000
-
-    return {
-        "kpi": {
-            "clients_count": len(clients),
-            "leads_count": len(leads),
-            "offers_count": len(offers),
-            "revenue_won": round(revenue_won, 2),
-            "revenue_pipeline": round(revenue_pipeline, 2),
-            "commissions_accrued": round(accrued, 2),
-            "commissions_collected": round(collected, 2),
-            "current_month_revenue": round(current_month_rev, 2),
-            "monthly_goal": goal,
-            "goal_pct": round(min(100, (current_month_rev / goal) * 100) if goal else 0, 1),
-        },
-        "by_zone": [{"zone": k, "revenue": round(v, 2)} for k, v in by_zone.items()],
-        "by_sector": sorted([{"sector": k, "count": v} for k, v in by_sector.items()], key=lambda x: -x["count"]),
-        "monthly": monthly,
-        "upcoming_appointments": upcoming[:10],
-        "pipeline": {
-            "nuovo": sum(1 for l in leads if l.get("status") == "nuovo"),
-            "contattato": sum(1 for l in leads if l.get("status") == "contattato"),
-            "qualificato": sum(1 for l in leads if l.get("status") == "qualificato"),
-            "trattativa": sum(1 for l in leads if l.get("status") == "trattativa"),
-            "vinto": sum(1 for l in leads if l.get("status") == "vinto"),
-            "perso": sum(1 for l in leads if l.get("status") == "perso"),
-        },
-    }
 
 
 # ----------------- AI Assistant (Gemini 3 Flash) -----------------
@@ -859,78 +775,6 @@ async def list_email_logs(user=Depends(get_current_user)):
     return await db.email_logs.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
 
 
-# ----------------- Export CSV -----------------
-def csv_response(rows: List[dict], headers: List[str], filename: str):
-    buf = io.StringIO()
-    buf.write("\ufeff")  # UTF-8 BOM for Excel
-    writer = csv.DictWriter(buf, fieldnames=headers, delimiter=";", extrasaction="ignore")
-    writer.writeheader()
-    for r in rows:
-        writer.writerow({h: r.get(h, "") for h in headers})
-    buf.seek(0)
-    return StreamingResponse(
-        iter([buf.getvalue()]),
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
-
-
-@api.get("/export/clients.csv")
-async def export_clients(user=Depends(get_current_user)):
-    clients = await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
-    headers = ["company_name", "contact_name", "email", "phone", "vat_number",
-               "address", "city", "province", "zone", "sector", "potential", "notes"]
-    return csv_response(clients, headers, "clienti.csv")
-
-
-@api.get("/export/offers.csv")
-async def export_offers(user=Depends(get_current_user)):
-    offers = await db.offers.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
-    clients = {c["id"]: c for c in await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)}
-    mandanti = {m["id"]: m for m in await db.mandanti.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)}
-    rows = []
-    for o in offers:
-        rows.append({
-            "title": o.get("title"),
-            "client": clients.get(o.get("client_id"), {}).get("company_name", ""),
-            "mandante": mandanti.get(o.get("mandante_id"), {}).get("name", ""),
-            "total": o.get("total", 0),
-            "status": o.get("status"),
-            "items_count": len(o.get("items", [])),
-            "expires_at": (o.get("expires_at") or "")[:10],
-            "created_at": (o.get("created_at") or "")[:10],
-        })
-    headers = ["title", "client", "mandante", "total", "status", "items_count", "expires_at", "created_at"]
-    return csv_response(rows, headers, "offerte.csv")
-
-
-@api.get("/export/commissions.csv")
-async def export_commissions(user=Depends(get_current_user)):
-    commissions = await db.commissions.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
-    clients = {c["id"]: c for c in await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)}
-    mandanti = {m["id"]: m for m in await db.mandanti.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)}
-    rows = []
-    for c in commissions:
-        rows.append({
-            "period": c.get("period"),
-            "client": clients.get(c.get("client_id"), {}).get("company_name", ""),
-            "mandante": mandanti.get(c.get("mandante_id"), {}).get("name", ""),
-            "amount": c.get("amount", 0),
-            "rate": c.get("rate", 0),
-            "status": c.get("status"),
-        })
-    headers = ["period", "client", "mandante", "amount", "rate", "status"]
-    return csv_response(rows, headers, "provvigioni.csv")
-
-
-@api.get("/export/leads.csv")
-async def export_leads(user=Depends(get_current_user)):
-    leads = await db.leads.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
-    headers = ["company_name", "contact_name", "email", "phone", "source",
-               "estimated_value", "status", "notes", "created_at"]
-    return csv_response(leads, headers, "lead.csv")
-
-
 # ----------------- Seed Demo Data -----------------
 async def seed_demo(user_id: str):
     if await db.mandanti.count_documents({"user_id": user_id}) > 0:
@@ -1345,6 +1189,8 @@ app.include_router(offers_router)
 app.include_router(commissions_router)
 app.include_router(documents_router)
 app.include_router(automations_router)
+app.include_router(dashboard_router)
+app.include_router(export_router)
 
 app.add_middleware(
     CORSMiddleware,
