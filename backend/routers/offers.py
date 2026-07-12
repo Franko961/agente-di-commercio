@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Body
-from core.security import get_current_user
+from core.security import get_current_user, forbid_demo_write
 from services.offer_service import offer_service
 from models.offer import OfferIn, SignatureIn
 
@@ -29,7 +29,7 @@ async def update_offer_status(oid: str, payload: dict = Body(...), user=Depends(
 
 
 @router.delete("/{oid}")
-async def delete_offer(oid: str, user=Depends(get_current_user)):
+async def delete_offer(oid: str, user=Depends(forbid_demo_write)):
     await offer_service.delete_offer(user, oid)
     return {"ok": True}
 
