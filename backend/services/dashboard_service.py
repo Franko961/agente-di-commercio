@@ -1,0 +1,91 @@
+from datetime import datetime, timezone, timedelta
+from typing import Dict
+from core.database import db
+
+
+class DashboardService:
+    async def get_stats(self, user: dict) -> dict:
+        clients = await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
+        offers = await db.offers.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
+        leads = await db.leads.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
+        appts = await db.appointments.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
+        commissions = await db.commissions.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
+
+        revenue_won = sum(o.get("total", 0) for o in offers if o.get("status") == "accettata")
+        revenue_pipeline = sum(o.get("total", 0) for o in offers if o.get("status") in ("inviata", "bozza"))
+        accrued = sum(c.get("amount", 0) for c in commissions if c.get("status") == "maturato")
+        collected = sum(c.get("amount", 0) for c in commissions if c.get("status") == "incassato")
+
+        # Revenue by zone
+        by_zone: Dict[str, float] = {}
+        for o in offers:
+            if o.get("status") != "accettata":
+                continue
+            cli = next((c for c in clients if c["id"] == o.get("client_id")), None)
+            if cli:
+                zone = cli.get("zone") or "N/D"
+                by_zone[zone] = by_zone.get(zone, 0) + o.get("total", 0)
+
+        # Clienti per settore merceologico
+        by_sector: Dict[str, int] = {}
+        for c in clients:
+            sector = c.get("sector") or "Non specificato"
+            by_sector[sector] = by_sector.get(sector, 0) + 1
+
+        # Monthly revenue (last 6 months) from accepted offers
+        months: Dict[str, float] = {}
+        for o in offers:
+            if o.get("status") != "accettata":
+                continue
+            ca = o.get("created_at", "")
+            if len(ca) >= 7:
+                key = ca[:7]
+                months[key] = months.get(key, 0) + o.get("total", 0)
+        monthly = sorted([{"month": k, "revenue": round(v, 2)} for k, v in months.items()])[-6:]
+
+        # Upcoming appointments (next 7 days)
+        today = datetime.now(timezone.utc)
+        week_later = today + timedelta(days=7)
+        upcoming = []
+        for a in appts:
+            try:
+                start = datetime.fromisoformat(a["start"].replace("Z", "+00:00"))
+                if today <= start <= week_later and a.get("status") == "pianificato":
+                    upcoming.append(a)
+            except Exception:
+                pass
+
+        # Goal: monthly target = 10000
+        current_month_key = today.strftime("%Y-%m")
+        current_month_rev = months.get(current_month_key, 0)
+        goal = 10000
+
+        return {
+            "kpi": {
+                "clients_count": len(clients),
+                "leads_count": len(leads),
+                "offers_count": len(offers),
+                "revenue_won": round(revenue_won, 2),
+                "revenue_pipeline": round(revenue_pipeline, 2),
+                "commissions_accrued": round(accrued, 2),
+                "commissions_collected": round(collected, 2),
+                "current_month_revenue": round(current_month_rev, 2),
+                "monthly_goal": goal,
+                "goal_pct": round(min(100, (current_month_rev / goal) * 100) if goal else 0, 1),
+            },
+            "by_zone": [{"zone": k, "revenue": round(v, 2)} for k, v in by_zone.items()],
+            "by_sector": sorted([{"sector": k, "count": v} for k, v in by_sector.items()], key=lambda x: -x["count"]),
+            "monthly": monthly,
+            "upcoming_appointments": upcoming[:10],
+            "pipeline": {
+                "nuovo": sum(1 for l in leads if l.get("status") == "nuovo"),
+                "contattato": sum(1 for l in leads if l.get("status") == "contattato"),
+                "qualificato": sum(1 for l in leads if l.get("status") == "qualificato"),
+                "trattativa": sum(1 for l in leads if l.get("status") == "trattativa"),
+                "vinto": sum(1 for l in leads if l.get("status") == "vinto"),
+                "perso": sum(1 for l in leads if l.get("status") == "perso"),
+            },
+        }
+
+
+dashboard_service = DashboardService()
