@@ -5,8 +5,13 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
 
-JWT_SECRET = os.environ.get('JWT_SECRET', 'devsecret')
-JWT_ALG = 'HS256'
+JWT_SECRET = os.environ.get('JWT_SECRET')
+if not JWT_SECRET:
+    raise RuntimeError(
+        "JWT_SECRET non impostata. Imposta la variabile d'ambiente JWT_SECRET "
+        "prima di avviare l'app — è obbligatoria per la sicurezza dei token di accesso."
+    )
+JWT_ALG = 'HS256''
 
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
