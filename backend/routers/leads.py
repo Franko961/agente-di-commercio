@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Body
-from core.security import get_current_user
+from core.security import get_current_user, forbid_demo_write
 from services.lead_service import lead_service
 from models.lead import LeadIn
 
@@ -24,6 +24,6 @@ async def update_lead_status(lid: str, payload: dict = Body(...), user=Depends(g
     return {"ok": True}
 
 @router.delete("/{lid}")
-async def delete_lead(lid: str, user=Depends(get_current_user)):
+async def delete_lead(lid: str, user=Depends(forbid_demo_write)):
     await lead_service.delete_lead(user, lid)
     return {"ok": True}
