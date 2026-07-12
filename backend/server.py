@@ -34,11 +34,11 @@ from routers.documents import router as documents_router
 from routers.automations import router as automations_router
 from routers.dashboard import router as dashboard_router
 from routers.export import router as export_router
+from routers.auth import router as auth_router
 
 # ----------------- Setup -----------------
 
-
-JWT_SECRET = os.environ.get('JWT_SECRET', 'devsecret')
+from core.config import PLANS
 
 # Stripe & PayPal
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
@@ -47,36 +47,10 @@ PAYPAL_CLIENT_ID = os.environ.get('PAYPAL_CLIENT_ID', '')
 PAYPAL_CLIENT_SECRET = os.environ.get('PAYPAL_CLIENT_SECRET', '')
 PAYPAL_MODE = os.environ.get('PAYPAL_MODE', 'sandbox')  # 'sandbox' o 'live'
 
-PLANS = {
-    'base': {'name': 'Base', 'price_eur': 6.00, 'stripe_price_id': os.environ.get('STRIPE_PRICE_BASE', ''), 'paypal_plan_id': os.environ.get('PAYPAL_PLAN_BASE', '')},
-    'pro':  {'name': 'Pro',  'price_eur': 11.00, 'stripe_price_id': os.environ.get('STRIPE_PRICE_PRO', ''),  'paypal_plan_id': os.environ.get('PAYPAL_PLAN_PRO', '')},
-}
-JWT_ALG = 'HS256'
-
-# Resend email
-RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
-ADMIN_NOTIFY_EMAIL = os.environ.get("ADMIN_NOTIFY_EMAIL", "franco.bruni.art@gmail.com")
-APP_FROM_EMAIL = os.environ.get("APP_FROM_EMAIL", "SALESFLY <noreply@salesfly.it>")
-
 # Object Storage (AWS S3) — configurazione e funzioni centralizzate in services/storage_service.py
 from services.storage_service import init_storage
-
-async def send_email(to: str, subject: str, html: str):
-    if not RESEND_API_KEY:
-        logger.warning("RESEND_API_KEY non configurata — email non inviata")
-        return
-    try:
-        import resend
-        resend.api_key = RESEND_API_KEY
-        resend.Emails.send({
-            "from": APP_FROM_EMAIL,
-            "to": to,
-            "subject": subject,
-            "html": html,
-        })
-        logger.info(f"Email inviata a {to}: {subject}")
-    except Exception as e:
-        logger.error(f"Errore invio email a {to}: {e}")
+# Email — funzioni centralizzate in services/email_service.py
+from services.email_service import send_email
 
 
 app = FastAPI(title="Gestionale Agenti di Commercio")
@@ -92,71 +66,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 
-# ----------------- Helpers -----------------
-def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-
-
-def verify_password(plain: str, hashed: str) -> bool:
-    return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
-
-
-def create_access_token(user_id: str, email: str) -> str:
-    payload = {"sub": user_id, "email": email, "type": "access",
-               "exp": datetime.now(timezone.utc) + timedelta(days=7)}
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
-
-
-async def get_current_user(request: Request) -> dict:
-    token = request.cookies.get("access_token")
-    if not token:
-        auth = request.headers.get("Authorization", "")
-        if auth.startswith("Bearer "):
-            token = auth[7:]
-    if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    return user
-
-
-def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def gen_id() -> str:
-    return str(uuid.uuid4())
-
-
-def clean(doc: Optional[dict]) -> Optional[dict]:
-    if doc is None:
-        return None
-    doc.pop("_id", None)
-    doc.pop("password_hash", None)
-    return doc
-
-
 # ----------------- Models -----------------
-class LoginIn(BaseModel):
-    email: EmailStr
-    password: str
-
-
-class RegisterIn(BaseModel):
-    email: EmailStr
-    password: str
-    name: str
-    plan: Optional[str] = "base"  # 'base' o 'pro'
-
-
-
 
 
 
@@ -186,125 +96,6 @@ class EmailLogIn(BaseModel):
     body: str
     client_id: Optional[str] = None
     offer_id: Optional[str] = None
-
-
-# ----------------- Auth -----------------
-@api.post("/auth/register")
-async def register(payload: RegisterIn, response: Response):
-    email = payload.email.lower().strip()
-    if await db.users.find_one({"email": email}):
-        raise HTTPException(status_code=400, detail="Email gia' registrata")
-    if len(payload.password) < 6:
-        raise HTTPException(status_code=400, detail="Password troppo corta (min 6 caratteri)")
-    user_id = gen_id()
-    plan = payload.plan if payload.plan in PLANS else "base"
-    doc = {
-        "id": user_id, "email": email, "name": payload.name,
-        "password_hash": hash_password(payload.password),
-        "role": "agent", "created_at": now_iso(),
-        "plan": plan,
-        "subscription_status": "trial",  # trial | active | cancelled | expired
-        "trial_ends_at": (datetime.now(timezone.utc) + timedelta(days=14)).isoformat(),
-        "stripe_customer_id": None,
-        "stripe_subscription_id": None,
-        "paypal_subscription_id": None,
-    }
-    await db.users.insert_one(doc)
-    # Seed starter demo data so the new user lands on a populated app
-    try:
-        await seed_demo(user_id)
-    except Exception as e:
-        logger.warning(f"Seed for new user failed: {e}")
-    token = create_access_token(user_id, email)
-    response.set_cookie("access_token", token, httponly=True, secure=True,
-                        samesite="none", max_age=7*24*3600, path="/")
-
-    # Email benvenuto all'utente (non bloccante)
-    try:
-      await send_email(
-        to=email,
-        subject="Benvenuto su SALESFLY — il tuo gestionale è pronto!",
-        html=f"""
-        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#F9F9F8;">
-          <div style="background:#0A192F;padding:20px 24px;border-radius:8px;margin-bottom:24px;">
-            <span style="color:#FF5A00;font-weight:900;font-size:22px;letter-spacing:2px;">SALESFLY.</span>
-          </div>
-          <h2 style="color:#0A192F;margin:0 0 12px;">Benvenuto, {doc.get('name', '')}!</h2>
-          <p style="color:#52525B;font-size:15px;line-height:1.6;">
-            Il tuo account è stato creato con successo. Hai <strong>14 giorni di prova gratuita</strong> 
-            per esplorare tutte le funzionalità di SALESFLY.
-          </p>
-          <div style="background:#fff;border:1px solid #E4E4E1;border-radius:8px;padding:20px;margin:24px 0;">
-            <div style="font-size:12px;color:#A1A1AA;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Piano attivo</div>
-            <div style="font-size:20px;font-weight:900;color:#FF5A00;">{plan.upper()} — €{PLANS[plan]['price_eur']:.0f}/mese</div>
-            <div style="font-size:13px;color:#52525B;margin-top:4px;">14 giorni gratuiti, nessuna carta richiesta</div>
-          </div>
-          <a href="https://salesfly.netlify.app" 
-             style="display:inline-block;background:#0A192F;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">
-            Accedi al gestionale →
-          </a>
-          <p style="color:#A1A1AA;font-size:12px;margin-top:32px;">
-            SALESFLY — Gestionale per agenti di commercio<br>
-            Se non hai creato questo account, ignora questa email.
-          </p>
-        </div>
-        """
-      )
-    except Exception as mail_err:
-        logger.warning(f"Email benvenuto non inviata: {mail_err}")
-
-    # Email notifica admin (non bloccante)
-    try:
-      await send_email(
-        to=ADMIN_NOTIFY_EMAIL,
-        subject=f"🆕 Nuovo utente registrato: {email}",
-        html=f"""
-        <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;">
-          <h2 style="color:#0A192F;">Nuovo utente registrato</h2>
-          <table style="width:100%;border-collapse:collapse;font-size:14px;">
-            <tr><td style="padding:8px;color:#52525B;width:120px;">Nome</td><td style="padding:8px;font-weight:600;">{doc.get('name','')}</td></tr>
-            <tr style="background:#F9F9F8;"><td style="padding:8px;color:#52525B;">Email</td><td style="padding:8px;font-weight:600;">{email}</td></tr>
-            <tr><td style="padding:8px;color:#52525B;">Piano</td><td style="padding:8px;font-weight:600;color:#FF5A00;">{plan.upper()}</td></tr>
-            <tr style="background:#F9F9F8;"><td style="padding:8px;color:#52525B;">Data</td><td style="padding:8px;">{now_iso()[:16].replace('T',' ')}</td></tr>
-          </table>
-          <a href="https://salesfly.netlify.app/admin"
-             style="display:inline-block;margin-top:20px;background:#FF5A00;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">
-            Vedi Admin Dashboard →
-          </a>
-        </div>
-        """
-      )
-    except Exception as mail_err:
-        logger.warning(f"Email admin non inviata: {mail_err}")
-
-    out = clean(doc)
-    
-    return out
-
-
-@api.post("/auth/login")
-async def login(payload: LoginIn, response: Response):
-    email = payload.email.lower()
-    user = await db.users.find_one({"email": email})
-    if not user or not verify_password(payload.password, user["password_hash"]):
-        raise HTTPException(status_code=401, detail="Credenziali non valide")
-    token = create_access_token(user["id"], email)
-    response.set_cookie("access_token", token, httponly=True, secure=True,
-                        samesite="none", max_age=7*24*3600, path="/")
-    out = clean(user)
-    
-    return out
-
-
-@api.post("/auth/logout")
-async def logout(response: Response):
-    response.delete_cookie("access_token", path="/", secure=True, samesite="none")
-    return {"ok": True}
-
-
-@api.get("/auth/me")
-async def me(user=Depends(get_current_user)):
-    return user
 
 
 # ----------------- AI Assistant (Gemini 3 Flash) -----------------
@@ -1191,6 +982,7 @@ app.include_router(documents_router)
 app.include_router(automations_router)
 app.include_router(dashboard_router)
 app.include_router(export_router)
+app.include_router(auth_router)
 
 app.add_middleware(
     CORSMiddleware,
