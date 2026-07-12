@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Body
-from core.security import get_current_user
+from core.security import get_current_user, forbid_demo_write
 from services.commission_service import commission_service
 
 router = APIRouter(prefix="/api/commissions", tags=["commissions"])
@@ -22,6 +22,6 @@ async def update_commission_status(cid: str, payload: dict = Body(...), user=Dep
 
 
 @router.delete("/{cid}")
-async def delete_commission(cid: str, user=Depends(get_current_user)):
+async def delete_commission(cid: str, user=Depends(forbid_demo_write)):
     await commission_service.delete_commission(user, cid)
     return {"ok": True}
