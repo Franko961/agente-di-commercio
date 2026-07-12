@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from typing import Optional
-from core.security import get_current_user
+from core.security import get_current_user, forbid_demo_write
 from services.product_service import product_service
 from models.product import ProductIn
 
@@ -24,6 +24,6 @@ async def update_product(pid: str, payload: ProductIn, user=Depends(get_current_
 
 
 @router.delete("/{pid}")
-async def delete_product(pid: str, user=Depends(get_current_user)):
+async def delete_product(pid: str, user=Depends(forbid_demo_write)):
     await product_service.delete_product(user, pid)
     return {"ok": True}
