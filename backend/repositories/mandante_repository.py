@@ -10,6 +10,12 @@ class MandanteRepository:
     async def find_one(self, mid: str, user_id: str):
         return await self.collection.find_one({"id": mid, "user_id": user_id}, {"_id": 0})
 
+    async def find_by_name_regex(self, user_id: str, name: str):
+        return await self.collection.find_one(
+            {"user_id": user_id, "name": {"$regex": name, "$options": "i"}},
+            {"_id": 0}
+        )
+
     async def insert(self, doc: dict) -> dict:
         await self.collection.insert_one(doc)
         doc.pop("_id", None)
