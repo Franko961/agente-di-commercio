@@ -11,7 +11,7 @@ class ProductRepository:
             query["mandante_id"] = mandante_id
         return await self.collection.find(query, {"_id": 0}).to_list(1000)
 
-   async def find_by_name_regex(self, user_id: str, mandante_id: str, name: str) -> Optional[dict]:
+    async def find_by_name_regex(self, user_id: str, mandante_id: str, name: str) -> Optional[dict]:
         return await self.collection.find_one(
             {"user_id": user_id, "mandante_id": mandante_id, "name": {"$regex": name, "$options": "i"}},
             {"_id": 0}
