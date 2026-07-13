@@ -21,6 +21,7 @@ import Documents from "./pages/Documents";
 import Automations from "./pages/Automations";
 import AIAssistant from "./pages/AIAssistant";
 import Subscription from "./pages/Subscription";
+import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
 import Pricing from "./pages/Pricing";
 import OfflineBanner from "./components/OfflineBanner";
@@ -52,6 +53,7 @@ function App() {
                 <Route path="/app/automazioni" element={<Automations />} />
                 <Route path="/app/ai" element={<AIAssistant />} />
                 <Route path="/app/abbonamento" element={<Subscription />} />
+                <Route path="/app/impostazioni" element={<Settings />} />
                 <Route path="/app/admin" element={<AdminRoute><Admin /></AdminRoute>} />
               </Route>
             </Routes>
