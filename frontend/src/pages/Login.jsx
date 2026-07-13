@@ -6,13 +6,13 @@ import { toast } from "sonner";
 import { Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
-  const { user, login, register } = useAuth();
+  const { user, loading, login, register } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [mode, setMode] = useState(searchParams.get("register") !== null ? "register" : "login");
   const [plan, setPlan] = useState(searchParams.get("plan") || "base");
-  const [email, setEmail] = useState(mode === "login" ? "agente@demo.it" : "");
-  const [password, setPassword] = useState(mode === "login" ? "demo1234" : "");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -27,13 +27,19 @@ export default function Login() {
     }
   }, []);
 
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-[#F9F9F8]">
+      <div className="font-mono text-sm text-[#52525B]">caricamento...</div>
+    </div>
+  );
   if (user) return <Navigate to="/app" replace />;
 
   const switchMode = (next) => {
     setMode(next);
     setError("");
-    if (next === "register") { setEmail(""); setPassword(""); }
-    else { setEmail("agente@demo.it"); setPassword("demo1234"); setName(""); }
+    setEmail("");
+    setPassword("");
+    setName("");
   };
 
   const formatError = (err) => {
@@ -53,15 +59,32 @@ export default function Login() {
   const submit = async (e) => {
     e.preventDefault();
     setError("");
+    const cleanEmail = email.trim().toLowerCase();
     if (mode === "register") {
       if (!name.trim()) { setError("Inserisci nome e cognome"); return; }
       if (password.length < 6) { setError("La password deve avere almeno 6 caratteri"); return; }
     }
     setBusy(true);
     try {
-      if (mode === "login") await login(email, password);
-      else await register(name.trim(), email.trim().toLowerCase(), password, plan);
+      if (mode === "login") await login(cleanEmail, password);
+      else await register(name.trim(), cleanEmail, password, plan);
       toast.success(mode === "login" ? "Accesso effettuato" : "Account creato — benvenuto!");
+      navigate("/app");
+    } catch (err) {
+      const msg = formatError(err);
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const loginDemo = async () => {
+    setError("");
+    setBusy(true);
+    try {
+      await login("agente@demo.it", "demo1234");
+      toast.success("Accesso demo effettuato");
       navigate("/app");
     } catch (err) {
       const msg = formatError(err);
@@ -177,8 +200,10 @@ export default function Login() {
 
             {mode === "login" && (
               <div className="mt-8 pt-6 border-t border-[#E4E4E1]">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-2">Demo</div>
-                <div className="font-mono text-[12px] text-[#52525B]">agente@demo.it / demo1234</div>
+                <button type="button" onClick={loginDemo} disabled={busy}
+                  className="w-full border-2 border-[#0A192F] text-[#0A192F] font-medium py-2.5 rounded-md hover:bg-[#0A192F] hover:text-white transition-colors disabled:opacity-50">
+                  {busy ? "Attendere…" : "Entra nella demo"}
+                </button>
               </div>
             )}
           </div>
