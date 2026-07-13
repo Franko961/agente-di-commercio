@@ -43,3 +43,11 @@ _raw_endpoint = os.environ.get("S3_ENDPOINT", "").strip().strip("[]")
 S3_ENDPOINT = None if (not _raw_endpoint or "amazonaws.com" in _raw_endpoint) else _raw_endpoint
 
 MAX_FILE_BYTES = 50 * 1024 * 1024
+
+# --- Google Calendar integration ---
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "")
+GOOGLE_CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
+# Dove reindirizzare il browser dopo il callback OAuth (pagina impostazioni del frontend)
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://salesfly.it")
