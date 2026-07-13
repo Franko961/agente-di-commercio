@@ -6,6 +6,14 @@ class AppointmentRepository:
     async def find_many(self, user_id: str) -> list:
         return await self.collection.find({"user_id": user_id}, {"_id": 0}).to_list(2000)
 
+    async def find_one(self, aid: str, user_id: str) -> dict:
+        return await self.collection.find_one({"id": aid, "user_id": user_id}, {"_id": 0})
+
+    async def find_by_google_event_id(self, user_id: str, google_event_id: str) -> dict:
+        return await self.collection.find_one(
+            {"user_id": user_id, "google_event_id": google_event_id}, {"_id": 0}
+        )
+
     async def insert(self, doc: dict) -> dict:
         await self.collection.insert_one(doc)
         doc.pop("_id", None)
