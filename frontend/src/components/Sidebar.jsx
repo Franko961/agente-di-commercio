@@ -1,7 +1,7 @@
 import { NavLink, Link, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, KanbanSquare, CalendarDays, Map, FileText,
-  Coins, Building2, Package, Folder, Sparkles, Zap, LogOut, ArrowLeftRight, ShieldCheck, CreditCard
+  Coins, Building2, Package, Folder, Sparkles, Zap, LogOut, ArrowLeftRight, ShieldCheck, CreditCard, Settings as SettingsIcon
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useMandante } from "../contexts/MandanteContext";
@@ -19,6 +19,7 @@ const navItems = [
   { to: "/app/documenti", label: "Documenti", icon: Folder },
   { to: "/app/automazioni", label: "Automazioni", icon: Zap },
   { to: "/app/ai", label: "Assistente AI", icon: Sparkles },
+  { to: "/app/impostazioni", label: "Impostazioni", icon: SettingsIcon },
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {
