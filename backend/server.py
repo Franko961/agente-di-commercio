@@ -24,6 +24,7 @@ from routers.ai import router as ai_router
 from routers.email import router as email_router
 from routers.admin import router as admin_router
 from routers.subscription import router as subscription_router
+from routers.integrations import router as integrations_router
 from services.startup_service import run_startup, run_shutdown
 from core.exceptions import AppError
 from core.config import CORS_ORIGINS
@@ -66,6 +67,7 @@ app.include_router(ai_router)
 app.include_router(email_router)
 app.include_router(admin_router)
 app.include_router(subscription_router)
+app.include_router(integrations_router)
 
 app.add_middleware(
     CORSMiddleware,
