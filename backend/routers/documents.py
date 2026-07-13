@@ -1,6 +1,6 @@
 import jwt
 from typing import Optional
-from fastapi import APIRouter, Depends, Body, UploadFile, File, Form, Header, Query, HTTPException, Response
+from fastapi import APIRouter, Depends, Body, UploadFile, File, Form, Header, Query, HTTPException, Response, Request
 from core.security import get_current_user, forbid_demo_write
 from core.config import JWT_SECRET, JWT_ALG
 from services.document_service import document_service
@@ -41,12 +41,18 @@ async def update_document_meta(did: str, payload: dict = Body(...), user=Depends
 
 
 @router.get("/{did}/download")
-async def download_document(did: str, authorization: Optional[str] = Header(None), auth: Optional[str] = Query(None)):
-    # Allow auth via Authorization header OR ?auth=token query param (for direct browser links)
-    token = None
-    if authorization and authorization.startswith("Bearer "):
+async def download_document(
+    did: str,
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    auth: Optional[str] = Query(None),
+):
+    # Allow auth via httponly cookie (standard, usato da fetch con credentials:"include"),
+    # Authorization header, oppure ?auth=token query param (per link diretti nel browser)
+    token = request.cookies.get("access_token")
+    if not token and authorization and authorization.startswith("Bearer "):
         token = authorization[7:]
-    elif auth:
+    elif not token and auth:
         token = auth
     if not token:
         raise HTTPException(401, "Not authenticated")
