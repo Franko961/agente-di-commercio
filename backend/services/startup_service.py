@@ -1,4 +1,5 @@
 import os
+import asyncio
 import logging
 
 from core.database import db, close_db
@@ -9,6 +10,22 @@ from services.seed_service import seed_service
 from repositories.user_repository import user_repository
 
 logger = logging.getLogger(__name__)
+
+GOOGLE_CALENDAR_SYNC_INTERVAL_SECONDS = 5 * 60
+
+_gcal_sync_task = None
+
+
+async def _google_calendar_sync_loop() -> None:
+    from services.google_calendar_service import google_calendar_service
+    while True:
+        try:
+            await asyncio.sleep(GOOGLE_CALENDAR_SYNC_INTERVAL_SECONDS)
+            await google_calendar_service.sync_all_connected_accounts()
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.error(f"Ciclo di sync Google Calendar fallito: {e}")
 
 
 async def run_startup() -> None:
@@ -50,6 +67,11 @@ async def run_startup() -> None:
         await user_repository.update_by_id(existing["id"], demo_fields)
         await seed_service.seed_demo(existing["id"])
 
+    global _gcal_sync_task
+    _gcal_sync_task = asyncio.create_task(_google_calendar_sync_loop())
+
 
 async def run_shutdown() -> None:
+    if _gcal_sync_task:
+        _gcal_sync_task.cancel()
     close_db()
