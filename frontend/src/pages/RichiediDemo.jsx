@@ -64,8 +64,8 @@ export default function RichiediDemo() {
             <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
             <h1 className="font-cabinet font-black text-2xl mb-2">Controlla la tua email</h1>
             <p className="text-[#52525B] text-sm">
-              Ti abbiamo inviato un'email con il link per accedere subito alla demo di SALESFLY.
-              Se non la trovi, controlla anche nello spam.
+              Abbiamo creato il tuo account e ti abbiamo inviato email e password per accedere
+              subito a SALESFLY, con 14 giorni di prova gratuita. Se non la trovi, controlla anche nello spam.
             </p>
           </div>
         ) : (
@@ -73,7 +73,8 @@ export default function RichiediDemo() {
             <div className="text-center mb-8">
               <h1 className="font-cabinet font-black text-3xl mb-2">Richiedi la Demo</h1>
               <p className="text-[#52525B] text-sm">
-                Compila il form: riceverai subito via email il link per accedere alla demo di SALESFLY.
+                Compila il form: riceverai subito via email le tue credenziali di accesso e potrai
+                usare SALESFLY gratis per 14 giorni.
               </p>
             </div>
 
