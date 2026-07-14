@@ -1,25 +1,16 @@
 import logging
-from datetime import datetime, timezone
 from fastapi import HTTPException, Request
 
 from core.config import PLANS, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+from core.security import verify_password
+from core.subscription_utils import is_subscription_active
 from repositories.user_repository import user_repository
 
 logger = logging.getLogger(__name__)
 
-
-def subscription_active(user: dict) -> bool:
-    status = user.get("subscription_status", "trial")
-    if status == "active":
-        return True
-    if status == "trial":
-        trial_end = user.get("trial_ends_at", "")
-        try:
-            end = datetime.fromisoformat(trial_end.replace("Z", "+00:00"))
-            return datetime.now(timezone.utc) < end
-        except Exception:
-            return True
-    return False
+# Alias mantenuto per compatibilità: la logica vive ora in core/subscription_utils.py
+# (core non può dipendere da services, quindi la fonte di verità è lì).
+subscription_active = is_subscription_active
 
 
 class SubscriptionService:
@@ -37,6 +28,19 @@ class SubscriptionService:
             "trial_ends_at": u.get("trial_ends_at"),
             "active": subscription_active(u),
         }
+
+    async def create_checkout_for_expired_account(self, payload: dict) -> dict:
+        """Avvia un checkout Stripe per un account con trial scaduto (quindi bloccato al
+        login). Non richiede un cookie di sessione valido: verifica email+password una
+        tantum per confermare che sia davvero il titolare dell'account, poi procede come
+        create_stripe_session. Usato dalla schermata di pagamento mostrata al posto del
+        login quando i 14 giorni di prova sono terminati."""
+        email = (payload.get("email") or "").lower().strip()
+        password = payload.get("password") or ""
+        user = await self.repo.find_by_email(email)
+        if not user or not verify_password(password, user.get("password_hash", "")):
+            raise HTTPException(status_code=401, detail="Credenziali non valide")
+        return await self.create_stripe_session(user, payload)
 
     async def create_stripe_session(self, user: dict, payload: dict) -> dict:
         if not STRIPE_SECRET_KEY:
