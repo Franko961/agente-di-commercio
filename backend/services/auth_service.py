@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from core.utils import gen_id, now_iso, clean
 from core.security import hash_password, verify_password, create_access_token
 from core.config import PLANS, ADMIN_NOTIFY_EMAIL
+from core.subscription_utils import is_subscription_active
 from repositories.user_repository import user_repository
 from services.email_service import send_email
 from services.seed_service import seed_service
@@ -109,6 +110,14 @@ class AuthService:
         user = await self.repo.find_by_email(email)
         if not user or not verify_password(payload.password, user["password_hash"]):
             raise HTTPException(status_code=401, detail="Credenziali non valide")
+        if user.get("role") != "admin" and not is_subscription_active(user):
+            raise HTTPException(
+                status_code=402,
+                detail={
+                    "code": "trial_expired",
+                    "message": "Il periodo di prova gratuita è scaduto. Attiva un abbonamento per continuare a usare SALESFLY.",
+                },
+            )
         token = create_access_token(user["id"], email)
         return token, clean(user)
 
