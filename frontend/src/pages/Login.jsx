@@ -209,9 +209,9 @@ export default function Login() {
 
             {mode === "login" && (
               <div className="mt-8 pt-6 border-t border-[#E4E4E1]">
-                <button type="button" onClick={loginDemo} disabled={busy}
+                <button type="button" onClick={() => navigate("/richiedi-demo")} disabled={busy}
                   className="w-full border-2 border-[#0A192F] text-[#0A192F] font-medium py-2.5 rounded-md hover:bg-[#0A192F] hover:text-white transition-colors disabled:opacity-50">
-                  {busy ? "Attendere…" : "Entra nella demo"}
+                  Richiedi demo
                 </button>
               </div>
             )}
