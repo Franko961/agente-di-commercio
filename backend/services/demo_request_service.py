@@ -1,18 +1,38 @@
+import logging
+import secrets
+import string
+from datetime import datetime, timezone, timedelta
+
 from core.utils import gen_id, now_iso
+from core.security import hash_password
 from core.exceptions import ValidationAppError
-from core.config import FRONTEND_URL, ADMIN_NOTIFY_EMAIL
+from core.config import FRONTEND_URL, ADMIN_NOTIFY_EMAIL, PLANS
 from repositories.demo_request_repository import demo_request_repository
+from repositories.user_repository import user_repository
 from services.email_service import send_email
+from services.seed_service import seed_service
+
+logger = logging.getLogger(__name__)
 
 # Versione dell'informativa privacy accettata al momento dell'invio del form.
 # Va incrementata ogni volta che il testo dell'informativa cambia in modo sostanziale,
 # così restano tracciate le condizioni esatte accettate da ciascun utente nel tempo.
 PRIVACY_POLICY_VERSION = "1.0-2026-07-14"
 
+TRIAL_DAYS = 14
+TRIAL_PLAN = "base"  # piano assegnato di default all'account di prova creato dal form demo
+
+
+def _generate_password(length: int = 10) -> str:
+    """Genera una password casuale leggibile (senza caratteri ambigui come 0/O/1/l)."""
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
 
 class DemoRequestService:
-    def __init__(self, repo=demo_request_repository):
+    def __init__(self, repo=demo_request_repository, users=user_repository):
         self.repo = repo
+        self.users = users
 
     async def create(self, payload, ip_address: str = None, user_agent: str = None) -> dict:
         if not payload.privacy_consent:
@@ -27,7 +47,39 @@ class DemoRequestService:
         if not nome or not cognome:
             raise ValidationAppError("Nome e cognome sono obbligatori.")
 
-        doc = {
+        existing_user = await self.users.find_by_email(email)
+        if existing_user:
+            raise ValidationAppError(
+                "Esiste già un account con questa email. Accedi con le tue credenziali "
+                "oppure, se le hai dimenticate, contattaci."
+            )
+
+        # Crea subito un account reale e a tempo (14 giorni di prova), con
+        # credenziali proprie inviate via email — non più un accesso condiviso.
+        password = _generate_password()
+        user_id = gen_id()
+        user_doc = {
+            "id": user_id,
+            "email": email,
+            "name": f"{nome} {cognome}",
+            "password_hash": hash_password(password),
+            "role": "agent",
+            "created_at": now_iso(),
+            "plan": TRIAL_PLAN,
+            "subscription_status": "trial",
+            "trial_ends_at": (datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)).isoformat(),
+            "stripe_customer_id": None,
+            "stripe_subscription_id": None,
+            "paypal_subscription_id": None,
+        }
+        await self.users.insert(user_doc)
+
+        try:
+            await seed_service.seed_demo(user_id)
+        except Exception as e:
+            logger.warning(f"Seed dati demo per richiesta demo fallito: {e}")
+
+        demo_request_doc = {
             "id": gen_id(),
             "nome": nome,
             "cognome": cognome,
@@ -41,20 +93,21 @@ class DemoRequestService:
             "ip_address": ip_address,
             "user_agent": user_agent,
             "created_at": now_iso(),
+            "user_id": user_id,
         }
-        await self.repo.insert(doc)
+        await self.repo.insert(demo_request_doc)
 
-        demo_link = f"{FRONTEND_URL}/login?demo=auto"
+        login_link = f"{FRONTEND_URL}/login"
 
         await send_email(
             to=email,
-            subject="Il tuo accesso alla demo di SALESFLY",
-            html=self._user_email_html(nome, demo_link),
+            subject="Le tue credenziali di accesso a SALESFLY — 14 giorni di prova",
+            html=self._user_email_html(nome, email, password, login_link),
         )
         await send_email(
             to=ADMIN_NOTIFY_EMAIL,
             subject=f"Nuova richiesta demo — {nome} {cognome}",
-            html=self._admin_email_html(doc),
+            html=self._admin_email_html(demo_request_doc),
         )
 
         return {"ok": True}
@@ -63,24 +116,30 @@ class DemoRequestService:
         return await self.repo.find_many()
 
     @staticmethod
-    def _user_email_html(nome: str, demo_link: str) -> str:
+    def _user_email_html(nome: str, email: str, password: str, login_link: str) -> str:
         return f"""
         <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
           <h2 style="color:#0A192F;">Ciao {nome},</h2>
-          <p>Grazie per aver richiesto l'accesso alla demo di <strong>SALESFLY</strong>,
-          il CRM pensato per gli agenti di commercio.</p>
-          <p>Puoi accedere subito cliccando sul pulsante qui sotto:</p>
+          <p>Grazie per aver richiesto l'accesso a <strong>SALESFLY</strong>,
+          il CRM pensato per gli agenti di commercio. Abbiamo creato il tuo account
+          con <strong>14 giorni di prova gratuita</strong>, nessuna carta richiesta.</p>
+          <div style="background:#F9F9F8; border:1px solid #E4E4E1; border-radius:8px; padding:16px 20px; margin:24px 0;">
+            <div style="font-size:12px; color:#52525B; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">Le tue credenziali</div>
+            <div style="font-size:14px; margin-bottom:6px;"><strong>Email:</strong> {email}</div>
+            <div style="font-size:14px;"><strong>Password:</strong> {password}</div>
+          </div>
+          <p style="font-size:13px; color:#52525B;">Ti consigliamo di cambiare la password dopo il primo accesso, dalle impostazioni del tuo profilo.</p>
           <p style="text-align:center; margin: 32px 0;">
-            <a href="{demo_link}"
+            <a href="{login_link}"
                style="background:#0A192F; color:#ffffff; text-decoration:none;
                       padding: 12px 24px; border-radius: 6px; font-weight: bold;
                       display:inline-block;">
-              Entra nella demo
+              Accedi a SALESFLY
             </a>
           </p>
           <p style="font-size: 13px; color: #52525B;">
             Se il pulsante non funziona, copia e incolla questo link nel browser:<br/>
-            <a href="{demo_link}">{demo_link}</a>
+            <a href="{login_link}">{login_link}</a>
           </p>
           <hr style="border:none; border-top:1px solid #E4E4E1; margin: 24px 0;" />
           <p style="font-size: 12px; color: #999;">
@@ -105,6 +164,9 @@ class DemoRequestService:
             <tr><td style="padding:4px 0; color:#52525B;">Consenso marketing</td><td>{'Sì' if doc.get('marketing_consent') else 'No'}</td></tr>
             <tr><td style="padding:4px 0; color:#52525B;">Data</td><td>{doc['created_at']}</td></tr>
           </table>
+          <p style="font-size:13px; color:#52525B; margin-top:16px;">
+            È stato creato automaticamente un account di prova (14 giorni) per questo utente.
+          </p>
         </div>
         """
 
