@@ -3,7 +3,13 @@ import { useNavigate, Navigate, useSearchParams, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, CreditCard } from "lucide-react";
+import api from "../api";
+
+const CHECKOUT_PLANS = {
+  base: { name: "Base", price: 6 },
+  pro: { name: "Pro", price: 11 },
+};
 
 export default function Login() {
   const { user, loading, login, register } = useAuth();
@@ -17,6 +23,11 @@ export default function Login() {
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Trial scaduto: mostriamo una schermata di pagamento al posto del login,
+  // usando le credenziali appena digitate per avviare il checkout senza
+  // richiedere una sessione autenticata (che non può più esistere).
+  const [paywall, setPaywall] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
 
   // Se arriva da /register?plan=pro apri direttamente registrazione
   useEffect(() => {
@@ -27,30 +38,29 @@ export default function Login() {
     }
   }, []);
 
-  const loginDemo = async () => {
-    setError("");
-    setBusy(true);
+  // Se arriva da un redirect per trial scaduto a metà sessione, avvisiamo
+  // che deve reinserire le credenziali per procedere al pagamento.
+  useEffect(() => {
+    if (searchParams.get("scaduto") === "1") {
+      setError("Il tuo periodo di prova gratuita è scaduto. Accedi di nuovo per scegliere un piano.");
+    }
+  }, []);
+
+  const startCheckout = async (checkoutPlan) => {
+    setCheckingOut(true);
     try {
-      await login("agente@demo.it", "demo1234");
-      toast.success("Accesso demo effettuato");
-      navigate("/app");
+      const { data } = await api.post("/subscription/checkout-expired", {
+        email: email.trim().toLowerCase(),
+        password,
+        plan: checkoutPlan,
+        return_url: window.location.origin,
+      });
+      window.location.href = data.url;
     } catch (err) {
-      const msg = formatError(err);
-      setError(msg);
-      toast.error(msg);
-    } finally {
-      setBusy(false);
+      toast.error("Errore nell'avvio del pagamento. Riprova tra poco.");
+      setCheckingOut(false);
     }
   };
-
-  // Login automatico alla demo se si arriva dal link ricevuto via email
-  // dopo aver compilato il form di richiesta demo (/richiedi-demo)
-  useEffect(() => {
-    if (searchParams.get("demo") === "auto" && !user && !loading) {
-      loginDemo();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading]);
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-[#F9F9F8]">
@@ -84,6 +94,7 @@ export default function Login() {
   const submit = async (e) => {
     e.preventDefault();
     setError("");
+    setPaywall(false);
     const cleanEmail = email.trim().toLowerCase();
     if (mode === "register") {
       if (!name.trim()) { setError("Inserisci nome e cognome"); return; }
@@ -96,9 +107,13 @@ export default function Login() {
       toast.success(mode === "login" ? "Accesso effettuato" : "Account creato — benvenuto!");
       navigate("/app");
     } catch (err) {
-      const msg = formatError(err);
-      setError(msg);
-      toast.error(msg);
+      if (err?.response?.status === 402) {
+        setPaywall(true);
+      } else {
+        const msg = formatError(err);
+        setError(msg);
+        toast.error(msg);
+      }
     } finally {
       setBusy(false);
     }
@@ -159,6 +174,32 @@ export default function Login() {
               </div>
             )}
 
+            {paywall && (
+              <div data-testid="trial-expired-paywall" className="bg-white border-2 border-[#FF5A00] rounded-lg p-6 mb-6">
+                <h2 className="font-cabinet font-black text-xl mb-2">Il tuo periodo di prova è scaduto</h2>
+                <p className="text-[13px] text-[#52525B] mb-5">
+                  I 14 giorni di prova gratuita per <strong>{email}</strong> sono terminati.
+                  Scegli un piano per riattivare subito il tuo account.
+                </p>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  {Object.entries(CHECKOUT_PLANS).map(([id, p]) => (
+                    <div key={id} className={`border-2 rounded-md p-4 ${id === "pro" ? "border-[#FF5A00]" : "border-[#E4E4E1]"}`}>
+                      <div className="font-cabinet font-black text-lg">{p.name}</div>
+                      <div className="font-cabinet font-black text-2xl mb-3">€{p.price}<span className="text-[12px] font-normal text-[#52525B]">/mese</span></div>
+                      <button type="button" onClick={() => startCheckout(id)} disabled={checkingOut}
+                        className="w-full flex items-center justify-center gap-2 py-2 bg-[#0A192F] text-white rounded-md text-[12px] font-medium disabled:opacity-50">
+                        <CreditCard className="w-3.5 h-3.5" /> {checkingOut ? "Attendere…" : "Attiva"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button type="button" onClick={() => setPaywall(false)} className="text-[12px] text-[#52525B] underline">
+                  ← Torna al login
+                </button>
+              </div>
+            )}
+
+            {!paywall && (
             <form onSubmit={submit} className="space-y-4">
               {mode === "register" && (
                 <div>
@@ -198,7 +239,9 @@ export default function Login() {
                 </div>
               )}
             </form>
+            )}
 
+            {!paywall && (
             <div className="mt-6 text-[13px] text-[#52525B]">
               {mode === "login" ? "Non hai un account? " : "Hai già un account? "}
               <button data-testid="toggle-auth-mode" onClick={() => switchMode(mode === "login" ? "register" : "login")}
@@ -206,8 +249,9 @@ export default function Login() {
                 {mode === "login" ? "Inizia gratis" : "Accedi"}
               </button>
             </div>
+            )}
 
-            {mode === "login" && (
+            {!paywall && mode === "login" && (
               <div className="mt-8 pt-6 border-t border-[#E4E4E1]">
                 <button type="button" onClick={() => navigate("/richiedi-demo")} disabled={busy}
                   className="w-full border-2 border-[#0A192F] text-[#0A192F] font-medium py-2.5 rounded-md hover:bg-[#0A192F] hover:text-white transition-colors disabled:opacity-50">
