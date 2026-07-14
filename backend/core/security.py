@@ -4,6 +4,16 @@ from datetime import datetime, timezone, timedelta
 from fastapi import HTTPException, Request, Depends
 from core.config import JWT_SECRET, JWT_ALG
 from core.database import db
+from core.subscription_utils import is_subscription_active
+
+# Prefissi esenti dal blocco per trial/abbonamento scaduto: l'utente deve
+# sempre poter vedere il proprio stato, pagare, o gestire l'account anche
+# a prova scaduta. Tutte le altre rotte /api/* vengono bloccate con 402.
+TRIAL_GATE_EXEMPT_PREFIXES = (
+    "/api/auth",
+    "/api/subscription",
+    "/api/admin",
+)
 
 
 def hash_password(password: str) -> str:
@@ -37,6 +47,17 @@ async def get_current_user(request: Request) -> dict:
     user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+
+    path = request.url.path
+    is_exempt = any(path.startswith(p) for p in TRIAL_GATE_EXEMPT_PREFIXES)
+    if not is_exempt and user.get("role") != "admin" and not is_subscription_active(user):
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "code": "trial_expired",
+                "message": "Il periodo di prova gratuita è scaduto. Attiva un abbonamento per continuare a usare SALESFLY.",
+            },
+        )
     return user
 
 
