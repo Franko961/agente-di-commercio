@@ -27,6 +27,31 @@ export default function Login() {
     }
   }, []);
 
+  const loginDemo = async () => {
+    setError("");
+    setBusy(true);
+    try {
+      await login("agente@demo.it", "demo1234");
+      toast.success("Accesso demo effettuato");
+      navigate("/app");
+    } catch (err) {
+      const msg = formatError(err);
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Login automatico alla demo se si arriva dal link ricevuto via email
+  // dopo aver compilato il form di richiesta demo (/richiedi-demo)
+  useEffect(() => {
+    if (searchParams.get("demo") === "auto" && !user && !loading) {
+      loginDemo();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-[#F9F9F8]">
       <div className="font-mono text-sm text-[#52525B]">caricamento...</div>
@@ -69,22 +94,6 @@ export default function Login() {
       if (mode === "login") await login(cleanEmail, password);
       else await register(name.trim(), cleanEmail, password, plan);
       toast.success(mode === "login" ? "Accesso effettuato" : "Account creato — benvenuto!");
-      navigate("/app");
-    } catch (err) {
-      const msg = formatError(err);
-      setError(msg);
-      toast.error(msg);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const loginDemo = async () => {
-    setError("");
-    setBusy(true);
-    try {
-      await login("agente@demo.it", "demo1234");
-      toast.success("Accesso demo effettuato");
       navigate("/app");
     } catch (err) {
       const msg = formatError(err);
