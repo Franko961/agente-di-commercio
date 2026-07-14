@@ -20,6 +20,15 @@ async def create_stripe_session(payload: dict = Body(...), user=Depends(get_curr
     return await subscription_service.create_stripe_session(user, payload)
 
 
+@router.post("/checkout-expired")
+async def checkout_expired(payload: dict = Body(...)):
+    """Endpoint pubblico: permette di avviare un pagamento Stripe a un utente il cui
+    trial è scaduto e che quindi non può più autenticarsi. Richiede email+password
+    nel body per verificare che sia il titolare dell'account (vedi payload atteso:
+    email, password, plan, return_url)."""
+    return await subscription_service.create_checkout_for_expired_account(payload)
+
+
 @router.post("/stripe-webhook")
 async def stripe_webhook(request: Request):
     return await subscription_service.handle_stripe_webhook(request)
