@@ -24,6 +24,8 @@ import Subscription from "./pages/Subscription";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
 import Pricing from "./pages/Pricing";
+import RichiediDemo from "./pages/RichiediDemo";
+import Privacy from "./pages/Privacy";
 import OfflineBanner from "./components/OfflineBanner";
 import { Toaster } from "./components/ui/sonner";
 
@@ -38,6 +40,8 @@ function App() {
               <Route path="/" element={<Landing />} />
               <Route path="/login" element={<Login />} />
               <Route path="/prezzi" element={<Pricing />} />
+              <Route path="/richiedi-demo" element={<RichiediDemo />} />
+              <Route path="/privacy" element={<Privacy />} />
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route path="/app" element={<Dashboard />} />
                 <Route path="/app/clienti" element={<Clients />} />
