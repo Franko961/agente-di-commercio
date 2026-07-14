@@ -3,7 +3,7 @@ import json
 import re
 import logging
 from datetime import datetime, timezone
-from typing import Dict
+from typing import Dict, Optional
 
 from fastapi import HTTPException
 
@@ -103,6 +103,29 @@ CRM_TOOLS = [
         }
     },
 ]
+
+# Parole chiave per rilevare quale azione CRM l'utente ha richiesto.
+# Usate come rete di sicurezza: se il modello non chiama davvero il tool
+# corrispondente entro la fine del turno, lo forziamo con tool_choice.
+ACTION_INTENT_KEYWORDS = {
+    "add_client": ["aggiungi cliente", "aggiungi questo cliente", "crea cliente",
+                   "nuovo cliente", "inserisci cliente", "aggiungi al crm"],
+    "add_appointment": ["fissa appuntamento", "fissa un appuntamento", "aggiungi appuntamento",
+                        "crea appuntamento", "prenota una visita", "segna appuntamento"],
+    "add_lead": ["aggiungi lead", "nuovo lead", "crea lead", "aggiungi prospect"],
+    "add_note_to_client": ["aggiungi nota", "segna una nota", "aggiungi una nota"],
+    "add_offer": ["registra vendita", "registra offerta", "registra ordine",
+                  "aggiungi offerta", "aggiungi vendita"],
+}
+
+
+def detect_intended_tool(message: str) -> Optional[str]:
+    """Ritorna il nome del tool CRM che il messaggio dell'utente sembra richiedere, se c'è."""
+    m = (message or "").lower()
+    for tool_name, keywords in ACTION_INTENT_KEYWORDS.items():
+        if any(kw in m for kw in keywords):
+            return tool_name
+    return None
 
 
 class AiService:
@@ -329,6 +352,13 @@ class AiService:
             "aggiornate o esterne al CRM (es. un'azienda, un prezzo, una notizia recente), "
             "usa la ricerca web. Rispondi sempre in italiano, in modo conciso e pratico, "
             "con elenchi puntati quando possibile. Usa i dati forniti.\n\n"
+            "REGOLA IMPORTANTE: non dichiarare MAI un'azione sul CRM come completata "
+            "(es. 'cliente aggiunto', 'appuntamento fissato') se non hai realmente invocato "
+            "il tool corrispondente in questo turno e ricevuto conferma dal risultato. "
+            "Se hai bisogno di informazioni aggiuntive (es. tramite ricerca web) prima di "
+            "eseguire un'azione richiesta, esegui prima la ricerca e poi, nella stessa "
+            "conversazione, richiama SEMPRE il tool CRM appropriato con i dati raccolti, "
+            "prima di confermare il completamento. Se non riesci a completare l'azione, dillo onestamente.\n\n"
             f"DATI ATTUALI:\n{context}"
         )
 
@@ -340,47 +370,93 @@ class AiService:
             messages.append({"role": "assistant", "content": h["response"]})
         messages.append({"role": "user", "content": payload.message})
 
+        all_tools = CRM_TOOLS + [{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}]
+        crm_tool_names = {t["name"] for t in CRM_TOOLS}
+        intended_tool = detect_intended_tool(payload.message)
+
         try:
             client_ai = anthropic_sdk.Anthropic(api_key=api_key)
             actions_performed = []
+            tools_invoked = set()
 
             # Primo turno — potrebbe usare tool
             message = client_ai.messages.create(
                 model=AI_MODEL,
                 max_tokens=1024,
                 system=system,
-                tools=CRM_TOOLS + [{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],
+                tools=all_tools,
                 messages=messages,
             )
 
             # Gestisci tool use in loop
-            while message.stop_reason == "tool_use":
-                tool_results = []
-                for block in message.content:
-                    if block.type == "tool_use":
-                        result = await self.execute_crm_tool(block.name, block.input, user["id"])
-                        actions_performed.append(result)
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": result,
-                        })
+            forced_attempt_used = False
+            while True:
+                if message.stop_reason == "tool_use":
+                    tool_results = []
+                    for block in message.content:
+                        if block.type == "tool_use":
+                            tools_invoked.add(block.name)
+                            result = await self.execute_crm_tool(block.name, block.input, user["id"])
+                            actions_performed.append(result)
+                            tool_results.append({
+                                "type": "tool_result",
+                                "tool_use_id": block.id,
+                                "content": result,
+                            })
 
-                messages_with_tools = messages + [
-                    {"role": "assistant", "content": message.content},
-                    {"role": "user", "content": tool_results},
-                ]
-                message = client_ai.messages.create(
-                    model=AI_MODEL,
-                    max_tokens=1024,
-                    system=system,
-                    tools=CRM_TOOLS + [{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],
-                    messages=messages_with_tools,
-                )
+                    messages = messages + [
+                        {"role": "assistant", "content": message.content},
+                        {"role": "user", "content": tool_results},
+                    ]
+                    message = client_ai.messages.create(
+                        model=AI_MODEL,
+                        max_tokens=1024,
+                        system=system,
+                        tools=all_tools,
+                        messages=messages,
+                    )
+                    continue
+
+                # Il modello ha smesso di usare tool. Se l'utente aveva chiesto
+                # un'azione CRM specifica e quel tool non è mai stato chiamato
+                # davvero (es. il modello ha solo "raccontato" di averlo fatto
+                # dopo una ricerca web), lo forziamo una volta sola.
+                if (
+                    intended_tool
+                    and intended_tool in crm_tool_names
+                    and intended_tool not in tools_invoked
+                    and not forced_attempt_used
+                ):
+                    forced_attempt_used = True
+                    messages = messages + [{"role": "assistant", "content": message.content}]
+                    message = client_ai.messages.create(
+                        model=AI_MODEL,
+                        max_tokens=1024,
+                        system=system,
+                        tools=all_tools,
+                        tool_choice={"type": "tool", "name": intended_tool},
+                        messages=messages,
+                    )
+                    continue
+
+                break
 
             response = " ".join(
                 block.text for block in message.content if hasattr(block, "text")
             )
+
+            # Ultima rete di sicurezza: se nonostante tutto l'azione richiesta
+            # non risulta eseguita, non lasciamo passare un testo che sembra
+            # una conferma di successo senza che lo sia davvero.
+            if intended_tool and intended_tool not in tools_invoked:
+                logger.warning(
+                    f"AI intent '{intended_tool}' rilevato ma mai eseguito per user {user['id']}"
+                )
+                if not response.strip():
+                    response = (
+                        "⚠️ Non sono riuscito a completare l'azione richiesta. "
+                        "Puoi riprovare specificando meglio i dati del cliente/appuntamento?"
+                    )
 
         except HTTPException:
             raise
