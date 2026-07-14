@@ -41,7 +41,10 @@ class DashboardService:
             if len(ca) >= 7:
                 key = ca[:7]
                 months[key] = months.get(key, 0) + o.get("total", 0)
-        monthly = sorted([{"month": k, "revenue": round(v, 2)} for k, v in months.items()])[-6:]
+        monthly = sorted(
+            [{"month": k, "revenue": round(v, 2)} for k, v in months.items()],
+            key=lambda m: m["month"],
+        )[-6:]
 
         # Upcoming appointments (next 7 days)
         today = datetime.now(timezone.utc)
