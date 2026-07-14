@@ -77,7 +77,7 @@ export default function Landing() {
             Accedi
           </button>
           <button
-            onClick={() => navigate("/login?register")}
+            onClick={() => navigate("//richiedi-demo")}
             className="px-4 py-2 bg-[#0A192F] text-white rounded-md text-[13px] font-medium hover:bg-[#172A45] transition-colors"
           >
             Inizia gratis
@@ -101,7 +101,7 @@ export default function Landing() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <button
-              onClick={() => navigate("/login?register")}
+              onClick={() => navigate("//richiedi-demo")}
               className="w-full sm:w-auto px-6 py-3.5 bg-[#FF5A00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors flex items-center justify-center gap-2"
             >
               Prova gratis 14 giorni <ArrowRight className="w-4 h-4" />
@@ -173,7 +173,7 @@ export default function Landing() {
               Prova SALESFLY gratis per 14 giorni. Nessuna carta di credito, nessun vincolo.
             </p>
             <button
-              onClick={() => navigate("/login?register")}
+              onClick={() => navigate("//richiedi-demo")}
               className="px-7 py-3.5 bg-[#FF5A00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors inline-flex items-center gap-2"
             >
               Inizia gratis <ArrowRight className="w-4 h-4" />
