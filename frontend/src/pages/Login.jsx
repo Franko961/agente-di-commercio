@@ -1,76 +1,308 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import "@/App.css";
-import { AuthProvider } from "./contexts/AuthContext";
-import { MandanteProvider } from "./contexts/MandanteContext";
-import ProtectedRoute from "./components/ProtectedRoute";
-import AdminRoute from "./components/AdminRoute";
-import Layout from "./components/Layout";
-import Landing from "./pages/Landing";
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Clients from "./pages/Clients";
-import ClientDetail from "./pages/ClientDetail";
-import Leads from "./pages/Leads";
-import Agenda from "./pages/Agenda";
-import MapView from "./pages/MapView";
-import Offers from "./pages/Offers";
-import Commissions from "./pages/Commissions";
-import Mandanti from "./pages/Mandanti";
-import Products from "./pages/Products";
-import Documents from "./pages/Documents";
-import Automations from "./pages/Automations";
-import AIAssistant from "./pages/AIAssistant";
-import Subscription from "./pages/Subscription";
-import Settings from "./pages/Settings";
-import Admin from "./pages/Admin";
-import Pricing from "./pages/Pricing";
-import RichiediDemo from "./pages/RichiediDemo";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import Privacy from "./pages/Privacy";
-import OfflineBanner from "./components/OfflineBanner";
-import { Toaster } from "./components/ui/sonner";
+import { useState, useEffect } from "react";
+import { useNavigate, Navigate, useSearchParams, Link } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
+import { useAuth } from "../contexts/AuthContext";
+import { toast } from "sonner";
+import { Eye, EyeOff, CreditCard } from "lucide-react";
+import api from "../api";
 
-function App() {
+const CHECKOUT_PLANS = {
+  base: { name: "Base", price: 6 },
+  pro: { name: "Pro", price: 11 },
+};
+
+export default function Login() {
+  const { user, loading, login, register } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [mode, setMode] = useState(searchParams.get("register") !== null ? "register" : "login");
+  const [plan, setPlan] = useState(searchParams.get("plan") || "base");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  // Trial scaduto: mostriamo una schermata di pagamento al posto del login,
+  // usando le credenziali appena digitate per avviare il checkout senza
+  // richiedere una sessione autenticata (che non può più esistere).
+  const [paywall, setPaywall] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
+
+  // Se arriva da /register?plan=pro apri direttamente registrazione
+  useEffect(() => {
+    if (searchParams.get("plan") || searchParams.get("register") !== null) {
+      setMode("register");
+      setEmail("");
+      setPassword("");
+    }
+  }, []);
+
+  // Se arriva da un redirect per trial scaduto a metà sessione, avvisiamo
+  // che deve reinserire le credenziali per procedere al pagamento.
+  useEffect(() => {
+    if (searchParams.get("scaduto") === "1") {
+      setError("Il tuo periodo di prova gratuita è scaduto. Accedi di nuovo per scegliere un piano.");
+    }
+  }, []);
+
+  const startCheckout = async (checkoutPlan) => {
+    setCheckingOut(true);
+    try {
+      const { data } = await api.post("/subscription/checkout-expired", {
+        email: email.trim().toLowerCase(),
+        password,
+        plan: checkoutPlan,
+        return_url: window.location.origin,
+      });
+      window.location.href = data.url;
+    } catch (err) {
+      toast.error("Errore nell'avvio del pagamento. Riprova tra poco.");
+      setCheckingOut(false);
+    }
+  };
+
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-[#F9F9F8]">
+      <div className="font-mono text-sm text-[#52525B]">caricamento...</div>
+    </div>
+  );
+  if (user) return <Navigate to="/app" replace />;
+
+  const switchMode = (next) => {
+    setMode(next);
+    setError("");
+    setEmail("");
+    setPassword("");
+    setName("");
+  };
+
+  const formatError = (err) => {
+    const detail = err?.response?.data?.detail;
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) return detail.map((e) => {
+      const field = e?.loc?.[e.loc.length - 1];
+      const msg = e?.msg || "valore non valido";
+      if (field === "email") return "Email non valida";
+      if (field === "password") return "Password non valida";
+      return `${field}: ${msg}`;
+    }).join(" · ");
+    if (!err?.response) return "Connessione al server fallita. Verifica internet e riprova.";
+    return `Errore ${err.response.status || ""}: riprova tra poco`;
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setPaywall(false);
+    const cleanEmail = email.trim().toLowerCase();
+    if (mode === "register") {
+      if (!name.trim()) { setError("Inserisci nome e cognome"); return; }
+      if (password.length < 6) { setError("La password deve avere almeno 6 caratteri"); return; }
+    }
+    setBusy(true);
+    try {
+      if (mode === "login") await login(cleanEmail, password);
+      else await register(name.trim(), cleanEmail, password, plan);
+      toast.success(mode === "login" ? "Accesso effettuato" : "Account creato — benvenuto!");
+      navigate("/app");
+    } catch (err) {
+      if (err?.response?.status === 402) {
+        setPaywall(true);
+      } else {
+        const msg = formatError(err);
+        setError(msg);
+        toast.error(msg);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <div className="App">
-      <OfflineBanner />
-      <BrowserRouter>
-        <AuthProvider>
-          <MandanteProvider>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/prezzi" element={<Pricing />} />
-              <Route path="/richiedi-demo" element={<RichiediDemo />} />
-              <Route path="/password-dimenticata" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-                <Route path="/app" element={<Dashboard />} />
-                <Route path="/app/clienti" element={<Clients />} />
-                <Route path="/app/clienti/:id" element={<ClientDetail />} />
-                <Route path="/app/lead" element={<Leads />} />
-                <Route path="/app/agenda" element={<Agenda />} />
-                <Route path="/app/mappa" element={<MapView />} />
-                <Route path="/app/offerte" element={<Offers />} />
-                <Route path="/app/provvigioni" element={<Commissions />} />
-                <Route path="/app/mandanti" element={<Mandanti />} />
-                <Route path="/app/prodotti" element={<Products />} />
-                <Route path="/app/documenti" element={<Documents />} />
-                <Route path="/app/automazioni" element={<Automations />} />
-                <Route path="/app/ai" element={<AIAssistant />} />
-                <Route path="/app/abbonamento" element={<Subscription />} />
-                <Route path="/app/impostazioni" element={<Settings />} />
-                <Route path="/app/admin" element={<AdminRoute><Admin /></AdminRoute>} />
-              </Route>
-            </Routes>
-          </MandanteProvider>
-        </AuthProvider>
-      </BrowserRouter>
-      <Toaster richColors position="top-right" />
+    <div className="min-h-screen grid lg:grid-cols-[1fr_1.2fr] bg-[#F9F9F8]">
+      <Helmet>
+        <title>Accedi — SALESFLY</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
+      {/* Left: form */}
+      <div className="flex flex-col justify-between p-6 sm:p-10 lg:p-14">
+        <header className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 flex items-center justify-center shrink-0">
+              <img src="/logo-mark.png" alt="SALESFLY" className="w-full h-full object-contain" />
+            </div>
+            <div>
+              <div className="font-cabinet font-black text-[16px] leading-none">SALESFLY.</div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-0.5">gestionale per agenti di commercio</div>
+            </div>
+          </div>
+          <Link to="/prezzi" className="text-[12px] font-mono uppercase tracking-widest text-[#FF5A00] hover:underline hidden sm:block">
+            Piani & Prezzi →
+          </Link>
+        </header>
+
+        <div className="flex-1 flex items-center">
+          <div className="w-full max-w-md fade-up">
+            <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#FF5A00] mb-3">
+              {mode === "login" ? "01 — Accesso" : "01 — Registrazione"}
+            </div>
+            <h1 className="font-cabinet font-black text-4xl sm:text-5xl tracking-tight text-[#0A0A0A] mb-3">
+              {mode === "login" ? "Bentornato in zona." : "Nuovo agente."}
+            </h1>
+            <p className="text-[14px] text-[#52525B] leading-relaxed mb-8 max-w-sm">
+              {mode === "login"
+                ? "Accedi al tuo cruscotto. Gestisci clienti, provvigioni e visite in un unico posto."
+                : "14 giorni di prova gratuita. Nessuna carta richiesta."}
+            </p>
+
+            {/* Selezione piano in registrazione */}
+            {mode === "register" && (
+              <div className="mb-5">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] mb-2">Piano scelto</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {["base", "pro"].map(p => (
+                    <button key={p} type="button" onClick={() => setPlan(p)}
+                      className={`py-2.5 px-3 rounded-md border-2 text-[13px] font-medium transition-colors ${plan === p ? "border-[#FF5A00] bg-[#FF5A00] text-white" : "border-[#E4E4E1] text-[#52525B]"}`}>
+                      {p === "base" ? "Base — €6/mese" : "Pro — €11/mese"}
+                    </button>
+                  ))}
+                </div>
+                <Link to="/prezzi" className="text-[11px] text-[#A1A1AA] mt-1.5 block hover:text-[#FF5A00]">
+                  Confronta i piani →
+                </Link>
+              </div>
+            )}
+
+            {paywall && (
+              <div data-testid="trial-expired-paywall" className="bg-white border-2 border-[#FF5A00] rounded-lg p-6 mb-6">
+                <h2 className="font-cabinet font-black text-xl mb-2">Il tuo periodo di prova è scaduto</h2>
+                <p className="text-[13px] text-[#52525B] mb-5">
+                  I 14 giorni di prova gratuita per <strong>{email}</strong> sono terminati.
+                  Scegli un piano per riattivare subito il tuo account.
+                </p>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  {Object.entries(CHECKOUT_PLANS).map(([id, p]) => (
+                    <div key={id} className={`border-2 rounded-md p-4 ${id === "pro" ? "border-[#FF5A00]" : "border-[#E4E4E1]"}`}>
+                      <div className="font-cabinet font-black text-lg">{p.name}</div>
+                      <div className="font-cabinet font-black text-2xl mb-3">€{p.price}<span className="text-[12px] font-normal text-[#52525B]">/mese</span></div>
+                      <button type="button" onClick={() => startCheckout(id)} disabled={checkingOut}
+                        className="w-full flex items-center justify-center gap-2 py-2 bg-[#0A192F] text-white rounded-md text-[12px] font-medium disabled:opacity-50">
+                        <CreditCard className="w-3.5 h-3.5" /> {checkingOut ? "Attendere…" : "Attiva"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button type="button" onClick={() => setPaywall(false)} className="text-[12px] text-[#52525B] underline">
+                  ← Torna al login
+                </button>
+              </div>
+            )}
+
+            {!paywall && (
+            <form onSubmit={submit} className="space-y-4">
+              {mode === "register" && (
+                <div>
+                  <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Nome completo</label>
+                  <input data-testid="register-name-input" type="text" required value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2.5 text-[14px] focus:outline-none focus:border-[#0A192F]" />
+                </div>
+              )}
+              <div>
+                <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Email</label>
+                <input data-testid="login-email-input" type="email" required value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2.5 text-[14px] focus:outline-none focus:border-[#0A192F]" />
+              </div>
+              <div>
+                <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Password</label>
+                <div className="relative">
+                  <input data-testid="login-password-input" type={show ? "text" : "password"} required value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2.5 text-[14px] pr-10 focus:outline-none focus:border-[#0A192F]" />
+                  <button type="button" onClick={() => setShow(!show)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A1A1AA]">
+                    {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {mode === "login" && (
+                  <div className="text-right mt-1.5">
+                    <Link to="/password-dimenticata" className="text-[12px] text-[#52525B] hover:text-[#0A192F] underline underline-offset-4">
+                      Password dimenticata?
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              <button data-testid="login-submit-button" type="submit" disabled={busy}
+                className="w-full bg-[#0A192F] hover:bg-[#172A45] text-white font-medium py-3 rounded-md transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                {busy ? "Attendere…" : mode === "login" ? "Accedi al gestionale" : "Inizia prova gratuita"}
+                <span className="text-[#FF5A00]">→</span>
+              </button>
+
+              {error && (
+                <div data-testid="auth-error" className="bg-[#DC2626]/5 border border-[#DC2626]/30 rounded-md p-3 text-[12px] text-[#DC2626] font-medium">
+                  {error}
+                </div>
+              )}
+            </form>
+            )}
+
+            {!paywall && (
+            <div className="mt-6 text-[13px] text-[#52525B]">
+              {mode === "login" ? "Non hai un account? " : "Hai già un account? "}
+              <button data-testid="toggle-auth-mode" onClick={() => switchMode(mode === "login" ? "register" : "login")}
+                className="text-[#0A192F] font-semibold underline underline-offset-4 decoration-[#FF5A00]">
+                {mode === "login" ? "Inizia gratis" : "Accedi"}
+              </button>
+            </div>
+            )}
+
+            {!paywall && mode === "login" && (
+              <div className="mt-8 pt-6 border-t border-[#E4E4E1]">
+                <button type="button" onClick={() => navigate("/richiedi-demo")} disabled={busy}
+                  className="w-full border-2 border-[#0A192F] text-[#0A192F] font-medium py-2.5 rounded-md hover:bg-[#0A192F] hover:text-white transition-colors disabled:opacity-50">
+                  Richiedi demo
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <footer className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">
+          © 2026 SALESFLY — Made in Italia
+        </footer>
+      </div>
+
+      {/* Right: visual */}
+      <div className="hidden lg:block relative">
+        <div className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1649585067848-50efdd21835b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzd8MHwxfHNlYXJjaHwxfHxpdGFsaWFuJTIwYnVzaW5lc3MlMjBtaWxhbiUyMHN0cmVldCUyMGx1eHVyeSUyMGFyY2hpdGVjdHVyZXxlbnwwfHx8fDE3NzgwNzE2MDB8MA&ixlib=rb-4.1.0&q=85)' }} />
+        <div className="absolute inset-0 bg-gradient-to-tr from-[#F9F9F8]/90 via-[#F9F9F8]/40 to-transparent" />
+        <div className="relative h-full flex flex-col justify-end p-10">
+          <div className="bg-white border border-[#E4E4E1] rounded-md p-6 max-w-md">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00] mb-3">In evidenza · oggi</div>
+            <div className="font-cabinet font-black text-2xl mb-3">"7 clienti da visitare in zona Lombardia."</div>
+            <div className="text-[13px] text-[#52525B] mb-4">
+              L'assistente AI individua le opportunità più calde in base a storico ordini, ultimo contatto e potenziale.
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center font-mono text-[11px]">
+              <div className="border border-[#E4E4E1] rounded-md py-2">
+                <div className="text-[#FF5A00] text-base font-bold">€42K</div>
+                <div className="text-[#A1A1AA] uppercase tracking-widest text-[9px]">pipeline</div>
+              </div>
+              <div className="border border-[#E4E4E1] rounded-md py-2">
+                <div className="text-[#0A192F] text-base font-bold">3</div>
+                <div className="text-[#A1A1AA] uppercase tracking-widest text-[9px]">mandanti</div>
+              </div>
+              <div className="border border-[#E4E4E1] rounded-md py-2">
+                <div className="text-[#059669] text-base font-bold">+18%</div>
+                <div className="text-[#A1A1AA] uppercase tracking-widest text-[9px]">vs mese prec.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
-
-export default App;
