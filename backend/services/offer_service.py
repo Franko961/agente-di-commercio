@@ -1,9 +1,9 @@
-from datetime import datetime, timezone
 from core.utils import gen_id, now_iso
 from core.exceptions import NotFoundError
 from repositories.offer_repository import offer_repository
 from repositories.mandante_repository import mandante_repository
-from services.commission_service import calc_offer_total, get_commission_rate, commission_service
+from services.commission_service import calc_offer_total
+from services.order_service import order_service
 
 
 class OfferService:
@@ -30,22 +30,10 @@ class OfferService:
         if not offer:
             raise NotFoundError("Offerta non trovata")
         await self.repo.update_status(oid, user["id"], new_status)
-        # Se accettata, crea la commissione
+        # Un'offerta accettata si trasforma nel suo ordine corrispondente, che a
+        # sua volta genera la provvigione (vedi order_service.create_from_offer).
         if new_status == "accettata" and offer.get("status") != "accettata":
-            mandante = await self.mandante_repo.find_one(offer["mandante_id"], user["id"])
-            sale_type = offer.get("sale_type", "nuovo")
-            rate = get_commission_rate(mandante, sale_type) if mandante else 5.0
-            amount = offer.get("total", 0) * rate / 100
-            comm = {
-                "id": gen_id(), "user_id": user["id"], "offer_id": oid,
-                "client_id": offer["client_id"], "mandante_id": offer["mandante_id"],
-                "amount": round(amount, 2), "rate": rate, "base_amount": offer.get("total", 0),
-                "sale_type": sale_type, "status": "maturato",
-                "period": datetime.now(timezone.utc).strftime("%Y-%m"),
-                "created_at": now_iso(),
-            }
-            await commission_service.repo.insert(comm)
-            await commission_service.check_and_award_bonus(user["id"], offer["mandante_id"])
+            await order_service.create_from_offer(user, offer)
 
     async def delete_offer(self, user: dict, oid: str) -> None:
         await self.repo.delete(oid, user["id"])
@@ -56,24 +44,13 @@ class OfferService:
         if not matched:
             raise NotFoundError("Offerta non trovata")
 
-        # Auto-crea la commissione se non esiste già per questa offerta
+        # La firma porta comunque lo stato a "accettata" (vedi offer_repository.sign):
+        # anche qui l'offerta si trasforma nel suo ordine. create_from_offer è
+        # idempotente, quindi firmare un'offerta già accettata da pulsante di stato
+        # non genera un secondo ordine/provvigione.
         offer = await self.repo.find_one(oid, user["id"])
-        existing = await commission_service.repo.find_by_offer(oid, user["id"])
-        if not existing and offer:
-            mandante = await self.mandante_repo.find_one(offer["mandante_id"], user["id"])
-            sale_type = offer.get("sale_type", "nuovo")
-            rate = get_commission_rate(mandante, sale_type) if mandante else 5.0
-            amount = offer.get("total", 0) * rate / 100
-            comm = {
-                "id": gen_id(), "user_id": user["id"], "offer_id": oid,
-                "client_id": offer["client_id"], "mandante_id": offer["mandante_id"],
-                "amount": round(amount, 2), "rate": rate, "base_amount": offer.get("total", 0),
-                "sale_type": sale_type, "status": "maturato",
-                "period": datetime.now(timezone.utc).strftime("%Y-%m"),
-                "created_at": now_iso(),
-            }
-            await commission_service.repo.insert(comm)
-            await commission_service.check_and_award_bonus(user["id"], offer["mandante_id"])
+        if offer:
+            await order_service.create_from_offer(user, offer)
 
 
 offer_service = OfferService()
