@@ -12,3 +12,12 @@ class RegisterIn(BaseModel):
     password: str
     name: str
     plan: Optional[str] = "base"  # 'base' o 'pro'
+
+
+class ForgotPasswordIn(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordIn(BaseModel):
+    token: str
+    new_password: str
