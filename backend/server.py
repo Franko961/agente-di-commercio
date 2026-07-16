@@ -26,6 +26,7 @@ from routers.admin import router as admin_router
 from routers.subscription import router as subscription_router
 from routers.integrations import router as integrations_router
 from routers.demo_requests import router as demo_requests_router
+from routers.orders import router as orders_router
 from services.startup_service import run_startup, run_shutdown
 from core.exceptions import AppError
 from core.config import CORS_ORIGINS
@@ -70,6 +71,7 @@ app.include_router(admin_router)
 app.include_router(subscription_router)
 app.include_router(integrations_router)
 app.include_router(demo_requests_router)
+app.include_router(orders_router)
 
 app.add_middleware(
     CORSMiddleware,
