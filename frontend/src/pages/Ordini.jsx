@@ -158,8 +158,16 @@ function OrderForm({ client, mandanti, products, onSave }) {
     items: [{ description: "", quantity: 1, unit_price: 0, discount: 0 }],
   });
   const filtered = f.mandante_id ? products.filter((p) => p.mandante_id === f.mandante_id) : products;
-  const addItem = () => setF({ ...f, items: [...f.items, { description: "", quantity: 1, unit_price: 0, discount: 0 }] });
-  const updItem = (i, k, v) => { const items = [...f.items]; items[i] = { ...items[i], [k]: v }; setF({ ...f, items }); };
+  const addItem = () => setF((prev) => ({ ...prev, items: [...prev.items, { description: "", quantity: 1, unit_price: 0, discount: 0 }] }));
+  // Aggiorna una o più chiavi della riga i in un colpo solo, partendo sempre
+  // dallo stato più recente (setF funzionale): evita che chiamate multiple in
+  // sequenza (es. selezione prodotto: product_id + description + unit_price)
+  // si sovrascrivano a vicenda perdendo i primi aggiornamenti.
+  const updItem = (i, patch) => setF((prev) => {
+    const items = [...prev.items];
+    items[i] = { ...items[i], ...patch };
+    return { ...prev, items };
+  });
   const total = f.items.reduce((s, it) => s + it.quantity * it.unit_price * (1 - it.discount / 100), 0);
 
   return (
@@ -203,20 +211,20 @@ function OrderForm({ client, mandanti, products, onSave }) {
                 value={it.product_id || ""}
                 onChange={(e) => {
                   const p = filtered.find((x) => x.id === e.target.value);
-                  if (p) { updItem(i, "product_id", p.id); updItem(i, "description", p.name); updItem(i, "unit_price", p.price); }
+                  if (p) updItem(i, { product_id: p.id, description: p.name, unit_price: p.price });
                 }}
                 className="col-span-3 bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]"
               >
                 <option value="">prodotto</option>
                 {filtered.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
-              <input value={it.description} onChange={(e) => updItem(i, "description", e.target.value)} placeholder="Descrizione" required
+              <input value={it.description} onChange={(e) => updItem(i, { description: e.target.value })} placeholder="Descrizione" required
                      className="col-span-4 bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
-              <input type="number" min="0" step="any" value={it.quantity} onChange={(e) => updItem(i, "quantity", parseFloat(e.target.value) || 0)} placeholder="Qta"
+              <input type="number" min="0" step="any" value={it.quantity} onChange={(e) => updItem(i, { quantity: parseFloat(e.target.value) || 0 })} placeholder="Qta"
                      className="col-span-1 bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
-              <input type="number" min="0" step="any" value={it.unit_price} onChange={(e) => updItem(i, "unit_price", parseFloat(e.target.value) || 0)} placeholder="€"
+              <input type="number" min="0" step="any" value={it.unit_price} onChange={(e) => updItem(i, { unit_price: parseFloat(e.target.value) || 0 })} placeholder="€"
                      className="col-span-2 bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
-              <input type="number" min="0" max="100" step="any" value={it.discount} onChange={(e) => updItem(i, "discount", parseFloat(e.target.value) || 0)} placeholder="%"
+              <input type="number" min="0" max="100" step="any" value={it.discount} onChange={(e) => updItem(i, { discount: parseFloat(e.target.value) || 0 })} placeholder="%"
                      className="col-span-2 bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
             </div>
           ))}
