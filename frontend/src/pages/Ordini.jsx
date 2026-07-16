@@ -133,6 +133,7 @@ export default function Ordini() {
                           </div>
                           <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-1">
                             {format(parseISO(o.created_at), "d MMM yyyy", { locale: it })} · {o.items?.length || 0} righe · {o.sale_type}
+                            {o.source_offer_id && <span className="text-[#FF5A00]"> · da offerta</span>}
                           </div>
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
