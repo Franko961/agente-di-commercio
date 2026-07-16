@@ -13,14 +13,15 @@ export default function Ordini() {
   const [mandanti, setMandanti] = useState([]);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [offers, setOffers] = useState([]);
   const [query, setQuery] = useState("");
   const [activeClient, setActiveClient] = useState(null);
 
   const load = async () => {
-    const [c, m, p, o] = await Promise.all([
-      api.get("/clients"), api.get("/mandanti"), api.get("/products"), api.get("/orders"),
+    const [c, m, p, o, of] = await Promise.all([
+      api.get("/clients"), api.get("/mandanti"), api.get("/products"), api.get("/orders"), api.get("/offers"),
     ]);
-    setClients(c.data); setMandanti(m.data); setProducts(p.data); setOrders(o.data);
+    setClients(c.data); setMandanti(m.data); setProducts(p.data); setOrders(o.data); setOffers(of.data);
   };
   useEffect(() => { load(); }, []);
 
@@ -37,6 +38,13 @@ export default function Ordini() {
   const ordersForClient = (clientId) =>
     orders.filter((o) => o.client_id === clientId).sort((a, b) => b.created_at.localeCompare(a.created_at));
 
+  // Preventivi ancora da decidere per questo cliente: bozza o già inviata,
+  // non ancora accettata/rifiutata/scaduta.
+  const pendingOffersForClient = (clientId) =>
+    offers
+      .filter((o) => o.client_id === clientId && ["bozza", "inviata"].includes(o.status))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+
   const saveOrder = async (payload) => {
     await api.post("/orders", payload);
     toast.success("Ordine registrato — provvigione calcolata");
@@ -47,6 +55,15 @@ export default function Ordini() {
     if (!window.confirm("Eliminare questo ordine? Verrà eliminata anche la provvigione collegata.")) return;
     await api.delete(`/orders/${order.id}`);
     toast.success("Ordine e provvigione collegata eliminati");
+    await load();
+  };
+
+  const acceptOffer = async (offer) => {
+    // Accetta il preventivo così com'è: niente da reinserire, i prodotti sono
+    // già quelli dell'offerta. L'ordine e la provvigione vengono generati
+    // automaticamente lato backend (offer_service → order_service.create_from_offer).
+    await api.patch(`/offers/${offer.id}/status`, { status: "accettata" });
+    toast.success("Preventivo accettato — ordine e provvigione generati");
     await load();
   };
 
@@ -72,14 +89,20 @@ export default function Ordini() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {filteredClients.map((c) => {
           const clientOrders = ordersForClient(c.id);
+          const pendingCount = pendingOffersForClient(c.id).length;
           const totale = clientOrders.reduce((s, o) => s + (o.total || 0), 0);
           return (
             <button
               key={c.id}
               data-testid={`orders-client-card-${c.id}`}
               onClick={() => setActiveClient(c)}
-              className="text-left bg-white border border-[#E4E4E1] hover:border-[#0A192F] rounded-md p-4 transition-colors"
+              className="text-left bg-white border border-[#E4E4E1] hover:border-[#0A192F] rounded-md p-4 transition-colors relative"
             >
+              {pendingCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-[#FF5A00] text-white text-[10px] font-mono font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                  {pendingCount}
+                </span>
+              )}
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="font-cabinet font-bold text-[15px] truncate">{c.company_name}</div>
@@ -114,6 +137,38 @@ export default function Ordini() {
 
           {activeClient && (
             <div className="space-y-6">
+              {pendingOffersForClient(activeClient.id).length > 0 && (
+                <div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00] mb-2">Preventivi in attesa</div>
+                  <div className="space-y-2">
+                    {pendingOffersForClient(activeClient.id).map((o) => {
+                      const mand = mandanti.find((m) => m.id === o.mandante_id);
+                      return (
+                        <div key={o.id} data-testid={`pending-offer-row-${o.id}`} className="bg-[#FFF3EC] border border-[#FFD8C2] rounded-md p-3 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-medium text-[13px] truncate">{o.title}</div>
+                            <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-1">
+                              {mand && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: mand.brand_color }} />}
+                              {mand?.name || "—"} · {o.status} · {o.sale_type}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="font-cabinet font-bold text-[15px]">{fmt(o.total)}</div>
+                            <button
+                              data-testid={`accept-offer-${o.id}`}
+                              onClick={() => acceptOffer(o)}
+                              className="bg-[#059669] hover:opacity-90 text-white text-[11px] font-mono uppercase tracking-widest px-3 py-1.5 rounded"
+                            >
+                              accetta
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <div className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] mb-2">Storico ordini</div>
                 <div className="space-y-2">
