@@ -2,8 +2,8 @@ import logging
 from datetime import datetime, timezone, timedelta
 from fastapi import HTTPException
 from core.utils import gen_id, now_iso, clean
-from core.security import hash_password, verify_password, create_access_token
-from core.config import PLANS, ADMIN_NOTIFY_EMAIL
+from core.security import hash_password, verify_password, create_access_token, generate_reset_token, hash_reset_token
+from core.config import PLANS, ADMIN_NOTIFY_EMAIL, FRONTEND_URL
 from core.subscription_utils import is_subscription_active
 from repositories.user_repository import user_repository
 from services.email_service import send_email
@@ -120,6 +120,75 @@ class AuthService:
             )
         token = create_access_token(user["id"], email)
         return token, clean(user)
+
+    async def forgot_password(self, payload) -> dict:
+        email = payload.email.lower().strip()
+        user = await self.repo.find_by_email(email)
+        # Risposta generica identica in ogni caso, per non rivelare a chi
+        # chiede se un'email è registrata o meno (user enumeration).
+        generic = {
+            "ok": True,
+            "message": "Se l'indirizzo è registrato, riceverai a breve un'email con le istruzioni per reimpostare la password.",
+        }
+        if not user:
+            return generic
+
+        token, token_hash, expires_at = generate_reset_token()
+        await self.repo.update_by_id(user["id"], {
+            "reset_token_hash": token_hash,
+            "reset_token_expires": expires_at,
+        })
+        reset_link = f"{FRONTEND_URL}/reset-password?token={token}"
+
+        try:
+            await send_email(
+                to=email,
+                subject="Reimposta la tua password — SALESFLY",
+                html=f"""
+                <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;background:#F9F9F8;">
+                  <div style="background:#0A192F;padding:20px 24px;border-radius:8px;margin-bottom:24px;">
+                    <span style="color:#FF5A00;font-weight:900;font-size:22px;letter-spacing:2px;">SALESFLY.</span>
+                  </div>
+                  <h2 style="color:#0A192F;margin:0 0 12px;">Reimposta la tua password</h2>
+                  <p style="color:#52525B;font-size:15px;line-height:1.6;">
+                    Abbiamo ricevuto una richiesta di reimpostazione della password per il tuo account SALESFLY.
+                    Clicca sul pulsante qui sotto per sceglierne una nuova. Il link è valido per 1 ora.
+                  </p>
+                  <a href="{reset_link}"
+                     style="display:inline-block;background:#0A192F;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;margin:8px 0 24px;">
+                    Reimposta password →
+                  </a>
+                  <p style="color:#A1A1AA;font-size:12px;margin-top:24px;">
+                    Se non hai richiesto tu questa email, ignorala pure: la tua password attuale resta invariata.
+                  </p>
+                </div>
+                """
+            )
+        except Exception as mail_err:
+            logger.warning(f"Email reset password non inviata: {mail_err}")
+
+        return generic
+
+    async def reset_password(self, payload) -> dict:
+        if len(payload.new_password) < 6:
+            raise HTTPException(status_code=400, detail="Password troppo corta (min 6 caratteri)")
+
+        token_hash = hash_reset_token(payload.token)
+        user = await self.repo.find_by_reset_token_hash(token_hash)
+        if not user:
+            raise HTTPException(status_code=400, detail="Link non valido o già utilizzato")
+
+        expires_raw = user.get("reset_token_expires")
+        expires = datetime.fromisoformat(expires_raw) if expires_raw else None
+        if not expires or expires < datetime.now(timezone.utc):
+            raise HTTPException(status_code=400, detail="Il link è scaduto. Richiedine uno nuovo dalla pagina di accesso.")
+
+        await self.repo.update_by_id(user["id"], {
+            "password_hash": hash_password(payload.new_password),
+            "reset_token_hash": None,
+            "reset_token_expires": None,
+        })
+        return {"ok": True, "message": "Password aggiornata con successo. Ora puoi accedere."}
 
 
 auth_service = AuthService()
