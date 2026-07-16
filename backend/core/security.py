@@ -1,10 +1,15 @@
 import bcrypt
 import jwt
+import hashlib
+import secrets
 from datetime import datetime, timezone, timedelta
 from fastapi import HTTPException, Request, Depends
 from core.config import JWT_SECRET, JWT_ALG
 from core.database import db
 from core.subscription_utils import is_subscription_active
+
+# Validità del link "password dimenticata" prima che vada rigenerato.
+RESET_TOKEN_TTL_MINUTES = 60
 
 # Prefissi esenti dal blocco per trial/abbonamento scaduto: l'utente deve
 # sempre poter vedere il proprio stato, pagare, o gestire l'account anche
@@ -59,6 +64,21 @@ async def get_current_user(request: Request) -> dict:
             },
         )
     return user
+
+
+def generate_reset_token() -> tuple:
+    """Genera un token di reset password in chiaro (da mandare via email) e il
+    suo hash SHA-256 (unico dato salvato su DB): se il DB venisse esposto, il
+    token vero e proprio non sarebbe comunque ricavabile. Ritorna anche la
+    scadenza (ISO string, UTC)."""
+    token = secrets.token_urlsafe(32)
+    token_hash = hash_reset_token(token)
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=RESET_TOKEN_TTL_MINUTES)).isoformat()
+    return token, token_hash, expires_at
+
+
+def hash_reset_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def is_admin(user: dict) -> bool:
