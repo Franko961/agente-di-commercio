@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../api";
-import { Search, ShoppingCart, Building } from "lucide-react";
+import { Search, ShoppingCart, Building, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
@@ -40,6 +40,13 @@ export default function Ordini() {
   const saveOrder = async (payload) => {
     await api.post("/orders", payload);
     toast.success("Ordine registrato — provvigione calcolata");
+    await load();
+  };
+
+  const deleteOrder = async (order) => {
+    if (!window.confirm("Eliminare questo ordine? Verrà eliminata anche la provvigione collegata.")) return;
+    await api.delete(`/orders/${order.id}`);
+    toast.success("Ordine e provvigione collegata eliminati");
     await load();
   };
 
@@ -118,17 +125,27 @@ export default function Ordini() {
                   {ordersForClient(activeClient.id).map((o) => {
                     const mand = mandanti.find((m) => m.id === o.mandante_id);
                     return (
-                      <div key={o.id} className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-md p-3 flex items-center justify-between">
-                        <div>
+                      <div key={o.id} data-testid={`order-row-${o.id}`} className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-md p-3 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
                           <div className="flex items-center gap-1.5 text-[12px] font-medium">
-                            {mand && <span className="w-1.5 h-1.5 rounded-full" style={{ background: mand.brand_color }} />}
+                            {mand && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: mand.brand_color }} />}
                             {mand?.name || "—"}
                           </div>
                           <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-1">
                             {format(parseISO(o.created_at), "d MMM yyyy", { locale: it })} · {o.items?.length || 0} righe · {o.sale_type}
                           </div>
                         </div>
-                        <div className="font-cabinet font-bold text-[15px]">{fmt(o.total)}</div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="font-cabinet font-bold text-[15px]">{fmt(o.total)}</div>
+                          <button
+                            data-testid={`delete-order-${o.id}`}
+                            onClick={() => deleteOrder(o)}
+                            className="text-[#A1A1AA] hover:text-[#DC2626] p-1"
+                            title="Elimina ordine (e la provvigione collegata)"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
