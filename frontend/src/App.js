@@ -14,6 +14,7 @@ import Leads from "./pages/Leads";
 import Agenda from "./pages/Agenda";
 import MapView from "./pages/MapView";
 import Offers from "./pages/Offers";
+import Ordini from "./pages/Ordini";
 import Commissions from "./pages/Commissions";
 import Mandanti from "./pages/Mandanti";
 import Products from "./pages/Products";
@@ -54,6 +55,7 @@ function App() {
                 <Route path="/app/agenda" element={<Agenda />} />
                 <Route path="/app/mappa" element={<MapView />} />
                 <Route path="/app/offerte" element={<Offers />} />
+                <Route path="/app/ordini" element={<Ordini />} />
                 <Route path="/app/provvigioni" element={<Commissions />} />
                 <Route path="/app/mandanti" element={<Mandanti />} />
                 <Route path="/app/prodotti" element={<Products />} />
