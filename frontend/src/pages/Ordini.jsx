@@ -16,6 +16,7 @@ export default function Ordini() {
   const [offers, setOffers] = useState([]);
   const [query, setQuery] = useState("");
   const [activeClient, setActiveClient] = useState(null);
+  const [showNewOrderForm, setShowNewOrderForm] = useState(false);
 
   const load = async () => {
     const [c, m, p, o, of] = await Promise.all([
@@ -95,7 +96,7 @@ export default function Ordini() {
             <button
               key={c.id}
               data-testid={`orders-client-card-${c.id}`}
-              onClick={() => setActiveClient(c)}
+              onClick={() => { setActiveClient(c); setShowNewOrderForm(false); }}
               className="text-left bg-white border border-[#E4E4E1] hover:border-[#0A192F] rounded-md p-4 transition-colors relative"
             >
               {pendingCount > 0 && (
@@ -155,6 +156,7 @@ export default function Ordini() {
                           <div className="flex items-center gap-3 shrink-0">
                             <div className="font-cabinet font-bold text-[15px]">{fmt(o.total)}</div>
                             <button
+                              type="button"
                               data-testid={`accept-offer-${o.id}`}
                               onClick={() => acceptOffer(o)}
                               className="bg-[#059669] hover:opacity-90 text-white text-[11px] font-mono uppercase tracking-widest px-3 py-1.5 rounded"
@@ -194,6 +196,7 @@ export default function Ordini() {
                         <div className="flex items-center gap-3 shrink-0">
                           <div className="font-cabinet font-bold text-[15px]">{fmt(o.total)}</div>
                           <button
+                            type="button"
                             data-testid={`delete-order-${o.id}`}
                             onClick={() => deleteOrder(o)}
                             className="text-[#A1A1AA] hover:text-[#DC2626] p-1"
@@ -209,13 +212,27 @@ export default function Ordini() {
               </div>
 
               <div>
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] mb-2">Nuovo ordine</div>
-                <OrderForm
-                  client={activeClient}
-                  mandanti={mandanti}
-                  products={products}
-                  onSave={async (f) => { await saveOrder(f); setActiveClient(null); }}
-                />
+                <div className="flex items-center justify-between mb-2">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#52525B]">Nuovo ordine</div>
+                  {!showNewOrderForm && (
+                    <button
+                      type="button"
+                      data-testid="show-new-order-form-button"
+                      onClick={() => setShowNewOrderForm(true)}
+                      className="text-[12px] font-mono uppercase tracking-widest text-[#FF5A00]"
+                    >
+                      + registra manualmente
+                    </button>
+                  )}
+                </div>
+                {showNewOrderForm && (
+                  <OrderForm
+                    client={activeClient}
+                    mandanti={mandanti}
+                    products={products}
+                    onSave={async (f) => { await saveOrder(f); setActiveClient(null); }}
+                  />
+                )}
               </div>
             </div>
           )}
