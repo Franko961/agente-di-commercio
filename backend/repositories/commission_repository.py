@@ -13,6 +13,12 @@ class CommissionRepository:
     async def find_by_offer(self, offer_id: str, user_id: str):
         return await self.collection.find_one({"offer_id": offer_id, "user_id": user_id})
 
+    async def find_by_order(self, order_id: str, user_id: str) -> list:
+        return await self.collection.find({"order_id": order_id, "user_id": user_id}, {"_id": 0}).to_list(50)
+
+    async def delete_by_order(self, order_id: str, user_id: str) -> None:
+        await self.collection.delete_many({"order_id": order_id, "user_id": user_id})
+
     async def insert(self, doc: dict) -> dict:
         await self.collection.insert_one(doc)
         doc.pop("_id", None)
