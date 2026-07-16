@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from core.utils import gen_id, now_iso, clean
 from core.security import hash_password, verify_password, create_access_token, generate_reset_token, hash_reset_token
 from core.config import PLANS, ADMIN_NOTIFY_EMAIL, FRONTEND_URL
+from core.rate_limit import check_and_record
 from core.subscription_utils import is_subscription_active
 from repositories.user_repository import user_repository
 from services.email_service import send_email
@@ -121,15 +122,28 @@ class AuthService:
         token = create_access_token(user["id"], email)
         return token, clean(user)
 
-    async def forgot_password(self, payload) -> dict:
+    async def forgot_password(self, payload, ip_address: str = None) -> dict:
         email = payload.email.lower().strip()
-        user = await self.repo.find_by_email(email)
+
         # Risposta generica identica in ogni caso, per non rivelare a chi
-        # chiede se un'email è registrata o meno (user enumeration).
+        # chiede se un'email è registrata o meno (user enumeration) — usata
+        # anche quando si viene bloccati dal rate limit, per lo stesso motivo.
         generic = {
             "ok": True,
             "message": "Se l'indirizzo è registrato, riceverai a breve un'email con le istruzioni per reimpostare la password.",
         }
+
+        # Limite per email: max 5 richieste ogni 15 minuti (evita di intasare
+        # di email la stessa casella). Limite per IP: max 20 ogni 15 minuti
+        # (evita di usare l'endpoint per scansionare quali email esistono).
+        email_ok = await check_and_record("forgot_password_email", email, max_attempts=5, window_minutes=15)
+        ip_ok = True
+        if ip_address:
+            ip_ok = await check_and_record("forgot_password_ip", ip_address, max_attempts=20, window_minutes=15)
+        if not email_ok or not ip_ok:
+            return generic
+
+        user = await self.repo.find_by_email(email)
         if not user:
             return generic
 
@@ -169,7 +183,15 @@ class AuthService:
 
         return generic
 
-    async def reset_password(self, payload) -> dict:
+    async def reset_password(self, payload, ip_address: str = None) -> dict:
+        # Limite per IP: rallenta un eventuale tentativo di indovinare un
+        # token per forza bruta (il token stesso, 32 byte casuali, resta
+        # comunque non indovinabile in pratica — questo è un livello extra).
+        if ip_address:
+            ip_ok = await check_and_record("reset_password_ip", ip_address, max_attempts=20, window_minutes=15)
+            if not ip_ok:
+                raise HTTPException(status_code=429, detail="Troppi tentativi. Riprova tra qualche minuto.")
+
         if len(payload.new_password) < 6:
             raise HTTPException(status_code=400, detail="Password troppo corta (min 6 caratteri)")
 
