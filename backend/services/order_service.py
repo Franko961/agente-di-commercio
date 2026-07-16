@@ -42,10 +42,15 @@ class OrderService:
         return doc
 
     async def delete_order(self, user: dict, oid: str) -> None:
-        # Nota: come per le offerte (delete_offer), cancellare un ordine non rimuove
-        # automaticamente la provvigione già generata — comportamento coerente con
-        # quello esistente per le offerte.
+        # A differenza delle offerte, per gli ordini la provvigione è legata a un
+        # fatto già compiuto senza fase di conferma: cancellare l'ordine deve
+        # quindi cancellare anche la provvigione generata, e ricalcolare eventuali
+        # bonus del mandante che potrebbero non essere più raggiunti.
+        order = await self.repo.find_one(oid, user["id"])
         await self.repo.delete(oid, user["id"])
+        if order:
+            await commission_service.repo.delete_by_order(oid, user["id"])
+            await commission_service.check_and_award_bonus(user["id"], order["mandante_id"])
 
 
 order_service = OrderService()
