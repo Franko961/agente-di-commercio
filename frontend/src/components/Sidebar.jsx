@@ -1,6 +1,6 @@
 import { NavLink, Link, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, Users, KanbanSquare, CalendarDays, Map, FileText,
+  LayoutDashboard, Users, KanbanSquare, CalendarDays, Map, FileText, ShoppingCart,
   Coins, Building2, Package, Folder, Sparkles, Zap, LogOut, ArrowLeftRight, ShieldCheck, CreditCard, Settings as SettingsIcon
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -13,6 +13,7 @@ const navItems = [
   { to: "/app/agenda", label: "Agenda", icon: CalendarDays },
   { to: "/app/mappa", label: "Mappa", icon: Map },
   { to: "/app/offerte", label: "Offerte", icon: FileText },
+  { to: "/app/ordini", label: "Ordini", icon: ShoppingCart },
   { to: "/app/provvigioni", label: "Provvigioni", icon: Coins },
   { to: "/app/mandanti", label: "Mandanti", icon: Building2 },
   { to: "/app/prodotti", label: "Prodotti & Listini", icon: Package },
