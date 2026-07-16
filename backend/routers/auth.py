@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Response, Request
 from core.security import get_current_user
 from services.auth_service import auth_service
 from models.auth import LoginIn, RegisterIn, ForgotPasswordIn, ResetPasswordIn
@@ -34,10 +34,12 @@ async def me(user=Depends(get_current_user)):
 
 
 @router.post("/forgot-password")
-async def forgot_password(payload: ForgotPasswordIn):
-    return await auth_service.forgot_password(payload)
+async def forgot_password(payload: ForgotPasswordIn, request: Request):
+    ip_address = request.client.host if request.client else None
+    return await auth_service.forgot_password(payload, ip_address=ip_address)
 
 
 @router.post("/reset-password")
-async def reset_password(payload: ResetPasswordIn):
-    return await auth_service.reset_password(payload)
+async def reset_password(payload: ResetPasswordIn, request: Request):
+    ip_address = request.client.host if request.client else None
+    return await auth_service.reset_password(payload, ip_address=ip_address)
