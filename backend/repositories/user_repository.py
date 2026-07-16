@@ -16,6 +16,9 @@ class UserRepository:
     async def find_by_id(self, uid: str) -> Optional[dict]:
         return await self.collection.find_one({"id": uid}, {"_id": 0, "password_hash": 0})
 
+    async def find_by_reset_token_hash(self, token_hash: str) -> Optional[dict]:
+        return await self.collection.find_one({"reset_token_hash": token_hash})
+
     async def update_by_id(self, uid: str, data: dict) -> None:
         await self.collection.update_one({"id": uid}, {"$set": data})
 
