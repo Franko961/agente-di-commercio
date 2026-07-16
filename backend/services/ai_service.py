@@ -16,7 +16,8 @@ from repositories.offer_repository import offer_repository
 from repositories.commission_repository import commission_repository
 from repositories.mandante_repository import mandante_repository
 from repositories.product_repository import product_repository
-from services.commission_service import calc_offer_total, get_commission_rate, check_and_award_bonus
+from services.commission_service import calc_offer_total, get_commission_rate
+from services.order_service import order_service
 
 logger = logging.getLogger(__name__)
 
@@ -315,19 +316,13 @@ class AiService:
                 msg = f"✅ Vendita registrata: {cli['company_name']} - {mand['name']} - €{total:.2f} ({sale_type}), stato: {status}."
 
                 if accepted:
+                    # Come per le offerte accettate da pulsante di stato o da firma,
+                    # una vendita registrata già "accettata" si trasforma nel suo
+                    # ordine corrispondente, che genera la provvigione.
+                    order = await order_service.create_from_offer({"id": user_id}, offer_doc)
                     rate = get_commission_rate(mand, sale_type)
-                    amount = round(total * rate / 100, 2)
-                    comm = {
-                        "id": gen_id(), "user_id": user_id, "offer_id": offer_doc["id"],
-                        "client_id": cli["id"], "mandante_id": mand["id"],
-                        "amount": amount, "rate": rate, "base_amount": total,
-                        "sale_type": sale_type, "status": "maturato",
-                        "period": datetime.now(timezone.utc).strftime("%Y-%m"),
-                        "created_at": now_iso(),
-                    }
-                    await self.commission_repo.insert(comm)
-                    await check_and_award_bonus(user_id, mand["id"])
-                    msg += f" Provvigione generata: €{amount:.2f} ({rate}%)."
+                    amount = round(order.get("total", 0) * rate / 100, 2)
+                    msg += f" Ordine registrato e provvigione generata: €{amount:.2f} ({rate}%)."
 
                 return msg
 
