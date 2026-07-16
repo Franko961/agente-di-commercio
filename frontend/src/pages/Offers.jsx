@@ -31,13 +31,13 @@ export default function Offers() {
 
   const setStatus = async (id, status) => {
     await api.patch(`/offers/${id}/status`, { status });
-    toast.success(`Offerta ${status}`);
+    toast.success(status === "accettata" ? "Offerta accettata — ordine e provvigione generati" : `Offerta ${status}`);
     load();
   };
 
   const onSignSubmit = async (signatureDataUrl, signerName) => {
     await api.post(`/offers/${signOffer.id}/sign`, { signature: signatureDataUrl, signer_name: signerName });
-    toast.success("Offerta firmata. PDF in download.");
+    toast.success("Offerta firmata — ordine e provvigione generati. PDF in download.");
     load();
   };
 
