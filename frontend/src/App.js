@@ -25,6 +25,8 @@ import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
 import Pricing from "./pages/Pricing";
 import RichiediDemo from "./pages/RichiediDemo";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Privacy from "./pages/Privacy";
 import OfflineBanner from "./components/OfflineBanner";
 import { Toaster } from "./components/ui/sonner";
@@ -41,6 +43,8 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/prezzi" element={<Pricing />} />
               <Route path="/richiedi-demo" element={<RichiediDemo />} />
+              <Route path="/password-dimenticata" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route path="/app" element={<Dashboard />} />
