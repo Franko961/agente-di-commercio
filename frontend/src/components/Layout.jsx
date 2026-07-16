@@ -108,7 +108,7 @@ export default function Layout() {
                 ))}
               </nav>
               {isAdmin && (
-                <NavLink to="/app/admin" className="mx-4 mb-1 flex items-center gap-2 px-3 py-2.5 bg-[#FF5A00] text-white rounded-md text-sm font-medium">
+                <NavLink to="/app/admin" onClick={() => setDrawerOpen(false)} className="mx-4 mb-1 flex items-center gap-2 px-3 py-2.5 bg-[#FF5A00] text-white rounded-md text-sm font-medium">
                   <ShieldCheck className="w-4 h-4" /> Admin
                 </NavLink>
               )}
