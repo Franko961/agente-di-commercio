@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../api";
-import { Plus, Trash2, Pencil, Fuel, UtensilsCrossed, BedDouble, ParkingCircle, Package, Receipt } from "lucide-react";
+import { Plus, Trash2, Pencil, Fuel, UtensilsCrossed, BedDouble, ParkingCircle, Package, Receipt, Landmark, PiggyBank, Car, Calculator } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { toast } from "sonner";
 
@@ -13,6 +13,10 @@ const CATEGORIES = [
   { value: "alloggio", label: "Alloggio", icon: BedDouble },
   { value: "pedaggio_parcheggio", label: "Pedaggio/Parcheggio", icon: ParkingCircle },
   { value: "materiali", label: "Materiali", icon: Package },
+  { value: "inps", label: "INPS", icon: Landmark },
+  { value: "enasarco", label: "ENASARCO", icon: PiggyBank },
+  { value: "assicurazione_auto", label: "Assicurazione auto", icon: Car },
+  { value: "commercialista", label: "Commercialista", icon: Calculator },
   { value: "altro", label: "Altro", icon: Receipt },
 ];
 const catMeta = (value) => CATEGORIES.find((c) => c.value === value) || CATEGORIES[CATEGORIES.length - 1];
