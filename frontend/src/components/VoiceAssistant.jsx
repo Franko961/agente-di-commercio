@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Mic, MicOff, Loader2, X, Volume2, VolumeX, Sparkles } from "lucide-react";
 import api from "../api";
+import { cleanForSpeech } from "../utils/speechClean";
 
 /**
  * Pulsante microfono globale, sempre visibile in tutte le pagine dell'app (montato in Layout.jsx).
@@ -24,7 +25,7 @@ export default function VoiceAssistant() {
   const speak = (text) => {
     if (!synthRef.current || !text) return;
     synthRef.current.cancel();
-    const clean = text.replace(/[^\x00-\x7F]/g, "").replace(/\n+/g, ". ").trim();
+    const clean = cleanForSpeech(text);
     if (!clean) return;
     const utterance = new SpeechSynthesisUtterance(clean);
     utterance.lang = "it-IT";
