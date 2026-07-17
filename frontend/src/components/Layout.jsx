@@ -8,7 +8,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useMandante } from "../contexts/MandanteContext";
 import {
   LayoutDashboard, Users, KanbanSquare, CalendarDays, Map, FileText, ShoppingCart,
-  Coins, Building2, Package, Folder, Sparkles, Zap, LogOut, CreditCard, ShieldCheck
+  Coins, Building2, Package, Folder, Sparkles, Zap, LogOut, CreditCard, ShieldCheck, Receipt
 } from "lucide-react";
 
 const fullNav = [
@@ -20,6 +20,7 @@ const fullNav = [
   { to: "/app/offerte", label: "Offerte", icon: FileText },
   { to: "/app/ordini", label: "Ordini", icon: ShoppingCart },
   { to: "/app/provvigioni", label: "Provvigioni", icon: Coins },
+  { to: "/app/spese", label: "Spese", icon: Receipt },
   { to: "/app/mandanti", label: "Mandanti", icon: Building2 },
   { to: "/app/prodotti", label: "Prodotti & Listini", icon: Package },
   { to: "/app/documenti", label: "Documenti", icon: Folder },
@@ -42,6 +43,7 @@ export default function Layout() {
     "/app/agenda": "Agenda", "/app/mappa": "Mappa Clienti", "/app/offerte": "Offerte",
     "/app/ordini": "Ordini",
     "/app/provvigioni": "Provvigioni", "/app/mandanti": "Mandanti",
+    "/app/spese": "Spese",
     "/app/prodotti": "Prodotti & Listini", "/app/documenti": "Documenti",
     "/app/automazioni": "Automazioni", "/app/ai": "Assistente AI",
   };
