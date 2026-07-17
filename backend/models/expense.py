@@ -24,3 +24,4 @@ class ExpenseIn(BaseModel):
     amount: float
     client_id: Optional[str] = None  # collegamento facoltativo a un cliente/visita
     notes: Optional[str] = ""
+    receipt_document_id: Optional[str] = None  # id del documento (foto/PDF scontrino) caricato via /api/documents/upload
