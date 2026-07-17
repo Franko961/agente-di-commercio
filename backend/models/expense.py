@@ -8,10 +8,11 @@ EXPENSE_CATEGORIES = [
     "vitto",
     "alloggio",
     "pedaggio_parcheggio",
+    "materiali",
     "inps",
     "enasarco",
-    "commercialista",
     "assicurazione_auto",
+    "commercialista",
     "altro",
 ]
 
