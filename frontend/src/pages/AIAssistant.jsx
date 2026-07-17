@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import api from "../api";
 import { Sparkles, Send, Lightbulb, Trash2, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
+import { cleanForSpeech } from "../utils/speechClean";
 
 const WELCOME = { role: "assistant", text: "Ciao! Sono il tuo assistente commerciale. Posso suggerirti i clienti più importanti da visitare, analizzare il fatturato e darti consigli pratici. Cosa vuoi sapere?" };
 
@@ -41,8 +42,8 @@ export default function AIAssistant() {
   const speak = useCallback((text) => {
     if (!voiceEnabled || !synthRef.current) return;
     synthRef.current.cancel();
-    // Pulisci il testo da emoji e simboli
-    const clean = text.replace(/[^\x00-\x7F]/g, "").replace(/\n+/g, ". ").trim();
+    // Pulisci il testo da markdown, emoji e simboli prima di leggerlo ad alta voce
+    const clean = cleanForSpeech(text);
     const utterance = new SpeechSynthesisUtterance(clean);
     utterance.lang = "it-IT";
     utterance.rate = 1.05;
