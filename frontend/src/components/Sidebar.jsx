@@ -1,7 +1,7 @@
 import { NavLink, Link, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, KanbanSquare, CalendarDays, Map, FileText, ShoppingCart,
-  Coins, Building2, Package, Folder, Sparkles, Zap, LogOut, ArrowLeftRight, ShieldCheck, CreditCard, Settings as SettingsIcon
+  Coins, Building2, Package, Folder, Sparkles, Zap, LogOut, ArrowLeftRight, ShieldCheck, CreditCard, Settings as SettingsIcon, Receipt
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useMandante } from "../contexts/MandanteContext";
@@ -15,6 +15,7 @@ const navItems = [
   { to: "/app/offerte", label: "Offerte", icon: FileText },
   { to: "/app/ordini", label: "Ordini", icon: ShoppingCart },
   { to: "/app/provvigioni", label: "Provvigioni", icon: Coins },
+  { to: "/app/spese", label: "Spese", icon: Receipt },
   { to: "/app/mandanti", label: "Mandanti", icon: Building2 },
   { to: "/app/prodotti", label: "Prodotti & Listini", icon: Package },
   { to: "/app/documenti", label: "Documenti", icon: Folder },
