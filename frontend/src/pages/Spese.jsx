@@ -1,11 +1,25 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import api from "../api";
-import { Plus, Trash2, Pencil, Fuel, UtensilsCrossed, BedDouble, ParkingCircle, Package, Receipt, Landmark, PiggyBank, Car, Calculator } from "lucide-react";
+import { Plus, Trash2, Pencil, Fuel, UtensilsCrossed, BedDouble, ParkingCircle, Package, Receipt, Landmark, PiggyBank, Car, Calculator, Paperclip, Upload, X, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { toast } from "sonner";
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
 const todayIso = () => new Date().toISOString().slice(0, 10);
+const FILE_BASE = process.env.REACT_APP_BACKEND_URL;
+
+async function downloadReceipt(documentId, label) {
+  try {
+    const res = await fetch(`${FILE_BASE}/api/documents/${documentId}/download`, { credentials: "include" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch (e) {
+    toast.error("Errore apertura scontrino");
+  }
+}
 
 const CATEGORIES = [
   { value: "carburante", label: "Carburante", icon: Fuel },
@@ -21,7 +35,7 @@ const CATEGORIES = [
 ];
 const catMeta = (value) => CATEGORIES.find((c) => c.value === value) || CATEGORIES[CATEGORIES.length - 1];
 
-const EMPTY = { date: todayIso(), category: "carburante", description: "", amount: 0, notes: "" };
+const EMPTY = { date: todayIso(), category: "carburante", description: "", amount: 0, notes: "", receipt_document_id: null, receipt_filename: null };
 
 export default function Spese() {
   const [expenses, setExpenses] = useState([]);
@@ -103,7 +117,15 @@ export default function Spese() {
               <div className="text-[#52525B] flex items-center gap-1.5">
                 <meta.icon className="w-3.5 h-3.5 text-[#A1A1AA]" />{meta.label}
               </div>
-              <div className="col-span-2 truncate">{e.description || "—"}</div>
+              <div className="col-span-2 truncate flex items-center gap-1.5">
+                <span className="truncate">{e.description || "—"}</span>
+                {e.receipt_document_id && (
+                  <button onClick={() => downloadReceipt(e.receipt_document_id, e.description)} title="Vedi scontrino"
+                    className="shrink-0 p-1 text-[#A1A1AA] hover:text-[#FF5A00] hover:bg-[#F3F3F1] rounded transition-colors">
+                    <Paperclip className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
               <div className="text-right font-cabinet font-bold">{fmt(e.amount)}</div>
               <div className="col-span-2 flex justify-end gap-1">
                 <button onClick={() => setEditTarget(e)} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica">
@@ -124,7 +146,32 @@ export default function Spese() {
 
 function ExpenseForm({ initial, onSave, submitLabel = "Salva" }) {
   const [f, setF] = useState(initial);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
   useEffect(() => { setF(initial); }, [initial]);
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("name", `Scontrino ${f.date || todayIso()}`);
+      fd.append("category", "scontrino");
+      fd.append("notes", "");
+      fd.append("tags", "spese");
+      const { data } = await api.post("/documents/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      setF((prev) => ({ ...prev, receipt_document_id: data.id, receipt_filename: data.original_filename || file.name }));
+      toast.success("Scontrino allegato");
+    } catch (err) {
+      toast.error("Errore caricamento scontrino");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <form onSubmit={async (e) => { e.preventDefault(); await onSave(f); }} className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
@@ -140,7 +187,29 @@ function ExpenseForm({ initial, onSave, submitLabel = "Salva" }) {
       <Field label="Descrizione" v={f.description} on={(v) => setF({ ...f, description: v })} />
       <Field label="Importo (€) *" v={f.amount} on={(v) => setF({ ...f, amount: parseFloat(v) || 0 })} type="number" required />
       <Field label="Note" v={f.notes} on={(v) => setF({ ...f, notes: v })} />
-      <button data-testid="save-expense-button" type="submit" className="w-full bg-[#0A192F] text-white py-2.5 rounded-md text-[13px] font-medium">{submitLabel}</button>
+
+      <div>
+        <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Scontrino</label>
+        {f.receipt_document_id ? (
+          <div className="flex items-center justify-between gap-2 border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]">
+            <span className="flex items-center gap-1.5 truncate text-[#059669]">
+              <Paperclip className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{f.receipt_filename || "Allegato caricato"}</span>
+            </span>
+            <button type="button" onClick={() => setF({ ...f, receipt_document_id: null, receipt_filename: null })}
+              className="shrink-0 p-1 text-[#A1A1AA] hover:text-red-500 rounded">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <label className="flex items-center justify-center gap-2 border border-dashed border-[#E4E4E1] rounded-md px-3 py-3 text-[13px] text-[#52525B] cursor-pointer hover:border-[#0A192F] transition-colors">
+            {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+            {uploading ? "Caricamento..." : "Carica foto o PDF dello scontrino"}
+            <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={handleFile} disabled={uploading} />
+          </label>
+        )}
+      </div>
+
+      <button data-testid="save-expense-button" type="submit" disabled={uploading} className="w-full bg-[#0A192F] text-white py-2.5 rounded-md text-[13px] font-medium disabled:opacity-50">{submitLabel}</button>
     </form>
   );
 }
