@@ -8,7 +8,7 @@ import { it } from "date-fns/locale";
 import DocumentPreview from "../components/DocumentPreview";
 import { compressVideo, formatBytes } from "../utils/videoCompress";
 
-const CAT_COLORS = { contratto: "#0A192F", offerta: "#FF5A00", fattura: "#059669", listino: "#6B2C2C", video: "#7C3AED", altro: "#52525B" };
+const CAT_COLORS = { contratto: "#0A192F", offerta: "#FF5A00", fattura: "#059669", listino: "#6B2C2C", video: "#7C3AED", scontrino: "#B45309", altro: "#52525B" };
 const FILE_BASE = process.env.REACT_APP_BACKEND_URL;
 const MAX_MB = 50;
 const VIDEO_COMPRESS_THRESHOLD = 8 * 1024 * 1024; // 8 MB
@@ -366,6 +366,7 @@ function UploadForm({ clients, existingTags, onDone }) {
             <option value="offerta">Offerta</option>
             <option value="fattura">Fattura</option>
             <option value="listino">Listino</option>
+            <option value="scontrino">Scontrino</option>
             <option value="video">Video</option>
             <option value="altro">Altro</option>
           </select>
