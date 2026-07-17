@@ -10,6 +10,12 @@ import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n || 0);
+const EXPENSE_CATEGORY_LABELS = {
+  carburante: "Carburante", vitto: "Vitto", alloggio: "Alloggio",
+  pedaggio_parcheggio: "Pedaggio/Parcheggio", materiali: "Materiali",
+  inps: "INPS", enasarco: "ENASARCO", assicurazione_auto: "Assicurazione auto",
+  commercialista: "Commercialista", altro: "Altro",
+};
 
 function KPICard({ label, value, sublabel, icon: Icon, accent }) {
   return (
@@ -31,9 +37,10 @@ export default function Dashboard() {
 
   if (!data) return <div className="p-8 font-mono text-sm text-[#A1A1AA]">caricamento dashboard…</div>;
 
-  const { kpi, by_zone, monthly, upcoming_appointments, pipeline, by_sector } = data;
+  const { kpi, by_zone, monthly, upcoming_appointments, pipeline, by_sector, expenses_monthly, expenses_by_category } = data;
   const pipelineData = Object.entries(pipeline).map(([k, v]) => ({ name: k, value: v }));
   const sectorData = (by_sector || []).filter(s => s.sector !== "Non specificato");
+  const expenseCatData = (expenses_by_category || []).map(e => ({ ...e, label: EXPENSE_CATEGORY_LABELS[e.category] || e.category }));
   const PIE_COLORS = ["#0A192F", "#172A45", "#52525B", "#FF5A00", "#059669", "#DC2626"];
 
   return (
@@ -191,6 +198,54 @@ export default function Dashboard() {
                       <span className="text-[#52525B]">{s.sector}</span>
                     </div>
                     <span className="font-cabinet font-bold">{s.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Spese: andamento mensile + per categoria */}
+        <div className="bg-white border border-[#E4E4E1] rounded-md p-5">
+          <div className="flex items-center justify-between mb-1">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">Note spese</div>
+            <div className="font-mono text-[11px] text-[#52525B]">questo mese: <span className="font-cabinet font-bold text-[#0A0A0A]">{fmt(kpi.current_month_expenses)}</span></div>
+          </div>
+          <div className="font-cabinet font-bold text-lg mb-3">Spese per mese</div>
+          <div className="h-48">
+            <ResponsiveContainer>
+              <BarChart data={expenses_monthly}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E4E4E1" />
+                <XAxis dataKey="month" stroke="#A1A1AA" fontSize={11} />
+                <YAxis stroke="#A1A1AA" fontSize={11} tickFormatter={(v) => `€${(v/1000).toFixed(1)}k`} />
+                <Tooltip contentStyle={{ background: "white", border: "1px solid #E4E4E1", borderRadius: "6px" }} formatter={(v) => fmt(v)} />
+                <Bar dataKey="amount" fill="#B45309" radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Spese per categoria */}
+        {expenseCatData.length > 0 && (
+          <div className="bg-white border border-[#E4E4E1] rounded-md p-5">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-4">Spese per categoria</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie data={expenseCatData} dataKey="amount" nameKey="label" innerRadius={45} outerRadius={80} paddingAngle={2}>
+                    {expenseCatData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip formatter={(v) => fmt(v)} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-2">
+                {expenseCatData.map((e, i) => (
+                  <div key={e.category} className="flex items-center justify-between text-[12px]">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                      <span className="text-[#52525B]">{e.label}</span>
+                    </div>
+                    <span className="font-cabinet font-bold">{fmt(e.amount)}</span>
                   </div>
                 ))}
               </div>
