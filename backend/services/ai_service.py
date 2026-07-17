@@ -16,6 +16,8 @@ from repositories.offer_repository import offer_repository
 from repositories.commission_repository import commission_repository
 from repositories.mandante_repository import mandante_repository
 from repositories.product_repository import product_repository
+from repositories.expense_repository import expense_repository
+from models.expense import EXPENSE_CATEGORIES
 from services.commission_service import calc_offer_total, get_commission_rate
 from services.order_service import order_service
 
@@ -103,6 +105,21 @@ CRM_TOOLS = [
             "required": ["client_name", "mandante_name"]
         }
     },
+    {
+        "name": "add_expense",
+        "description": "Registra una spesa personale/aziendale dell'agente (carburante, vitto, alloggio, INPS, ENASARCO, assicurazione auto, commercialista, ecc.). Usare quando l'utente chiede di registrare/aggiungere/segnare una spesa. Non impatta provvigioni o fatturato: è solo tracciamento.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "date": {"type": "string", "description": "Data della spesa in formato ISO YYYY-MM-DD. Se non specificata, usa la data odierna."},
+                "category": {"type": "string", "enum": EXPENSE_CATEGORIES, "description": "Categoria della spesa."},
+                "description": {"type": "string", "description": "Breve descrizione della spesa"},
+                "amount": {"type": "number", "description": "Importo in euro"},
+                "notes": {"type": "string", "description": "Note aggiuntive"},
+            },
+            "required": ["category", "amount"]
+        }
+    },
 ]
 
 # Parole chiave per rilevare quale azione CRM l'utente ha richiesto.
@@ -117,6 +134,8 @@ ACTION_INTENT_KEYWORDS = {
     "add_note_to_client": ["aggiungi nota", "segna una nota", "aggiungi una nota"],
     "add_offer": ["registra vendita", "registra offerta", "registra ordine",
                   "aggiungi offerta", "aggiungi vendita"],
+    "add_expense": ["aggiungi spesa", "registra spesa", "segna spesa", "nuova spesa",
+                     "inserisci spesa", "ho speso"],
 }
 
 
@@ -140,6 +159,7 @@ class AiService:
         commission_repo=commission_repository,
         mandante_repo=mandante_repository,
         product_repo=product_repository,
+        expense_repo=expense_repository,
     ):
         self.repo = repo
         self.client_repo = client_repo
@@ -149,6 +169,7 @@ class AiService:
         self.commission_repo = commission_repo
         self.mandante_repo = mandante_repo
         self.product_repo = product_repo
+        self.expense_repo = expense_repo
 
     async def get_history(self, user_id: str) -> list:
         """Restituisce gli ultimi 30 messaggi della cronologia AI."""
@@ -163,6 +184,7 @@ class AiService:
         offers = await self.offer_repo.find_many(user_id)
         appts = await self.appointment_repo.find_many(user_id)
         commissions = await self.commission_repo.find_many(user_id)
+        expenses = await self.expense_repo.find_many(user_id)
 
         # Clients with no recent visit
         today = datetime.now(timezone.utc)
@@ -186,6 +208,15 @@ class AiService:
         summary.append("\nOfferte recenti:")
         for o in offers[-10:]:
             summary.append(f"- {o.get('title')} importo {o.get('total',0)}€ stato {o.get('status')}")
+
+        current_month = today.strftime("%Y-%m")
+        month_expenses = [e for e in expenses if (e.get("date") or "").startswith(current_month)]
+        total_month_expenses = sum(e.get("amount", 0) for e in month_expenses)
+        summary.append(f"\nSpese del mese corrente: {round(total_month_expenses,2)}€ ({len(month_expenses)} voci)")
+        summary.append("Spese recenti (max 10):")
+        for e in expenses[-10:]:
+            summary.append(f"- {e.get('date')} {e.get('category')} {e.get('amount',0)}€ {e.get('description','')}".strip())
+
         return "\n".join(summary)
 
     async def execute_crm_tool(self, tool_name: str, tool_input: dict, user_id: str) -> str:
@@ -326,6 +357,24 @@ class AiService:
 
                 return msg
 
+            elif tool_name == "add_expense":
+                category = tool_input.get("category") or "altro"
+                if category not in EXPENSE_CATEGORIES:
+                    category = "altro"
+                doc = {
+                    "id": gen_id(), "user_id": user_id,
+                    "date": tool_input.get("date") or now_iso()[:10],
+                    "category": category,
+                    "description": tool_input.get("description", ""),
+                    "amount": tool_input.get("amount", 0),
+                    "client_id": None,
+                    "notes": tool_input.get("notes", ""),
+                    "receipt_document_id": None,
+                    "created_at": now_iso(),
+                }
+                await self.expense_repo.insert(doc)
+                return f"✅ Spesa registrata: {category} - €{doc['amount']:.2f} ({doc['date']})."
+
             return f"❌ Tool '{tool_name}' non riconosciuto."
         except Exception as e:
             logger.error(f"CRM tool error: {e}")
@@ -342,7 +391,9 @@ class AiService:
             "Sei un assistente commerciale italiano per agenti di commercio. "
             "Aiuti l'agente a decidere quali clienti visitare, analizzare le vendite, "
             "suggerire azioni concrete. Puoi anche modificare il CRM: aggiungere clienti, "
-            "appuntamenti, lead, note e vendite/offerte. Quando l'utente ti chiede di fare "
+            "appuntamenti, lead, note, vendite/offerte e spese personali/aziendali "
+            "(carburante, INPS, ENASARCO, assicurazione auto, commercialista, ecc.). "
+            "Quando l'utente ti chiede di fare "
             "un'azione sul CRM, usa i tool disponibili. Se l'utente chiede informazioni "
             "aggiornate o esterne al CRM (es. un'azienda, un prezzo, una notizia recente), "
             "usa la ricerca web. Rispondi sempre in italiano, in modo conciso e pratico, "
