@@ -47,17 +47,21 @@ class DashboardService:
             key=lambda m: m["month"],
         )[-6:]
 
-        # Monthly expenses (last 6 months)
-        exp_months: Dict[str, float] = {}
+        # Monthly expenses by category (last 6 months) — per grafico a barre impilate
+        exp_monthly_by_cat: Dict[str, Dict[str, float]] = {}
         for e in expenses:
             d = e.get("date", "")
             if len(d) >= 7:
                 key = d[:7]
-                exp_months[key] = exp_months.get(key, 0) + e.get("amount", 0)
-        expenses_monthly = sorted(
-            [{"month": k, "amount": round(v, 2)} for k, v in exp_months.items()],
-            key=lambda m: m["month"],
-        )[-6:]
+                cat = e.get("category") or "altro"
+                exp_monthly_by_cat.setdefault(key, {})
+                exp_monthly_by_cat[key][cat] = exp_monthly_by_cat[key].get(cat, 0) + e.get("amount", 0)
+        exp_months = {k: sum(v.values()) for k, v in exp_monthly_by_cat.items()}
+        expenses_monthly = []
+        for month_key in sorted(exp_monthly_by_cat.keys())[-6:]:
+            row = {"month": month_key, "total": round(exp_months[month_key], 2)}
+            row.update({cat: round(amt, 2) for cat, amt in exp_monthly_by_cat[month_key].items()})
+            expenses_monthly.append(row)
 
         # Expenses by category
         exp_by_category: Dict[str, float] = {}
