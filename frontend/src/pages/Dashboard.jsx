@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../api";
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   LineChart, Line, PieChart, Pie, Cell
 } from "recharts";
 import { TrendingUp, Coins, Users, FileText, Target, ArrowUpRight, Calendar } from "lucide-react";
@@ -15,6 +15,13 @@ const EXPENSE_CATEGORY_LABELS = {
   pedaggio_parcheggio: "Pedaggio/Parcheggio", materiali: "Materiali",
   inps: "INPS", enasarco: "ENASARCO", assicurazione_auto: "Assicurazione auto",
   commercialista: "Commercialista", altro: "Altro",
+};
+// Colore fisso per categoria, coerente tra grafico mensile e grafico a torta
+const EXPENSE_CATEGORY_COLORS = {
+  carburante: "#FF5A00", vitto: "#059669", alloggio: "#7C3AED",
+  pedaggio_parcheggio: "#0EA5E9", materiali: "#DC2626",
+  inps: "#0A192F", enasarco: "#B45309", assicurazione_auto: "#DB2777",
+  commercialista: "#65A30D", altro: "#A1A1AA",
 };
 
 function KPICard({ label, value, sublabel, icon: Icon, accent }) {
@@ -41,6 +48,7 @@ export default function Dashboard() {
   const pipelineData = Object.entries(pipeline).map(([k, v]) => ({ name: k, value: v }));
   const sectorData = (by_sector || []).filter(s => s.sector !== "Non specificato");
   const expenseCatData = (expenses_by_category || []).map(e => ({ ...e, label: EXPENSE_CATEGORY_LABELS[e.category] || e.category }));
+  const expenseCategoriesPresent = (expenses_by_category || []).map(e => e.category);
   const PIE_COLORS = ["#0A192F", "#172A45", "#52525B", "#FF5A00", "#059669", "#DC2626"];
 
   return (
@@ -205,23 +213,36 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Spese: andamento mensile + per categoria */}
+        {/* Spese: andamento mensile per categoria (barre impilate) */}
         <div className="bg-white border border-[#E4E4E1] rounded-md p-5">
           <div className="flex items-center justify-between mb-1">
             <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">Note spese</div>
             <div className="font-mono text-[11px] text-[#52525B]">questo mese: <span className="font-cabinet font-bold text-[#0A0A0A]">{fmt(kpi.current_month_expenses)}</span></div>
           </div>
-          <div className="font-cabinet font-bold text-lg mb-3">Spese per mese</div>
-          <div className="h-48">
+          <div className="font-cabinet font-bold text-lg mb-3">Spese per mese, per categoria</div>
+          <div className="h-56">
             <ResponsiveContainer>
               <BarChart data={expenses_monthly}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E4E4E1" />
                 <XAxis dataKey="month" stroke="#A1A1AA" fontSize={11} />
                 <YAxis stroke="#A1A1AA" fontSize={11} tickFormatter={(v) => `€${(v/1000).toFixed(1)}k`} />
-                <Tooltip contentStyle={{ background: "white", border: "1px solid #E4E4E1", borderRadius: "6px" }} formatter={(v) => fmt(v)} />
-                <Bar dataKey="amount" fill="#B45309" radius={[2, 2, 0, 0]} />
+                <Tooltip
+                  contentStyle={{ background: "white", border: "1px solid #E4E4E1", borderRadius: "6px" }}
+                  formatter={(v, name) => [fmt(v), EXPENSE_CATEGORY_LABELS[name] || name]}
+                />
+                {expenseCategoriesPresent.map((cat) => (
+                  <Bar key={cat} dataKey={cat} stackId="spese" fill={EXPENSE_CATEGORY_COLORS[cat] || "#A1A1AA"} radius={[0, 0, 0, 0]} />
+                ))}
               </BarChart>
             </ResponsiveContainer>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
+            {expenseCategoriesPresent.map((cat) => (
+              <div key={cat} className="flex items-center gap-1.5 text-[11px] text-[#52525B]">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: EXPENSE_CATEGORY_COLORS[cat] || "#A1A1AA" }} />
+                {EXPENSE_CATEGORY_LABELS[cat] || cat}
+              </div>
+            ))}
           </div>
         </div>
 
@@ -233,16 +254,16 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie data={expenseCatData} dataKey="amount" nameKey="label" innerRadius={45} outerRadius={80} paddingAngle={2}>
-                    {expenseCatData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                    {expenseCatData.map((e) => <Cell key={e.category} fill={EXPENSE_CATEGORY_COLORS[e.category] || "#A1A1AA"} />)}
                   </Pie>
                   <Tooltip formatter={(v) => fmt(v)} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="space-y-2">
-                {expenseCatData.map((e, i) => (
+                {expenseCatData.map((e) => (
                   <div key={e.category} className="flex items-center justify-between text-[12px]">
                     <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: EXPENSE_CATEGORY_COLORS[e.category] || "#A1A1AA" }} />
                       <span className="text-[#52525B]">{e.label}</span>
                     </div>
                     <span className="font-cabinet font-bold">{fmt(e.amount)}</span>
