@@ -18,6 +18,7 @@ import Ordini from "./pages/Ordini";
 import Commissions from "./pages/Commissions";
 import Mandanti from "./pages/Mandanti";
 import Products from "./pages/Products";
+import Spese from "./pages/Spese";
 import Documents from "./pages/Documents";
 import Automations from "./pages/Automations";
 import AIAssistant from "./pages/AIAssistant";
@@ -57,6 +58,7 @@ function App() {
                 <Route path="/app/offerte" element={<Offers />} />
                 <Route path="/app/ordini" element={<Ordini />} />
                 <Route path="/app/provvigioni" element={<Commissions />} />
+                <Route path="/app/spese" element={<Spese />} />
                 <Route path="/app/mandanti" element={<Mandanti />} />
                 <Route path="/app/prodotti" element={<Products />} />
                 <Route path="/app/documenti" element={<Documents />} />
