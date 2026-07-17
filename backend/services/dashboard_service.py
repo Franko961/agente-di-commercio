@@ -1,6 +1,21 @@
-from datetime import datetime, timezone, timedelta
-from typing import Dict
+import calendar
+import math
+from datetime import datetime, timezone, timedelta, date
+from typing import Dict, Optional
 from core.database import db
+
+MONTHLY_GOAL = 10000
+
+
+def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """Distanza in linea d'aria tra due coordinate (km). Usata per una stima
+    approssimativa dei km di oggi, non un percorso stradale reale."""
+    R = 6371.0
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lng2 - lng1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    return 2 * R * math.asin(math.sqrt(a))
 
 
 class DashboardService:
@@ -89,7 +104,7 @@ class DashboardService:
         current_month_key = today.strftime("%Y-%m")
         current_month_rev = months.get(current_month_key, 0)
         current_month_expenses = exp_months.get(current_month_key, 0)
-        goal = 10000
+        goal = MONTHLY_GOAL
 
         return {
             "kpi": {
@@ -120,6 +135,172 @@ class DashboardService:
                 "vinto": sum(1 for l in leads if l.get("status") == "vinto"),
                 "perso": sum(1 for l in leads if l.get("status") == "perso"),
             },
+        }
+
+    async def get_today_brief(self, user: dict) -> dict:
+        """Riepilogo operativo della giornata per la home della dashboard:
+        appuntamenti, clienti da richiamare, offerte in scadenza, pagamenti da
+        verificare, km stimati e obiettivo del giorno, più un suggerimento
+        (calcolato, non generato dall'AI a ogni caricamento per rapidità/costo)
+        su quale cliente visitare per primo."""
+        user_id = user["id"]
+        clients = await db.clients.find({"user_id": user_id}, {"_id": 0}).to_list(5000)
+        appts = await db.appointments.find({"user_id": user_id}, {"_id": 0}).to_list(5000)
+        offers = await db.offers.find({"user_id": user_id}, {"_id": 0}).to_list(5000)
+        commissions = await db.commissions.find({"user_id": user_id}, {"_id": 0}).to_list(5000)
+        orders = await db.orders.find({"user_id": user_id}, {"_id": 0}).to_list(5000)
+
+        now = datetime.now(timezone.utc)
+        today_str = now.strftime("%Y-%m-%d")
+        clients_by_id = {c["id"]: c for c in clients}
+
+        # Appuntamenti pianificati per oggi
+        todays_appts = sorted(
+            (a for a in appts if (a.get("start") or "")[:10] == today_str and a.get("status") == "pianificato"),
+            key=lambda a: a.get("start", ""),
+        )
+
+        # Ultima visita (qualsiasi appuntamento passato) per cliente
+        last_appt_by_client: Dict[str, datetime] = {}
+        for a in appts:
+            cid = a.get("client_id")
+            if not cid:
+                continue
+            try:
+                d = datetime.fromisoformat(a["start"].replace("Z", "+00:00"))
+            except Exception:
+                continue
+            if d <= now and (cid not in last_appt_by_client or d > last_appt_by_client[cid]):
+                last_appt_by_client[cid] = d
+
+        # Clienti da richiamare: nessuna visita negli ultimi 21 giorni (o mai)
+        CALLBACK_DAYS = 21
+        clients_to_call = 0
+        for c in clients:
+            if c.get("status") == "inattivo":
+                continue
+            last = last_appt_by_client.get(c["id"])
+            days = (now - last).days if last else None
+            if days is None or days >= CALLBACK_DAYS:
+                clients_to_call += 1
+
+        # Offerte in scadenza nei prossimi 7 giorni (ancora aperte)
+        week_ahead = now + timedelta(days=7)
+        offers_expiring = []
+        for o in offers:
+            if o.get("status") not in ("bozza", "inviata"):
+                continue
+            exp = o.get("expires_at")
+            if not exp:
+                continue
+            try:
+                exp_dt = datetime.fromisoformat(exp.replace("Z", "+00:00"))
+            except Exception:
+                continue
+            if now <= exp_dt <= week_ahead:
+                offers_expiring.append({**o, "_expires_dt": exp_dt})
+
+        # Pagamenti da verificare: provvigioni maturate ma non ancora incassate
+        payments_to_verify = sum(1 for c in commissions if c.get("status") == "maturato")
+
+        # Km previsti oggi: distanza in linea d'aria tra gli appuntamenti di
+        # oggi, in ordine di orario (solo se i clienti hanno coordinate salvate)
+        coords = []
+        for a in todays_appts:
+            cli = clients_by_id.get(a.get("client_id"))
+            if cli and cli.get("lat") is not None and cli.get("lng") is not None:
+                coords.append((cli["lat"], cli["lng"]))
+        km_today = None
+        if len(coords) >= 2:
+            km_today = round(
+                sum(_haversine_km(*coords[i], *coords[i + 1]) for i in range(len(coords) - 1)), 1
+            )
+
+        # Obiettivo di oggi: quota residua del target mensile spalmata sui
+        # giorni lavorativi (lun-ven) rimanenti nel mese, oggi incluso
+        month_revenue = sum(
+            o.get("total", 0) for o in offers
+            if o.get("status") == "accettata" and (o.get("created_at") or "")[:7] == now.strftime("%Y-%m")
+        )
+        _, days_in_month = calendar.monthrange(now.year, now.month)
+        remaining_working_days = sum(
+            1 for d in range(now.day, days_in_month + 1)
+            if date(now.year, now.month, d).weekday() < 5
+        ) or 1
+        daily_goal = round(max(MONTHLY_GOAL - month_revenue, 0) / remaining_working_days, 2)
+
+        # Suggerimento: priorità di visita per oggi (cliente con offerta in
+        # scadenza + più tempo senza ordini, altrimenti cliente più trascurato)
+        last_order_by_client: Dict[str, datetime] = {}
+        for o in orders:
+            cid = o.get("client_id")
+            ca = o.get("created_at")
+            if not cid or not ca:
+                continue
+            try:
+                d = datetime.fromisoformat(ca.replace("Z", "+00:00"))
+            except Exception:
+                continue
+            if cid not in last_order_by_client or d > last_order_by_client[cid]:
+                last_order_by_client[cid] = d
+
+        nearest_expiry_by_client: Dict[str, dict] = {}
+        for o in offers_expiring:
+            cid = o.get("client_id")
+            if not cid:
+                continue
+            if cid not in nearest_expiry_by_client or o["_expires_dt"] < nearest_expiry_by_client[cid]["_expires_dt"]:
+                nearest_expiry_by_client[cid] = o
+
+        focus_client: Optional[dict] = None
+        best_days = -1
+        for cid, offer in nearest_expiry_by_client.items():
+            cli = clients_by_id.get(cid)
+            if not cli:
+                continue
+            last_order = last_order_by_client.get(cid)
+            days_since_order = (now - last_order).days if last_order else None
+            rank = days_since_order if days_since_order is not None else 9999
+            if rank > best_days:
+                best_days = rank
+                focus_client = {
+                    "client_id": cid,
+                    "client_name": cli.get("company_name"),
+                    "days_since_last_order": days_since_order,
+                    "offer_title": offer.get("title"),
+                    "offer_expires_at": offer.get("expires_at"),
+                    "reason": "expiry_and_inactivity" if days_since_order and days_since_order >= 14 else "expiry_only",
+                }
+
+        if not focus_client:
+            most_neglected, max_days = None, -1
+            for c in clients:
+                if c.get("status") == "inattivo":
+                    continue
+                last = last_appt_by_client.get(c["id"])
+                days = (now - last).days if last else 9999
+                if days > max_days:
+                    max_days, most_neglected = days, c
+            if most_neglected and max_days >= CALLBACK_DAYS:
+                focus_client = {
+                    "client_id": most_neglected["id"],
+                    "client_name": most_neglected.get("company_name"),
+                    "days_since_last_order": None,
+                    "days_since_last_visit": None if max_days == 9999 else max_days,
+                    "offer_title": None,
+                    "offer_expires_at": None,
+                    "reason": "inactivity_only",
+                }
+
+        return {
+            "date": today_str,
+            "appointments_today": len(todays_appts),
+            "clients_to_call": clients_to_call,
+            "offers_expiring": len(offers_expiring),
+            "payments_to_verify": payments_to_verify,
+            "km_today": km_today,
+            "daily_goal": daily_goal,
+            "focus_client": focus_client,
         }
 
 
