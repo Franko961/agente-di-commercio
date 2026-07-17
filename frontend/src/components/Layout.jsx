@@ -3,6 +3,7 @@ import { Outlet, useLocation, NavLink, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
+import VoiceAssistant from "./VoiceAssistant";
 import { Sheet, SheetContent } from "./ui/sheet";
 import { useAuth } from "../contexts/AuthContext";
 import { useMandante } from "../contexts/MandanteContext";
@@ -81,6 +82,7 @@ export default function Layout() {
 
         <Outlet />
 
+        <VoiceAssistant />
         <MobileNav onMenu={() => setDrawerOpen(true)} />
 
         <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
