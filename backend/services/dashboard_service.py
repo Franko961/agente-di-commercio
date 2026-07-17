@@ -10,6 +10,7 @@ class DashboardService:
         leads = await db.leads.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
         appts = await db.appointments.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
         commissions = await db.commissions.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
+        expenses = await db.expenses.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
 
         revenue_won = sum(o.get("total", 0) for o in offers if o.get("status") == "accettata")
         revenue_pipeline = sum(o.get("total", 0) for o in offers if o.get("status") in ("inviata", "bozza"))
@@ -46,6 +47,28 @@ class DashboardService:
             key=lambda m: m["month"],
         )[-6:]
 
+        # Monthly expenses (last 6 months)
+        exp_months: Dict[str, float] = {}
+        for e in expenses:
+            d = e.get("date", "")
+            if len(d) >= 7:
+                key = d[:7]
+                exp_months[key] = exp_months.get(key, 0) + e.get("amount", 0)
+        expenses_monthly = sorted(
+            [{"month": k, "amount": round(v, 2)} for k, v in exp_months.items()],
+            key=lambda m: m["month"],
+        )[-6:]
+
+        # Expenses by category
+        exp_by_category: Dict[str, float] = {}
+        for e in expenses:
+            cat = e.get("category") or "altro"
+            exp_by_category[cat] = exp_by_category.get(cat, 0) + e.get("amount", 0)
+        expenses_by_category = sorted(
+            [{"category": k, "amount": round(v, 2)} for k, v in exp_by_category.items()],
+            key=lambda x: -x["amount"],
+        )
+
         # Upcoming appointments (next 7 days)
         today = datetime.now(timezone.utc)
         week_later = today + timedelta(days=7)
@@ -61,6 +84,7 @@ class DashboardService:
         # Goal: monthly target = 10000
         current_month_key = today.strftime("%Y-%m")
         current_month_rev = months.get(current_month_key, 0)
+        current_month_expenses = exp_months.get(current_month_key, 0)
         goal = 10000
 
         return {
@@ -75,10 +99,14 @@ class DashboardService:
                 "current_month_revenue": round(current_month_rev, 2),
                 "monthly_goal": goal,
                 "goal_pct": round(min(100, (current_month_rev / goal) * 100) if goal else 0, 1),
+                "expenses_total": round(sum(e.get("amount", 0) for e in expenses), 2),
+                "current_month_expenses": round(current_month_expenses, 2),
             },
             "by_zone": [{"zone": k, "revenue": round(v, 2)} for k, v in by_zone.items()],
             "by_sector": sorted([{"sector": k, "count": v} for k, v in by_sector.items()], key=lambda x: -x["count"]),
             "monthly": monthly,
+            "expenses_monthly": expenses_monthly,
+            "expenses_by_category": expenses_by_category,
             "upcoming_appointments": upcoming[:10],
             "pipeline": {
                 "nuovo": sum(1 for l in leads if l.get("status") == "nuovo"),
