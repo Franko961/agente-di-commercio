@@ -51,7 +51,7 @@ export default function VoiceAssistant() {
     setQuestion(text);
     setStatus("sending");
     try {
-      const { data } = await api.post("/ai/chat", { message: text });
+      const { data } = await api.post("/ai/chat", { message: text, channel: "voice" });
       const actions = data.actions || [];
       const fullText = actions.length > 0 ? actions.join("\n") + (data.response ? "\n\n" + data.response : "") : data.response;
       setAnswer(fullText || "Fatto.");
@@ -68,7 +68,9 @@ export default function VoiceAssistant() {
     const action = pendingActions[idx];
     setExecutingIdx(idx);
     try {
-      const { data } = await api.post("/ai/execute-action", { tool_name: action.tool_name, resolved_input: resolvedInput });
+      const { data } = await api.post("/ai/execute-action", {
+        tool_name: action.tool_name, resolved_input: resolvedInput, log_id: action.log_id,
+      });
       setAnswer((prev) => `${prev}\n\n${data.message}`);
       setPendingActions((prev) => prev.filter((_, i) => i !== idx));
       speak(data.message);
@@ -79,8 +81,14 @@ export default function VoiceAssistant() {
     }
   };
 
-  const cancelAction = (idx) => {
+  const cancelAction = async (idx) => {
+    const action = pendingActions[idx];
     setPendingActions((prev) => prev.filter((_, i) => i !== idx));
+    try {
+      await api.post("/ai/cancel-action", { log_id: action.log_id });
+    } catch (e) {
+      // L'azione è comunque rimossa dallo schermo anche se il log non si aggiorna.
+    }
   };
 
   const startListening = () => {
