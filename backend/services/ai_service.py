@@ -25,6 +25,16 @@ logger = logging.getLogger(__name__)
 
 AI_MODEL = "claude-haiku-4-5-20251001"
 
+# Tool che generano un record economico (offerte/vendite, spese sopra una certa
+# soglia): non vengono MAI eseguiti direttamente dall'AI, nemmeno se il modello
+# li invoca con sicurezza. Vengono solo "preparati" (nomi risolti, importo
+# calcolato) e mostrati come scheda di conferma; l'esecuzione reale avviene solo
+# dopo un'azione esplicita dell'utente su /api/ai/execute-action. Questo protegge
+# soprattutto dal canale vocale, dove una trascrizione imprecisa di un importo
+# (es. "1.500" sentito come "15.000") non deve poter creare un record economico
+# senza che l'utente lo riveda.
+EXPENSE_CONFIRM_THRESHOLD = 100.0
+
 # Definizione tools CRM per l'AI
 CRM_TOOLS = [
     {
@@ -293,92 +303,195 @@ class AiService:
                 return f"✅ Nota aggiunta al cliente '{cli['company_name']}'."
 
             elif tool_name == "add_offer":
-                client_name = tool_input.get("client_name", "")
-                mandante_name = tool_input.get("mandante_name", "")
-
-                cli = await self.client_repo.find_by_name_regex(user_id, client_name)
-                if not cli:
-                    return f"❌ Cliente '{client_name}' non trovato nel CRM."
-
-                mand = await self.mandante_repo.find_by_name_regex(user_id, mandante_name)
-                if not mand:
-                    return f"❌ Mandante '{mandante_name}' non trovato nel CRM."
-
-                product_names = tool_input.get("product_names") or []
-                quantities = tool_input.get("quantities") or []
-                unit_prices = tool_input.get("unit_prices") or []
-
-                items = []
-                if product_names:
-                    for i, pname in enumerate(product_names):
-                        prod = await self.product_repo.find_by_name_regex(user_id, mand["id"], pname)
-                        qty = quantities[i] if i < len(quantities) else 1
-                        price = unit_prices[i] if i < len(unit_prices) else (prod.get("price", 0) if prod else 0)
-                        items.append({
-                            "product_id": prod["id"] if prod else None,
-                            "description": prod["name"] if prod else pname,
-                            "quantity": qty, "unit_price": price, "discount": 0,
-                        })
-                else:
-                    total_amount = tool_input.get("total_amount", 0)
-                    items.append({
-                        "product_id": None,
-                        "description": tool_input.get("title", "Vendita"),
-                        "quantity": 1, "unit_price": total_amount, "discount": 0,
-                    })
-
-                total = calc_offer_total(items)
-                accepted = bool(tool_input.get("accepted", False))
-                status = "accettata" if accepted else "bozza"
-                sale_type = tool_input.get("sale_type", "nuovo")
-                if sale_type not in ("nuovo", "rinnovo"):
-                    sale_type = "nuovo"
-
-                offer_doc = {
-                    "id": gen_id(), "user_id": user_id,
-                    "client_id": cli["id"], "mandante_id": mand["id"],
-                    "title": tool_input.get("title") or f"Vendita {cli['company_name']}",
-                    "items": items, "total": total,
-                    "expires_at": None, "status": status, "sale_type": sale_type, "notes": "",
-                    "created_at": now_iso(),
-                }
-                await self.offer_repo.insert(offer_doc)
-
-                msg = f"✅ Vendita registrata: {cli['company_name']} - {mand['name']} - €{total:.2f} ({sale_type}), stato: {status}."
-
-                if accepted:
-                    # Come per le offerte accettate da pulsante di stato o da firma,
-                    # una vendita registrata già "accettata" si trasforma nel suo
-                    # ordine corrispondente, che genera la provvigione.
-                    order = await order_service.create_from_offer({"id": user_id}, offer_doc)
-                    rate = get_commission_rate(mand, sale_type)
-                    amount = round(order.get("total", 0) * rate / 100, 2)
-                    msg += f" Ordine registrato e provvigione generata: €{amount:.2f} ({rate}%)."
-
-                return msg
+                prepared = await self.prepare_add_offer(tool_input, user_id)
+                if "error" in prepared:
+                    return f"❌ {prepared['error']}"
+                return await self._finalize_offer(user_id, prepared["resolved_input"])
 
             elif tool_name == "add_expense":
-                category = tool_input.get("category") or "altro"
-                if category not in EXPENSE_CATEGORIES:
-                    category = "altro"
-                doc = {
-                    "id": gen_id(), "user_id": user_id,
-                    "date": tool_input.get("date") or now_iso()[:10],
-                    "category": category,
-                    "description": tool_input.get("description", ""),
-                    "amount": tool_input.get("amount", 0),
-                    "client_id": None,
-                    "notes": tool_input.get("notes", ""),
-                    "receipt_document_id": None,
-                    "created_at": now_iso(),
-                }
-                await self.expense_repo.insert(doc)
-                return f"✅ Spesa registrata: {category} - €{doc['amount']:.2f} ({doc['date']})."
+                prepared = self.prepare_add_expense(tool_input)
+                return await self._finalize_expense(user_id, prepared["resolved_input"])
 
             return f"❌ Tool '{tool_name}' non riconosciuto."
         except Exception as e:
             logger.error(f"CRM tool error: {e}")
             return f"❌ Errore durante l'operazione: {str(e)[:200]}"
+
+    async def prepare_add_offer(self, tool_input: dict, user_id: str) -> dict:
+        """Risolve nomi cliente/mandante/prodotti e calcola il totale, SENZA
+        scrivere nulla sul DB. Usato per mostrare la scheda di conferma prima
+        di registrare una vendita/offerta."""
+        client_name = tool_input.get("client_name", "")
+        mandante_name = tool_input.get("mandante_name", "")
+
+        cli = await self.client_repo.find_by_name_regex(user_id, client_name)
+        if not cli:
+            return {"error": f"Cliente '{client_name}' non trovato nel CRM."}
+
+        mand = await self.mandante_repo.find_by_name_regex(user_id, mandante_name)
+        if not mand:
+            return {"error": f"Mandante '{mandante_name}' non trovato nel CRM."}
+
+        product_names = tool_input.get("product_names") or []
+        quantities = tool_input.get("quantities") or []
+        unit_prices = tool_input.get("unit_prices") or []
+
+        items = []
+        if product_names:
+            for i, pname in enumerate(product_names):
+                prod = await self.product_repo.find_by_name_regex(user_id, mand["id"], pname)
+                qty = quantities[i] if i < len(quantities) else 1
+                price = unit_prices[i] if i < len(unit_prices) else (prod.get("price", 0) if prod else 0)
+                items.append({
+                    "product_id": prod["id"] if prod else None,
+                    "description": prod["name"] if prod else pname,
+                    "quantity": qty, "unit_price": price, "discount": 0,
+                })
+        else:
+            total_amount = tool_input.get("total_amount", 0)
+            items.append({
+                "product_id": None,
+                "description": tool_input.get("title", "Vendita"),
+                "quantity": 1, "unit_price": total_amount, "discount": 0,
+            })
+
+        total = calc_offer_total(items)
+        accepted = bool(tool_input.get("accepted", False))
+        sale_type = tool_input.get("sale_type", "nuovo")
+        if sale_type not in ("nuovo", "rinnovo"):
+            sale_type = "nuovo"
+        title = tool_input.get("title") or f"Vendita {cli['company_name']}"
+
+        return {
+            "tool_name": "add_offer",
+            "summary": {
+                "client_name": cli["company_name"],
+                "mandante_name": mand["name"],
+                "title": title,
+                "amount": total,
+                "status": "accettata" if accepted else "bozza",
+                "sale_type": sale_type,
+            },
+            "resolved_input": {
+                "client_id": cli["id"], "client_name": cli["company_name"],
+                "mandante_id": mand["id"], "mandante_name": mand["name"],
+                "title": title, "items": items, "amount": total,
+                "accepted": accepted, "sale_type": sale_type,
+            },
+        }
+
+    async def _finalize_offer(self, user_id: str, resolved: dict) -> str:
+        """Scrive davvero l'offerta/vendita sul DB, a partire da un
+        resolved_input già risolto da prepare_add_offer (eventualmente
+        modificato dall'utente nella scheda di conferma, es. importo)."""
+        items = resolved.get("items") or []
+        amount = resolved.get("amount")
+        title = resolved.get("title", "Vendita")
+        # Se l'utente ha modificato l'importo in fase di conferma rispetto a
+        # quello calcolato dai prodotti, sostituiamo gli item con una riga
+        # unica coerente col nuovo importo, invece di lasciare un totale che
+        # non corrisponde più alla somma delle righe originali.
+        if amount is not None and (not items or round(calc_offer_total(items), 2) != round(float(amount), 2)):
+            items = [{"product_id": None, "description": title, "quantity": 1, "unit_price": float(amount), "discount": 0}]
+
+        total = calc_offer_total(items)
+        accepted = bool(resolved.get("accepted", False))
+        status = "accettata" if accepted else "bozza"
+        sale_type = resolved.get("sale_type", "nuovo")
+        if sale_type not in ("nuovo", "rinnovo"):
+            sale_type = "nuovo"
+
+        mand = await self.mandante_repo.find_one(resolved["mandante_id"], user_id)
+        if not mand:
+            return "❌ Mandante non più trovato nel CRM."
+
+        offer_doc = {
+            "id": gen_id(), "user_id": user_id,
+            "client_id": resolved["client_id"], "mandante_id": resolved["mandante_id"],
+            "title": title, "items": items, "total": total,
+            "expires_at": None, "status": status, "sale_type": sale_type, "notes": "",
+            "created_at": now_iso(),
+        }
+        await self.offer_repo.insert(offer_doc)
+
+        msg = f"✅ Vendita registrata: {resolved.get('client_name','')} - {mand['name']} - €{total:.2f} ({sale_type}), stato: {status}."
+
+        if accepted:
+            order = await order_service.create_from_offer({"id": user_id}, offer_doc)
+            rate = get_commission_rate(mand, sale_type)
+            comm_amount = round(order.get("total", 0) * rate / 100, 2)
+            msg += f" Ordine registrato e provvigione generata: €{comm_amount:.2f} ({rate}%)."
+
+        return msg
+
+    def prepare_add_expense(self, tool_input: dict) -> dict:
+        """Normalizza i campi di una spesa SENZA scrivere sul DB. Usato per
+        mostrare la scheda di conferma quando l'importo è elevato."""
+        category = tool_input.get("category") or "altro"
+        if category not in EXPENSE_CATEGORIES:
+            category = "altro"
+        amount = float(tool_input.get("amount", 0) or 0)
+        date_ = tool_input.get("date") or now_iso()[:10]
+        description = tool_input.get("description", "")
+        notes = tool_input.get("notes", "")
+        return {
+            "tool_name": "add_expense",
+            "summary": {"category": category, "amount": amount, "date": date_, "description": description},
+            "resolved_input": {"category": category, "amount": amount, "date": date_, "description": description, "notes": notes},
+        }
+
+    async def _finalize_expense(self, user_id: str, resolved: dict) -> str:
+        """Scrive davvero la spesa sul DB, a partire da un resolved_input già
+        preparato da prepare_add_expense (eventualmente modificato
+        dall'utente nella scheda di conferma)."""
+        category = resolved.get("category") or "altro"
+        if category not in EXPENSE_CATEGORIES:
+            category = "altro"
+        doc = {
+            "id": gen_id(), "user_id": user_id,
+            "date": resolved.get("date") or now_iso()[:10],
+            "category": category,
+            "description": resolved.get("description", ""),
+            "amount": float(resolved.get("amount", 0) or 0),
+            "client_id": None,
+            "notes": resolved.get("notes", ""),
+            "receipt_document_id": None,
+            "created_at": now_iso(),
+        }
+        await self.expense_repo.insert(doc)
+        return f"✅ Spesa registrata: {category} - €{doc['amount']:.2f} ({doc['date']})."
+
+    def requires_confirmation(self, tool_name: str, tool_input: dict) -> bool:
+        """True se il tool genera un record economico e va sempre mostrato
+        come scheda di conferma prima di essere eseguito davvero: le vendite/
+        offerte sempre, le spese solo sopra EXPENSE_CONFIRM_THRESHOLD (le
+        piccole spese di routine, es. un rifornimento, restano immediate)."""
+        if tool_name == "add_offer":
+            return True
+        if tool_name == "add_expense":
+            try:
+                amount = float(tool_input.get("amount", 0) or 0)
+            except (TypeError, ValueError):
+                amount = 0
+            return amount >= EXPENSE_CONFIRM_THRESHOLD
+        return False
+
+    async def execute_confirmed_action(self, user: dict, payload: dict) -> dict:
+        """Esegue un'azione economica (vendita/offerta o spesa) dopo che
+        l'utente l'ha confermata (eventualmente modificata) sulla scheda di
+        conferma mostrata in chat. Non richiama mai il modello: i dati sono
+        già quelli che l'utente ha rivisto e approvato."""
+        tool_name = payload.get("tool_name")
+        resolved = payload.get("resolved_input") or {}
+        if tool_name == "add_offer":
+            if not resolved.get("client_id") or not resolved.get("mandante_id"):
+                raise HTTPException(400, "Dati mancanti per registrare la vendita.")
+            message = await self._finalize_offer(user["id"], resolved)
+        elif tool_name == "add_expense":
+            message = await self._finalize_expense(user["id"], resolved)
+        else:
+            raise HTTPException(400, "Tipo di azione non valido o non richiede conferma.")
+        return {"message": message}
 
     async def chat(self, user: dict, payload) -> dict:
         import anthropic as anthropic_sdk
@@ -405,6 +518,13 @@ class AiService:
             "eseguire un'azione richiesta, esegui prima la ricerca e poi, nella stessa "
             "conversazione, richiama SEMPRE il tool CRM appropriato con i dati raccolti, "
             "prima di confermare il completamento. Se non riesci a completare l'azione, dillo onestamente.\n\n"
+            "REGOLA SU VENDITE/OFFERTE E SPESE ELEVATE: i tool add_offer e (per importi "
+            "elevati) add_expense NON vengono eseguiti subito quando li chiami: l'operazione "
+            "viene solo preparata e mostrata all'utente in una scheda di conferma, per evitare "
+            "che un importo frainteso (specialmente da un comando vocale) venga registrato senza "
+            "controllo. Dopo aver chiamato uno di questi tool, NON dire che l'operazione è stata "
+            "'registrata' o 'creata': di' che è pronta ed è in attesa della conferma dell'utente "
+            "nella scheda che vedrà a schermo.\n\n"
             f"DATI ATTUALI:\n{context}"
         )
 
@@ -436,14 +556,26 @@ class AiService:
 
             # Gestisci tool use in loop
             forced_attempt_used = False
+            pending_actions = []
             while True:
                 if message.stop_reason == "tool_use":
                     tool_results = []
                     for block in message.content:
                         if block.type == "tool_use":
                             tools_invoked.add(block.name)
-                            result = await self.execute_crm_tool(block.name, block.input, user["id"])
-                            actions_performed.append(result)
+                            if self.requires_confirmation(block.name, block.input):
+                                if block.name == "add_offer":
+                                    prepared = await self.prepare_add_offer(block.input, user["id"])
+                                else:
+                                    prepared = self.prepare_add_expense(block.input)
+                                if "error" in prepared:
+                                    result = f"❌ {prepared['error']}"
+                                else:
+                                    pending_actions.append(prepared)
+                                    result = "⏳ Operazione preparata, in attesa di conferma dell'utente prima di essere registrata."
+                            else:
+                                result = await self.execute_crm_tool(block.name, block.input, user["id"])
+                                actions_performed.append(result)
                             tool_results.append({
                                 "type": "tool_result",
                                 "tool_use_id": block.id,
@@ -513,7 +645,7 @@ class AiService:
         log = {"id": gen_id(), "user_id": user["id"], "message": payload.message,
                "response": response, "created_at": now_iso()}
         await self.repo.insert_log(log)
-        return {"response": response, "actions": actions_performed}
+        return {"response": response, "actions": actions_performed, "pending_actions": pending_actions}
 
     async def suggestions(self, user: dict) -> dict:
         import anthropic as anthropic_sdk
