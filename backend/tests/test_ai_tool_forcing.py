@@ -20,7 +20,7 @@ import sys
 import types
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, AsyncMock, patch
 
 import pytest
 
@@ -103,8 +103,36 @@ class FakeSimpleRepo:
     async def find_by_name_regex(self, *args, **kwargs):
         return None
 
+    async def find_one(self, *args, **kwargs):
+        return None
+
     async def insert(self, doc):
         return doc
+
+
+class FakeOfferRepo(FakeSimpleRepo):
+    """Traccia gli inserimenti, per verificare che add_offer NON scriva nulla
+    finché l'azione non viene confermata esplicitamente."""
+
+    def __init__(self):
+        self.docs = []
+
+    async def insert(self, doc):
+        self.docs.append(doc)
+        return doc
+
+
+class FakeMandanteRepo(FakeSimpleRepo):
+    def __init__(self, mandante):
+        self.mandante = mandante
+
+    async def find_by_name_regex(self, user_id, name):
+        if name and name.lower() in self.mandante["name"].lower():
+            return self.mandante
+        return None
+
+    async def find_one(self, mandante_id, user_id):
+        return self.mandante if mandante_id == self.mandante["id"] else None
 
 
 class FakeAiRepo:
@@ -133,6 +161,7 @@ def build_service():
         commission_repo=FakeSimpleRepo(),
         mandante_repo=FakeSimpleRepo(),
         product_repo=FakeSimpleRepo(),
+        expense_repo=FakeSimpleRepo(),
     )
     return service, client_repo
 
@@ -143,6 +172,28 @@ FAKE_USER = {"id": "user-1", "email": "franco@test.it"}
 class Payload:
     def __init__(self, message):
         self.message = message
+
+
+def build_service_with_offer():
+    """Variante di build_service() con mandante/offerta reali (fittizi) per
+    testare il flusso di conferma economica di add_offer."""
+    from services.ai_service import AiService
+    client_repo = FakeClientRepo()
+    client_repo.docs.append({"id": "c-1", "user_id": "user-1", "company_name": "Rossi Srl"})
+    mandante = {"id": "m-1", "name": "Paginesi", "commission_rate": 10}
+    offer_repo = FakeOfferRepo()
+    service = AiService(
+        repo=FakeAiRepo(),
+        client_repo=client_repo,
+        appointment_repo=FakeSimpleRepo(),
+        lead_repo=FakeSimpleRepo(),
+        offer_repo=offer_repo,
+        commission_repo=FakeSimpleRepo(),
+        mandante_repo=FakeMandanteRepo(mandante),
+        product_repo=FakeSimpleRepo(),
+        expense_repo=FakeSimpleRepo(),
+    )
+    return service, offer_repo
 
 
 # ---------- Scenari ----------
@@ -238,6 +289,60 @@ def test_nessuna_forzatura_se_non_richiesta_azione_crm():
     assert result["actions"] == []
 
 
+def test_add_offer_non_scrive_subito_ma_richiede_conferma():
+    """Anche se il modello chiama add_offer correttamente e con sicurezza (es.
+    dal canale vocale, dove una trascrizione imprecisa dell'importo è un
+    rischio reale), l'offerta NON deve essere scritta sul DB in questo turno:
+    deve solo comparire tra le pending_actions, in attesa di conferma
+    esplicita dell'utente su /api/ai/execute-action."""
+    responses = {
+        "responses": [
+            make_message(
+                [make_tool_use_block(
+                    "add_offer",
+                    {"client_name": "Rossi", "mandante_name": "Paginesi",
+                     "total_amount": 15000, "accepted": True},
+                    "tu_1",
+                )],
+                stop_reason="tool_use",
+            ),
+            make_message(
+                [make_text_block("Ho preparato la vendita per Rossi Srl da 15.000€, conferma per registrarla.")],
+                stop_reason="end_turn",
+            ),
+        ]
+    }
+    install_fake_anthropic(responses)
+    service, offer_repo = build_service_with_offer()
+
+    payload = Payload("registra una vendita accettata da 15000 euro per Rossi con Paginesi")
+    result = asyncio.get_event_loop().run_until_complete(service.chat(FAKE_USER, payload))
+
+    # Nessuna scrittura reale: né azione "eseguita", né offerta nel repository
+    assert result["actions"] == []
+    assert offer_repo.docs == []
+
+    # L'operazione compare come pending, con l'importo esatto compreso dal modello
+    assert len(result["pending_actions"]) == 1
+    pending = result["pending_actions"][0]
+    assert pending["tool_name"] == "add_offer"
+    assert pending["summary"]["amount"] == 15000
+    assert pending["summary"]["client_name"] == "Rossi Srl"
+
+    # Solo ora, con la conferma esplicita dell'utente (che qui corregge
+    # l'importo frainteso, es. 15.000 -> 1.500), l'offerta viene scritta
+    resolved = dict(pending["resolved_input"])
+    resolved["amount"] = 1500
+    with patch("services.ai_service.order_service") as mock_order_service:
+        mock_order_service.create_from_offer = AsyncMock(return_value={"total": 1500})
+        confirm_result = asyncio.get_event_loop().run_until_complete(
+            service.execute_confirmed_action(FAKE_USER, {"tool_name": "add_offer", "resolved_input": resolved})
+        )
+    assert len(offer_repo.docs) == 1
+    assert offer_repo.docs[0]["total"] == 1500
+    assert "1500.00" in confirm_result["message"] or "1500" in confirm_result["message"]
+
+
 if __name__ == "__main__":
     test_forza_tool_choice_quando_il_modello_racconta_senza_eseguire()
     print("OK: test 1 - forzatura funziona")
@@ -245,3 +350,5 @@ if __name__ == "__main__":
     print("OK: test 2 - nessuna doppia esecuzione")
     test_nessuna_forzatura_se_non_richiesta_azione_crm()
     print("OK: test 3 - nessuna forzatura indebita")
+    test_add_offer_non_scrive_subito_ma_richiede_conferma()
+    print("OK: test 4 - add_offer richiede conferma prima di scrivere")
