@@ -87,7 +87,7 @@ export default function AIAssistant() {
     setInput("");
     setBusy(true);
     try {
-      const { data } = await api.post("/ai/chat", { message: text });
+      const { data } = await api.post("/ai/chat", { message: text, channel: "voice" });
       const actions = data.actions || [];
       let fullText = data.response;
       if (actions.length > 0) fullText = actions.join("\n") + (data.response ? "\n\n" + data.response : "");
@@ -131,7 +131,7 @@ export default function AIAssistant() {
     setInput("");
     setBusy(true);
     try {
-      const { data } = await api.post("/ai/chat", { message: text });
+      const { data } = await api.post("/ai/chat", { message: text, channel: "chat" });
       const actions = data.actions || [];
       let fullText = data.response;
       if (actions.length > 0) {
@@ -150,7 +150,9 @@ export default function AIAssistant() {
     const action = messages[msgIdx].pendingActions[actionIdx];
     setExecutingKey(`${msgIdx}-${actionIdx}`);
     try {
-      const { data } = await api.post("/ai/execute-action", { tool_name: action.tool_name, resolved_input: resolvedInput });
+      const { data } = await api.post("/ai/execute-action", {
+        tool_name: action.tool_name, resolved_input: resolvedInput, log_id: action.log_id,
+      });
       setMessages(m => m.map((msg, i) => i === msgIdx
         ? { ...msg, pendingActions: msg.pendingActions.filter((_, j) => j !== actionIdx) }
         : msg
@@ -163,11 +165,18 @@ export default function AIAssistant() {
     }
   };
 
-  const cancelAction = (msgIdx, actionIdx) => {
+  const cancelAction = async (msgIdx, actionIdx) => {
+    const action = messages[msgIdx].pendingActions[actionIdx];
     setMessages(m => m.map((msg, i) => i === msgIdx
       ? { ...msg, pendingActions: msg.pendingActions.filter((_, j) => j !== actionIdx) }
       : msg
     ));
+    try {
+      await api.post("/ai/cancel-action", { log_id: action.log_id });
+    } catch (e) {
+      // Non blocchiamo l'utente se la sola registrazione dell'annullamento
+      // nel log fallisce: l'azione è comunque rimossa dallo schermo.
+    }
   };
 
   const clearHistory = async () => {
