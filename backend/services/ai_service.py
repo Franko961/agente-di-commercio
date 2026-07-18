@@ -17,6 +17,7 @@ from repositories.commission_repository import commission_repository
 from repositories.mandante_repository import mandante_repository
 from repositories.product_repository import product_repository
 from repositories.expense_repository import expense_repository
+from repositories.ai_action_log_repository import ai_action_log_repository
 from models.expense import EXPENSE_CATEGORIES
 from services.commission_service import calc_offer_total, get_commission_rate
 from services.order_service import order_service
@@ -184,6 +185,7 @@ class AiService:
         mandante_repo=mandante_repository,
         product_repo=product_repository,
         expense_repo=expense_repository,
+        action_log_repo=ai_action_log_repository,
     ):
         self.repo = repo
         self.client_repo = client_repo
@@ -194,6 +196,7 @@ class AiService:
         self.mandante_repo = mandante_repo
         self.product_repo = product_repo
         self.expense_repo = expense_repo
+        self.action_log_repo = action_log_repo
 
     async def get_history(self, user_id: str) -> list:
         """Restituisce gli ultimi 30 messaggi della cronologia AI."""
@@ -242,6 +245,56 @@ class AiService:
             summary.append(f"- {e.get('date')} {e.get('category')} {e.get('amount',0)}€ {e.get('description','')}".strip())
 
         return "\n".join(summary)
+
+    async def _log_action(
+        self, user_id: str, channel: str, raw_input: str, tool_name: str,
+        proposed_params: dict, status: str, resolved_params: Optional[dict] = None,
+        result: Optional[str] = None,
+    ) -> dict:
+        """Registra una voce nel registro azioni AI (audit log): chi (user_id),
+        con cosa (comando testuale o trascritto dal canale voce/chat), quale
+        tool, con quali parametri, ed esito. Non solleva mai: un errore nel
+        logging non deve mai far fallire l'azione CRM vera e propria."""
+        doc = {
+            "id": gen_id(), "user_id": user_id,
+            "channel": channel or "chat",
+            "raw_input": raw_input or "",
+            "tool_name": tool_name,
+            "proposed_params": proposed_params or {},
+            "resolved_params": resolved_params,
+            "final_params": None,
+            "status": status,
+            "result": result,
+            "created_at": now_iso(),
+            "confirmed_at": None,
+        }
+        try:
+            return await self.action_log_repo.insert(doc)
+        except Exception as e:
+            logger.error(f"AI action log insert error: {e}")
+            return doc
+
+    async def cancel_pending_action(self, user: dict, log_id: Optional[str]) -> dict:
+        """Segna come annullata una voce 'in_attesa' del registro azioni,
+        quando l'utente rifiuta la scheda di conferma senza registrare nulla."""
+        if log_id:
+            try:
+                await self.action_log_repo.update_by_id(
+                    log_id, user["id"], {"status": "annullata", "confirmed_at": now_iso()}
+                )
+            except Exception as e:
+                logger.error(f"AI action log cancel error: {e}")
+        return {"ok": True}
+
+    async def list_actions(
+        self, user_id: str, tool_name: Optional[str] = None, status: Optional[str] = None,
+        date_from: Optional[str] = None, date_to: Optional[str] = None, limit: int = 200,
+    ) -> list:
+        """Elenco filtrabile del registro azioni AI, per la pagina 'Registro AI'."""
+        return await self.action_log_repo.find_many(
+            user_id, tool_name=tool_name, status=status,
+            date_from=date_from, date_to=date_to, limit=limit,
+        )
 
     async def execute_crm_tool(self, tool_name: str, tool_input: dict, user_id: str) -> str:
         """Esegue un tool CRM e restituisce il risultato come stringa."""
@@ -531,6 +584,7 @@ class AiService:
         già quelli che l'utente ha rivisto e approvato."""
         tool_name = payload.get("tool_name")
         resolved = payload.get("resolved_input") or {}
+        log_id = payload.get("log_id")
         if tool_name == "add_offer":
             if not resolved.get("client_id") or not resolved.get("mandante_id"):
                 raise HTTPException(400, "Dati mancanti per registrare la vendita.")
@@ -539,6 +593,18 @@ class AiService:
             message = await self._finalize_expense(user["id"], resolved)
         else:
             raise HTTPException(400, "Tipo di azione non valido o non richiede conferma.")
+
+        if log_id:
+            try:
+                await self.action_log_repo.update_by_id(log_id, user["id"], {
+                    "status": "fallita" if message.startswith("❌") else "confermata",
+                    "final_params": resolved,
+                    "result": message,
+                    "confirmed_at": now_iso(),
+                })
+            except Exception as e:
+                logger.error(f"AI action log confirm error: {e}")
+
         return {"message": message}
 
     async def chat(self, user: dict, payload) -> dict:
@@ -587,6 +653,7 @@ class AiService:
         all_tools = CRM_TOOLS + [{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}]
         crm_tool_names = {t["name"] for t in CRM_TOOLS}
         intended_tool = detect_intended_tool(payload.message)
+        channel = getattr(payload, "channel", None) or "chat"
 
         try:
             client_ai = anthropic_sdk.Anthropic(api_key=api_key)
@@ -618,12 +685,27 @@ class AiService:
                                     prepared = self.prepare_add_expense(block.input)
                                 if "error" in prepared:
                                     result = f"❌ {prepared['error']}"
+                                    await self._log_action(
+                                        user["id"], channel, payload.message, block.name,
+                                        block.input, status="fallita", result=prepared["error"],
+                                    )
                                 else:
+                                    log_entry = await self._log_action(
+                                        user["id"], channel, payload.message, block.name,
+                                        block.input, status="in_attesa",
+                                        resolved_params=prepared["resolved_input"],
+                                    )
+                                    prepared["log_id"] = log_entry.get("id")
                                     pending_actions.append(prepared)
                                     result = "⏳ Operazione preparata, in attesa di conferma dell'utente prima di essere registrata."
                             else:
                                 result = await self.execute_crm_tool(block.name, block.input, user["id"])
                                 actions_performed.append(result)
+                                await self._log_action(
+                                    user["id"], channel, payload.message, block.name, block.input,
+                                    status="fallita" if result.startswith("❌") else "eseguita",
+                                    result=result,
+                                )
                             tool_results.append({
                                 "type": "tool_result",
                                 "tool_use_id": block.id,
