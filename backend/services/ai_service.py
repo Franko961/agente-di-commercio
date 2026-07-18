@@ -35,6 +35,20 @@ AI_MODEL = "claude-haiku-4-5-20251001"
 # senza che l'utente lo riveda.
 EXPENSE_CONFIRM_THRESHOLD = 100.0
 
+
+def _safe_float(value, default: float = 0.0) -> float:
+    """Converte in float in modo sicuro un valore che può arrivare dall'AI
+    (quindi potenzialmente testuale, mancante o malformato: es. un numero
+    scritto in lettere, una stringa vuota, None). Non solleva mai eccezioni:
+    in caso di valore non convertibile restituisce il default invece di far
+    fallire il salvataggio o la formattazione a valle."""
+    if value is None or value == "":
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
 # Definizione tools CRM per l'AI
 CRM_TOOLS = [
     {
@@ -310,6 +324,8 @@ class AiService:
 
             elif tool_name == "add_expense":
                 prepared = self.prepare_add_expense(tool_input)
+                if "error" in prepared:
+                    return f"❌ {prepared['error']}"
                 return await self._finalize_expense(user_id, prepared["resolved_input"])
 
             return f"❌ Tool '{tool_name}' non riconosciuto."
@@ -340,15 +356,20 @@ class AiService:
         if product_names:
             for i, pname in enumerate(product_names):
                 prod = await self.product_repo.find_by_name_regex(user_id, mand["id"], pname)
-                qty = quantities[i] if i < len(quantities) else 1
-                price = unit_prices[i] if i < len(unit_prices) else (prod.get("price", 0) if prod else 0)
+                qty = _safe_float(quantities[i] if i < len(quantities) else None, 1)
+                if qty <= 0:
+                    qty = 1
+                default_price = prod.get("price", 0) if prod else 0
+                price = _safe_float(unit_prices[i] if i < len(unit_prices) else None, default_price)
+                if price < 0:
+                    price = default_price
                 items.append({
                     "product_id": prod["id"] if prod else None,
                     "description": prod["name"] if prod else pname,
                     "quantity": qty, "unit_price": price, "discount": 0,
                 })
         else:
-            total_amount = tool_input.get("total_amount", 0)
+            total_amount = _safe_float(tool_input.get("total_amount"), 0)
             items.append({
                 "product_id": None,
                 "description": tool_input.get("title", "Vendita"),
@@ -356,6 +377,9 @@ class AiService:
             })
 
         total = calc_offer_total(items)
+        if total <= 0:
+            return {"error": "L'importo della vendita deve essere maggiore di zero. Specifica un importo o dei prezzi validi."}
+
         accepted = bool(tool_input.get("accepted", False))
         sale_type = tool_input.get("sale_type", "nuovo")
         if sale_type not in ("nuovo", "rinnovo"):
@@ -383,18 +407,39 @@ class AiService:
     async def _finalize_offer(self, user_id: str, resolved: dict) -> str:
         """Scrive davvero l'offerta/vendita sul DB, a partire da un
         resolved_input già risolto da prepare_add_offer (eventualmente
-        modificato dall'utente nella scheda di conferma, es. importo)."""
+        modificato dall'utente nella scheda di conferma, es. importo).
+        Il payload può arrivare anche direttamente da /api/ai/execute-action,
+        quindi va validato di nuovo qui: non ci si può fidare che sia sempre
+        passato prima da prepare_add_offer."""
         items = resolved.get("items") or []
+        # Difesa in profondità: anche se items arriva già "pulito" da
+        # prepare_add_offer, ri-sanitizziamo quantità/prezzi prima di scrivere,
+        # nel caso il payload arrivi direttamente dall'endpoint di conferma.
+        items = [
+            {
+                "product_id": it.get("product_id"),
+                "description": it.get("description", "Vendita"),
+                "quantity": max(_safe_float(it.get("quantity"), 1), 0.01),
+                "unit_price": max(_safe_float(it.get("unit_price"), 0), 0),
+                "discount": max(_safe_float(it.get("discount"), 0), 0),
+            }
+            for it in items
+        ]
         amount = resolved.get("amount")
-        title = resolved.get("title", "Vendita")
+        title = resolved.get("title") or "Vendita"
         # Se l'utente ha modificato l'importo in fase di conferma rispetto a
         # quello calcolato dai prodotti, sostituiamo gli item con una riga
         # unica coerente col nuovo importo, invece di lasciare un totale che
         # non corrisponde più alla somma delle righe originali.
-        if amount is not None and (not items or round(calc_offer_total(items), 2) != round(float(amount), 2)):
-            items = [{"product_id": None, "description": title, "quantity": 1, "unit_price": float(amount), "discount": 0}]
+        if amount is not None and amount != "":
+            amount_f = _safe_float(amount, None)
+            if amount_f is not None and (not items or round(calc_offer_total(items), 2) != round(amount_f, 2)):
+                items = [{"product_id": None, "description": title, "quantity": 1, "unit_price": amount_f, "discount": 0}]
 
         total = calc_offer_total(items)
+        if total <= 0:
+            return "❌ L'importo deve essere maggiore di zero: vendita non registrata."
+
         accepted = bool(resolved.get("accepted", False))
         status = "accettata" if accepted else "bozza"
         sale_type = resolved.get("sale_type", "nuovo")
@@ -430,7 +475,9 @@ class AiService:
         category = tool_input.get("category") or "altro"
         if category not in EXPENSE_CATEGORIES:
             category = "altro"
-        amount = float(tool_input.get("amount", 0) or 0)
+        amount = _safe_float(tool_input.get("amount"), 0)
+        if amount <= 0:
+            return {"error": "L'importo della spesa deve essere maggiore di zero."}
         date_ = tool_input.get("date") or now_iso()[:10]
         description = tool_input.get("description", "")
         notes = tool_input.get("notes", "")
@@ -443,16 +490,21 @@ class AiService:
     async def _finalize_expense(self, user_id: str, resolved: dict) -> str:
         """Scrive davvero la spesa sul DB, a partire da un resolved_input già
         preparato da prepare_add_expense (eventualmente modificato
-        dall'utente nella scheda di conferma)."""
+        dall'utente nella scheda di conferma). Il payload può arrivare anche
+        direttamente da /api/ai/execute-action, quindi l'importo va validato
+        di nuovo qui e non solo in prepare_add_expense."""
         category = resolved.get("category") or "altro"
         if category not in EXPENSE_CATEGORIES:
             category = "altro"
+        amount = _safe_float(resolved.get("amount"), 0)
+        if amount <= 0:
+            return "❌ L'importo deve essere maggiore di zero: spesa non registrata."
         doc = {
             "id": gen_id(), "user_id": user_id,
             "date": resolved.get("date") or now_iso()[:10],
             "category": category,
             "description": resolved.get("description", ""),
-            "amount": float(resolved.get("amount", 0) or 0),
+            "amount": amount,
             "client_id": None,
             "notes": resolved.get("notes", ""),
             "receipt_document_id": None,
@@ -469,11 +521,7 @@ class AiService:
         if tool_name == "add_offer":
             return True
         if tool_name == "add_expense":
-            try:
-                amount = float(tool_input.get("amount", 0) or 0)
-            except (TypeError, ValueError):
-                amount = 0
-            return amount >= EXPENSE_CONFIRM_THRESHOLD
+            return _safe_float(tool_input.get("amount"), 0) >= EXPENSE_CONFIRM_THRESHOLD
         return False
 
     async def execute_confirmed_action(self, user: dict, payload: dict) -> dict:
