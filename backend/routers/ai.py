@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter, Depends, Body
 from core.security import get_current_user, forbid_demo_write
 from services.ai_service import ai_service
@@ -28,6 +29,27 @@ async def ai_execute_action(payload: dict = Body(...), user=Depends(forbid_demo_
     dopo che l'utente l'ha confermata (eventualmente modificata) sulla scheda
     di conferma mostrata in chat/assistente vocale."""
     return await ai_service.execute_confirmed_action(user, payload)
+
+
+@router.post("/cancel-action")
+async def ai_cancel_action(payload: dict = Body(...), user=Depends(forbid_demo_write)):
+    """Segna come annullata un'azione economica proposta dall'AI (scheda di
+    conferma) che l'utente ha rifiutato senza registrare nulla sul CRM."""
+    return await ai_service.cancel_pending_action(user, payload.get("log_id"))
+
+
+@router.get("/actions")
+async def ai_actions(
+    tool_name: Optional[str] = None,
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    limit: int = 200,
+    user=Depends(get_current_user),
+):
+    """Registro azioni AI (audit log): chi ha fatto cosa attraverso l'assistente,
+    con quali parametri e con quale esito. Usato dalla pagina Impostazioni."""
+    return await ai_service.list_actions(user["id"], tool_name, status, date_from, date_to, limit)
 
 
 @router.get("/suggestions")
