@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ShieldAlert, Check, Pencil, X, Loader2 } from "lucide-react";
 
-const EXPENSE_CATEGORY_LABELS = {
+export const EXPENSE_CATEGORY_LABELS = {
   carburante: "Carburante", vitto: "Vitto", alloggio: "Alloggio",
   pedaggio_parcheggio: "Pedaggio/Parcheggio", materiali: "Materiali",
   inps: "INPS", enasarco: "ENASARCO", assicurazione_auto: "Assicurazione auto",
