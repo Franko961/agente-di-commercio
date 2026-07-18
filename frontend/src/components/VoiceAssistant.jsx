@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { Mic, MicOff, Loader2, X, Volume2, VolumeX, Sparkles } from "lucide-react";
 import api from "../api";
 import { cleanForSpeech } from "../utils/speechClean";
+import AIActionConfirm from "./AIActionConfirm";
 
 /**
  * Pulsante microfono globale, sempre visibile in tutte le pagine dell'app (montato in Layout.jsx).
@@ -16,6 +17,8 @@ export default function VoiceAssistant() {
   const [answer, setAnswer] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [speaking, setSpeaking] = useState(false);
+  const [pendingActions, setPendingActions] = useState([]);
+  const [executingIdx, setExecutingIdx] = useState(null);
   const recognitionRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
 
@@ -52,12 +55,32 @@ export default function VoiceAssistant() {
       const actions = data.actions || [];
       const fullText = actions.length > 0 ? actions.join("\n") + (data.response ? "\n\n" + data.response : "") : data.response;
       setAnswer(fullText || "Fatto.");
+      setPendingActions(data.pending_actions || []);
       setStatus("result");
       speak(data.response);
     } catch (e) {
       setErrorMsg("Errore di comunicazione con l'AI. Riprova tra poco.");
       setStatus("error");
     }
+  };
+
+  const confirmAction = async (idx, resolvedInput) => {
+    const action = pendingActions[idx];
+    setExecutingIdx(idx);
+    try {
+      const { data } = await api.post("/ai/execute-action", { tool_name: action.tool_name, resolved_input: resolvedInput });
+      setAnswer((prev) => `${prev}\n\n${data.message}`);
+      setPendingActions((prev) => prev.filter((_, i) => i !== idx));
+      speak(data.message);
+    } catch (e) {
+      setAnswer((prev) => `${prev}\n\n❌ Errore durante la registrazione. Riprova.`);
+    } finally {
+      setExecutingIdx(null);
+    }
+  };
+
+  const cancelAction = (idx) => {
+    setPendingActions((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const startListening = () => {
@@ -71,6 +94,7 @@ export default function VoiceAssistant() {
     setQuestion("");
     setAnswer("");
     setErrorMsg("");
+    setPendingActions([]);
     const rec = new SpeechRecognition();
     rec.lang = "it-IT";
     rec.continuous = false;
@@ -107,6 +131,7 @@ export default function VoiceAssistant() {
     setQuestion("");
     setAnswer("");
     setErrorMsg("");
+    setPendingActions([]);
   };
 
   const isOpen = status !== "idle";
@@ -119,7 +144,7 @@ export default function VoiceAssistant() {
       {isOpen && (
         <div
           data-testid="voice-assistant-panel"
-          className="mb-3 w-[300px] max-w-[85vw] bg-white border border-[#E4E4E1] rounded-md shadow-xl p-4 fade-up"
+          className="mb-3 w-[340px] max-w-[88vw] bg-white border border-[#E4E4E1] rounded-md shadow-xl p-4 fade-up"
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-[#FF5A00]">
@@ -153,6 +178,15 @@ export default function VoiceAssistant() {
             <div className="space-y-2">
               {question && <div className="text-[12px] text-[#A1A1AA] italic">"{question}"</div>}
               <div className="text-[13px] text-[#0A0A0A] whitespace-pre-line">{answer}</div>
+              {pendingActions.map((action, idx) => (
+                <AIActionConfirm
+                  key={idx}
+                  action={action}
+                  busy={executingIdx === idx}
+                  onConfirm={(resolved) => confirmAction(idx, resolved)}
+                  onCancel={() => cancelAction(idx)}
+                />
+              ))}
               <div className="flex items-center justify-between pt-2">
                 <button
                   onClick={speaking ? stopSpeaking : () => speak(answer)}
