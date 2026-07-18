@@ -149,6 +149,27 @@ class FakeAiRepo:
         return None
 
 
+class FakeActionLogRepo:
+    """Fake del registro azioni AI: traccia gli insert/update in memoria
+    invece di scrivere sul DB reale."""
+
+    def __init__(self):
+        self.docs = []
+
+    async def insert(self, doc):
+        self.docs.append(doc)
+        return doc
+
+    async def update_by_id(self, log_id, user_id, data):
+        for d in self.docs:
+            if d["id"] == log_id and d["user_id"] == user_id:
+                d.update(data)
+        return None
+
+    async def find_many(self, user_id, tool_name=None, status=None, date_from=None, date_to=None, limit=200):
+        return [d for d in self.docs if d["user_id"] == user_id]
+
+
 def build_service():
     from services.ai_service import AiService
     client_repo = FakeClientRepo()
@@ -162,6 +183,7 @@ def build_service():
         mandante_repo=FakeSimpleRepo(),
         product_repo=FakeSimpleRepo(),
         expense_repo=FakeSimpleRepo(),
+        action_log_repo=FakeActionLogRepo(),
     )
     return service, client_repo
 
@@ -192,6 +214,7 @@ def build_service_with_offer():
         mandante_repo=FakeMandanteRepo(mandante),
         product_repo=FakeSimpleRepo(),
         expense_repo=FakeSimpleRepo(),
+        action_log_repo=FakeActionLogRepo(),
     )
     return service, offer_repo
 
