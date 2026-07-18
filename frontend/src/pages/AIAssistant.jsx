@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import api from "../api";
 import { Sparkles, Send, Lightbulb, Trash2, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 import { cleanForSpeech } from "../utils/speechClean";
+import AIActionConfirm from "../components/AIActionConfirm";
 
 const WELCOME = { role: "assistant", text: "Ciao! Sono il tuo assistente commerciale. Posso suggerirti i clienti più importanti da visitare, analizzare il fatturato e darti consigli pratici. Cosa vuoi sapere?" };
 
@@ -14,6 +15,7 @@ export default function AIAssistant() {
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [executingKey, setExecutingKey] = useState(null);
   const endRef = useRef(null);
   const recognitionRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
@@ -89,7 +91,7 @@ export default function AIAssistant() {
       const actions = data.actions || [];
       let fullText = data.response;
       if (actions.length > 0) fullText = actions.join("\n") + (data.response ? "\n\n" + data.response : "");
-      setMessages(m => [...m, { role: "assistant", text: fullText, actions }]);
+      setMessages(m => [...m, { role: "assistant", text: fullText, actions, pendingActions: data.pending_actions || [] }]);
       speak(data.response);
     } catch {
       const errMsg = "Errore di comunicazione con l\'AI.";
@@ -135,13 +137,37 @@ export default function AIAssistant() {
       if (actions.length > 0) {
         fullText = actions.join("\n") + (data.response ? "\n\n" + data.response : "");
       }
-      setMessages(m => [...m, { role: "assistant", text: fullText, actions }]);
+      setMessages(m => [...m, { role: "assistant", text: fullText, actions, pendingActions: data.pending_actions || [] }]);
       speak(data.response);
     } catch (err) {
       setMessages(m => [...m, { role: "assistant", text: "Errore di comunicazione con l'AI. Riprova tra poco." }]);
     } finally {
       setBusy(false);
     }
+  };
+
+  const confirmAction = async (msgIdx, actionIdx, resolvedInput) => {
+    const action = messages[msgIdx].pendingActions[actionIdx];
+    setExecutingKey(`${msgIdx}-${actionIdx}`);
+    try {
+      const { data } = await api.post("/ai/execute-action", { tool_name: action.tool_name, resolved_input: resolvedInput });
+      setMessages(m => m.map((msg, i) => i === msgIdx
+        ? { ...msg, pendingActions: msg.pendingActions.filter((_, j) => j !== actionIdx) }
+        : msg
+      ).concat([{ role: "assistant", text: data.message }]));
+      speak(data.message);
+    } catch (err) {
+      setMessages(m => [...m, { role: "assistant", text: "❌ Errore durante la registrazione. Riprova." }]);
+    } finally {
+      setExecutingKey(null);
+    }
+  };
+
+  const cancelAction = (msgIdx, actionIdx) => {
+    setMessages(m => m.map((msg, i) => i === msgIdx
+      ? { ...msg, pendingActions: msg.pendingActions.filter((_, j) => j !== actionIdx) }
+      : msg
+    ));
   };
 
   const clearHistory = async () => {
@@ -193,8 +219,20 @@ export default function AIAssistant() {
                 <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${m.role === "user" ? "bg-[#0A192F]" : "bg-[#FF5A00]"}`}>
                   {m.role === "user" ? <span className="text-white text-[12px] font-bold">TU</span> : <Sparkles className="w-3.5 h-3.5 text-white" />}
                 </div>
-                <div className={`max-w-[80%] rounded-md p-3 text-[14px] leading-relaxed whitespace-pre-wrap font-mono ${m.role === "user" ? "bg-[#0A192F] text-white" : "bg-[#F9F9F8] border border-[#E4E4E1]"}`}>
-                  {m.text}
+                <div className={`max-w-[80%] flex flex-col gap-2 ${m.role === "user" ? "items-end" : "items-start"}`}>
+                  <div className={`rounded-md p-3 text-[14px] leading-relaxed whitespace-pre-wrap font-mono ${m.role === "user" ? "bg-[#0A192F] text-white" : "bg-[#F9F9F8] border border-[#E4E4E1]"}`}>
+                    {m.text}
+                  </div>
+                  {(m.pendingActions || []).map((action, actionIdx) => (
+                    <div key={actionIdx} className="w-full max-w-sm">
+                      <AIActionConfirm
+                        action={action}
+                        busy={executingKey === `${i}-${actionIdx}`}
+                        onConfirm={(resolved) => confirmAction(i, actionIdx, resolved)}
+                        onCancel={() => cancelAction(i, actionIdx)}
+                      />
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
