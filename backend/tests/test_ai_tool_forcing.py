@@ -166,6 +166,21 @@ class FakeActionLogRepo:
                 d.update(data)
         return None
 
+    async def find_one(self, log_id, user_id):
+        for d in self.docs:
+            if d["id"] == log_id and d["user_id"] == user_id:
+                return d
+        return None
+
+    async def transition(self, log_id, user_id, from_status, data, extra_match=None):
+        for d in self.docs:
+            if d["id"] == log_id and d["user_id"] == user_id and d["status"] == from_status:
+                if extra_match and any(d.get(k) != v for k, v in extra_match.items()):
+                    continue
+                d.update(data)
+                return True
+        return False
+
     async def find_many(self, user_id, tool_name=None, status=None, date_from=None, date_to=None, limit=200):
         return [d for d in self.docs if d["user_id"] == user_id]
 
@@ -359,7 +374,9 @@ def test_add_offer_non_scrive_subito_ma_richiede_conferma():
     with patch("services.ai_service.order_service") as mock_order_service:
         mock_order_service.create_from_offer = AsyncMock(return_value={"total": 1500})
         confirm_result = asyncio.get_event_loop().run_until_complete(
-            service.execute_confirmed_action(FAKE_USER, {"tool_name": "add_offer", "resolved_input": resolved})
+            service.execute_confirmed_action(FAKE_USER, {
+                "tool_name": "add_offer", "resolved_input": resolved, "log_id": pending["log_id"],
+            })
         )
     assert len(offer_repo.docs) == 1
     assert offer_repo.docs[0]["total"] == 1500
