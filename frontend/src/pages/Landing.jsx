@@ -68,10 +68,10 @@ export default function Landing() {
           </div>
           <span className="font-cabinet font-black text-lg">SALESFLY.</span>
         </Link>
-        <nav className="hidden md:flex items-center gap-6 text-[13px] text-[#52525B]">
-          <a href="#funzionalita" className="hover:text-[#0A192F]">Funzionalità</a>
-          <Link to="/prezzi" className="hover:text-[#0A192F]">Prezzi</Link>
-          <Link to="/blog" className="hover:text-[#0A192F]">Guide</Link>
+        <nav className="hidden md:flex items-center gap-6 text-[14px] font-medium text-[#3F3F46]">
+          <a href="#funzionalita" className="hover:text-[#0A192F] transition-colors">Funzionalità</a>
+          <Link to="/prezzi" className="hover:text-[#0A192F] transition-colors">Prezzi</Link>
+          <Link to="/blog" className="hover:text-[#0A192F] transition-colors">Guide</Link>
         </nav>
         <div className="flex items-center gap-3">
           <button onClick={() => navigate("/login")} className="text-[13px] text-[#52525B] hover:text-[#0A192F]">
