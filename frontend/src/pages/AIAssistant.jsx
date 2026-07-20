@@ -233,7 +233,7 @@ export default function AIAssistant() {
                     {m.text}
                   </div>
                   {(m.pendingActions || []).map((action, actionIdx) => (
-                    <div key={actionIdx} className="w-full max-w-sm">
+                    <div key={action.log_id} className="w-full max-w-sm">
                       <AIActionConfirm
                         action={action}
                         busy={executingKey === `${i}-${actionIdx}`}
