@@ -276,11 +276,16 @@ class AiService:
 
     async def cancel_pending_action(self, user: dict, log_id: Optional[str]) -> dict:
         """Segna come annullata una voce 'in_attesa' del registro azioni,
-        quando l'utente rifiuta la scheda di conferma senza registrare nulla."""
+        quando l'utente rifiuta la scheda di conferma senza registrare nulla.
+        La transizione è atomica e condizionata allo stato attuale: se il log
+        non è più 'in_attesa' (perché già confermato, annullato o in corso di
+        esecuzione altrove) l'annullamento viene ignorato, così non si rischia
+        di sovrascrivere l'esito reale di un'azione già elaborata."""
         if log_id:
             try:
-                await self.action_log_repo.update_by_id(
-                    log_id, user["id"], {"status": "annullata", "confirmed_at": now_iso()}
+                await self.action_log_repo.transition(
+                    log_id, user["id"], "in_attesa",
+                    {"status": "annullata", "confirmed_at": now_iso()},
                 )
             except Exception as e:
                 logger.error(f"AI action log cancel error: {e}")
@@ -581,29 +586,64 @@ class AiService:
         """Esegue un'azione economica (vendita/offerta o spesa) dopo che
         l'utente l'ha confermata (eventualmente modificata) sulla scheda di
         conferma mostrata in chat. Non richiama mai il modello: i dati sono
-        già quelli che l'utente ha rivisto e approvato."""
+        già quelli che l'utente ha rivisto e approvato.
+
+        Prima di eseguire, verifica che il log_id esista, appartenga
+        all'utente, sia ancora "in_attesa" e corrisponda al tool richiesto;
+        poi lo sposta atomicamente a "in_esecuzione" (compare-and-swap sullo
+        stato). Solo la richiesta che vince questa transizione procede
+        davvero: un doppio clic, un retry di rete o una richiesta duplicata
+        con lo stesso log_id ricevono un 409 invece di generare due volte la
+        stessa offerta/ordine/provvigione/spesa."""
         tool_name = payload.get("tool_name")
         resolved = payload.get("resolved_input") or {}
         log_id = payload.get("log_id")
-        if tool_name == "add_offer":
-            if not resolved.get("client_id") or not resolved.get("mandante_id"):
-                raise HTTPException(400, "Dati mancanti per registrare la vendita.")
-            message = await self._finalize_offer(user["id"], resolved)
-        elif tool_name == "add_expense":
-            message = await self._finalize_expense(user["id"], resolved)
-        else:
-            raise HTTPException(400, "Tipo di azione non valido o non richiede conferma.")
 
-        if log_id:
-            try:
-                await self.action_log_repo.update_by_id(log_id, user["id"], {
-                    "status": "fallita" if message.startswith("❌") else "confermata",
-                    "final_params": resolved,
-                    "result": message,
-                    "confirmed_at": now_iso(),
-                })
-            except Exception as e:
-                logger.error(f"AI action log confirm error: {e}")
+        if tool_name not in ("add_offer", "add_expense"):
+            raise HTTPException(400, "Tipo di azione non valido o non richiede conferma.")
+        if not log_id:
+            raise HTTPException(400, "Azione non tracciata: log_id mancante.")
+
+        log = await self.action_log_repo.find_one(log_id, user["id"])
+        if not log:
+            raise HTTPException(404, "Azione non trovata.")
+        if log.get("tool_name") != tool_name:
+            raise HTTPException(400, "Il tipo di azione non corrisponde al registro.")
+        if log.get("status") != "in_attesa":
+            raise HTTPException(409, "Azione già elaborata.")
+
+        claimed = await self.action_log_repo.transition(
+            log_id, user["id"], "in_attesa", {"status": "in_esecuzione"},
+            extra_match={"tool_name": tool_name},
+        )
+        if not claimed:
+            # Un'altra richiesta concorrente ha vinto la transizione tra il
+            # find_one sopra e questo punto (finestra di race condition):
+            # questa richiesta non esegue nulla.
+            raise HTTPException(409, "Azione già elaborata.")
+
+        if tool_name == "add_offer" and (not resolved.get("client_id") or not resolved.get("mandante_id")):
+            await self.action_log_repo.update_by_id(log_id, user["id"], {
+                "status": "fallita",
+                "result": "Dati mancanti per registrare la vendita.",
+                "confirmed_at": now_iso(),
+            })
+            raise HTTPException(400, "Dati mancanti per registrare la vendita.")
+
+        if tool_name == "add_offer":
+            message = await self._finalize_offer(user["id"], resolved)
+        else:
+            message = await self._finalize_expense(user["id"], resolved)
+
+        try:
+            await self.action_log_repo.update_by_id(log_id, user["id"], {
+                "status": "fallita" if message.startswith("❌") else "confermata",
+                "final_params": resolved,
+                "result": message,
+                "confirmed_at": now_iso(),
+            })
+        except Exception as e:
+            logger.error(f"AI action log confirm error: {e}")
 
         return {"message": message}
 
