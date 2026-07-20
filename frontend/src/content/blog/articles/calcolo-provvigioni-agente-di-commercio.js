@@ -9,7 +9,7 @@ export const article = {
   description:
     "Guida pratica al calcolo delle provvigioni per un agente di commercio plurimandatario: provvigione maturata e liquidata, scala provvigionale, note di credito.",
   publishedAt: "2026-07-21",
-  draft: true,
+  draft: false,
   blocks: [
     {
       type: "p",
