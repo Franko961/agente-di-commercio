@@ -40,6 +40,9 @@ async def run_startup() -> None:
     # TTL: gli eventi di rate limiting più vecchi di 2 ore vengono eliminati
     # automaticamente da MongoDB (le finestre usate sono tutte <= 15 minuti).
     await db.rate_limit_events.create_index("created_at", expireAfterSeconds=7200)
+    # Indice composto: find_many() filtra sempre per user_id e ordina per
+    # created_at desc, quindi questo indice copre sia il filtro che il sort.
+    await db.ai_action_logs.create_index([("user_id", 1), ("created_at", -1)])
 
     global _gcal_sync_task
     _gcal_sync_task = asyncio.create_task(_google_calendar_sync_loop())
