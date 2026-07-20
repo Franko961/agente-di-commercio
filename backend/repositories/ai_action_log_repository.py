@@ -13,6 +13,26 @@ class AiActionLogRepository:
     async def update_by_id(self, log_id: str, user_id: str, data: dict) -> None:
         await self.collection.update_one({"id": log_id, "user_id": user_id}, {"$set": data})
 
+    async def transition(
+        self, log_id: str, user_id: str, from_status: str, data: dict,
+        extra_match: Optional[dict] = None,
+    ) -> bool:
+        """Aggiorna il log SOLO se si trova ancora in `from_status`, in
+        un'unica operazione atomica lato MongoDB (compare-and-swap). Ritorna
+        True se questa chiamata ha effettivamente eseguito la transizione,
+        False se il log non esiste, non è dell'utente, non corrisponde a
+        `extra_match`, o è già stato spostato da un'altra richiesta.
+
+        Usato per impedire che un doppio clic, un retry di rete o una
+        richiesta duplicata possano eseguire due volte la stessa azione
+        economica (add_offer/add_expense) o annullare/confermare un'azione
+        già elaborata: solo la prima richiesta "vince" la transizione."""
+        query = {"id": log_id, "user_id": user_id, "status": from_status}
+        if extra_match:
+            query.update(extra_match)
+        result = await self.collection.update_one(query, {"$set": data})
+        return result.matched_count == 1
+
     async def find_many(
         self,
         user_id: str,
