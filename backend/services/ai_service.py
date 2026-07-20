@@ -571,6 +571,21 @@ class AiService:
         await self.expense_repo.insert(doc)
         return f"✅ Spesa registrata: {category} - €{doc['amount']:.2f} ({doc['date']})."
 
+    # Campi che la scheda di conferma (AIActionConfirm.jsx) permette davvero
+    # di modificare per ciascun tool economico — riflette esattamente cosa
+    # espone l'interfaccia (importo/stato per le offerte; importo/categoria/
+    # data/descrizione per le spese). Ogni altro campo del resolved_input
+    # inviato dal browser (client_id, mandante_id, items/prodotti, title,
+    # ecc.) viene ignorato: execute_confirmed_action lo recupera sempre dal
+    # registro azioni (calcolato server-side al momento della proposta),
+    # così una richiesta manomessa non può far scrivere un cliente, un
+    # mandante o dei prodotti diversi da quelli che l'utente ha realmente
+    # visto sulla scheda.
+    ALLOWED_CONFIRM_EDITS = {
+        "add_offer": {"amount", "accepted", "sale_type"},
+        "add_expense": {"amount", "category", "date", "description"},
+    }
+
     def requires_confirmation(self, tool_name: str, tool_input: dict) -> bool:
         """True se il tool genera un record economico e va sempre mostrato
         come scheda di conferma prima di essere eseguito davvero: le vendite/
@@ -594,9 +609,19 @@ class AiService:
         stato). Solo la richiesta che vince questa transizione procede
         davvero: un doppio clic, un retry di rete o una richiesta duplicata
         con lo stesso log_id ricevono un 409 invece di generare due volte la
-        stessa offerta/ordine/provvigione/spesa."""
+        stessa offerta/ordine/provvigione/spesa.
+
+        Il resolved_input inviato dal browser non viene mai usato così com'è:
+        il backend parte dal resolved_params salvato nel log (calcolato
+        server-side da prepare_add_offer/prepare_add_expense al momento della
+        proposta) e vi sovrascrive solo i campi che ALLOWED_CONFIRM_EDITS
+        permette di modificare per quel tool. Cliente, mandante e prodotti
+        arrivano quindi sempre dal registro, mai dal payload del browser: una
+        richiesta manomessa (es. un client_id di un altro utente, o un
+        mandante diverso) non può alterare cosa viene effettivamente scritto
+        sul CRM."""
         tool_name = payload.get("tool_name")
-        resolved = payload.get("resolved_input") or {}
+        browser_input = payload.get("resolved_input") or {}
         log_id = payload.get("log_id")
 
         if tool_name not in ("add_offer", "add_expense"):
@@ -621,6 +646,15 @@ class AiService:
             # find_one sopra e questo punto (finestra di race condition):
             # questa richiesta non esegue nulla.
             raise HTTPException(409, "Azione già elaborata.")
+
+        # Base fidata: i dati che il server aveva già risolto e mostrato
+        # nella scheda di conferma. Il payload del browser può modificare
+        # solo i campi esplicitamente concessi per questo tool.
+        resolved = dict(log.get("resolved_params") or {})
+        allowed = self.ALLOWED_CONFIRM_EDITS.get(tool_name, set())
+        for key in allowed:
+            if key in browser_input:
+                resolved[key] = browser_input[key]
 
         if tool_name == "add_offer" and (not resolved.get("client_id") or not resolved.get("mandante_id")):
             await self.action_log_repo.update_by_id(log_id, user["id"], {
