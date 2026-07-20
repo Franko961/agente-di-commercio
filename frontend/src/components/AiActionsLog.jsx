@@ -16,6 +16,7 @@ const STATUS_STYLE = {
   eseguita: { label: "Eseguita", bg: "#DCFCE7", fg: "#16A34A" },
   confermata: { label: "Confermata", bg: "#DCFCE7", fg: "#16A34A" },
   in_attesa: { label: "In attesa", bg: "#FFF7ED", fg: "#FF5A00" },
+  in_esecuzione: { label: "In esecuzione", bg: "#FFF7ED", fg: "#FF5A00" },
   annullata: { label: "Annullata", bg: "#F3F3F1", fg: "#52525B" },
   fallita: { label: "Fallita", bg: "#FEE2E2", fg: "#DC2626" },
 };
