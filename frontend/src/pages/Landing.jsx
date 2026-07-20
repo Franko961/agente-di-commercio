@@ -71,6 +71,7 @@ export default function Landing() {
         <nav className="hidden md:flex items-center gap-6 text-[13px] text-[#52525B]">
           <a href="#funzionalita" className="hover:text-[#0A192F]">Funzionalità</a>
           <Link to="/prezzi" className="hover:text-[#0A192F]">Prezzi</Link>
+          <Link to="/blog" className="hover:text-[#0A192F]">Guide</Link>
         </nav>
         <div className="flex items-center gap-3">
           <button onClick={() => navigate("/login")} className="text-[13px] text-[#52525B] hover:text-[#0A192F]">
@@ -196,6 +197,7 @@ export default function Landing() {
           </div>
           <nav className="flex items-center gap-6 text-[12px] text-[#52525B]">
             <Link to="/prezzi" className="hover:text-[#0A192F]">Prezzi</Link>
+            <Link to="/blog" className="hover:text-[#0A192F]">Guide</Link>
             <Link to="/login" className="hover:text-[#0A192F]">Accedi</Link>
           </nav>
           <div className="text-[12px] text-[#A1A1AA]">© 2026 SALESFLY. · Gestionale per agenti di commercio</div>
