@@ -188,7 +188,7 @@ export default function VoiceAssistant() {
               <div className="text-[13px] text-[#0A0A0A] whitespace-pre-line">{answer}</div>
               {pendingActions.map((action, idx) => (
                 <AIActionConfirm
-                  key={idx}
+                  key={action.log_id}
                   action={action}
                   busy={executingIdx === idx}
                   onConfirm={(resolved) => confirmAction(idx, resolved)}
