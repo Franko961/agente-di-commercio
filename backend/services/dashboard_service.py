@@ -1,8 +1,11 @@
 import calendar
+import logging
 import math
 from datetime import datetime, timezone, timedelta, date
 from typing import Dict, Optional
 from core.database import db
+
+logger = logging.getLogger(__name__)
 
 MONTHLY_GOAL = 10000
 
@@ -175,22 +178,27 @@ class DashboardService:
         # in minuti da adesso: usato dal briefing AI proattivo (es. "tra 40
         # minuti"). Considera anche appuntamenti futuri oltre oggi, non solo
         # quelli odierni, cercando semplicemente il primo con start >= ora.
-        upcoming_appts = sorted(
-            (a for a in appts if a.get("status") == "pianificato" and a.get("start")),
-            key=lambda a: a["start"],
-        )
+        # Avvolto in try/except: un dato imprevisto qui non deve mai far
+        # fallire l'intero riepilogo (dashboard "Oggi" + briefing AI).
         next_appointment_minutes = None
         next_appointment_client = None
-        for a in upcoming_appts:
-            try:
-                start_dt = datetime.fromisoformat(a["start"].replace("Z", "+00:00"))
-            except Exception:
-                continue
-            if start_dt >= now:
-                next_appointment_minutes = round((start_dt - now).total_seconds() / 60)
-                cli = clients_by_id.get(a.get("client_id"))
-                next_appointment_client = cli.get("company_name") if cli else None
-                break
+        try:
+            upcoming_appts = sorted(
+                (a for a in appts if a.get("status") == "pianificato" and a.get("start")),
+                key=lambda a: a["start"],
+            )
+            for a in upcoming_appts:
+                try:
+                    start_dt = datetime.fromisoformat(a["start"].replace("Z", "+00:00"))
+                except Exception:
+                    continue
+                if start_dt >= now:
+                    next_appointment_minutes = round((start_dt - now).total_seconds() / 60)
+                    cli = clients_by_id.get(a.get("client_id"))
+                    next_appointment_client = cli.get("company_name") if cli else None
+                    break
+        except Exception as e:
+            logger.error(f"get_today_brief: errore calcolo next_appointment: {e}")
 
         # Ultima visita (qualsiasi appuntamento passato) per cliente
         last_appt_by_client: Dict[str, datetime] = {}
@@ -222,13 +230,16 @@ class DashboardService:
         # AI proattivo.
         INACTIVE_DAYS = 60
         inactive_clients_60d = 0
-        for c in clients:
-            if c.get("status") == "inattivo":
-                continue
-            last = last_appt_by_client.get(c["id"])
-            days = (now - last).days if last else None
-            if days is None or days >= INACTIVE_DAYS:
-                inactive_clients_60d += 1
+        try:
+            for c in clients:
+                if c.get("status") == "inattivo":
+                    continue
+                last = last_appt_by_client.get(c["id"])
+                days = (now - last).days if last else None
+                if days is None or days >= INACTIVE_DAYS:
+                    inactive_clients_60d += 1
+        except Exception as e:
+            logger.error(f"get_today_brief: errore calcolo inactive_clients_60d: {e}")
 
         # Offerte in scadenza nei prossimi 7 giorni (ancora aperte)
         week_ahead = now + timedelta(days=7)
@@ -279,8 +290,12 @@ class DashboardService:
         # attuale" (fatturato fatto finora / giorni trascorsi * giorni totali
         # del mese). Semplice e trasparente, non una stima statistica
         # sofisticata: comunica un ordine di grandezza, non una certezza.
-        elapsed_days = max(now.day, 1)
-        revenue_forecast_month = round(month_revenue / elapsed_days * days_in_month, 2)
+        try:
+            elapsed_days = max(now.day, 1)
+            revenue_forecast_month = round(month_revenue / elapsed_days * days_in_month, 2)
+        except Exception as e:
+            logger.error(f"get_today_brief: errore calcolo revenue_forecast_month: {e}")
+            revenue_forecast_month = None
 
         # Suggerimento: priorità di visita per oggi (cliente con offerta in
         # scadenza + più tempo senza ordini, altrimenti cliente più trascurato)
