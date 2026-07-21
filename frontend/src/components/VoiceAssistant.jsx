@@ -5,6 +5,18 @@ import api from "../api";
 import { cleanForSpeech } from "../utils/speechClean";
 import AIActionConfirm from "./AIActionConfirm";
 
+// Messaggi specifici per i codici di errore della Web Speech API
+// (SpeechRecognitionErrorEvent.error), invece del generico "Non ho sentito
+// bene. Riprova." che confondeva casi molto diversi tra loro (permesso
+// negato, microfono assente, nessun audio rilevato, servizio irraggiungibile).
+const SPEECH_ERROR_MESSAGES = {
+  "not-allowed": "Permesso del microfono negato. Controlla le impostazioni del browser.",
+  "audio-capture": "Nessun microfono disponibile.",
+  "no-speech": "Non è stata rilevata alcuna voce. Riprova.",
+  "network": "Servizio di riconoscimento vocale non raggiungibile.",
+  "aborted": "Ascolto interrotto.",
+};
+
 /**
  * Pulsante microfono globale, sempre visibile in tutte le pagine dell'app (montato in Layout.jsx).
  * Permette di parlare con l'assistente AI da qualsiasi schermata senza aprire la pagina Assistente AI,
@@ -145,8 +157,8 @@ export default function VoiceAssistant() {
       const transcript = e.results[0][0].transcript;
       sendToAI(transcript);
     };
-    rec.onerror = () => {
-      setErrorMsg("Non ho sentito bene. Riprova.");
+    rec.onerror = (event) => {
+      setErrorMsg(SPEECH_ERROR_MESSAGES[event.error] || "Errore nel riconoscimento vocale. Riprova.");
       setStatus("error");
     };
     rec.onend = () => {
