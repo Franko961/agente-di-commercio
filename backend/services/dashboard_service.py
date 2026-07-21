@@ -190,9 +190,15 @@ class DashboardService:
             for a in upcoming_appts:
                 try:
                     start_dt = datetime.fromisoformat(a["start"].replace("Z", "+00:00"))
+                    is_next = start_dt >= now
                 except Exception:
+                    # Copre sia un formato data non valido, sia il caso di un
+                    # appuntamento con 'start' salvato come datetime "naive"
+                    # (senza fuso orario): confrontarlo con `now` (aware)
+                    # solleva TypeError, non ValueError, quindi va incluso
+                    # anche qui e non solo nel parsing.
                     continue
-                if start_dt >= now:
+                if is_next:
                     next_appointment_minutes = round((start_dt - now).total_seconds() / 60)
                     cli = clients_by_id.get(a.get("client_id"))
                     next_appointment_client = cli.get("company_name") if cli else None
@@ -208,9 +214,10 @@ class DashboardService:
                 continue
             try:
                 d = datetime.fromisoformat(a["start"].replace("Z", "+00:00"))
+                is_past = d <= now
             except Exception:
                 continue
-            if d <= now and (cid not in last_appt_by_client or d > last_appt_by_client[cid]):
+            if is_past and (cid not in last_appt_by_client or d > last_appt_by_client[cid]):
                 last_appt_by_client[cid] = d
 
         # Clienti da richiamare: nessuna visita negli ultimi 21 giorni (o mai)
@@ -252,9 +259,10 @@ class DashboardService:
                 continue
             try:
                 exp_dt = datetime.fromisoformat(exp.replace("Z", "+00:00"))
+                is_expiring_soon = now <= exp_dt <= week_ahead
             except Exception:
                 continue
-            if now <= exp_dt <= week_ahead:
+            if is_expiring_soon:
                 offers_expiring.append({**o, "_expires_dt": exp_dt})
 
         # Pagamenti da verificare: provvigioni maturate ma non ancora incassate
@@ -307,9 +315,10 @@ class DashboardService:
                 continue
             try:
                 d = datetime.fromisoformat(ca.replace("Z", "+00:00"))
+                is_newer = cid not in last_order_by_client or d > last_order_by_client[cid]
             except Exception:
                 continue
-            if cid not in last_order_by_client or d > last_order_by_client[cid]:
+            if is_newer:
                 last_order_by_client[cid] = d
 
         nearest_expiry_by_client: Dict[str, dict] = {}
