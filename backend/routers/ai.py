@@ -38,6 +38,15 @@ async def ai_cancel_action(payload: dict = Body(...), user=Depends(forbid_demo_w
     return await ai_service.cancel_pending_action(user, payload.get("log_id"))
 
 
+@router.get("/pending-actions")
+async def ai_pending_actions(user=Depends(get_current_user)):
+    """Azioni economiche proposte dall'AI (vendite/offerte o spese sopra
+    soglia) ancora in attesa di conferma, nel formato atteso da
+    AIActionConfirm. Usato per recuperare le schede di conferma dopo un
+    refresh, un cambio schermata o la chiusura del pannello vocale."""
+    return await ai_service.list_pending_actions(user["id"])
+
+
 @router.get("/actions")
 async def ai_actions(
     tool_name: Optional[str] = None,
