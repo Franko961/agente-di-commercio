@@ -17,6 +17,7 @@ from repositories.commission_repository import commission_repository
 from repositories.mandante_repository import mandante_repository
 from repositories.product_repository import product_repository
 from repositories.expense_repository import expense_repository
+from repositories.order_repository import order_repository
 from repositories.ai_action_log_repository import ai_action_log_repository
 from models.expense import EXPENSE_CATEGORIES
 from services.commission_service import calc_offer_total, get_commission_rate
@@ -203,6 +204,53 @@ CRM_TOOLS = [
             "required": ["category", "amount"]
         }
     },
+    {
+        "name": "search_clients",
+        "description": (
+            "Cerca/filtra i clienti nel CRM con criteri precisi. USA SEMPRE questo tool, invece di "
+            "rispondere a memoria dai DATI ATTUALI nel contesto, quando l'utente chiede di elencare, "
+            "contare o filtrare clienti in base a: da quanto tempo non fanno un ordine (es. 'clienti che "
+            "non acquistano da tre mesi'), in quale mese sono stati visitati (es. 'clienti visitati a "
+            "maggio'), zona o potenziale commerciale — i DATI ATTUALI mostrano solo un riassunto parziale "
+            "(i primi 20 clienti) e NON bastano per rispondere con precisione a query di questo tipo. "
+            "Non scrive nulla sul CRM: è di sola lettura."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "min_days_since_last_order": {
+                    "type": "number",
+                    "description": "Filtra i clienti il cui ultimo ordine risale ad almeno N giorni fa, o che non hanno mai ordinato. Es. 90 per 'non acquistano da tre mesi'.",
+                },
+                "visited_month": {
+                    "type": "string",
+                    "description": "Filtra i clienti con almeno un appuntamento nel mese indicato, formato AAAA-MM (es. 2026-05 per 'maggio' dell'anno corrente).",
+                },
+                "zone": {"type": "string", "description": "Filtra per zona/area geografica."},
+                "potential": {"type": "string", "enum": ["basso", "medio", "alto"], "description": "Filtra per potenziale commerciale."},
+            },
+            "required": []
+        }
+    },
+    {
+        "name": "search_offers",
+        "description": (
+            "Cerca/filtra le offerte/vendite nel CRM con criteri precisi. USA SEMPRE questo tool, invece "
+            "di rispondere a memoria dai DATI ATTUALI nel contesto, quando l'utente chiede di elencare, "
+            "contare o filtrare offerte per importo minimo/massimo o stato (es. 'offerte sopra 5000 euro') "
+            "— i DATI ATTUALI mostrano solo le ultime 10 offerte e NON bastano per rispondere con "
+            "precisione a query di questo tipo. Non scrive nulla sul CRM: è di sola lettura."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "min_amount": {"type": "number", "description": "Importo minimo in euro (es. 5000 per 'sopra 5000 euro')."},
+                "max_amount": {"type": "number", "description": "Importo massimo in euro."},
+                "status": {"type": "string", "enum": ["bozza", "inviata", "accettata", "rifiutata", "scaduta"], "description": "Filtra per stato dell'offerta."},
+            },
+            "required": []
+        }
+    },
 ]
 
 # Parole chiave per rilevare quale azione CRM l'utente ha richiesto.
@@ -244,6 +292,7 @@ class AiService:
         product_repo=product_repository,
         expense_repo=expense_repository,
         action_log_repo=ai_action_log_repository,
+        order_repo=order_repository,
     ):
         self.repo = repo
         self.client_repo = client_repo
@@ -255,6 +304,7 @@ class AiService:
         self.product_repo = product_repo
         self.expense_repo = expense_repo
         self.action_log_repo = action_log_repo
+        self.order_repo = order_repo
 
     async def get_history(self, user_id: str) -> list:
         """Restituisce gli ultimi 30 messaggi della cronologia AI."""
@@ -491,10 +541,119 @@ class AiService:
                     return f"❌ {prepared['error']}"
                 return await self._finalize_expense(user_id, prepared["resolved_input"])
 
+            elif tool_name == "search_clients":
+                return await self._search_clients(tool_input, user_id)
+
+            elif tool_name == "search_offers":
+                return await self._search_offers(tool_input, user_id)
+
             return f"❌ Tool '{tool_name}' non riconosciuto."
         except Exception as e:
             logger.error(f"CRM tool error: {e}")
             return f"❌ Errore durante l'operazione: {str(e)[:200]}"
+
+    async def _search_clients(self, tool_input: dict, user_id: str) -> str:
+        """Filtra i clienti del CRM con criteri precisi (ultimo ordine,
+        mese di visita, zona, potenziale). A differenza di gather_context
+        (che tronca a 20 clienti per stare nel prompt), qui si scorre
+        SEMPRE l'elenco completo: serve per rispondere in modo esatto a
+        domande come 'clienti che non acquistano da tre mesi', non solo
+        a colpo d'occhio sui più recenti."""
+        clients = await self.client_repo.find_many(user_id, {})
+        orders = await self.order_repo.find_many(user_id)
+        appts = await self.appointment_repo.find_many(user_id)
+
+        min_days = tool_input.get("min_days_since_last_order")
+        visited_month = tool_input.get("visited_month")
+        zone = tool_input.get("zone")
+        potential = tool_input.get("potential")
+
+        now = datetime.now(timezone.utc)
+
+        last_order_by_client: Dict[str, datetime] = {}
+        for o in orders:
+            cid = o.get("client_id")
+            ca = o.get("created_at")
+            if not cid or not ca:
+                continue
+            try:
+                d = datetime.fromisoformat(ca.replace("Z", "+00:00"))
+            except Exception:
+                continue
+            if cid not in last_order_by_client or d > last_order_by_client[cid]:
+                last_order_by_client[cid] = d
+
+        visited_in_month = set()
+        if visited_month:
+            for a in appts:
+                cid = a.get("client_id")
+                start = a.get("start") or ""
+                if cid and start[:7] == visited_month:
+                    visited_in_month.add(cid)
+
+        results = []
+        for c in clients:
+            if zone and (c.get("zone") or "").strip().lower() != zone.strip().lower():
+                continue
+            if potential and c.get("potential") != potential:
+                continue
+            if min_days is not None:
+                last = last_order_by_client.get(c["id"])
+                days_since = (now - last).days if last else None
+                # Nessun ordine mai (days_since is None) soddisfa sempre il
+                # filtro "non acquista da almeno N giorni".
+                if days_since is not None and days_since < min_days:
+                    continue
+            if visited_month and c["id"] not in visited_in_month:
+                continue
+            results.append(c)
+
+        if not results:
+            return "Nessun cliente trovato con questi criteri."
+
+        lines = [f"Trovati {len(results)} clienti:"]
+        MAX_LISTED = 30
+        for c in results[:MAX_LISTED]:
+            last = last_order_by_client.get(c["id"])
+            last_txt = f"ultimo ordine {(now - last).days}gg fa" if last else "mai ordinato"
+            zone_txt = c.get("zone") or "zona non specificata"
+            lines.append(f"- {c['company_name']} ({zone_txt}, {last_txt})")
+        if len(results) > MAX_LISTED:
+            lines.append(f"... e altri {len(results) - MAX_LISTED} clienti.")
+        return "\n".join(lines)
+
+    async def _search_offers(self, tool_input: dict, user_id: str) -> str:
+        """Filtra le offerte/vendite del CRM con criteri precisi (importo
+        min/max, stato). A differenza di gather_context (che mostra solo le
+        ultime 10), qui si scorre SEMPRE l'elenco completo."""
+        offers = await self.offer_repo.find_many(user_id)
+
+        min_amount = tool_input.get("min_amount")
+        max_amount = tool_input.get("max_amount")
+        status = tool_input.get("status")
+
+        results = []
+        for o in offers:
+            total = o.get("total", 0)
+            if min_amount is not None and total < min_amount:
+                continue
+            if max_amount is not None and total > max_amount:
+                continue
+            if status and o.get("status") != status:
+                continue
+            results.append(o)
+
+        if not results:
+            return "Nessuna offerta trovata con questi criteri."
+
+        results.sort(key=lambda o: o.get("total", 0), reverse=True)
+        lines = [f"Trovate {len(results)} offerte:"]
+        MAX_LISTED = 30
+        for o in results[:MAX_LISTED]:
+            lines.append(f"- {o.get('title', 'Senza titolo')}: €{o.get('total', 0):.2f} ({o.get('status')})")
+        if len(results) > MAX_LISTED:
+            lines.append(f"... e altre {len(results) - MAX_LISTED} offerte.")
+        return "\n".join(lines)
 
     async def prepare_add_offer(self, tool_input: dict, user_id: str) -> dict:
         """Risolve nomi cliente/mandante/prodotti e calcola il totale, SENZA
@@ -875,6 +1034,13 @@ class AiService:
             "controllo. Dopo aver chiamato uno di questi tool, NON dire che l'operazione è stata "
             "'registrata' o 'creata': di' che è pronta ed è in attesa della conferma dell'utente "
             "nella scheda che vedrà a schermo.\n\n"
+            "REGOLA SU RICERCHE E FILTRI: i DATI ATTUALI qui sotto sono un riassunto parziale "
+            "(i primi 20 clienti, le ultime 10 offerte): non bastano per rispondere con precisione "
+            "quando l'utente chiede di elencare, contare o filtrare clienti o offerte con un criterio "
+            "specifico (es. 'clienti che non acquistano da tre mesi', 'offerte sopra 5000 euro', "
+            "'clienti visitati a maggio'). In questi casi usa SEMPRE search_clients o search_offers "
+            "invece di rispondere a memoria dal riassunto: altrimenti rischi di dare una risposta "
+            "incompleta o sbagliata perché basata solo su una parte dei dati.\n\n"
             f"DATI ATTUALI:\n{context}"
         )
 
