@@ -6,6 +6,17 @@ import AIActionConfirm from "../components/AIActionConfirm";
 
 const WELCOME = { role: "assistant", text: "Ciao! Sono il tuo assistente commerciale. Posso suggerirti i clienti più importanti da visitare, analizzare il fatturato e darti consigli pratici. Cosa vuoi sapere?" };
 
+// Messaggi specifici per i codici di errore della Web Speech API
+// (SpeechRecognitionErrorEvent.error): prima ogni errore veniva ignorato in
+// silenzio (l'ascolto si fermava senza che l'utente capisse perché).
+const SPEECH_ERROR_MESSAGES = {
+  "not-allowed": "Permesso del microfono negato. Controlla le impostazioni del browser.",
+  "audio-capture": "Nessun microfono disponibile.",
+  "no-speech": "Non è stata rilevata alcuna voce. Riprova.",
+  "network": "Servizio di riconoscimento vocale non raggiungibile.",
+  "aborted": "Ascolto interrotto.",
+};
+
 export default function AIAssistant() {
   const [messages, setMessages] = useState([WELCOME]);
   const [input, setInput] = useState("");
@@ -35,7 +46,19 @@ export default function AIAssistant() {
       // Invia automaticamente dopo la trascrizione
       setTimeout(() => sendVoice(transcript), 100);
     };
-    rec.onerror = () => setListening(false);
+    rec.onerror = (event) => {
+      setListening(false);
+      // A differenza del pannello vocale fluttuante (che è temporaneo), qui
+      // i messaggi restano nella cronologia della chat: mostriamo un
+      // messaggio solo per errori che richiedono un'azione da parte
+      // dell'utente (permesso, microfono, rete). "no-speech" e "aborted"
+      // sono frequenti e benigni (silenzio prolungato, stop manuale) e non
+      // vanno a intasare la conversazione con un messaggio ogni volta.
+      const actionable = ["not-allowed", "audio-capture", "network"];
+      if (actionable.includes(event.error)) {
+        setMessages(m => [...m, { role: "assistant", text: `⚠️ ${SPEECH_ERROR_MESSAGES[event.error]}` }]);
+      }
+    };
     rec.onend = () => setListening(false);
     return rec;
   }, []);
