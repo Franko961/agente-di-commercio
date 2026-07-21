@@ -179,7 +179,17 @@ export default function AIAssistant() {
       ).concat([{ role: "assistant", text: data.message }]));
       speak(data.message);
     } catch (err) {
-      setMessages(m => [...m, { role: "assistant", text: "❌ Errore durante la registrazione. Riprova." }]);
+      if (err.response?.status === 409) {
+        // L'azione era già stata elaborata: non è un errore da cui
+        // l'utente possa "riprovare", va solo rimossa dalla vista perché
+        // non è più in sospeso.
+        setMessages(m => m.map((msg, i) => i === msgIdx
+          ? { ...msg, pendingActions: msg.pendingActions.filter((_, j) => j !== actionIdx) }
+          : msg
+        ).concat([{ role: "assistant", text: "ℹ️ Questa operazione era già stata elaborata." }]));
+      } else {
+        setMessages(m => [...m, { role: "assistant", text: "❌ Errore durante la registrazione. Riprova." }]);
+      }
     } finally {
       setExecutingKey(null);
     }
