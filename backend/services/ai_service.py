@@ -602,15 +602,20 @@ class AiService:
         "add_expense": {"amount", "category", "date", "description"},
     }
 
-    def requires_confirmation(self, tool_name: str, tool_input: dict) -> bool:
+    def requires_confirmation(self, tool_name: str, tool_input: dict, channel: str = "chat") -> bool:
         """True se il tool genera un record economico e va sempre mostrato
         come scheda di conferma prima di essere eseguito davvero: le vendite/
         offerte sempre, le spese solo sopra EXPENSE_CONFIRM_THRESHOLD (le
-        piccole spese di routine, es. un rifornimento, restano immediate)."""
+        piccole spese di routine, es. un rifornimento, restano immediate) —
+        tranne quando il comando arriva dal canale vocale, dove una
+        trascrizione imprecisa dell'importo può creare una spesa senza che
+        l'utente l'abbia davvero rivista: in quel caso la conferma è sempre
+        richiesta, indipendentemente dall'importo."""
         if tool_name == "add_offer":
             return True
         if tool_name == "add_expense":
-            return _safe_float(tool_input.get("amount"), 0) >= EXPENSE_CONFIRM_THRESHOLD
+            amount = _safe_float(tool_input.get("amount"), 0)
+            return channel == "voice" or amount >= EXPENSE_CONFIRM_THRESHOLD
         return False
 
     async def execute_confirmed_action(self, user: dict, payload: dict) -> dict:
@@ -768,7 +773,7 @@ class AiService:
                     for block in message.content:
                         if block.type == "tool_use":
                             tools_invoked.add(block.name)
-                            if self.requires_confirmation(block.name, block.input):
+                            if self.requires_confirmation(block.name, block.input, channel):
                                 if block.name == "add_offer":
                                     prepared = await self.prepare_add_offer(block.input, user["id"])
                                 else:
