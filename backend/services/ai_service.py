@@ -36,6 +36,22 @@ AI_MODEL = "claude-haiku-4-5-20251001"
 # senza che l'utente lo riveda.
 EXPENSE_CONFIRM_THRESHOLD = 100.0
 
+# Tool che scrivono dati sul CRM (a differenza della ricerca web o della
+# semplice lettura del contesto). L'account demo condiviso può usare la chat
+# per farsi consigliare, ma non deve poter creare/modificare nulla di reale:
+# add_offer e add_expense sopra soglia sono già protetti perché passano dalla
+# scheda di conferma su /api/ai/execute-action (che usa forbid_demo_write);
+# gli altri tool venivano invece eseguiti subito dentro il ciclo della chat,
+# senza alcun controllo demo.
+CRM_WRITE_TOOLS = {
+    "add_client",
+    "add_appointment",
+    "add_lead",
+    "add_note_to_client",
+    "add_offer",
+    "add_expense",
+}
+
 
 def _safe_float(value, default: float = 0.0) -> float:
     """Converte in float in modo sicuro un valore che può arrivare dall'AI
@@ -772,6 +788,15 @@ class AiService:
                                     prepared["log_id"] = log_entry.get("id")
                                     pending_actions.append(prepared)
                                     result = "⏳ Operazione preparata, in attesa di conferma dell'utente prima di essere registrata."
+                            elif user.get("is_demo") and block.name in CRM_WRITE_TOOLS:
+                                result = (
+                                    "🔒 Nell'account demo puoi provare l'assistente, "
+                                    "ma non modificare i dati."
+                                )
+                                await self._log_action(
+                                    user["id"], channel, payload.message, block.name, block.input,
+                                    status="fallita", result=result,
+                                )
                             else:
                                 result = await self.execute_crm_tool(block.name, block.input, user["id"])
                                 actions_performed.append(result)
