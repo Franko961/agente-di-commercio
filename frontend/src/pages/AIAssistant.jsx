@@ -197,15 +197,20 @@ export default function AIAssistant() {
 
   const cancelAction = async (msgIdx, actionIdx) => {
     const action = messages[msgIdx].pendingActions[actionIdx];
-    setMessages(m => m.map((msg, i) => i === msgIdx
-      ? { ...msg, pendingActions: msg.pendingActions.filter((_, j) => j !== actionIdx) }
-      : msg
-    ));
+    setExecutingKey(`${msgIdx}-${actionIdx}`);
     try {
       await api.post("/ai/cancel-action", { log_id: action.log_id });
+      setMessages(m => m.map((msg, i) => i === msgIdx
+        ? { ...msg, pendingActions: msg.pendingActions.filter((_, j) => j !== actionIdx) }
+        : msg
+      ));
     } catch (e) {
-      // Non blocchiamo l'utente se la sola registrazione dell'annullamento
-      // nel log fallisce: l'azione è comunque rimossa dallo schermo.
+      // Non rimuoviamo la scheda se l'annullamento non è confermato dal
+      // backend: altrimenti l'azione potrebbe restare "in_attesa" sul DB
+      // mentre l'utente crede (a torto) che sia stata annullata.
+      setMessages(m => [...m, { role: "assistant", text: "❌ Impossibile annullare l'operazione. Riprova." }]);
+    } finally {
+      setExecutingKey(null);
     }
   };
 
