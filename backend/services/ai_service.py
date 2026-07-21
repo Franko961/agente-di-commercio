@@ -2,7 +2,7 @@ import os
 import json
 import re
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional
 
 from fastapi import HTTPException
@@ -35,6 +35,14 @@ AI_MODEL = "claude-haiku-4-5-20251001"
 # (es. "1.500" sentito come "15.000") non deve poter creare un record economico
 # senza che l'utente lo riveda.
 EXPENSE_CONFIRM_THRESHOLD = 100.0
+
+# Se un'azione resta in 'in_esecuzione' più a lungo di così, il server è
+# quasi certamente crashato (o è stato riavviato) esattamente tra la
+# transizione atomica e il salvataggio del risultato: la marchiamo 'fallita'
+# invece di lasciarla bloccata per sempre. 5 minuti è ampiamente sufficiente
+# per un'esecuzione normale (scrittura DB + calcolo commissione), che dura
+# tipicamente pochi millisecondi.
+STUCK_EXECUTION_THRESHOLD_SECONDS = 5 * 60
 
 # Tool che scrivono dati sul CRM (a differenza della ricerca web o della
 # semplice lettura del contesto). L'account demo condiviso può usare la chat
@@ -315,6 +323,23 @@ class AiService:
         return await self.action_log_repo.find_many(
             user_id, tool_name=tool_name, status=status,
             date_from=date_from, date_to=date_to, limit=limit,
+        )
+
+    async def reclaim_stuck_executions(self) -> int:
+        """Segna come 'fallita' le azioni rimaste bloccate in 'in_esecuzione'
+        da più di STUCK_EXECUTION_THRESHOLD_SECONDS (vedi
+        AiActionLogRepository.reclaim_stale_executions per il motivo:
+        tipicamente un crash del server a metà dell'esecuzione confermata).
+        Chiamato periodicamente da startup_service, non da una richiesta
+        utente. Non riesegue mai l'azione: potrebbe essere già stata scritta
+        sul CRM prima del crash."""
+        threshold_iso = (
+            datetime.now(timezone.utc) - timedelta(seconds=STUCK_EXECUTION_THRESHOLD_SECONDS)
+        ).isoformat()
+        return await self.action_log_repo.reclaim_stale_executions(
+            threshold_iso,
+            "Esecuzione interrotta (probabile riavvio del server): verificare "
+            "manualmente se l'operazione è stata registrata prima di ripeterla.",
         )
 
     async def list_pending_actions(self, user_id: str, limit: int = 50) -> list:
@@ -689,7 +714,8 @@ class AiService:
             raise HTTPException(409, "Azione già elaborata.")
 
         claimed = await self.action_log_repo.transition(
-            log_id, user["id"], "in_attesa", {"status": "in_esecuzione"},
+            log_id, user["id"], "in_attesa",
+            {"status": "in_esecuzione", "execution_started_at": now_iso()},
             extra_match={"tool_name": tool_name},
         )
         if not claimed:
