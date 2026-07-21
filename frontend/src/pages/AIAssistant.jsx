@@ -129,6 +129,22 @@ export default function AIAssistant() {
   // Carica cronologia al mount
   useEffect(() => {
     const loadHistory = async () => {
+      // Saluto proattivo ("Buongiorno Franco. Hai: ...") al posto del
+      // messaggio statico generico: l'assistente non aspetta più solo un
+      // comando, apre riassumendo la situazione della giornata. Va
+      // recuperato PRIMA della cronologia, perché quest'ultima sostituisce
+      // interamente `messages` (vedi sotto).
+      let greeting = WELCOME;
+      try {
+        const { data } = await api.get("/ai/briefing");
+        if (data?.text) {
+          greeting = { role: "assistant", text: data.text };
+        }
+      } catch (e) {
+        // Se il briefing non è disponibile (errore di rete, ecc.) si
+        // ripiega sul saluto statico invece di lasciare la chat vuota.
+      }
+
       try {
         const { data } = await api.get("/ai/history");
         if (data && data.length > 0) {
@@ -136,10 +152,12 @@ export default function AIAssistant() {
             { role: "user", text: h.message },
             { role: "assistant", text: h.response },
           ]);
-          setMessages([WELCOME, ...history]);
+          setMessages([greeting, ...history]);
+        } else {
+          setMessages([greeting]);
         }
       } catch (e) {
-        // nessuna storia, ok
+        setMessages([greeting]);
       } finally {
         setLoading(false);
       }
