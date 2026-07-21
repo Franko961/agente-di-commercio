@@ -64,11 +64,24 @@ CRM_WRITE_TOOLS = {
 def _safe_float(value, default: float = 0.0) -> float:
     """Converte in float in modo sicuro un valore che può arrivare dall'AI
     (quindi potenzialmente testuale, mancante o malformato: es. un numero
-    scritto in lettere, una stringa vuota, None). Non solleva mai eccezioni:
-    in caso di valore non convertibile restituisce il default invece di far
-    fallire il salvataggio o la formattazione a valle."""
+    scritto in lettere, una stringa vuota, None) o da una modifica manuale
+    nella scheda di conferma. Normalizza anche i formati numerici italiani
+    più comuni prima di convertire: simbolo di valuta e spazi ('€ 120'),
+    virgola come separatore decimale ('45,90'), punto come separatore delle
+    migliaia insieme alla virgola decimale ('1.500,50'). Non solleva mai
+    eccezioni: in caso di valore non convertibile restituisce il default
+    invece di far fallire il salvataggio o la formattazione a valle.
+
+    Nota: un valore con SOLO il punto e senza virgola (es. '1.500') viene
+    interpretato come notazione anglosassone (1.5), non come separatore delle
+    migliaia italiano (1500): senza un secondo segnale (la virgola decimale)
+    non c'è modo di distinguere i due casi in modo affidabile."""
     if value is None or value == "":
         return default
+    if isinstance(value, str):
+        value = value.strip().replace("€", "").replace(" ", "")
+        if "," in value:
+            value = value.replace(".", "").replace(",", ".")
     try:
         return float(value)
     except (TypeError, ValueError):
