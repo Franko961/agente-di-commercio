@@ -18,6 +18,10 @@ sys.path.insert(0, ".")
 from services.ai_service import ai_service, _safe_float
 
 
+def run(coro):
+    return asyncio.get_event_loop().run_until_complete(coro)
+
+
 # ---------- _safe_float ----------
 
 def test_safe_float_su_valori_validi():
@@ -60,22 +64,22 @@ def test_safe_float_formato_anglosassone_resta_invariato():
 # ---------- prepare_add_expense ----------
 
 def test_prepare_expense_rifiuta_importo_testuale():
-    result = ai_service.prepare_add_expense({"category": "carburante", "amount": "quaranta"})
+    result = run(ai_service.prepare_add_expense({"category": "carburante", "amount": "quaranta"}, "u1"))
     assert "error" in result
 
 
 def test_prepare_expense_rifiuta_importo_zero():
-    result = ai_service.prepare_add_expense({"category": "carburante", "amount": 0})
+    result = run(ai_service.prepare_add_expense({"category": "carburante", "amount": 0}, "u1"))
     assert "error" in result
 
 
 def test_prepare_expense_rifiuta_importo_negativo():
-    result = ai_service.prepare_add_expense({"category": "carburante", "amount": -50})
+    result = run(ai_service.prepare_add_expense({"category": "carburante", "amount": -50}, "u1"))
     assert "error" in result
 
 
 def test_prepare_expense_accetta_importo_valido():
-    result = ai_service.prepare_add_expense({"category": "carburante", "amount": 45.5})
+    result = run(ai_service.prepare_add_expense({"category": "carburante", "amount": 45.5}, "u1"))
     assert "error" not in result
     assert result["resolved_input"]["amount"] == 45.5
 
@@ -84,7 +88,7 @@ def test_prepare_expense_accetta_importo_in_formato_italiano():
     """Caso reale: un importo dettato a voce o trascritto dal modello nel
     formato italiano ('45,90' invece di '45.9') non deve essere respinto
     come importo non valido."""
-    result = ai_service.prepare_add_expense({"category": "carburante", "amount": "45,90"})
+    result = run(ai_service.prepare_add_expense({"category": "carburante", "amount": "45,90"}, "u1"))
     assert "error" not in result
     assert result["resolved_input"]["amount"] == 45.90
 
@@ -108,12 +112,5 @@ def test_execute_crm_tool_add_expense_con_importo_testuale_non_esplode():
 
 
 if __name__ == "__main__":
-    test_safe_float_su_valori_validi()
-    test_safe_float_su_valori_non_validi_torna_il_default()
-    test_prepare_expense_rifiuta_importo_testuale()
-    test_prepare_expense_rifiuta_importo_zero()
-    test_prepare_expense_rifiuta_importo_negativo()
-    test_prepare_expense_accetta_importo_valido()
-    test_finalize_expense_con_importo_malformato_non_scrive_e_non_esplode()
-    test_execute_crm_tool_add_expense_con_importo_testuale_non_esplode()
-    print("OK: tutti i test di validazione importi passati")
+    import pytest
+    raise SystemExit(pytest.main([__file__, "-v"]))
