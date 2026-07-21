@@ -60,7 +60,7 @@ def test_demo_user_cannot_write_via_chat_tool_loop(monkeypatch):
     service.repo.insert_log = AsyncMock(return_value=None)
 
     monkeypatch.setattr(service, "gather_context", AsyncMock(return_value="(contesto vuoto)"))
-    monkeypatch.setattr(service, "requires_confirmation", lambda name, inp: False)
+    monkeypatch.setattr(service, "requires_confirmation", lambda name, inp, channel="chat": False)
     monkeypatch.setattr(service, "_log_action", AsyncMock(return_value={"id": "log_1"}))
 
     execute_crm_tool_mock = AsyncMock(return_value="✅ Cliente aggiunto")
