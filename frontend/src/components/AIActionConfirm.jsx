@@ -47,6 +47,10 @@ export default function AIActionConfirm({ action, onConfirm, onCancel, busy }) {
               <Row label="Importo" value={<span className="font-cabinet font-bold">{fmt(fields.amount)}</span>} />
               <Row label="Data" value={fields.date} />
               {fields.description && <Row label="Descrizione" value={fields.description} />}
+              {fields.client_name && <Row label="Cliente" value={fields.client_name} />}
+              {!fields.client_name && fields.client_not_found && (
+                <Row label="Cliente" value={<span className="text-[#A1A1AA]">'{fields.client_not_found}' non trovato</span>} />
+              )}
             </>
           )}
         </div>
