@@ -111,11 +111,17 @@ export default function VoiceAssistant() {
 
   const cancelAction = async (idx) => {
     const action = pendingActions[idx];
-    setPendingActions((prev) => prev.filter((_, i) => i !== idx));
+    setExecutingIdx(idx);
     try {
       await api.post("/ai/cancel-action", { log_id: action.log_id });
+      setPendingActions((prev) => prev.filter((_, i) => i !== idx));
     } catch (e) {
-      // L'azione è comunque rimossa dallo schermo anche se il log non si aggiorna.
+      // Non rimuoviamo la scheda se l'annullamento non è confermato dal
+      // backend: altrimenti l'azione potrebbe restare "in_attesa" sul DB
+      // mentre l'utente crede (a torto) che sia stata annullata.
+      setAnswer((prev) => `${prev}\n\n❌ Impossibile annullare l'operazione. Riprova.`);
+    } finally {
+      setExecutingIdx(null);
     }
   };
 
