@@ -259,6 +259,65 @@ def test_revenue_forecast_month_proiezione_lineare(monkeypatch):
     assert brief["revenue_forecast_month"] == 3000.0
 
 
+def test_appuntamento_senza_cliente_con_orario_naive_non_fa_esplodere_il_brief(monkeypatch):
+    """Regressione da un bug reale in produzione: un appuntamento SENZA
+    client_id (es. un promemoria personale, non collegato a nessun cliente)
+    con 'start' salvato come datetime "naive" (senza fuso orario, es.
+    '2026-07-22T10:00:00' invece di '...T10:00:00Z') mandava in errore
+    l'intero get_today_brief con 'can't compare offset-naive and
+    offset-aware datetimes' — non catturato perché il confronto con `now`
+    era fuori dal blocco try/except che avvolgeva solo il parsing.
+
+    Il blocco last_appt_by_client (pre-esistente) non veniva mai raggiunto
+    da questo appuntamento perché richiede client_id; il blocco
+    next_appointment (nuovo) invece non filtra su client_id ed era il primo
+    a incontrare il dato malformato."""
+    import services.dashboard_service as dash_mod
+    now = datetime.now(timezone.utc)
+    naive_start = (now + timedelta(hours=1)).replace(tzinfo=None).isoformat()  # niente 'Z' né offset
+
+    fake_db = FakeDB(appointments=[
+        {  # promemoria senza cliente, orario naive: il dato che causava il crash
+            "id": "a-naive", "user_id": "u1", "client_id": None,
+            "start": naive_start, "status": "pianificato",
+        },
+    ])
+    monkeypatch.setattr(dash_mod, "db", fake_db)
+    service = DashboardService()
+
+    # Non deve sollevare alcuna eccezione: l'appuntamento malformato viene
+    # scartato (nessun candidato valido), non manda in crash l'intero brief.
+    brief = run(service.get_today_brief({"id": "u1"}))
+
+    assert brief["next_appointment_minutes"] is None
+
+
+def test_appuntamento_di_un_cliente_con_orario_naive_non_fa_esplodere_il_brief(monkeypatch):
+    """Stessa classe di bug (naive vs aware), ma sul blocco last_appt_by_client
+    (usato da clients_to_call e inactive_clients_60d): un appuntamento
+    collegato a un cliente con 'start' naive non deve far esplodere il
+    brief, anche se questo blocco esisteva già prima del briefing AI."""
+    import services.dashboard_service as dash_mod
+    now = datetime.now(timezone.utc)
+    naive_start = (now - timedelta(days=5)).replace(tzinfo=None).isoformat()
+
+    fake_db = FakeDB(
+        clients=[{"id": "c-1", "user_id": "u1", "company_name": "Bar Rossi", "status": "attivo"}],
+        appointments=[{
+            "id": "a-naive", "user_id": "u1", "client_id": "c-1",
+            "start": naive_start, "status": "pianificato",
+        }],
+    )
+    monkeypatch.setattr(dash_mod, "db", fake_db)
+    service = DashboardService()
+
+    brief = run(service.get_today_brief({"id": "u1"}))
+
+    # L'appuntamento naive viene scartato (non conta come "ultima visita"),
+    # quindi il cliente risulta senza visite registrate -> va richiamato.
+    assert brief["clients_to_call"] == 1
+
+
 if __name__ == "__main__":
     import pytest
     raise SystemExit(pytest.main([__file__, "-v"]))
