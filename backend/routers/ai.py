@@ -61,6 +61,13 @@ async def ai_actions(
     return await ai_service.list_actions(user["id"], tool_name, status, date_from, date_to, limit)
 
 
+@router.get("/briefing")
+async def ai_briefing(user=Depends(get_current_user)):
+    """Saluto proattivo dell'assistente ('Buongiorno Franco. Hai: ...'),
+    mostrato all'apertura della pagina Assistente AI."""
+    return await ai_service.get_morning_briefing(user)
+
+
 @router.get("/suggestions")
 async def ai_suggestions(user=Depends(get_current_user)):
     return await ai_service.suggestions(user)
