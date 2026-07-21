@@ -74,6 +74,25 @@ def _safe_float(value, default: float = 0.0) -> float:
     except (TypeError, ValueError):
         return default
 
+
+def _validate_expense_date(value: str) -> Optional[str]:
+    """Valida la data di una spesa, che può arrivare dall'AI (quindi
+    potenzialmente in linguaggio naturale: 'domani', '21 luglio') o da un
+    resolved_input modificato dal browser prima di /execute-action. Accetta
+    solo il formato AAAA-MM-DD (quello usato dall'input <input type="date">
+    della scheda di conferma) e rifiuta anche date sintatticamente simili ma
+    calendaristicamente inesistenti (es. '2026-15-80'), che strptime già
+    intercetta.
+
+    Va chiamata solo quando `value` non è vuoto: la gestione del default
+    (data odierna, quando l'AI non specifica una data) resta al chiamante,
+    così il valore restituito da questa funzione ha un solo significato:
+    None = valore presente ma non è una data valida."""
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date().isoformat()
+    except (TypeError, ValueError):
+        return None
+
 # Definizione tools CRM per l'AI
 CRM_TOOLS = [
     {
@@ -607,7 +626,13 @@ class AiService:
         amount = _safe_float(tool_input.get("amount"), 0)
         if amount <= 0:
             return {"error": "L'importo della spesa deve essere maggiore di zero."}
-        date_ = tool_input.get("date") or now_iso()[:10]
+        raw_date = tool_input.get("date")
+        if raw_date:
+            date_ = _validate_expense_date(raw_date)
+            if date_ is None:
+                return {"error": "Data della spesa non valida: usa il formato AAAA-MM-DD."}
+        else:
+            date_ = now_iso()[:10]
         description = tool_input.get("description", "")
         notes = tool_input.get("notes", "")
         return {
@@ -628,9 +653,16 @@ class AiService:
         amount = _safe_float(resolved.get("amount"), 0)
         if amount <= 0:
             return "❌ L'importo deve essere maggiore di zero: spesa non registrata."
+        raw_date = resolved.get("date")
+        if raw_date:
+            date_ = _validate_expense_date(raw_date)
+            if date_ is None:
+                return "❌ Data della spesa non valida (usa il formato AAAA-MM-DD): spesa non registrata."
+        else:
+            date_ = now_iso()[:10]
         doc = {
             "id": gen_id(), "user_id": user_id,
-            "date": resolved.get("date") or now_iso()[:10],
+            "date": date_,
             "category": category,
             "description": resolved.get("description", ""),
             "amount": amount,
