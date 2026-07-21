@@ -53,22 +53,22 @@ def test_validate_expense_date_rifiuta_formato_sbagliato():
 # ---------- prepare_add_expense ----------
 
 def test_prepare_expense_rifiuta_data_non_valida():
-    result = ai_service.prepare_add_expense(
-        {"category": "carburante", "amount": 40, "date": "2026-15-80"}
-    )
+    result = run(ai_service.prepare_add_expense(
+        {"category": "carburante", "amount": 40, "date": "2026-15-80"}, "u1"
+    ))
     assert "error" in result
 
 
 def test_prepare_expense_accetta_data_valida():
-    result = ai_service.prepare_add_expense(
-        {"category": "carburante", "amount": 40, "date": "2026-07-21"}
-    )
+    result = run(ai_service.prepare_add_expense(
+        {"category": "carburante", "amount": 40, "date": "2026-07-21"}, "u1"
+    ))
     assert "error" not in result
     assert result["resolved_input"]["date"] == "2026-07-21"
 
 
 def test_prepare_expense_usa_data_odierna_se_assente():
-    result = ai_service.prepare_add_expense({"category": "carburante", "amount": 40})
+    result = run(ai_service.prepare_add_expense({"category": "carburante", "amount": 40}, "u1"))
     assert "error" not in result
     assert result["resolved_input"]["date"] == now_iso()[:10]
 
