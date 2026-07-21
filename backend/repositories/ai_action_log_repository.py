@@ -1,4 +1,5 @@
 from core.database import db
+from core.utils import now_iso
 from typing import Optional
 
 
@@ -60,6 +61,31 @@ class AiActionLogRepository:
 
     async def find_one(self, log_id: str, user_id: str) -> Optional[dict]:
         return await self.collection.find_one({"id": log_id, "user_id": user_id}, {"_id": 0})
+
+    async def reclaim_stale_executions(self, threshold_iso: str, result_message: str) -> int:
+        """Segna come 'fallita' ogni log rimasto in 'in_esecuzione' da prima
+        di `threshold_iso`: copre il caso in cui il server si sia arrestato
+        (o il processo sia crashato) esattamente tra la transizione atomica
+        a 'in_esecuzione' e il salvataggio del risultato finale, lasciando
+        il record bloccato per sempre in uno stato transitorio.
+
+        NON tenta di rieseguire l'azione: potrebbe essere già stata scritta
+        sul CRM (offerta/ordine/spesa) prima del crash, senza che il log
+        abbia fatto in tempo ad aggiornarsi. Rieseguirla rischierebbe un
+        doppio inserimento; segnarla 'fallita' invece si limita a smettere
+        di bloccare la scheda di conferma, lasciando all'utente la scelta
+        di verificare manualmente ed eventualmente ripetere l'operazione.
+
+        `update_many` applica il filtro (status ancora 'in_esecuzione') in
+        modo atomico per ogni documento lato MongoDB: se nel frattempo
+        l'esecuzione originale è terminata regolarmente (spostando lo status
+        altrove), quel documento smette di corrispondere al filtro e non
+        viene toccato da questa procedura."""
+        result = await self.collection.update_many(
+            {"status": "in_esecuzione", "execution_started_at": {"$lt": threshold_iso}},
+            {"$set": {"status": "fallita", "result": result_message, "confirmed_at": now_iso()}},
+        )
+        return result.modified_count
 
 
 ai_action_log_repository = AiActionLogRepository()
