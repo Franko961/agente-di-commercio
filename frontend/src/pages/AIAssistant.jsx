@@ -120,6 +120,26 @@ export default function AIAssistant() {
       } finally {
         setLoading(false);
       }
+
+      // Recupera azioni economiche (vendite/offerte, spese sopra soglia)
+      // proposte in una sessione precedente e mai confermate né annullate:
+      // prima restavano visibili solo nel messaggio di chat originale,
+      // quindi ricaricando la pagina la scheda di conferma spariva pur
+      // restando "in_attesa" sul DB. Va fatto DOPO aver impostato la
+      // cronologia (che sostituisce interamente `messages`), altrimenti
+      // questo messaggio verrebbe perso da quella sostituzione.
+      try {
+        const { data: pending } = await api.get("/ai/pending-actions");
+        if (Array.isArray(pending) && pending.length > 0) {
+          setMessages(m => [...m, {
+            role: "assistant",
+            text: "Hai operazioni in sospeso da una richiesta precedente, non ancora confermate:",
+            pendingActions: pending,
+          }]);
+        }
+      } catch (e) {
+        // nessuna azione pendente o errore di rete: non blocchiamo la chat.
+      }
     };
     loadHistory();
     api.get("/ai/suggestions").then(({ data }) => setSuggestions(data.suggestions || [])).catch(() => {});
