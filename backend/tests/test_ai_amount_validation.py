@@ -33,6 +33,30 @@ def test_safe_float_su_valori_non_validi_torna_il_default():
     assert _safe_float("quaranta", 99) == 99
 
 
+def test_safe_float_su_formato_italiano_con_virgola_decimale():
+    assert _safe_float("45,90") == 45.90
+    assert _safe_float("1500,5") == 1500.5
+
+
+def test_safe_float_su_formato_italiano_con_migliaia_e_decimali():
+    assert _safe_float("1.500,50") == 1500.50
+    assert _safe_float("12.345,67") == 12345.67
+
+
+def test_safe_float_rimuove_simbolo_euro_e_spazi():
+    assert _safe_float("€ 120") == 120.0
+    assert _safe_float("  € 45,00 ") == 45.0
+    assert _safe_float("120 €") == 120.0
+
+
+def test_safe_float_formato_anglosassone_resta_invariato():
+    # Senza virgola non c'è modo di distinguere in modo affidabile un punto
+    # decimale anglosassone da un separatore delle migliaia italiano: il
+    # comportamento documentato è trattarlo come notazione anglosassone.
+    assert _safe_float("45.90") == 45.90
+    assert _safe_float(45.5) == 45.5
+
+
 # ---------- prepare_add_expense ----------
 
 def test_prepare_expense_rifiuta_importo_testuale():
@@ -54,6 +78,15 @@ def test_prepare_expense_accetta_importo_valido():
     result = ai_service.prepare_add_expense({"category": "carburante", "amount": 45.5})
     assert "error" not in result
     assert result["resolved_input"]["amount"] == 45.5
+
+
+def test_prepare_expense_accetta_importo_in_formato_italiano():
+    """Caso reale: un importo dettato a voce o trascritto dal modello nel
+    formato italiano ('45,90' invece di '45.9') non deve essere respinto
+    come importo non valido."""
+    result = ai_service.prepare_add_expense({"category": "carburante", "amount": "45,90"})
+    assert "error" not in result
+    assert result["resolved_input"]["amount"] == 45.90
 
 
 # ---------- _finalize_expense (chiamato anche direttamente da /execute-action) ----------
