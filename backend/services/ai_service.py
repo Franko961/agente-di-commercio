@@ -196,6 +196,7 @@ CRM_TOOLS = [
                 "category": {"type": "string", "enum": EXPENSE_CATEGORIES, "description": "Categoria della spesa."},
                 "description": {"type": "string", "description": "Breve descrizione della spesa"},
                 "amount": {"type": "number", "description": "Importo in euro"},
+                "client_name": {"type": "string", "description": "Cliente collegato alla spesa, se presente (es. una spesa sostenuta durante una visita)"},
                 "notes": {"type": "string", "description": "Note aggiuntive"},
             },
             "required": ["category", "amount"]
@@ -484,7 +485,7 @@ class AiService:
                 return await self._finalize_offer(user_id, prepared["resolved_input"])
 
             elif tool_name == "add_expense":
-                prepared = self.prepare_add_expense(tool_input)
+                prepared = await self.prepare_add_expense(tool_input, user_id)
                 if "error" in prepared:
                     return f"❌ {prepared['error']}"
                 return await self._finalize_expense(user_id, prepared["resolved_input"])
@@ -630,9 +631,22 @@ class AiService:
 
         return msg
 
-    def prepare_add_expense(self, tool_input: dict) -> dict:
+    async def prepare_add_expense(self, tool_input: dict, user_id: str) -> dict:
         """Normalizza i campi di una spesa SENZA scrivere sul DB. Usato per
-        mostrare la scheda di conferma quando l'importo è elevato."""
+        mostrare la scheda di conferma quando l'importo è elevato (o sempre,
+        se il canale è voce).
+
+        Se è indicato un cliente (es. "spesa di 40 euro con Rossi"), lo
+        risolve qui server-side, come già avviene per client_name in
+        prepare_add_offer: il browser non riceve mai la possibilità di
+        scegliere client_id (non è tra gli ALLOWED_CONFIRM_EDITS), quindi una
+        richiesta manomessa non può collegare la spesa a un cliente diverso
+        da quello che l'utente ha realmente nominato in questo turno.
+
+        A differenza delle offerte, un cliente non trovato non blocca la
+        spesa: il collegamento è opzionale ("solo tracciamento", come da
+        descrizione del tool), quindi la spesa viene comunque preparata,
+        semplicemente senza client_id, con un avviso nel messaggio finale."""
         category = tool_input.get("category") or "altro"
         if category not in EXPENSE_CATEGORIES:
             category = "altro"
@@ -648,10 +662,30 @@ class AiService:
             date_ = now_iso()[:10]
         description = tool_input.get("description", "")
         notes = tool_input.get("notes", "")
+
+        client_id = None
+        client_name = None
+        client_not_found = None
+        requested_client_name = tool_input.get("client_name")
+        if requested_client_name:
+            cli = await self.client_repo.find_by_name_regex(user_id, requested_client_name)
+            if cli:
+                client_id = cli["id"]
+                client_name = cli["company_name"]
+            else:
+                client_not_found = requested_client_name
+
         return {
             "tool_name": "add_expense",
-            "summary": {"category": category, "amount": amount, "date": date_, "description": description},
-            "resolved_input": {"category": category, "amount": amount, "date": date_, "description": description, "notes": notes},
+            "summary": {
+                "category": category, "amount": amount, "date": date_, "description": description,
+                "client_name": client_name,
+            },
+            "resolved_input": {
+                "category": category, "amount": amount, "date": date_, "description": description,
+                "notes": notes, "client_id": client_id, "client_name": client_name,
+                "client_not_found": client_not_found,
+            },
         }
 
     async def _finalize_expense(self, user_id: str, resolved: dict) -> str:
@@ -679,13 +713,18 @@ class AiService:
             "category": category,
             "description": resolved.get("description", ""),
             "amount": amount,
-            "client_id": None,
+            "client_id": resolved.get("client_id"),
             "notes": resolved.get("notes", ""),
             "receipt_document_id": None,
             "created_at": now_iso(),
         }
         await self.expense_repo.insert(doc)
-        return f"✅ Spesa registrata: {category} - €{doc['amount']:.2f} ({doc['date']})."
+        msg = f"✅ Spesa registrata: {category} - €{doc['amount']:.2f} ({doc['date']})."
+        if resolved.get("client_name"):
+            msg += f" Collegata al cliente {resolved['client_name']}."
+        elif resolved.get("client_not_found"):
+            msg += f" Cliente '{resolved['client_not_found']}' non trovato: spesa registrata senza collegamento."
+        return msg
 
     # Campi che la scheda di conferma (AIActionConfirm.jsx) permette davvero
     # di modificare per ciascun tool economico — riflette esattamente cosa
@@ -878,7 +917,7 @@ class AiService:
                                 if block.name == "add_offer":
                                     prepared = await self.prepare_add_offer(block.input, user["id"])
                                 else:
-                                    prepared = self.prepare_add_expense(block.input)
+                                    prepared = await self.prepare_add_expense(block.input, user["id"])
                                 if "error" in prepared:
                                     result = f"❌ {prepared['error']}"
                                     await self._log_action(
