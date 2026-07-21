@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Mic, MicOff, Loader2, X, Volume2, VolumeX, Sparkles } from "lucide-react";
 import api from "../api";
@@ -21,6 +21,25 @@ export default function VoiceAssistant() {
   const [executingIdx, setExecutingIdx] = useState(null);
   const recognitionRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
+
+  // Recupera azioni economiche lasciate in sospeso (es. una vendita o una
+  // spesa proposte a voce e mai confermate) da sessioni precedenti: prima
+  // esistevano solo nello stato locale di questo componente, quindi
+  // sparivano non appena l'utente chiudeva il pannello o ricaricava la
+  // pagina, pur restando "in_attesa" sul DB e potenzialmente eseguibili in
+  // un secondo momento senza che l'utente se ne accorgesse.
+  useEffect(() => {
+    api.get("/ai/pending-actions").then(({ data }) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setPendingActions(data);
+        setAnswer("Hai operazioni in sospeso da una richiesta precedente, non ancora confermate:");
+        setStatus("result");
+      }
+    }).catch(() => {
+      // Nessuna azione pendente o errore di rete: non blocchiamo l'apertura del pulsante.
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Non mostrare il pulsante nella pagina Assistente AI (già dedicata alla chat completa)
   const hideOnThisPage = location.pathname.startsWith("/app/ai");
