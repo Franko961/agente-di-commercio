@@ -317,6 +317,36 @@ class AiService:
             date_from=date_from, date_to=date_to, limit=limit,
         )
 
+    async def list_pending_actions(self, user_id: str, limit: int = 50) -> list:
+        """Azioni economiche (add_offer, add_expense sopra soglia) proposte
+        dall'AI e non ancora confermate né annullate, nel formato già atteso
+        dal componente AIActionConfirm (tool_name, resolved_input, log_id).
+
+        Serve a recuperare le schede di conferma quando l'utente chiude il
+        pannello, ricarica la pagina, cambia schermata o riapre l'app: prima
+        di questo endpoint le azioni 'in_attesa' esistevano solo nella
+        risposta della singola chiamata a /chat che le aveva create, e
+        andavano perse non appena lo stato locale del componente veniva
+        azzerato (es. chiudendo il pannello vocale)."""
+        logs = await self.action_log_repo.find_many(user_id, status="in_attesa", limit=limit)
+        pending = []
+        for log in logs:
+            resolved = log.get("resolved_params")
+            if not resolved:
+                # Difesa in profondità: non dovrebbe succedere (un log
+                # 'in_attesa' viene sempre creato con resolved_params), ma
+                # se capitasse non mostriamo una scheda senza dati.
+                continue
+            pending.append({
+                "log_id": log["id"],
+                "tool_name": log["tool_name"],
+                "resolved_input": resolved,
+                "channel": log.get("channel", "chat"),
+                "raw_input": log.get("raw_input", ""),
+                "created_at": log.get("created_at"),
+            })
+        return pending
+
     async def execute_crm_tool(self, tool_name: str, tool_input: dict, user_id: str) -> str:
         """Esegue un tool CRM e restituisce il risultato come stringa."""
         try:
