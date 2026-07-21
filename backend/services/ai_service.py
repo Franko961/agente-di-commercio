@@ -21,6 +21,7 @@ from repositories.ai_action_log_repository import ai_action_log_repository
 from models.expense import EXPENSE_CATEGORIES
 from services.commission_service import calc_offer_total, get_commission_rate
 from services.order_service import order_service
+from services.dashboard_service import dashboard_service
 
 logger = logging.getLogger(__name__)
 
@@ -1020,6 +1021,16 @@ class AiService:
                "response": response, "created_at": now_iso()}
         await self.repo.insert_log(log)
         return {"response": response, "actions": actions_performed, "pending_actions": pending_actions}
+
+    async def get_morning_briefing(self, user: dict) -> dict:
+        """Saluto proattivo dell'assistente AI ('Buongiorno Franco. Hai: ...'),
+        mostrato all'apertura della pagina Assistente AI invece di aspettare
+        passivamente un comando. Puramente calcolato (stessi dati già
+        aggregati per la sezione 'Oggi' della dashboard): nessuna chiamata al
+        modello, quindi istantaneo e senza costo API."""
+        brief = await dashboard_service.get_today_brief(user)
+        text = dashboard_service.format_morning_briefing(brief, user.get("name"))
+        return {"text": text, "data": brief}
 
     async def suggestions(self, user: dict) -> dict:
         import anthropic as anthropic_sdk
