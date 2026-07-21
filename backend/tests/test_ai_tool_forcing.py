@@ -189,6 +189,15 @@ class FakeActionLogRepo:
             results = [d for d in results if d["status"] == status]
         return results[:limit]
 
+    async def reclaim_stale_executions(self, threshold_iso, result_message):
+        count = 0
+        for d in self.docs:
+            if d.get("status") == "in_esecuzione" and d.get("execution_started_at", "") < threshold_iso:
+                d["status"] = "fallita"
+                d["result"] = result_message
+                count += 1
+        return count
+
 
 def build_service():
     from services.ai_service import AiService
