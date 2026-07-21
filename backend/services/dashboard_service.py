@@ -18,6 +18,17 @@ def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     return 2 * R * math.asin(math.sqrt(a))
 
 
+def _pluralize_it(count: int, singular: str, plural: str, none_label: Optional[str] = None) -> str:
+    """Restituisce una stringa tipo '5 clienti da richiamare', gestendo i
+    casi 0/1/N in italiano. Se none_label è dato, viene usato al posto di
+    '0 ...' quando count è zero (es. 'Nessun appuntamento in programma'),
+    per non produrre frasi innaturali come '0 clienti da richiamare'."""
+    if count == 0 and none_label:
+        return none_label
+    noun = singular if count == 1 else plural
+    return f"{count} {noun}"
+
+
 class DashboardService:
     async def get_stats(self, user: dict) -> dict:
         clients = await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
@@ -160,6 +171,27 @@ class DashboardService:
             key=lambda a: a.get("start", ""),
         )
 
+        # Prossimo appuntamento pianificato (oggi o nei giorni successivi),
+        # in minuti da adesso: usato dal briefing AI proattivo (es. "tra 40
+        # minuti"). Considera anche appuntamenti futuri oltre oggi, non solo
+        # quelli odierni, cercando semplicemente il primo con start >= ora.
+        upcoming_appts = sorted(
+            (a for a in appts if a.get("status") == "pianificato" and a.get("start")),
+            key=lambda a: a["start"],
+        )
+        next_appointment_minutes = None
+        next_appointment_client = None
+        for a in upcoming_appts:
+            try:
+                start_dt = datetime.fromisoformat(a["start"].replace("Z", "+00:00"))
+            except Exception:
+                continue
+            if start_dt >= now:
+                next_appointment_minutes = round((start_dt - now).total_seconds() / 60)
+                cli = clients_by_id.get(a.get("client_id"))
+                next_appointment_client = cli.get("company_name") if cli else None
+                break
+
         # Ultima visita (qualsiasi appuntamento passato) per cliente
         last_appt_by_client: Dict[str, datetime] = {}
         for a in appts:
@@ -183,6 +215,20 @@ class DashboardService:
             days = (now - last).days if last else None
             if days is None or days >= CALLBACK_DAYS:
                 clients_to_call += 1
+
+        # Clienti inattivi da tempo: nessuna visita negli ultimi 60 giorni (o
+        # mai). Soglia distinta e più ampia di CALLBACK_DAYS: non è "va
+        # richiamato a breve" ma "è a rischio abbandono", usata dal briefing
+        # AI proattivo.
+        INACTIVE_DAYS = 60
+        inactive_clients_60d = 0
+        for c in clients:
+            if c.get("status") == "inattivo":
+                continue
+            last = last_appt_by_client.get(c["id"])
+            days = (now - last).days if last else None
+            if days is None or days >= INACTIVE_DAYS:
+                inactive_clients_60d += 1
 
         # Offerte in scadenza nei prossimi 7 giorni (ancora aperte)
         week_ahead = now + timedelta(days=7)
@@ -228,6 +274,13 @@ class DashboardService:
             if date(now.year, now.month, d).weekday() < 5
         ) or 1
         daily_goal = round(max(MONTHLY_GOAL - month_revenue, 0) / remaining_working_days, 2)
+
+        # Previsione fatturato di fine mese: proiezione lineare "a ritmo
+        # attuale" (fatturato fatto finora / giorni trascorsi * giorni totali
+        # del mese). Semplice e trasparente, non una stima statistica
+        # sofisticata: comunica un ordine di grandezza, non una certezza.
+        elapsed_days = max(now.day, 1)
+        revenue_forecast_month = round(month_revenue / elapsed_days * days_in_month, 2)
 
         # Suggerimento: priorità di visita per oggi (cliente con offerta in
         # scadenza + più tempo senza ordini, altrimenti cliente più trascurato)
@@ -301,7 +354,70 @@ class DashboardService:
             "km_today": km_today,
             "daily_goal": daily_goal,
             "focus_client": focus_client,
+            "next_appointment_minutes": next_appointment_minutes,
+            "next_appointment_client": next_appointment_client,
+            "inactive_clients_60d": inactive_clients_60d,
+            "month_revenue_so_far": round(month_revenue, 2),
+            "revenue_forecast_month": revenue_forecast_month,
+            "monthly_goal": MONTHLY_GOAL,
         }
+
+    def format_morning_briefing(self, brief: dict, user_name: Optional[str] = None) -> str:
+        """Trasforma il riepilogo calcolato da get_today_brief in un saluto
+        proattivo in italiano ("Buongiorno Franco. Hai: ...") per l'apertura
+        della pagina Assistente AI. Puramente calcolato dai dati già
+        aggregati da get_today_brief: nessuna chiamata al modello, stesso
+        principio di rapidità/costo zero già documentato lì."""
+        saluto = f"Buongiorno {user_name}." if user_name else "Buongiorno."
+        lines = [saluto, "", "Hai:", ""]
+
+        lines.append("✓ " + _pluralize_it(
+            brief["clients_to_call"], "cliente da richiamare", "clienti da richiamare",
+            none_label="Nessun cliente da richiamare al momento",
+        ))
+        lines.append("✓ " + _pluralize_it(
+            brief["offers_expiring"], "offerta in scadenza", "offerte in scadenza",
+            none_label="Nessuna offerta in scadenza nei prossimi giorni",
+        ))
+
+        mins = brief.get("next_appointment_minutes")
+        if mins is not None:
+            client_part = f" con {brief['next_appointment_client']}" if brief.get("next_appointment_client") else ""
+            if mins <= 0:
+                lines.append(f"✓ Appuntamento{client_part} in corso o appena iniziato")
+            elif mins < 60:
+                lines.append(f"✓ Prossimo appuntamento{client_part} tra {mins} minuti")
+            else:
+                hours, rem = divmod(mins, 60)
+                time_str = f"{hours}h" + (f" {rem}min" if rem else "")
+                lines.append(f"✓ Prossimo appuntamento{client_part} tra {time_str}")
+        else:
+            lines.append("✓ Nessun appuntamento in programma")
+
+        lines.append("✓ " + _pluralize_it(
+            brief["payments_to_verify"], "provvigione da controllare", "provvigioni da controllare",
+            none_label="Nessuna provvigione da controllare",
+        ))
+        lines.append("✓ " + _pluralize_it(
+            brief["inactive_clients_60d"], "cliente inattivo da oltre 60 giorni",
+            "clienti inattivi da oltre 60 giorni",
+            none_label="Nessun cliente inattivo da oltre 60 giorni",
+        ))
+
+        forecast = brief.get("revenue_forecast_month")
+        goal = brief.get("monthly_goal")
+        if forecast is not None and goal:
+            if abs(forecast - goal) <= goal * 0.05:
+                trend = "in linea con"
+            elif forecast > goal:
+                trend = "sopra"
+            else:
+                trend = "sotto"
+            forecast_str = f"{forecast:,.0f}".replace(",", ".")
+            goal_str = f"{goal:,.0f}".replace(",", ".")
+            lines.append(f"✓ Previsione fatturato mese: €{forecast_str} ({trend} l'obiettivo di €{goal_str})")
+
+        return "\n".join(lines)
 
 
 dashboard_service = DashboardService()
