@@ -94,7 +94,16 @@ export default function VoiceAssistant() {
       setPendingActions((prev) => prev.filter((_, i) => i !== idx));
       speak(data.message);
     } catch (e) {
-      setAnswer((prev) => `${prev}\n\n❌ Errore durante la registrazione. Riprova.`);
+      if (e.response?.status === 409) {
+        // L'azione era già stata elaborata (es. doppio clic, o confermata da
+        // un'altra scheda se la stessa azione era comparsa due volte): non è
+        // un errore da cui l'utente possa "riprovare", va solo rimossa dalla
+        // vista perché non è più in sospeso.
+        setAnswer((prev) => `${prev}\n\nℹ️ Questa operazione era già stata elaborata.`);
+        setPendingActions((prev) => prev.filter((_, i) => i !== idx));
+      } else {
+        setAnswer((prev) => `${prev}\n\n❌ Errore durante la registrazione. Riprova.`);
+      }
     } finally {
       setExecutingIdx(null);
     }
