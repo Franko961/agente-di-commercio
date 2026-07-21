@@ -182,7 +182,12 @@ class FakeActionLogRepo:
         return False
 
     async def find_many(self, user_id, tool_name=None, status=None, date_from=None, date_to=None, limit=200):
-        return [d for d in self.docs if d["user_id"] == user_id]
+        results = [d for d in self.docs if d["user_id"] == user_id]
+        if tool_name:
+            results = [d for d in results if d["tool_name"] == tool_name]
+        if status:
+            results = [d for d in results if d["status"] == status]
+        return results[:limit]
 
 
 def build_service():
