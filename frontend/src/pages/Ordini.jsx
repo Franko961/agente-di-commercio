@@ -3,6 +3,7 @@ import api from "../api";
 import { Search, ShoppingCart, Building, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import ProductCombobox from "../components/ProductCombobox";
+import { useMandante } from "../contexts/MandanteContext";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { toast } from "sonner";
@@ -10,6 +11,8 @@ import { toast } from "sonner";
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
 
 export default function Ordini() {
+  const { activeMandante } = useMandante();
+  const mandanteParam = activeMandante && activeMandante !== "all" ? activeMandante : undefined;
   const [clients, setClients] = useState([]);
   const [mandanti, setMandanti] = useState([]);
   const [products, setProducts] = useState([]);
@@ -21,11 +24,13 @@ export default function Ordini() {
 
   const load = async () => {
     const [c, m, p, o, of] = await Promise.all([
-      api.get("/clients"), api.get("/mandanti"), api.get("/products"), api.get("/orders"), api.get("/offers"),
+      api.get("/clients"), api.get("/mandanti"), api.get("/products"),
+      api.get("/orders", { params: { mandante_id: mandanteParam } }),
+      api.get("/offers", { params: { mandante_id: mandanteParam } }),
     ]);
     setClients(c.data); setMandanti(m.data); setProducts(p.data); setOrders(o.data); setOffers(of.data);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [mandanteParam]);
 
   const filteredClients = useMemo(() => {
     const q = query.trim().toLowerCase();
