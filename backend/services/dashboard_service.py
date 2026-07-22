@@ -33,13 +33,24 @@ def _pluralize_it(count: int, singular: str, plural: str, none_label: Optional[s
 
 
 class DashboardService:
-    async def get_stats(self, user: dict) -> dict:
+    async def get_stats(self, user: dict, mandante_id: Optional[str] = None) -> dict:
         clients = await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
         offers = await db.offers.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
         leads = await db.leads.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
         appts = await db.appointments.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
         commissions = await db.commissions.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
         expenses = await db.expenses.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
+
+        # Filtro per mandante attivo. Leads e Spese non hanno ancora un
+        # collegamento al mandante (per le spese serve una migrazione di
+        # schema, non ancora fatta) e restano quindi sempre a livello
+        # generale, indipendentemente dal mandante selezionato.
+        if mandante_id:
+            clients = [c for c in clients if mandante_id in (c.get("mandante_ids") or [])]
+            client_ids = {c["id"] for c in clients}
+            offers = [o for o in offers if o.get("mandante_id") == mandante_id]
+            commissions = [c for c in commissions if c.get("mandante_id") == mandante_id]
+            appts = [a for a in appts if a.get("client_id") in client_ids]
 
         revenue_won = sum(o.get("total", 0) for o in offers if o.get("status") == "accettata")
         revenue_pipeline = sum(o.get("total", 0) for o in offers if o.get("status") in ("inviata", "bozza"))
@@ -151,7 +162,7 @@ class DashboardService:
             },
         }
 
-    async def get_today_brief(self, user: dict) -> dict:
+    async def get_today_brief(self, user: dict, mandante_id: Optional[str] = None) -> dict:
         """Riepilogo operativo della giornata per la home della dashboard:
         appuntamenti, clienti da richiamare, offerte in scadenza, pagamenti da
         verificare, km stimati e obiettivo del giorno, più un suggerimento
@@ -163,6 +174,15 @@ class DashboardService:
         offers = await db.offers.find({"user_id": user_id}, {"_id": 0}).to_list(5000)
         commissions = await db.commissions.find({"user_id": user_id}, {"_id": 0}).to_list(5000)
         orders = await db.orders.find({"user_id": user_id}, {"_id": 0}).to_list(5000)
+
+        # Stesso filtro per mandante attivo usato in get_stats.
+        if mandante_id:
+            clients = [c for c in clients if mandante_id in (c.get("mandante_ids") or [])]
+            client_ids = {c["id"] for c in clients}
+            offers = [o for o in offers if o.get("mandante_id") == mandante_id]
+            commissions = [c for c in commissions if c.get("mandante_id") == mandante_id]
+            orders = [o for o in orders if o.get("mandante_id") == mandante_id]
+            appts = [a for a in appts if a.get("client_id") in client_ids]
 
         now = datetime.now(timezone.utc)
         today_str = now.strftime("%Y-%m-%d")
