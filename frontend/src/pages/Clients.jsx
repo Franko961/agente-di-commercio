@@ -102,7 +102,8 @@ function Field({ label, v, on, type = "text", required, testid }) {
 }
 
 export default function Clients() {
-  const { mandanti } = useMandante();
+  const { mandanti, activeMandante } = useMandante();
+  const mandanteParam = activeMandante && activeMandante !== "all" ? activeMandante : undefined;
   const [clients, setClients] = useState([]);
   const [q, setQ] = useState("");
   const [zone, setZone] = useState("");
@@ -117,11 +118,12 @@ export default function Clients() {
     if (zone) params.append("zone", zone);
     if (potential) params.append("potential", potential);
     if (sector) params.append("sector", sector);
+    if (mandanteParam) params.append("mandante_id", mandanteParam);
     const { data } = await api.get(`/clients?${params}`);
     setClients(data);
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [q, zone, potential, sector]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [q, zone, potential, sector, mandanteParam]);
 
   const zones = [...new Set(clients.map((c) => c.zone).filter(Boolean))];
 
