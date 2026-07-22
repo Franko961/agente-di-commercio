@@ -8,6 +8,7 @@ import { TrendingUp, Coins, Users, FileText, Target, ArrowUpRight, Calendar, Pho
 import { Link } from "react-router-dom";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
+import { useMandante } from "../contexts/MandanteContext";
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n || 0);
 const EXPENSE_CATEGORY_LABELS = {
@@ -76,9 +77,15 @@ function TodayStat({ to, icon: Icon, value, label }) {
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [today, setToday] = useState(null);
+  const { activeMandante } = useMandante();
+  const mandanteParam = activeMandante && activeMandante !== "all" ? activeMandante : undefined;
 
-  useEffect(() => { api.get("/dashboard/stats").then(({ data }) => setData(data)); }, []);
-  useEffect(() => { api.get("/dashboard/today").then(({ data }) => setToday(data)).catch(() => {}); }, []);
+  useEffect(() => {
+    api.get("/dashboard/stats", { params: { mandante_id: mandanteParam } }).then(({ data }) => setData(data));
+  }, [mandanteParam]);
+  useEffect(() => {
+    api.get("/dashboard/today", { params: { mandante_id: mandanteParam } }).then(({ data }) => setToday(data)).catch(() => {});
+  }, [mandanteParam]);
 
   if (!data) return <div className="p-8 font-mono text-sm text-[#A1A1AA]">caricamento dashboard…</div>;
 
