@@ -11,8 +11,8 @@ class OfferService:
         self.repo = repo
         self.mandante_repo = mandante_repo
 
-    async def list_offers(self, user: dict) -> list:
-        return await self.repo.find_many(user["id"])
+    async def list_offers(self, user: dict, mandante_id: str = None) -> list:
+        return await self.repo.find_many(user["id"], mandante_id)
 
     async def create_offer(self, user: dict, payload) -> dict:
         data = payload.model_dump()
