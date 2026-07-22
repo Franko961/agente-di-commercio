@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../api";
 import { Search, ShoppingCart, Building, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
+import ProductCombobox from "../components/ProductCombobox";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { toast } from "sonner";
@@ -297,17 +298,12 @@ function OrderForm({ client, mandanti, products, onSave }) {
         <div className="space-y-2">
           {f.items.map((it, i) => (
             <div key={i} className="grid grid-cols-12 gap-2 items-center">
-              <select
-                value={it.product_id || ""}
-                onChange={(e) => {
-                  const p = filtered.find((x) => x.id === e.target.value);
-                  if (p) updItem(i, { product_id: p.id, description: p.name, unit_price: p.price });
-                }}
-                className="col-span-3 bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]"
-              >
-                <option value="">prodotto</option>
-                {filtered.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              <ProductCombobox
+                products={filtered}
+                value={it.product_id}
+                onSelect={(p) => updItem(i, { product_id: p.id, description: p.name, unit_price: p.price })}
+                className="col-span-3 w-full"
+              />
               <input value={it.description} onChange={(e) => updItem(i, { description: e.target.value })} placeholder="Descrizione" required
                      className="col-span-4 bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
               <input type="number" min="0" step="any" value={it.quantity} onChange={(e) => updItem(i, { quantity: parseFloat(e.target.value) || 0 })} placeholder="Qta"
