@@ -4,8 +4,10 @@ from typing import Optional
 class ClientRepository:
     collection = db.clients
 
-    async def find_many(self, user_id: str, filters: dict) -> list:
+    async def find_many(self, user_id: str, filters: dict, mandante_id: str = None) -> list:
         query = {"user_id": user_id, **filters}
+        if mandante_id:
+            query["mandante_ids"] = mandante_id
         return await self.collection.find(query, {"_id": 0}).to_list(2000)
 
     async def find_one(self, cid: str, user_id: str) -> Optional[dict]:
