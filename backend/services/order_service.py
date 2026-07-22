@@ -10,8 +10,8 @@ class OrderService:
         self.repo = repo
         self.mandante_repo = mandante_repo
 
-    async def list_orders(self, user: dict) -> list:
-        return await self.repo.find_many(user["id"])
+    async def list_orders(self, user: dict, mandante_id: str = None) -> list:
+        return await self.repo.find_many(user["id"], mandante_id)
 
     async def list_orders_by_client(self, user: dict, client_id: str) -> list:
         return await self.repo.find_by_client(user["id"], client_id)
