@@ -9,8 +9,9 @@ router = APIRouter(prefix="/api/clients", tags=["clients"])
 @router.get("")
 async def list_clients(zone: Optional[str] = None, sector: Optional[str] = None,
                         potential: Optional[str] = None, q: Optional[str] = None,
+                        mandante_id: Optional[str] = None,
                         user=Depends(get_current_user)):
-    return await client_service.list_clients(user, zone, sector, potential, q)
+    return await client_service.list_clients(user, zone, sector, potential, q, mandante_id)
 
 @router.post("")
 async def create_client(payload: ClientIn, user=Depends(get_current_user)):
