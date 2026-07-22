@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from typing import Optional
 from core.security import get_current_user, forbid_demo_write
 from services.order_service import order_service
 from models.order import OrderIn
@@ -7,8 +8,8 @@ router = APIRouter(prefix="/api/orders", tags=["orders"])
 
 
 @router.get("")
-async def list_orders(user=Depends(get_current_user)):
-    return await order_service.list_orders(user)
+async def list_orders(mandante_id: Optional[str] = None, user=Depends(get_current_user)):
+    return await order_service.list_orders(user, mandante_id)
 
 
 @router.get("/client/{client_id}")
