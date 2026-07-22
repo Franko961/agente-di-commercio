@@ -3,10 +3,13 @@ import api from "../api";
 import { Coins, Download, Trash2, Trophy, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { exportCommissions } from "../utils/export";
+import { useMandante } from "../contexts/MandanteContext";
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
 
 export default function Commissions() {
+  const { activeMandante } = useMandante();
+  const mandanteParam = activeMandante && activeMandante !== "all" ? activeMandante : undefined;
   const [commissions, setCommissions] = useState([]);
   const [clients, setClients] = useState([]);
   const [mandanti, setMandanti] = useState([]);
@@ -16,7 +19,7 @@ export default function Commissions() {
 
   const load = async () => {
     const [c, cl, m, bs] = await Promise.all([
-      api.get("/commissions"),
+      api.get("/commissions", { params: { mandante_id: mandanteParam } }),
       api.get("/clients"),
       api.get("/mandanti"),
       api.get("/commissions/bonus-summary").catch(() => ({ data: [] })),
@@ -26,7 +29,7 @@ export default function Commissions() {
     setMandanti(m.data);
     setBonusSummary(bs.data);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [mandanteParam]);
   
 const byClient = clientFilter === "all" ? commissions : commissions.filter(c => c.client_id === clientFilter);
 const filtered = filter === "all" ? byClient : byClient.filter(c => c.status === filter);
