@@ -107,8 +107,8 @@ class CommissionService:
             }
             await self.repo.insert(bonus_comm)
 
-    async def list_commissions(self, user: dict) -> list:
-        return await self.repo.find_many(user["id"])
+    async def list_commissions(self, user: dict, mandante_id: str = None) -> list:
+        return await self.repo.find_many(user["id"], mandante_id)
 
     async def bonus_summary(self, user: dict) -> list:
         """Calcola i bonus raggiunti per ogni mandante in base al fatturato delle provvigioni."""
