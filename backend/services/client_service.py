@@ -11,7 +11,7 @@ class ClientService:
     def __init__(self, repo=client_repository):
         self.repo = repo
 
-    async def list_clients(self, user: dict, zone=None, sector=None, potential=None, q=None):
+    async def list_clients(self, user: dict, zone=None, sector=None, potential=None, q=None, mandante_id=None):
         filters = {}
         if zone: filters["zone"] = zone
         if sector: filters["sector"] = sector
@@ -22,7 +22,7 @@ class ClientService:
                 {"contact_name": {"$regex": q, "$options": "i"}},
                 {"city": {"$regex": q, "$options": "i"}},
             ]
-        return await self.repo.find_many(user["id"], filters)
+        return await self.repo.find_many(user["id"], filters, mandante_id)
 
     async def create_client(self, user: dict, payload) -> dict:
         doc = {"id": str(uuid.uuid4()), "user_id": user["id"], **payload.model_dump(), "created_at": _now_iso()}
