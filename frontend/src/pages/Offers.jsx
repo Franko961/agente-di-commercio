@@ -7,6 +7,7 @@ import { it } from "date-fns/locale";
 import { toast } from "sonner";
 import { exportOffers } from "../utils/export";
 import SignaturePad from "../components/SignaturePad";
+import ProductCombobox from "../components/ProductCombobox";
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
 
@@ -197,15 +198,12 @@ function OfferForm({ clients, mandanti, products, onSave }) {
         <div className="space-y-2">
           {f.items.map((it, i) => (
             <div key={i} className="grid grid-cols-12 gap-2 items-center">
-              <select value={it.product_id || ""}
-                      onChange={(e) => {
-                        const p = products.find(x => x.id === e.target.value);
-                        if (p) updItem(i, { product_id: p.id, description: p.name, unit_price: p.price });
-                      }}
-                      className="col-span-3 bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]">
-                <option value="">prodotto</option>
-                {filtered.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              <ProductCombobox
+                products={filtered}
+                value={it.product_id}
+                onSelect={(p) => updItem(i, { product_id: p.id, description: p.name, unit_price: p.price })}
+                className="col-span-3 w-full"
+              />
               <input value={it.description} onChange={(e) => updItem(i, { description: e.target.value })} placeholder="Descrizione"
                      className="col-span-4 bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
               <input type="number" value={it.quantity} onChange={(e) => updItem(i, { quantity: parseFloat(e.target.value) || 0 })} placeholder="Qta"
