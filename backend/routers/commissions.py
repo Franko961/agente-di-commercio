@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Body
+from typing import Optional
 from core.security import get_current_user, forbid_demo_write
 from services.commission_service import commission_service
 
@@ -6,8 +7,8 @@ router = APIRouter(prefix="/api/commissions", tags=["commissions"])
 
 
 @router.get("")
-async def list_commissions(user=Depends(get_current_user)):
-    return await commission_service.list_commissions(user)
+async def list_commissions(mandante_id: Optional[str] = None, user=Depends(get_current_user)):
+    return await commission_service.list_commissions(user, mandante_id)
 
 
 @router.get("/bonus-summary")
