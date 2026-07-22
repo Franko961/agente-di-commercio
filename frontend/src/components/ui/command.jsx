@@ -47,9 +47,19 @@ const CommandInput = React.forwardRef(({ className, ...props }, ref) => (
 
 CommandInput.displayName = CommandPrimitive.Input.displayName
 
-const CommandList = React.forwardRef(({ className, ...props }, ref) => (
+const CommandList = React.forwardRef(({ className, onWheel, ...props }, ref) => (
   <CommandPrimitive.List
     ref={ref}
+    onWheel={(e) => {
+      // Impedisce che l'evento risalga fino al listener globale di
+      // react-remove-scroll installato dal Dialog (Radix) quando questo
+      // Command è annidato in un Popover dentro un Dialog: altrimenti lo
+      // scroll lock del Dialog blocca anche lo scroll con trackpad/rotellina
+      // qui dentro, perché il Popover è renderizzato in un portale separato
+      // e non viene riconosciuto come parte del contenuto del Dialog.
+      e.stopPropagation();
+      onWheel?.(e);
+    }}
     className={cn("max-h-[300px] overflow-y-auto overflow-x-hidden", className)}
     {...props} />
 ))
