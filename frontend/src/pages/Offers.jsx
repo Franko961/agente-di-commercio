@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { exportOffers } from "../utils/export";
 import SignaturePad from "../components/SignaturePad";
 import ProductCombobox from "../components/ProductCombobox";
+import { useMandante } from "../contexts/MandanteContext";
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
 
@@ -16,6 +17,8 @@ const STATUS_COLORS = {
 };
 
 export default function Offers() {
+  const { activeMandante } = useMandante();
+  const mandanteParam = activeMandante && activeMandante !== "all" ? activeMandante : undefined;
   const [offers, setOffers] = useState([]);
   const [clients, setClients] = useState([]);
   const [mandanti, setMandanti] = useState([]);
@@ -24,11 +27,14 @@ export default function Offers() {
   const [signOffer, setSignOffer] = useState(null);
 
   const load = async () => {
-    const [o, c, m, p] = await Promise.all([api.get("/offers"), api.get("/clients"), api.get("/mandanti"), api.get("/products")]);
+    const [o, c, m, p] = await Promise.all([
+      api.get("/offers", { params: { mandante_id: mandanteParam } }),
+      api.get("/clients"), api.get("/mandanti"), api.get("/products"),
+    ]);
     setOffers(o.data.sort((a, b) => b.created_at.localeCompare(a.created_at)));
     setClients(c.data); setMandanti(m.data); setProducts(p.data);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [mandanteParam]);
 
   const setStatus = async (id, status) => {
     await api.patch(`/offers/${id}/status`, { status });
