@@ -4,8 +4,11 @@ from core.database import db
 class CommissionRepository:
     collection = db.commissions
 
-    async def find_many(self, user_id: str) -> list:
-        return await self.collection.find({"user_id": user_id}, {"_id": 0}).to_list(2000)
+    async def find_many(self, user_id: str, mandante_id: str = None) -> list:
+        query = {"user_id": user_id}
+        if mandante_id:
+            query["mandante_id"] = mandante_id
+        return await self.collection.find(query, {"_id": 0}).to_list(2000)
 
     async def find_one(self, cid: str, user_id: str):
         return await self.collection.find_one({"id": cid, "user_id": user_id}, {"_id": 0})
