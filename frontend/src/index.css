@@ -12,13 +12,13 @@
     --text-primary: #0A0A0A;
     --text-secondary: #52525B;
     --text-tertiary: #A1A1AA;
-    --primary: #0A192F;
-    --primary-hover: #172A45;
-    --accent: #FF5A00;
-    --accent-hover: #E04F00;
+    --brand-primary: #0A192F;
+    --brand-primary-hover: #172A45;
+    --brand-accent: #FF5A00;
+    --brand-accent-hover: #E04F00;
     --success: #059669;
     --danger: #DC2626;
-    --border: #E4E4E1;
+    --border-brand: #E4E4E1;
     --border-strong: #D4D4D2;
 }
 
@@ -101,4 +101,4 @@ html, body {
 .fade-up { animation: fadeUp 0.4s ease-out both; }
 
 /* Grid border style for high-density tables/cards */
-.grid-cell { border: 1px solid var(--border); background: var(--bg-paper); }
+.grid-cell { border: 1px solid var(--border-brand); background: var(--bg-paper); }
