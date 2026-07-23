@@ -25,5 +25,8 @@ class UserRepository:
     async def update_by_stripe_subscription_id(self, sub_id: str, data: dict) -> None:
         await self.collection.update_one({"stripe_subscription_id": sub_id}, {"$set": data})
 
+    async def update_by_paypal_subscription_id(self, sub_id: str, data: dict) -> None:
+        await self.collection.update_one({"paypal_subscription_id": sub_id}, {"$set": data})
+
 
 user_repository = UserRepository()
