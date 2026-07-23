@@ -1,12 +1,25 @@
 import logging
+import requests
 from fastapi import HTTPException, Request
 
-from core.config import PLANS, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+from core.config import (
+    PLANS, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
+    PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, PAYPAL_API_BASE, PAYPAL_WEBHOOK_ID,
+)
+from core.database import db
 from core.security import verify_password
 from core.subscription_utils import is_subscription_active
 from repositories.user_repository import user_repository
 
 logger = logging.getLogger(__name__)
+
+# Collection per l'idempotenza dei webhook PayPal: PayPal può reinviare lo stesso
+# evento più volte, quindi teniamo traccia degli id già processati.
+paypal_webhook_events = db.paypal_webhook_events
+
+# Stati PayPal che consideriamo "abbonamento attivo": la sola creazione (APPROVAL_PENDING)
+# non basta, va confermato ACTIVE prima di sbloccare qualunque funzionalità a pagamento.
+PAYPAL_ACTIVE_STATUSES = {"ACTIVE"}
 
 # Alias mantenuto per compatibilità: la logica vive ora in core/subscription_utils.py
 # (core non può dipendere da services, quindi la fonte di verità è lì).
@@ -107,17 +120,124 @@ class SubscriptionService:
             await self.repo.update_by_stripe_subscription_id(sub["id"], {"subscription_status": "cancelled"})
         return {"ok": True}
 
+    # ---- Helper PayPal ---------------------------------------------------
+
+    def _paypal_token(self) -> str:
+        if not PAYPAL_CLIENT_ID or not PAYPAL_CLIENT_SECRET:
+            raise HTTPException(500, "PayPal non configurato")
+        resp = requests.post(
+            f"{PAYPAL_API_BASE}/v1/oauth2/token",
+            auth=(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET),
+            data={"grant_type": "client_credentials"},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return resp.json()["access_token"]
+
+    def _paypal_get_subscription(self, subscription_id: str) -> dict:
+        """Interroga direttamente PayPal per lo stato reale dell'abbonamento.
+        Non ci si fida mai della sola conferma inviata dal frontend."""
+        token = self._paypal_token()
+        resp = requests.get(
+            f"{PAYPAL_API_BASE}/v1/billing/subscriptions/{subscription_id}",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            raise HTTPException(400, "Abbonamento PayPal non trovato")
+        return resp.json()
+
+    def _verify_paypal_webhook_signature(self, headers, raw_body: bytes, event: dict) -> bool:
+        if not PAYPAL_WEBHOOK_ID:
+            logger.error("PAYPAL_WEBHOOK_ID non configurato: rifiuto il webhook")
+            return False
+        token = self._paypal_token()
+        resp = requests.post(
+            f"{PAYPAL_API_BASE}/v1/notifications/verify-webhook-signature",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "transmission_id": headers.get("paypal-transmission-id"),
+                "transmission_time": headers.get("paypal-transmission-time"),
+                "cert_url": headers.get("paypal-cert-url"),
+                "auth_algo": headers.get("paypal-auth-algo"),
+                "transmission_sig": headers.get("paypal-transmission-sig"),
+                "webhook_id": PAYPAL_WEBHOOK_ID,
+                "webhook_event": event,
+            },
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return False
+        return resp.json().get("verification_status") == "SUCCESS"
+
+    # ---- PayPal: capture lato frontend + conferma lato server -----------
+
     async def paypal_capture(self, user: dict, payload: dict) -> dict:
-        """Conferma abbonamento PayPal dopo approvazione."""
+        """Conferma abbonamento PayPal dopo approvazione nel frontend.
+        Il frontend segnala solo che l'utente ha approvato: il backend
+        interroga sempre PayPal per lo stato reale prima di attivare
+        qualunque funzionalità a pagamento."""
         subscription_id = payload.get("subscription_id")
         plan_id = payload.get("plan", "base")
         if not subscription_id:
             raise HTTPException(400, "subscription_id mancante")
+
+        subscription = self._paypal_get_subscription(subscription_id)
+        status = subscription.get("status")
+        if status not in PAYPAL_ACTIVE_STATUSES:
+            # Non attiviamo nulla: l'abbonamento esiste ma non è (ancora) attivo
+            # secondo PayPal. Il webhook lo attiverà quando/se arriverà ACTIVE.
+            await self.repo.update_by_id(user["id"], {
+                "plan": plan_id,
+                "subscription_status": "pending",
+                "paypal_subscription_id": subscription_id,
+            })
+            return {"ok": True, "status": "pending"}
+
         await self.repo.update_by_id(user["id"], {
             "plan": plan_id,
             "subscription_status": "active",
             "paypal_subscription_id": subscription_id,
         })
+        return {"ok": True, "status": "active"}
+
+    # ---- PayPal: webhook lato server (fonte di verità) -------------------
+
+    async def handle_paypal_webhook(self, request: Request) -> dict:
+        raw_body = await request.body()
+        event = await request.json()
+
+        if not self._verify_paypal_webhook_signature(request.headers, raw_body, event):
+            raise HTTPException(400, "Firma webhook PayPal non valida")
+
+        event_id = event.get("id")
+        if event_id:
+            # Idempotenza: PayPal può reinviare lo stesso evento più volte.
+            existing = await paypal_webhook_events.find_one({"event_id": event_id})
+            if existing:
+                return {"ok": True, "duplicate": True}
+            await paypal_webhook_events.insert_one({"event_id": event_id, "event_type": event.get("event_type")})
+
+        event_type = event.get("event_type")
+        resource = event.get("resource", {})
+        subscription_id = resource.get("id") or resource.get("billing_agreement_id")
+
+        if not subscription_id:
+            return {"ok": True, "ignored": True}
+
+        if event_type == "BILLING.SUBSCRIPTION.ACTIVATED":
+            await self.repo.update_by_paypal_subscription_id(subscription_id, {"subscription_status": "active"})
+        elif event_type == "BILLING.SUBSCRIPTION.CANCELLED":
+            await self.repo.update_by_paypal_subscription_id(subscription_id, {"subscription_status": "cancelled"})
+        elif event_type == "BILLING.SUBSCRIPTION.SUSPENDED":
+            await self.repo.update_by_paypal_subscription_id(subscription_id, {"subscription_status": "suspended"})
+        elif event_type == "BILLING.SUBSCRIPTION.EXPIRED":
+            await self.repo.update_by_paypal_subscription_id(subscription_id, {"subscription_status": "expired"})
+        elif event_type == "PAYMENT.SALE.DENIED":
+            await self.repo.update_by_paypal_subscription_id(subscription_id, {"subscription_status": "payment_failed"})
+        # PAYMENT.SALE.COMPLETED: rinnovo riuscito, nessun cambio di stato necessario
+        # oltre a restare "active"; loggato per audit tramite paypal_webhook_events.
+
         return {"ok": True}
 
     async def cancel_subscription(self, user: dict) -> dict:
