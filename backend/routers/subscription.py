@@ -39,6 +39,11 @@ async def paypal_capture(payload: dict = Body(...), user=Depends(get_current_use
     return await subscription_service.paypal_capture(user, payload)
 
 
+@router.post("/paypal-webhook")
+async def paypal_webhook(request: Request):
+    return await subscription_service.handle_paypal_webhook(request)
+
+
 @router.post("/cancel")
 async def cancel_subscription(user=Depends(get_current_user)):
     return await subscription_service.cancel_subscription(user)
