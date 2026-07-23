@@ -18,6 +18,11 @@ STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 PAYPAL_CLIENT_ID = os.environ.get('PAYPAL_CLIENT_ID', '')
 PAYPAL_CLIENT_SECRET = os.environ.get('PAYPAL_CLIENT_SECRET', '')
 PAYPAL_MODE = os.environ.get('PAYPAL_MODE', 'sandbox')
+PAYPAL_WEBHOOK_ID = os.environ.get('PAYPAL_WEBHOOK_ID', '')
+PAYPAL_API_BASE = (
+    'https://api-m.paypal.com' if PAYPAL_MODE == 'live'
+    else 'https://api-m.sandbox.paypal.com'
+)
 
 CORS_ORIGINS = [
     origin.strip() for origin in os.environ.get(
