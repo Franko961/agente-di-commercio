@@ -1,35 +1,17 @@
-import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { Check, Zap, Star } from "lucide-react";
-
-const FEATURES_BASE = [
-  "Clienti e anagrafiche illimitati",
-  "Agenda e appuntamenti",
-  "Offerte e preventivi",
-  "Provvigioni e scala premi",
-  "Archivio documenti (S3)",
-  "Pipeline lead (Kanban)",
-  "Mappa clienti geolocalizzata",
-  "Assistente AI (50 msg/mese)",
-  "14 giorni di prova gratuita",
-];
-
-const FEATURES_PRO = [
-  "Tutto il piano Base",
-  "Assistente AI illimitato",
-  "Memoria AI persistente",
-  "AI può modificare il CRM",
-  "Scala premi avanzata",
-  "Statistiche per settore",
-  "Esportazione CSV avanzata",
-  "Supporto prioritario",
-  "Aggiornamenti anticipati",
-];
+import usePlans from "../hooks/usePlans";
 
 export default function Pricing() {
   const navigate = useNavigate();
-  const [billing] = useState("monthly");
+  const { plansById, trialDays, loading } = usePlans();
+  const base = plansById.base;
+  const pro = plansById.pro;
+
+  if (loading || !base || !pro) {
+    return <div className="min-h-screen flex items-center justify-center text-[#A1A1AA]">Caricamento…</div>;
+  }
 
   return (
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
@@ -37,7 +19,7 @@ export default function Pricing() {
         <title>Prezzi — SALESFLY, il CRM per Agenti di Commercio</title>
         <meta
           name="description"
-          content="Piani Base (€6/mese) e Pro (€11/mese) per il CRM SALESFLY. 14 giorni di prova gratuita, nessuna carta di credito richiesta."
+          content={`Piani ${base.name} (€${base.price_eur}/mese) e ${pro.name} (€${pro.price_eur}/mese) per il CRM SALESFLY. ${trialDays} giorni di prova gratuita, nessuna carta di credito richiesta.`}
         />
         <link rel="canonical" href="https://salesfly.it/prezzi" />
       </Helmet>
@@ -63,7 +45,7 @@ export default function Pricing() {
             Semplice, trasparente,<br />senza sorprese.
           </h1>
           <p className="text-[16px] text-[#52525B] max-w-xl mx-auto">
-            14 giorni di prova gratuita su tutti i piani. Nessuna carta di credito richiesta.
+            {trialDays} giorni di prova gratuita su tutti i piani. Nessuna carta di credito richiesta.
           </p>
         </div>
 
@@ -74,19 +56,19 @@ export default function Pricing() {
           <div className="bg-white border border-[#E4E4E1] rounded-xl p-8">
             <div className="flex items-center gap-2 mb-4">
               <Zap className="w-5 h-5 text-[#52525B]" />
-              <span className="font-cabinet font-bold text-lg">Base</span>
+              <span className="font-cabinet font-bold text-lg">{base.name}</span>
             </div>
             <div className="mb-6">
-              <span className="font-cabinet font-black text-4xl">€6</span>
+              <span className="font-cabinet font-black text-4xl">€{base.price_eur}</span>
               <span className="text-[#52525B] text-[14px]">/mese</span>
-              <div className="text-[12px] text-[#A1A1AA] mt-1">€72/anno · IVA esclusa</div>
+              <div className="text-[12px] text-[#A1A1AA] mt-1">€{(base.price_eur * 12).toFixed(0)}/anno · IVA esclusa</div>
             </div>
             <button onClick={() => navigate("/login?register&plan=base")}
               className="w-full py-3 border-2 border-[#0A192F] text-[#0A192F] rounded-lg text-[14px] font-bold mb-6 hover:bg-[#0A192F] hover:text-white transition-colors">
               Inizia prova gratuita
             </button>
             <div className="space-y-3">
-              {FEATURES_BASE.map(f => (
+              {[...base.features, `${trialDays} giorni di prova gratuita`].map(f => (
                 <div key={f} className="flex items-start gap-2.5 text-[13px]">
                   <Check className="w-4 h-4 text-[#059669] shrink-0 mt-0.5" />
                   <span>{f}</span>
@@ -102,19 +84,19 @@ export default function Pricing() {
             </div>
             <div className="flex items-center gap-2 mb-4">
               <Star className="w-5 h-5 text-[#FF5A00]" />
-              <span className="font-cabinet font-bold text-lg">Pro</span>
+              <span className="font-cabinet font-bold text-lg">{pro.name}</span>
             </div>
             <div className="mb-6">
-              <span className="font-cabinet font-black text-4xl">€11</span>
+              <span className="font-cabinet font-black text-4xl">€{pro.price_eur}</span>
               <span className="text-white/60 text-[14px]">/mese</span>
-              <div className="text-[12px] text-white/40 mt-1">€132/anno · IVA esclusa</div>
+              <div className="text-[12px] text-white/40 mt-1">€{(pro.price_eur * 12).toFixed(0)}/anno · IVA esclusa</div>
             </div>
             <button onClick={() => navigate("/login?register&plan=pro")}
               className="w-full py-3 bg-[#FF5A00] text-white rounded-lg text-[14px] font-bold mb-6 hover:bg-[#e04e00] transition-colors">
               Inizia prova gratuita
             </button>
             <div className="space-y-3">
-              {FEATURES_PRO.map(f => (
+              {pro.features.map(f => (
                 <div key={f} className="flex items-start gap-2.5 text-[13px]">
                   <Check className="w-4 h-4 text-[#FF5A00] shrink-0 mt-0.5" />
                   <span className="text-white/80">{f}</span>
@@ -130,7 +112,7 @@ export default function Pricing() {
           <div className="space-y-4">
             {[
               ["Posso cambiare piano in qualsiasi momento?", "Sì, puoi passare da Base a Pro o viceversa in qualsiasi momento. Il cambio è immediato."],
-              ["Come funziona la prova gratuita?", "Hai 14 giorni per testare tutte le funzionalità senza inserire dati di pagamento. Al termine scegli il piano che preferisci."],
+              ["Come funziona la prova gratuita?", `Hai ${trialDays} giorni per testare tutte le funzionalità senza inserire dati di pagamento. Al termine scegli il piano che preferisci.`],
               ["Posso cancellare quando voglio?", "Sì, nessun vincolo contrattuale. Puoi cancellare in qualsiasi momento dall'area abbonamento."],
               ["Quali metodi di pagamento accettate?", "Accettiamo carte di credito/debito tramite Stripe (Visa, Mastercard, Amex) e PayPal."],
             ].map(([q, a]) => (
