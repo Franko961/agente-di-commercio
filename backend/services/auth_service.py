@@ -3,7 +3,7 @@ from datetime import datetime, timezone, timedelta
 from fastapi import HTTPException
 from core.utils import gen_id, now_iso, clean
 from core.security import hash_password, verify_password, create_access_token, generate_reset_token, hash_reset_token
-from core.config import PLANS, ADMIN_NOTIFY_EMAIL, FRONTEND_URL
+from core.config import PLANS, TRIAL_DAYS, ADMIN_NOTIFY_EMAIL, FRONTEND_URL
 from core.rate_limit import check_and_record
 from core.subscription_utils import is_subscription_active
 from repositories.user_repository import user_repository
@@ -31,7 +31,7 @@ class AuthService:
             "role": "agent", "created_at": now_iso(),
             "plan": plan,
             "subscription_status": "trial",  # trial | active | cancelled | expired
-            "trial_ends_at": (datetime.now(timezone.utc) + timedelta(days=14)).isoformat(),
+            "trial_ends_at": (datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)).isoformat(),
             "stripe_customer_id": None,
             "stripe_subscription_id": None,
             "paypal_subscription_id": None,
@@ -58,13 +58,13 @@ class AuthService:
                   </div>
                   <h2 style="color:#0A192F;margin:0 0 12px;">Benvenuto, {doc.get('name', '')}!</h2>
                   <p style="color:#52525B;font-size:15px;line-height:1.6;">
-                    Il tuo account è stato creato con successo. Hai <strong>14 giorni di prova gratuita</strong> 
+                    Il tuo account è stato creato con successo. Hai <strong>{TRIAL_DAYS} giorni di prova gratuita</strong> 
                     per esplorare tutte le funzionalità di SALESFLY.
                   </p>
                   <div style="background:#fff;border:1px solid #E4E4E1;border-radius:8px;padding:20px;margin:24px 0;">
                     <div style="font-size:12px;color:#A1A1AA;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Piano attivo</div>
-                    <div style="font-size:20px;font-weight:900;color:#FF5A00;">{plan.upper()} — €{PLANS[plan]['price_eur']:.0f}/mese</div>
-                    <div style="font-size:13px;color:#52525B;margin-top:4px;">14 giorni gratuiti, nessuna carta richiesta</div>
+                    <div style="font-size:20px;font-weight:900;color:#FF5A00;">{PLANS[plan]['name']} — €{PLANS[plan]['price_eur']:.0f}/mese</div>
+                    <div style="font-size:13px;color:#52525B;margin-top:4px;">{TRIAL_DAYS} giorni gratuiti, nessuna carta richiesta</div>
                   </div>
                   <a href="https://salesfly.netlify.app" 
                      style="display:inline-block;background:#0A192F;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">
@@ -91,7 +91,7 @@ class AuthService:
                   <table style="width:100%;border-collapse:collapse;font-size:14px;">
                     <tr><td style="padding:8px;color:#52525B;width:120px;">Nome</td><td style="padding:8px;font-weight:600;">{doc.get('name','')}</td></tr>
                     <tr style="background:#F9F9F8;"><td style="padding:8px;color:#52525B;">Email</td><td style="padding:8px;font-weight:600;">{email}</td></tr>
-                    <tr><td style="padding:8px;color:#52525B;">Piano</td><td style="padding:8px;font-weight:600;color:#FF5A00;">{plan.upper()}</td></tr>
+                    <tr><td style="padding:8px;color:#52525B;">Piano</td><td style="padding:8px;font-weight:600;color:#FF5A00;">{PLANS[plan]['name']}</td></tr>
                     <tr style="background:#F9F9F8;"><td style="padding:8px;color:#52525B;">Data</td><td style="padding:8px;">{now_iso()[:16].replace('T',' ')}</td></tr>
                   </table>
                   <a href="https://salesfly.netlify.app/admin"
