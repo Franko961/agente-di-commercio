@@ -4,8 +4,10 @@ import { Helmet } from "react-helmet-async";
 import { CheckCircle2 } from "lucide-react";
 import api from "../api";
 import { toast } from "sonner";
+import usePlans from "../hooks/usePlans";
 
 export default function RichiediDemo() {
+  const { trialDays } = usePlans();
   const [form, setForm] = useState({
     nome: "", cognome: "", email: "", azienda: "", telefono: "",
     privacy_consent: false, marketing_consent: false,
@@ -65,7 +67,7 @@ export default function RichiediDemo() {
             <h1 className="font-cabinet font-black text-2xl mb-2">Controlla la tua email</h1>
             <p className="text-[#52525B] text-sm">
               Abbiamo creato il tuo account e ti abbiamo inviato email e password per accedere
-              subito a SALESFLY, con 14 giorni di prova gratuita. Se non la trovi, controlla anche nello spam.
+              subito a SALESFLY, con {trialDays} giorni di prova gratuita. Se non la trovi, controlla anche nello spam.
             </p>
           </div>
         ) : (
@@ -74,7 +76,7 @@ export default function RichiediDemo() {
               <h1 className="font-cabinet font-black text-3xl mb-2">Richiedi la Demo</h1>
               <p className="text-[#52525B] text-sm">
                 Compila il form: riceverai subito via email le tue credenziali di accesso e potrai
-                usare SALESFLY gratis per 14 giorni.
+                usare SALESFLY gratis per {trialDays} giorni.
               </p>
             </div>
 
