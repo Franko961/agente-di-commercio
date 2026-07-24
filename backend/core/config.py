@@ -31,9 +31,42 @@ CORS_ORIGINS = [
     ).split(',') if origin.strip()
 ]
 
+TRIAL_DAYS = int(os.environ.get('TRIAL_DAYS', '14'))
+
 PLANS = {
-    'base': {'name': 'Base', 'price_eur': 6.00, 'stripe_price_id': os.environ.get('STRIPE_PRICE_BASE', ''), 'paypal_plan_id': os.environ.get('PAYPAL_PLAN_BASE', '')},
-    'pro':  {'name': 'Pro',  'price_eur': 11.00, 'stripe_price_id': os.environ.get('STRIPE_PRICE_PRO', ''),  'paypal_plan_id': os.environ.get('PAYPAL_PLAN_PRO', '')},
+    'base': {
+        'name': 'Base',
+        'price_eur': 6.00,
+        'stripe_price_id': os.environ.get('STRIPE_PRICE_BASE', ''),
+        'paypal_plan_id': os.environ.get('PAYPAL_PLAN_BASE', ''),
+        'features': [
+            'Clienti e anagrafiche illimitati',
+            'Agenda e appuntamenti',
+            'Offerte e preventivi',
+            'Provvigioni e scala premi',
+            'Archivio documenti (S3)',
+            'Pipeline lead (Kanban)',
+            'Mappa clienti geolocalizzata',
+            'Assistente AI (50 msg/mese)',
+        ],
+    },
+    'pro': {
+        'name': 'Pro',
+        'price_eur': 11.00,
+        'stripe_price_id': os.environ.get('STRIPE_PRICE_PRO', ''),
+        'paypal_plan_id': os.environ.get('PAYPAL_PLAN_PRO', ''),
+        'features': [
+            'Tutto il piano Base',
+            'Assistente AI illimitato',
+            'Memoria AI persistente',
+            'AI può modificare il CRM',
+            'Scala premi avanzata',
+            'Statistiche per settore',
+            'Esportazione CSV avanzata',
+            'Supporto prioritario',
+            'Aggiornamenti anticipati',
+        ],
+    },
 }
 
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
