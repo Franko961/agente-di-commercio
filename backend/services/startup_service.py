@@ -66,6 +66,15 @@ async def run_startup() -> None:
     await db.clients.create_index([("user_id", 1)])
     await db.offers.create_index([("user_id", 1)])
     await db.documents.create_index([("user_id", 1), ("is_deleted", 1)])
+    # Queste cinque collection sono lette per intero ad ogni caricamento della
+    # dashboard (get_stats/get_today_brief), filtrate per user_id: senza
+    # indice, ogni query è una scansione completa della collection su TUTTI
+    # gli utenti, non solo un filtro sull'utente corrente.
+    await db.leads.create_index([("user_id", 1)])
+    await db.appointments.create_index([("user_id", 1)])
+    await db.commissions.create_index([("user_id", 1)])
+    await db.expenses.create_index([("user_id", 1)])
+    await db.orders.create_index([("user_id", 1)])
     # TTL: gli eventi di rate limiting più vecchi di 2 ore vengono eliminati
     # automaticamente da MongoDB (le finestre usate sono tutte <= 15 minuti).
     await db.rate_limit_events.create_index("created_at", expireAfterSeconds=7200)
