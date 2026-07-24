@@ -34,6 +34,11 @@ async def stripe_webhook(request: Request):
     return await subscription_service.handle_stripe_webhook(request)
 
 
+@router.post("/paypal-create")
+async def paypal_create(payload: dict = Body(...), user=Depends(get_current_user)):
+    return await subscription_service.create_paypal_subscription(user, payload)
+
+
 @router.post("/paypal-capture")
 async def paypal_capture(payload: dict = Body(...), user=Depends(get_current_user)):
     return await subscription_service.paypal_capture(user, payload)
