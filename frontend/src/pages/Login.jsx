@@ -5,13 +5,10 @@ import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import { Eye, EyeOff, CreditCard } from "lucide-react";
 import api from "../api";
-
-const CHECKOUT_PLANS = {
-  base: { name: "Base", price: 6 },
-  pro: { name: "Pro", price: 11 },
-};
+import usePlans from "../hooks/usePlans";
 
 export default function Login() {
+  const { plansById, trialDays } = usePlans();
   const { user, loading, login, register } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -153,7 +150,7 @@ export default function Login() {
             <p className="text-[14px] text-[#52525B] leading-relaxed mb-8 max-w-sm">
               {mode === "login"
                 ? "Accedi al tuo cruscotto. Gestisci clienti, provvigioni e visite in un unico posto."
-                : "14 giorni di prova gratuita. Nessuna carta richiesta."}
+                : `${trialDays} giorni di prova gratuita. Nessuna carta richiesta.`}
             </p>
 
             {/* Selezione piano in registrazione */}
@@ -164,7 +161,7 @@ export default function Login() {
                   {["base", "pro"].map(p => (
                     <button key={p} type="button" onClick={() => setPlan(p)}
                       className={`py-2.5 px-3 rounded-md border-2 text-[13px] font-medium transition-colors ${plan === p ? "border-[#FF5A00] bg-[#FF5A00] text-white" : "border-[#E4E4E1] text-[#52525B]"}`}>
-                      {p === "base" ? "Base — €6/mese" : "Pro — €11/mese"}
+                      {plansById[p] ? `${plansById[p].name} — €${plansById[p].price_eur}/mese` : "…"}
                     </button>
                   ))}
                 </div>
@@ -178,14 +175,14 @@ export default function Login() {
               <div data-testid="trial-expired-paywall" className="bg-white border-2 border-[#FF5A00] rounded-lg p-6 mb-6">
                 <h2 className="font-cabinet font-black text-xl mb-2">Il tuo periodo di prova è scaduto</h2>
                 <p className="text-[13px] text-[#52525B] mb-5">
-                  I 14 giorni di prova gratuita per <strong>{email}</strong> sono terminati.
+                  I {trialDays} giorni di prova gratuita per <strong>{email}</strong> sono terminati.
                   Scegli un piano per riattivare subito il tuo account.
                 </p>
                 <div className="grid grid-cols-2 gap-3 mb-4">
-                  {Object.entries(CHECKOUT_PLANS).map(([id, p]) => (
+                  {Object.entries(plansById).map(([id, p]) => (
                     <div key={id} className={`border-2 rounded-md p-4 ${id === "pro" ? "border-[#FF5A00]" : "border-[#E4E4E1]"}`}>
                       <div className="font-cabinet font-black text-lg">{p.name}</div>
-                      <div className="font-cabinet font-black text-2xl mb-3">€{p.price}<span className="text-[12px] font-normal text-[#52525B]">/mese</span></div>
+                      <div className="font-cabinet font-black text-2xl mb-3">€{p.price_eur}<span className="text-[12px] font-normal text-[#52525B]">/mese</span></div>
                       <button type="button" onClick={() => startCheckout(id)} disabled={checkingOut}
                         className="w-full flex items-center justify-center gap-2 py-2 bg-[#0A192F] text-white rounded-md text-[12px] font-medium disabled:opacity-50">
                         <CreditCard className="w-3.5 h-3.5" /> {checkingOut ? "Attendere…" : "Attiva"}
