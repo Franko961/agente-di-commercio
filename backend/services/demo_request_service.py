@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 from core.utils import gen_id, now_iso
 from core.security import hash_password
 from core.exceptions import ValidationAppError
-from core.config import FRONTEND_URL, ADMIN_NOTIFY_EMAIL, PLANS
+from core.config import FRONTEND_URL, ADMIN_NOTIFY_EMAIL, PLANS, TRIAL_DAYS
 from repositories.demo_request_repository import demo_request_repository
 from repositories.user_repository import user_repository
 from services.email_service import send_email
@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 # così restano tracciate le condizioni esatte accettate da ciascun utente nel tempo.
 PRIVACY_POLICY_VERSION = "1.0-2026-07-14"
 
-TRIAL_DAYS = 14
 TRIAL_PLAN = "base"  # piano assegnato di default all'account di prova creato dal form demo
 
 
@@ -54,7 +53,7 @@ class DemoRequestService:
                 "oppure, se le hai dimenticate, contattaci."
             )
 
-        # Crea subito un account reale e a tempo (14 giorni di prova), con
+        # Crea subito un account reale e a tempo (TRIAL_DAYS giorni di prova), con
         # credenziali proprie inviate via email — non più un accesso condiviso.
         password = _generate_password()
         user_id = gen_id()
@@ -101,7 +100,7 @@ class DemoRequestService:
 
         await send_email(
             to=email,
-            subject="Le tue credenziali di accesso a SALESFLY — 14 giorni di prova",
+            subject=f"Le tue credenziali di accesso a SALESFLY — {TRIAL_DAYS} giorni di prova",
             html=self._user_email_html(nome, email, password, login_link),
         )
         await send_email(
@@ -122,7 +121,7 @@ class DemoRequestService:
           <h2 style="color:#0A192F;">Ciao {nome},</h2>
           <p>Grazie per aver richiesto l'accesso a <strong>SALESFLY</strong>,
           il CRM pensato per gli agenti di commercio. Abbiamo creato il tuo account
-          con <strong>14 giorni di prova gratuita</strong>, nessuna carta richiesta.</p>
+          con <strong>{TRIAL_DAYS} giorni di prova gratuita</strong>, nessuna carta richiesta.</p>
           <div style="background:#F9F9F8; border:1px solid #E4E4E1; border-radius:8px; padding:16px 20px; margin:24px 0;">
             <div style="font-size:12px; color:#52525B; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">Le tue credenziali</div>
             <div style="font-size:14px; margin-bottom:6px;"><strong>Email:</strong> {email}</div>
@@ -165,7 +164,7 @@ class DemoRequestService:
             <tr><td style="padding:4px 0; color:#52525B;">Data</td><td>{doc['created_at']}</td></tr>
           </table>
           <p style="font-size:13px; color:#52525B; margin-top:16px;">
-            È stato creato automaticamente un account di prova (14 giorni) per questo utente.
+            È stato creato automaticamente un account di prova ({TRIAL_DAYS} giorni) per questo utente.
           </p>
         </div>
         """
