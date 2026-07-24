@@ -33,6 +33,24 @@ def _pluralize_it(count: int, singular: str, plural: str, none_label: Optional[s
 
 
 class DashboardService:
+    # Soglia di guardia per il .to_list(5000) usato in get_stats/get_today_brief:
+    # se una collection di un utente la supera, i record oltre questo numero
+    # spariscono silenziosamente dai calcoli — meglio saperlo dai log che da
+    # un utente che segnala numeri sballati. Non blocca nulla, è solo un
+    # segnale che la strategia "carica tutto e calcola in Python" ha bisogno
+    # di essere rivista (aggregation pipeline) per quell'utente/collection.
+    _CAP_WARNING_THRESHOLD = 4000
+
+    @staticmethod
+    def _warn_if_near_cap(user_id: str, **collections) -> None:
+        for name, docs in collections.items():
+            if len(docs) >= DashboardService._CAP_WARNING_THRESHOLD:
+                logger.warning(
+                    f"dashboard_service: utente {user_id} ha {len(docs)} record in "
+                    f"'{name}', vicino/oltre la cap di 5000 usata in .to_list() — "
+                    f"dati oltre 5000 vengono esclusi dai calcoli."
+                )
+
     async def get_stats(self, user: dict, mandante_id: Optional[str] = None) -> dict:
         clients = await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
         offers = await db.offers.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
@@ -40,6 +58,8 @@ class DashboardService:
         appts = await db.appointments.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
         commissions = await db.commissions.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
         expenses = await db.expenses.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
+        self._warn_if_near_cap(user["id"], clients=clients, offers=offers, leads=leads,
+                                appointments=appts, commissions=commissions, expenses=expenses)
 
         # Filtro per mandante attivo. Leads e Spese non hanno ancora un
         # collegamento al mandante (per le spese serve una migrazione di
@@ -57,12 +77,16 @@ class DashboardService:
         accrued = sum(c.get("amount", 0) for c in commissions if c.get("status") == "maturato")
         collected = sum(c.get("amount", 0) for c in commissions if c.get("status") == "incassato")
 
+        # Mappa per lookup O(1) del cliente per id, invece di scandire l'intera
+        # lista clients per ogni offerta (che sarebbe O(offers × clients)).
+        clients_by_id = {c["id"]: c for c in clients}
+
         # Revenue by zone
         by_zone: Dict[str, float] = {}
         for o in offers:
             if o.get("status") != "accettata":
                 continue
-            cli = next((c for c in clients if c["id"] == o.get("client_id")), None)
+            cli = clients_by_id.get(o.get("client_id"))
             if cli:
                 zone = cli.get("zone") or "N/D"
                 by_zone[zone] = by_zone.get(zone, 0) + o.get("total", 0)
@@ -174,6 +198,8 @@ class DashboardService:
         offers = await db.offers.find({"user_id": user_id}, {"_id": 0}).to_list(5000)
         commissions = await db.commissions.find({"user_id": user_id}, {"_id": 0}).to_list(5000)
         orders = await db.orders.find({"user_id": user_id}, {"_id": 0}).to_list(5000)
+        self._warn_if_near_cap(user_id, clients=clients, appointments=appts, offers=offers,
+                                commissions=commissions, orders=orders)
 
         # Stesso filtro per mandante attivo usato in get_stats.
         if mandante_id:
