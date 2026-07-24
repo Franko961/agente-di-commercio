@@ -5,6 +5,7 @@ from fastapi import HTTPException, Request
 from core.config import (
     PLANS, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
     PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, PAYPAL_API_BASE, PAYPAL_WEBHOOK_ID,
+    FRONTEND_URL,
 )
 from core.database import db
 from core.security import verify_password
@@ -172,17 +173,62 @@ class SubscriptionService:
 
     # ---- PayPal: capture lato frontend + conferma lato server -----------
 
+    async def create_paypal_subscription(self, user: dict, payload: dict) -> dict:
+        """Crea l'abbonamento lato PayPal con un return_url che punta davvero
+        al nostro frontend, invece di affidarci a un link statico che non
+        permette di controllare dove l'utente viene reindirizzato dopo il
+        pagamento."""
+        plan_id = payload.get("plan", "base")
+        plan = PLANS.get(plan_id)
+        if not plan or not plan.get("paypal_plan_id"):
+            raise HTTPException(400, "Piano PayPal non configurato")
+
+        return_base = payload.get("return_url", FRONTEND_URL)
+        token = self._paypal_token()
+        resp = requests.post(
+            f"{PAYPAL_API_BASE}/v1/billing/subscriptions",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "plan_id": plan["paypal_plan_id"],
+                "application_context": {
+                    "brand_name": "Salesfly",
+                    "return_url": f"{return_base}/abbonamento?paypal_return=1",
+                    "cancel_url": f"{return_base}/abbonamento?cancelled=1",
+                },
+            },
+            timeout=10,
+        )
+        if resp.status_code not in (200, 201):
+            logger.error(f"Errore creazione abbonamento PayPal: {resp.status_code} {resp.text[:300]}")
+            raise HTTPException(500, "Errore avvio pagamento PayPal")
+
+        data = resp.json()
+        approve_url = next((l["href"] for l in data.get("links", []) if l.get("rel") == "approve"), None)
+        if not approve_url:
+            raise HTTPException(500, "PayPal non ha restituito un link di approvazione")
+
+        return {"approve_url": approve_url, "subscription_id": data["id"]}
+
     async def paypal_capture(self, user: dict, payload: dict) -> dict:
         """Conferma abbonamento PayPal dopo approvazione nel frontend.
         Il frontend segnala solo che l'utente ha approvato: il backend
         interroga sempre PayPal per lo stato reale prima di attivare
         qualunque funzionalità a pagamento."""
         subscription_id = payload.get("subscription_id")
-        plan_id = payload.get("plan", "base")
         if not subscription_id:
             raise HTTPException(400, "subscription_id mancante")
 
         subscription = self._paypal_get_subscription(subscription_id)
+
+        # Non ci fidiamo del piano dichiarato dal frontend: lo deriviamo dal
+        # plan_id che PayPal ci restituisce, altrimenti un client malevolo (o
+        # bacato) potrebbe dichiarare "pro" avendo davvero pagato solo "base".
+        real_paypal_plan_id = subscription.get("plan_id")
+        plan_id = next(
+            (k for k, v in PLANS.items() if v.get("paypal_plan_id") == real_paypal_plan_id),
+            payload.get("plan", "base"),  # fallback solo se non riusciamo a mappare
+        )
+
         status = subscription.get("status")
         if status not in PAYPAL_ACTIVE_STATUSES:
             # Non attiviamo nulla: l'abbonamento esiste ma non è (ancora) attivo
