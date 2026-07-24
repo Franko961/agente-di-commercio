@@ -3,7 +3,7 @@ import requests
 from fastapi import HTTPException, Request
 
 from core.config import (
-    PLANS, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
+    PLANS, TRIAL_DAYS, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
     PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, PAYPAL_API_BASE, PAYPAL_WEBHOOK_ID,
     FRONTEND_URL,
 )
@@ -31,8 +31,11 @@ class SubscriptionService:
     def __init__(self, repo=user_repository):
         self.repo = repo
 
-    async def get_plans(self) -> list:
-        return [{"id": k, **v} for k, v in PLANS.items()]
+    async def get_plans(self) -> dict:
+        return {
+            "plans": [{"id": k, **v} for k, v in PLANS.items()],
+            "trial_days": TRIAL_DAYS,
+        }
 
     async def get_status(self, user: dict) -> dict:
         u = await self.repo.find_by_id(user["id"])
