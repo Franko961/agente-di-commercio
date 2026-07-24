@@ -1,14 +1,11 @@
 import { useEffect, useState } from "react";
 import api from "../api";
+import usePlans from "../hooks/usePlans";
 import { CheckCircle, XCircle, CreditCard, AlertTriangle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
-const PLANS = {
-  base: { name: "Base", price: 6, color: "#0A192F" },
-  pro:  { name: "Pro",  price: 11, color: "#FF5A00" },
-};
-
 export default function Subscription() {
+  const { plansById, loading: plansLoading } = usePlans();
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
@@ -95,9 +92,9 @@ export default function Subscription() {
     );
   }
 
-  if (loading) return <div className="p-8 text-center text-[#A1A1AA]">Caricamento…</div>;
+  if (loading || plansLoading) return <div className="p-8 text-center text-[#A1A1AA]">Caricamento…</div>;
 
-  const plan = PLANS[status?.plan] || PLANS.base;
+  const plan = plansById[status?.plan] || plansById.base || { name: "", price_eur: 0, color: "#0A192F" };
   const isActive = status?.active;
   const isTrial = status?.status === "trial";
   const isCancelled = status?.status === "cancelled";
@@ -119,7 +116,7 @@ export default function Subscription() {
           <div>
             <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-1">Piano attivo</div>
             <div className="font-cabinet font-black text-2xl" style={{ color: plan.color }}>{plan.name}</div>
-            <div className="text-[14px] text-[#52525B] mt-1">€{plan.price}/mese</div>
+            <div className="text-[14px] text-[#52525B] mt-1">€{plan.price_eur}/mese</div>
           </div>
           <div className="flex items-center gap-2">
             {isActive && !isTrial && <CheckCircle className="w-5 h-5 text-[#059669]" />}
@@ -150,10 +147,10 @@ export default function Subscription() {
         <div className="mb-6">
           <h2 className="font-cabinet font-bold text-lg mb-4">Attiva abbonamento</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Object.entries(PLANS).map(([id, p]) => (
+            {Object.entries(plansById).map(([id, p]) => (
               <div key={id} className={`bg-white border-2 rounded-md p-5 ${id === "pro" ? "border-[#FF5A00]" : "border-[#E4E4E1]"}`}>
                 <div className="font-cabinet font-black text-xl mb-1" style={{ color: p.color }}>{p.name}</div>
-                <div className="font-cabinet font-black text-3xl mb-4">€{p.price}<span className="text-[14px] font-normal text-[#52525B]">/mese</span></div>
+                <div className="font-cabinet font-black text-3xl mb-4">€{p.price_eur}<span className="text-[14px] font-normal text-[#52525B]">/mese</span></div>
 
                 {/* Stripe */}
                 <button onClick={() => startStripe(id)} disabled={paying}
