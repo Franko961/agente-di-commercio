@@ -12,6 +12,7 @@ export default function Subscription() {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
+  const [confirmingPaypal, setConfirmingPaypal] = useState(false);
 
   const load = async () => {
     const { data } = await api.get("/subscription/status");
@@ -20,9 +21,32 @@ export default function Subscription() {
   };
 
   useEffect(() => {
-    load();
-    // Gestisci redirect da Stripe/PayPal
     const params = new URLSearchParams(window.location.search);
+
+    // Ritorno da PayPal: dobbiamo prima chiedere conferma al backend (che a sua
+    // volta verifica con PayPal) prima di sapere se l'abbonamento è davvero attivo.
+    const subscriptionId = params.get("subscription_id");
+    if (params.get("paypal_return") && subscriptionId) {
+      setConfirmingPaypal(true);
+      api.post("/subscription/paypal-capture", { subscription_id: subscriptionId })
+        .then(({ data }) => {
+          if (data.status === "active") {
+            toast.success("Abbonamento attivato! Grazie.");
+          } else {
+            toast.info("Pagamento in verifica: l'abbonamento si attiverà a breve.");
+          }
+        })
+        .catch(() => toast.error("Non siamo riusciti a confermare il pagamento PayPal. Contattaci se il problema persiste."))
+        .finally(() => {
+          setConfirmingPaypal(false);
+          window.history.replaceState({}, "", window.location.pathname);
+          load();
+        });
+      return;
+    }
+
+    load();
+    // Gestisci redirect da Stripe
     if (params.get("success")) { toast.success("Abbonamento attivato! Grazie."); load(); }
     if (params.get("cancelled")) toast.info("Pagamento annullato.");
   }, []);
@@ -41,12 +65,35 @@ export default function Subscription() {
     }
   };
 
+  const startPaypal = async (plan) => {
+    setPaying(true);
+    try {
+      const { data } = await api.post("/subscription/paypal-create", {
+        plan,
+        return_url: window.location.origin,
+      });
+      window.location.href = data.approve_url;
+    } catch {
+      toast.error("Errore avvio pagamento PayPal");
+      setPaying(false);
+    }
+  };
+
   const cancelSub = async () => {
     if (!window.confirm("Sei sicuro di voler cancellare l'abbonamento?")) return;
     await api.post("/subscription/cancel");
     toast.success("Abbonamento cancellato");
     load();
   };
+
+  if (confirmingPaypal) {
+    return (
+      <div className="p-8 text-center text-[#52525B]">
+        <div className="animate-pulse font-cabinet font-bold text-lg mb-2">Verifica pagamento PayPal in corso…</div>
+        <div className="text-[13px]">Un attimo, stiamo confermando l'abbonamento con PayPal.</div>
+      </div>
+    );
+  }
 
   if (loading) return <div className="p-8 text-center text-[#A1A1AA]">Caricamento…</div>;
 
@@ -116,10 +163,10 @@ export default function Subscription() {
 
                 {/* PayPal */}
                 <div className="text-center text-[11px] text-[#A1A1AA] mb-2">oppure</div>
-                <a href={`https://www.paypal.com/webapps/billing/plans/subscribe?plan_id=${id === "base" ? process.env.REACT_APP_PAYPAL_PLAN_BASE || "" : process.env.REACT_APP_PAYPAL_PLAN_PRO || ""}`}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#FFC439] text-[#003087] rounded-md text-[13px] font-bold">
+                <button onClick={() => startPaypal(id)} disabled={paying}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#FFC439] text-[#003087] rounded-md text-[13px] font-bold disabled:opacity-50">
                   <ExternalLink className="w-4 h-4" /> Paga con PayPal
-                </a>
+                </button>
               </div>
             ))}
           </div>
