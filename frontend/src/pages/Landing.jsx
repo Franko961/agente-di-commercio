@@ -4,6 +4,7 @@ import {
   Users, KanbanSquare, CalendarDays, Map, FileText, Coins,
   Building2, Package, Sparkles, Zap, Check, ArrowRight, ShieldCheck,
 } from "lucide-react";
+import usePlans from "../hooks/usePlans";
 
 const FEATURES = [
   { icon: Users, title: "Clienti & anagrafiche", desc: "Tutti i tuoi clienti, contatti e storico visite in un unico posto, sempre a portata di mano." },
@@ -18,6 +19,7 @@ const FEATURES = [
 
 export default function Landing() {
   const navigate = useNavigate();
+  const { plansById, trialDays } = usePlans();
 
   return (
     <div className="min-h-screen bg-[#F9F9F8]">
@@ -25,7 +27,7 @@ export default function Landing() {
         <title>SALESFLY — Il CRM per Agenti di Commercio Plurimandatari</title>
         <meta
           name="description"
-          content="SALESFLY è il gestionale pensato per agenti di commercio plurimandatari: clienti, agenda, provvigioni, offerte e assistente AI in un'unica piattaforma. Prova gratis 14 giorni."
+          content={`SALESFLY è il gestionale pensato per agenti di commercio plurimandatari: clienti, agenda, provvigioni, offerte e assistente AI in un'unica piattaforma. Prova gratis ${trialDays} giorni.`}
         />
         <link rel="canonical" href="https://salesfly.it/" />
         <meta property="og:type" content="website" />
@@ -51,10 +53,9 @@ export default function Landing() {
             operatingSystem: "Web",
             description:
               "Gestionale CRM per agenti di commercio plurimandatari: clienti, agenda, provvigioni, offerte e assistente AI.",
-            offers: [
-              { "@type": "Offer", name: "Base", price: "6.00", priceCurrency: "EUR" },
-              { "@type": "Offer", name: "Pro", price: "11.00", priceCurrency: "EUR" },
-            ],
+            offers: Object.values(plansById).map(p => ({
+              "@type": "Offer", name: p.name, price: p.price_eur?.toFixed(2), priceCurrency: "EUR",
+            })),
             url: "https://salesfly.it/",
           })}
         </script>
@@ -105,7 +106,7 @@ export default function Landing() {
               onClick={() => navigate("/richiedi-demo")}
               className="w-full sm:w-auto px-6 py-3.5 bg-[#FF5A00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors flex items-center justify-center gap-2"
             >
-              Prova gratis 14 giorni <ArrowRight className="w-4 h-4" />
+              Prova gratis {trialDays} giorni <ArrowRight className="w-4 h-4" />
             </button>
             <button
               onClick={() => navigate("/prezzi")}
@@ -171,7 +172,7 @@ export default function Landing() {
               Pronto a semplificarti il lavoro?
             </h2>
             <p className="text-white/60 text-[15px] mb-8 max-w-xl mx-auto">
-              Prova SALESFLY gratis per 14 giorni. Nessuna carta di credito, nessun vincolo.
+              Prova SALESFLY gratis per {trialDays} giorni. Nessuna carta di credito, nessun vincolo.
             </p>
             <button
               onClick={() => navigate("/richiedi-demo")}
