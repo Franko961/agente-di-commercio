@@ -71,6 +71,9 @@ PLANS = {
 
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 ADMIN_NOTIFY_EMAIL = os.environ.get("ADMIN_NOTIFY_EMAIL", "franco.bruni.art@gmail.com")
+# Vuoto di default: Sentry resta disattivato finché non si imposta questa
+# variabile con il DSN di un account Sentry (anche gratuito).
+SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 APP_FROM_EMAIL = os.environ.get("APP_FROM_EMAIL", "SALESFLY <noreply@salesfly.it>")
 
 AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
