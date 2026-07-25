@@ -352,6 +352,26 @@ class AiService:
         for o in offers[-10:]:
             summary.append(f"- {o.get('title')} importo {o.get('total',0)}€ stato {o.get('status')}")
 
+        # Provvigioni: i dati venivano già recuperati sopra ma non erano mai
+        # inclusi nel riepilogo — l'assistente non aveva quindi visibilità
+        # sulla situazione provvigionale dell'utente nel contesto generale
+        # (solo tramite un tool dedicato, se invocato esplicitamente).
+        current_month_key = now_local().strftime("%Y-%m")
+        accrued = sum(c.get("amount", 0) for c in commissions if c.get("status") == "maturato")
+        collected = sum(c.get("amount", 0) for c in commissions if c.get("status") == "incassato")
+        month_commissions = [c for c in commissions if local_month_str(c.get("created_at")) == current_month_key]
+        total_month_commissions = sum(c.get("amount", 0) for c in month_commissions)
+        summary.append(
+            f"\nProvvigioni — maturate non incassate: {round(accrued,2)}€, incassate: {round(collected,2)}€, "
+            f"totale mese corrente: {round(total_month_commissions,2)}€ ({len(month_commissions)} voci)"
+        )
+        summary.append("Provvigioni recenti (max 10):")
+        for c in commissions[-10:]:
+            summary.append(
+                f"- {c.get('sale_type','')} {c.get('amount',0)}€ stato {c.get('status')}"
+                + (f" (bonus scaglione {c['bonus_tier_threshold']}€)" if c.get("sale_type") == "bonus" else "")
+            )
+
         current_month = now_local().strftime("%Y-%m")
         month_expenses = [e for e in expenses if (e.get("date") or "").startswith(current_month)]
         total_month_expenses = sum(e.get("amount", 0) for e in month_expenses)
