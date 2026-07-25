@@ -9,6 +9,7 @@ import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
+import ImportClienti from "./pages/ImportClienti";
 import ClientDetail from "./pages/ClientDetail";
 import Leads from "./pages/Leads";
 import Agenda from "./pages/Agenda";
@@ -55,6 +56,7 @@ function App() {
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route path="/app" element={<Dashboard />} />
                 <Route path="/app/clienti" element={<Clients />} />
+                <Route path="/app/clienti/importa" element={<ImportClienti />} />
                 <Route path="/app/clienti/:id" element={<ClientDetail />} />
                 <Route path="/app/lead" element={<Leads />} />
                 <Route path="/app/agenda" element={<Agenda />} />
