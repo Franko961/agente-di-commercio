@@ -1,5 +1,4 @@
-from datetime import datetime, timezone
-from core.utils import gen_id, now_iso
+from core.utils import gen_id, now_iso, now_local
 from repositories.order_repository import order_repository
 from repositories.mandante_repository import mandante_repository
 from services.commission_service import calc_offer_total, get_commission_rate, commission_service
@@ -29,7 +28,9 @@ class OrderService:
             "client_id": order_doc["client_id"], "mandante_id": order_doc["mandante_id"],
             "amount": round(amount, 2), "rate": rate, "base_amount": order_doc.get("total", 0),
             "sale_type": sale_type, "status": "maturato",
-            "period": datetime.now(timezone.utc).strftime("%Y-%m"),
+            # Vedi commission_service.check_and_award_bonus per il perché
+            # "period" va calcolato in ora italiana e non UTC.
+            "period": now_local().strftime("%Y-%m"),
             "created_at": now_iso(),
         }
         await commission_service.repo.insert(comm)
