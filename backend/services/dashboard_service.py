@@ -4,10 +4,9 @@ import math
 from datetime import datetime, timezone, timedelta, date
 from typing import Dict, Optional
 from core.database import db
+from services.settings_service import DEFAULT_GOAL_REVENUE
 
 logger = logging.getLogger(__name__)
-
-MONTHLY_GOAL = 10000
 
 
 def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -149,11 +148,46 @@ class DashboardService:
             except Exception:
                 pass
 
+        # Obiettivi mensili: configurabili dall'utente in Impostazioni (vedi
+        # settings_service). Solo il fatturato ha un default di fallback per
+        # compatibilità con chi non l'ha ancora impostato — le altre tre
+        # metriche restano "non impostate" (None) finché l'utente non le
+        # configura, per non mostrare percentuali fuorvianti su un obiettivo
+        # mai scelto.
+        goal_revenue = user.get("goal_revenue") if user.get("goal_revenue") is not None else DEFAULT_GOAL_REVENUE
+        goal_commissions = user.get("goal_commissions")
+        goal_new_clients = user.get("goal_new_clients")
+        goal_visits = user.get("goal_visits")
+
         # Goal: monthly target = 10000
         current_month_key = today.strftime("%Y-%m")
         current_month_rev = months.get(current_month_key, 0)
         current_month_expenses = exp_months.get(current_month_key, 0)
-        goal = MONTHLY_GOAL
+
+        # Provvigioni maturate questo mese (per l'obiettivo provvigioni)
+        commissions_month = sum(
+            c.get("amount", 0) for c in commissions
+            if (c.get("created_at") or "")[:7] == current_month_key
+        )
+
+        # Nuovi clienti acquisiti questo mese (per l'obiettivo nuovi clienti)
+        new_clients_month = sum(
+            1 for c in clients if (c.get("created_at") or "")[:7] == current_month_key
+        )
+
+        # Visite (appuntamenti completati) effettuate questo mese, in base
+        # alla data dell'appuntamento (non a quando è stato creato il record)
+        visits_month = sum(
+            1 for a in appts
+            if a.get("status") == "completato" and (a.get("start") or "")[:7] == current_month_key
+        )
+
+        def _pct(current, goal):
+            if not goal:
+                return None
+            return round(min(100, (current / goal) * 100), 1)
+
+        goal_pct = _pct(current_month_rev, goal_revenue)
 
         return {
             "kpi": {
@@ -165,10 +199,22 @@ class DashboardService:
                 "commissions_accrued": round(accrued, 2),
                 "commissions_collected": round(collected, 2),
                 "current_month_revenue": round(current_month_rev, 2),
-                "monthly_goal": goal,
-                "goal_pct": round(min(100, (current_month_rev / goal) * 100) if goal else 0, 1),
+                "monthly_goal": goal_revenue,
+                "goal_pct": goal_pct if goal_pct is not None else 0,
                 "expenses_total": round(sum(e.get("amount", 0) for e in expenses), 2),
                 "current_month_expenses": round(current_month_expenses, 2),
+                # Le tre metriche sotto sono None finché l'utente non imposta
+                # il relativo obiettivo in Impostazioni — il frontend mostra
+                # la barra di progresso solo quando *_goal non è None.
+                "commissions_month": round(commissions_month, 2),
+                "commissions_goal": goal_commissions,
+                "commissions_goal_pct": _pct(commissions_month, goal_commissions),
+                "new_clients_month": new_clients_month,
+                "new_clients_goal": goal_new_clients,
+                "new_clients_goal_pct": _pct(new_clients_month, goal_new_clients),
+                "visits_month": visits_month,
+                "visits_goal": goal_visits,
+                "visits_goal_pct": _pct(visits_month, goal_visits),
             },
             "by_zone": [{"zone": k, "revenue": round(v, 2)} for k, v in by_zone.items()],
             "by_sector": sorted([{"sector": k, "count": v} for k, v in by_sector.items()], key=lambda x: -x["count"]),
@@ -328,7 +374,10 @@ class DashboardService:
             )
 
         # Obiettivo di oggi: quota residua del target mensile spalmata sui
-        # giorni lavorativi (lun-ven) rimanenti nel mese, oggi incluso
+        # giorni lavorativi (lun-ven) rimanenti nel mese, oggi incluso.
+        # goal_revenue è quello configurato dall'utente in Impostazioni, con
+        # lo stesso fallback usato in get_stats per chi non l'ha ancora impostato.
+        goal_revenue = user.get("goal_revenue") if user.get("goal_revenue") is not None else DEFAULT_GOAL_REVENUE
         month_revenue = sum(
             o.get("total", 0) for o in offers
             if o.get("status") == "accettata" and (o.get("created_at") or "")[:7] == now.strftime("%Y-%m")
@@ -338,7 +387,7 @@ class DashboardService:
             1 for d in range(now.day, days_in_month + 1)
             if date(now.year, now.month, d).weekday() < 5
         ) or 1
-        daily_goal = round(max(MONTHLY_GOAL - month_revenue, 0) / remaining_working_days, 2)
+        daily_goal = round(max(goal_revenue - month_revenue, 0) / remaining_working_days, 2)
 
         # Previsione fatturato di fine mese: proiezione lineare "a ritmo
         # attuale" (fatturato fatto finora / giorni trascorsi * giorni totali
@@ -429,7 +478,7 @@ class DashboardService:
             "inactive_clients_60d": inactive_clients_60d,
             "month_revenue_so_far": round(month_revenue, 2),
             "revenue_forecast_month": revenue_forecast_month,
-            "monthly_goal": MONTHLY_GOAL,
+            "monthly_goal": goal_revenue,
         }
 
     def format_morning_briefing(self, brief: dict, user_name: Optional[str] = None) -> str:
