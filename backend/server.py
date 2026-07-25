@@ -5,9 +5,11 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 import logging
-from fastapi import FastAPI
+import time
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from routers.clients import router as clients_router
 from routers.leads import router as leads_router
 from routers.appointments import router as appointments_router
@@ -32,7 +34,8 @@ from routers.settings import router as settings_router
 from routers.geocoding import router as geocoding_router
 from services.startup_service import run_startup, run_shutdown
 from core.exceptions import AppError
-from core.config import CORS_ORIGINS
+from core.config import CORS_ORIGINS, SENTRY_DSN
+from core.observability import configure_logging, new_request_id, set_request_id, record_api_call
 
 app = FastAPI(title="Gestionale Agenti di Commercio")
 
@@ -42,7 +45,55 @@ async def app_error_handler(request, exc: AppError):
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+configure_logging()
+
+# Sentry si attiva solo se SENTRY_DSN è configurato: senza quella variabile
+# d'ambiente questo blocco non fa nulla, non serve un account per il resto
+# della telemetria (request id, metriche API, eventi di sistema) che
+# funziona comunque. Il giorno in cui si crea un account Sentry (anche
+# gratuito) e si imposta SENTRY_DSN, il tracciamento errori con stack trace
+# si attiva senza altre modifiche al codice.
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        sentry_sdk.init(dsn=SENTRY_DSN, integrations=[FastApiIntegration()], traces_sample_rate=0.1)
+        logging.getLogger(__name__).info("Sentry inizializzato")
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Inizializzazione Sentry fallita: {e}")
+
+
+class ObservabilityMiddleware(BaseHTTPMiddleware):
+    """Assegna un request id ad ogni richiesta (ripreso da X-Request-ID se
+    già presente, es. da un proxy a monte) e ne misura la durata, salvando
+    un'aggregazione per minuto/endpoint in api_metrics_minute — la base per
+    rispondere a "quale endpoint è lento" senza un servizio esterno."""
+
+    async def dispatch(self, request: Request, call_next):
+        req_id = request.headers.get("x-request-id") or new_request_id()
+        set_request_id(req_id)
+        start = time.perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            duration_ms = (time.perf_counter() - start) * 1000
+            path_template = _route_path(request)
+            await record_api_call(request.method, path_template, 500, duration_ms)
+            raise
+        duration_ms = (time.perf_counter() - start) * 1000
+        path_template = _route_path(request)
+        await record_api_call(request.method, path_template, response.status_code, duration_ms)
+        response.headers["X-Request-ID"] = req_id
+        return response
+
+
+def _route_path(request: Request) -> str:
+    """Percorso 'a template' (es. /api/orders/{oid}) invece del percorso
+    letterale con l'id reale sostituito dentro — altrimenti ogni ordine/
+    cliente/documento diverso creerebbe un bucket di metriche a parte,
+    invece di aggregare tutte le chiamate allo stesso endpoint insieme."""
+    route = request.scope.get("route")
+    return route.path if route else request.url.path
 
 
 @app.on_event("startup")
@@ -78,6 +129,8 @@ app.include_router(orders_router)
 app.include_router(expenses_router)
 app.include_router(settings_router)
 app.include_router(geocoding_router)
+
+app.add_middleware(ObservabilityMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
