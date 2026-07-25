@@ -1,12 +1,11 @@
 import logging
 import secrets
-import string
 from datetime import datetime, timezone, timedelta
 
 from core.utils import gen_id, now_iso
 from core.security import hash_password
 from core.exceptions import ValidationAppError
-from core.config import FRONTEND_URL, ADMIN_NOTIFY_EMAIL, PLANS, TRIAL_DAYS
+from core.config import FRONTEND_URL, ADMIN_NOTIFY_EMAIL, TRIAL_DAYS
 from repositories.demo_request_repository import demo_request_repository
 from repositories.user_repository import user_repository
 from services.email_service import send_email
