@@ -1,6 +1,5 @@
-from datetime import datetime, timezone
 from typing import List
-from core.utils import gen_id, now_iso
+from core.utils import gen_id, now_iso, now_local
 from repositories.commission_repository import commission_repository
 from repositories.mandante_repository import mandante_repository
 
@@ -102,7 +101,12 @@ class CommissionService:
                 "amount": round(tier.get("bonus", 0), 2), "rate": None, "base_amount": None,
                 "sale_type": "bonus", "status": "maturato",
                 "bonus_tier_threshold": tier["threshold"],
-                "period": datetime.now(timezone.utc).strftime("%Y-%m"),
+                # "period" identifica il mese in cui il bonus è stato
+                # raggiunto: va calcolato in ora italiana, altrimenti un
+                # bonus raggiunto nell'ora dopo la mezzanotte italiana
+                # verrebbe etichettato ancora con il mese precedente (vedi
+                # core/utils.now_local).
+                "period": now_local().strftime("%Y-%m"),
                 "created_at": now_iso(),
             }
             await self.repo.insert(bonus_comm)
