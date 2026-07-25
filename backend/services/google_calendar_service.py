@@ -8,6 +8,7 @@ import jwt
 import requests
 from requests_oauthlib import OAuth2Session
 
+from core.observability import record_event, Timer
 from core.config import (
     GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI,
     GOOGLE_CALENDAR_SCOPES, JWT_SECRET, JWT_ALG,
@@ -336,9 +337,18 @@ class GoogleCalendarService:
         connections = await self.repo.find_all()
         for conn in connections:
             try:
-                await self._pull_for_connection(conn)
+                with Timer() as t:
+                    await self._pull_for_connection(conn)
+                await record_event(
+                    "calendar_sync", "success",
+                    user_id=conn.get("user_id"), duration_ms=round(t.duration_ms, 1),
+                )
             except Exception as e:
                 logger.error(f"Sync periodico fallito per user {conn.get('user_id')}: {e}")
+                await record_event(
+                    "calendar_sync", "failure",
+                    user_id=conn.get("user_id"), error=str(e)[:300],
+                )
 
 
 google_calendar_service = GoogleCalendarService()
