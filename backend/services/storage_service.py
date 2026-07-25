@@ -5,7 +5,7 @@ import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 from core.config import (
     AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION,
-    S3_BUCKET, S3_ENDPOINT, MAX_FILE_BYTES,
+    S3_BUCKET, S3_ENDPOINT,
 )
 
 logger = logging.getLogger(__name__)
