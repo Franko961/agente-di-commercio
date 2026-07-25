@@ -135,7 +135,6 @@ class OrderService:
         # `existing` già in mano (con MongoDB reale è così, ma il codice non
         # deve dipendere da quel dettaglio implementativo).
         old_mandante_id = existing["mandante_id"]
-        old_status = existing.get("status", "confermato")
 
         data = payload.model_dump()
         data["total"] = calc_offer_total(data["items"])
