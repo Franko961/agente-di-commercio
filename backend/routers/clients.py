@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from typing import Optional
 from core.security import get_current_user, forbid_demo_write
 from services.client_service import client_service
-from models.client import ClientIn
+from models.client import ClientIn, ClientBulkIn
 
 router = APIRouter(prefix="/api/clients", tags=["clients"])
 
@@ -16,6 +16,13 @@ async def list_clients(zone: Optional[str] = None, sector: Optional[str] = None,
 @router.post("")
 async def create_client(payload: ClientIn, user=Depends(get_current_user)):
     return await client_service.create_client(user, payload)
+
+@router.post("/bulk")
+async def bulk_import_clients(payload: ClientBulkIn, user=Depends(forbid_demo_write)):
+    """Importa in blocco clienti da un file CSV/Excel caricato dall'utente
+    (parsing già fatto lato frontend). Deduplica per partita IVA, o per
+    ragione sociale + città quando la P.IVA non è indicata."""
+    return await client_service.bulk_import(user, payload)
 
 @router.get("/{cid}")
 async def get_client(cid: str, user=Depends(get_current_user)):
