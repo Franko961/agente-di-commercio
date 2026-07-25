@@ -16,6 +16,7 @@ import sys
 sys.path.insert(0, ".")
 
 from core.database import db
+from core.utils import now_local, local_wallclock_to_utc_iso
 from services.dashboard_service import dashboard_service
 from repositories.offer_repository import offer_repository
 from repositories.order_repository import order_repository
@@ -82,9 +83,13 @@ COMMISSIONS = [
     {"id": "cm1", "user_id": "u1", "mandante_id": "m1", "status": "maturato", "amount": 100},
     {"id": "cm2", "user_id": "u1", "mandante_id": "m2", "status": "incassato", "amount": 200},
 ]
+# "Oggi" calcolato dinamicamente in ora italiana (stessa logica usata da
+# get_today_brief), non una data fissa: una data hardcoded scade non appena
+# passa quel giorno, rompendo il test per chiunque lo esegua dopo.
+_TODAY = now_local().strftime("%Y-%m-%d")
 APPTS = [
-    {"id": "a1", "user_id": "u1", "client_id": "c1", "start": "2026-07-22T10:00:00Z", "status": "pianificato"},
-    {"id": "a2", "user_id": "u1", "client_id": "c2", "start": "2026-07-22T11:00:00Z", "status": "pianificato"},
+    {"id": "a1", "user_id": "u1", "client_id": "c1", "start": local_wallclock_to_utc_iso(f"{_TODAY}T10:00:00"), "status": "pianificato"},
+    {"id": "a2", "user_id": "u1", "client_id": "c2", "start": local_wallclock_to_utc_iso(f"{_TODAY}T11:00:00"), "status": "pianificato"},
 ]
 ORDERS = [
     {"id": "or1", "user_id": "u1", "mandante_id": "m1", "client_id": "c1", "created_at": "2026-07-01"},
