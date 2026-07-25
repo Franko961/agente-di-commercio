@@ -22,6 +22,7 @@ from datetime import datetime, timedelta, timezone
 sys.path.insert(0, ".")
 
 from services.dashboard_service import DashboardService, _pluralize_it
+import core.utils as utils_mod
 
 
 def run(coro):
@@ -244,6 +245,10 @@ def test_revenue_forecast_month_proiezione_lineare(monkeypatch):
             return fake_now
 
     monkeypatch.setattr(dash_mod, "datetime", FakeDatetime)
+    # now_local() (usata da get_today_brief per il mese corrente in ora
+    # italiana) vive in core.utils, non in dashboard_service: va patchato
+    # anche lì, altrimenti userebbe ancora l'orologio reale.
+    monkeypatch.setattr(utils_mod, "datetime", FakeDatetime)
     fake_db = FakeDB(
         offers=[{
             "user_id": "u1", "status": "accettata", "total": 1000,
