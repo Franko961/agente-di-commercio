@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CalendarDays, CheckCircle2, Loader2, RefreshCw, Unplug, Plug, History } from "lucide-react";
+import { CalendarDays, CheckCircle2, Loader2, RefreshCw, Unplug, Plug, History, Target, Save } from "lucide-react";
 import { toast } from "sonner";
 import api from "../api";
 import AiActionsLog from "../components/AiActionsLog";
@@ -9,7 +9,39 @@ export default function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [status, setStatus] = useState(null); // null = caricamento
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState("integrazioni"); // integrazioni | registro-ai
+  const [tab, setTab] = useState("integrazioni"); // integrazioni | obiettivi | registro-ai
+
+  const [goals, setGoals] = useState(null); // null = caricamento
+  const [goalsBusy, setGoalsBusy] = useState(false);
+
+  const loadGoals = async () => {
+    try {
+      const { data } = await api.get("/settings/goals");
+      setGoals(data);
+    } catch {
+      toast.error("Impossibile caricare gli obiettivi");
+    }
+  };
+
+  const saveGoals = async (e) => {
+    e.preventDefault();
+    setGoalsBusy(true);
+    try {
+      const payload = {
+        goal_revenue: goals.goal_revenue === "" ? null : Number(goals.goal_revenue),
+        goal_commissions: goals.goal_commissions === "" ? null : Number(goals.goal_commissions),
+        goal_new_clients: goals.goal_new_clients === "" ? null : Number(goals.goal_new_clients),
+        goal_visits: goals.goal_visits === "" ? null : Number(goals.goal_visits),
+      };
+      const { data } = await api.put("/settings/goals", payload);
+      setGoals(data);
+      toast.success("Obiettivi aggiornati");
+    } catch {
+      toast.error("Errore nel salvataggio degli obiettivi");
+    } finally {
+      setGoalsBusy(false);
+    }
+  };
 
   const loadStatus = async () => {
     try {
@@ -22,6 +54,7 @@ export default function Settings() {
 
   useEffect(() => {
     loadStatus();
+    loadGoals();
   }, []);
 
   useEffect(() => {
@@ -88,6 +121,14 @@ export default function Settings() {
           <Plug className="w-3.5 h-3.5" /> Integrazioni
         </button>
         <button
+          onClick={() => setTab("obiettivi")}
+          className={`flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium border-b-2 -mb-px transition-colors ${
+            tab === "obiettivi" ? "border-[#FF5A00] text-[#0A192F]" : "border-transparent text-[#A1A1AA] hover:text-[#52525B]"
+          }`}
+        >
+          <Target className="w-3.5 h-3.5" /> Obiettivi
+        </button>
+        <button
           onClick={() => setTab("registro-ai")}
           className={`flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium border-b-2 -mb-px transition-colors ${
             tab === "registro-ai" ? "border-[#FF5A00] text-[#0A192F]" : "border-transparent text-[#A1A1AA] hover:text-[#52525B]"
@@ -99,6 +140,82 @@ export default function Settings() {
 
       {tab === "registro-ai" ? (
         <AiActionsLog />
+      ) : tab === "obiettivi" ? (
+        <>
+          <div className="mb-8">
+            <div className="font-mono text-[11px] uppercase tracking-widest text-[#FF5A00] mb-1">Impostazioni</div>
+            <h1 className="font-cabinet text-3xl font-black">Obiettivi</h1>
+            <p className="text-[#52525B] mt-1">
+              Imposta i tuoi obiettivi mensili. Lascia vuoto un campo per non tracciare quella metrica.
+            </p>
+          </div>
+
+          {goals === null ? (
+            <div className="flex items-center gap-2 text-[13px] text-[#A1A1AA]">
+              <Loader2 className="w-4 h-4 animate-spin" /> Caricamento…
+            </div>
+          ) : (
+            <form onSubmit={saveGoals} className="border border-[#E4E4E1] rounded-lg p-5 space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-[12px] font-semibold text-[#52525B] mb-1.5">
+                    Obiettivo mensile fatturato (€)
+                  </label>
+                  <input
+                    type="number" min="0" step="1"
+                    value={goals.goal_revenue ?? ""}
+                    onChange={(e) => setGoals({ ...goals, goal_revenue: e.target.value })}
+                    className="w-full px-3 py-2 border border-[#E4E4E1] rounded-md text-[14px] focus:outline-none focus:border-[#FF5A00]"
+                    placeholder="es. 10000"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-semibold text-[#52525B] mb-1.5">
+                    Obiettivo provvigioni (€)
+                  </label>
+                  <input
+                    type="number" min="0" step="1"
+                    value={goals.goal_commissions ?? ""}
+                    onChange={(e) => setGoals({ ...goals, goal_commissions: e.target.value })}
+                    className="w-full px-3 py-2 border border-[#E4E4E1] rounded-md text-[14px] focus:outline-none focus:border-[#FF5A00]"
+                    placeholder="non impostato"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-semibold text-[#52525B] mb-1.5">
+                    Obiettivo nuovi clienti
+                  </label>
+                  <input
+                    type="number" min="0" step="1"
+                    value={goals.goal_new_clients ?? ""}
+                    onChange={(e) => setGoals({ ...goals, goal_new_clients: e.target.value })}
+                    className="w-full px-3 py-2 border border-[#E4E4E1] rounded-md text-[14px] focus:outline-none focus:border-[#FF5A00]"
+                    placeholder="non impostato"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-semibold text-[#52525B] mb-1.5">
+                    Obiettivo visite
+                  </label>
+                  <input
+                    type="number" min="0" step="1"
+                    value={goals.goal_visits ?? ""}
+                    onChange={(e) => setGoals({ ...goals, goal_visits: e.target.value })}
+                    className="w-full px-3 py-2 border border-[#E4E4E1] rounded-md text-[14px] focus:outline-none focus:border-[#FF5A00]"
+                    placeholder="non impostato"
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={goalsBusy}
+                className="flex items-center gap-1.5 px-4 py-2 bg-[#FF5A00] hover:bg-[#E04F00] text-white rounded-md text-[13px] font-medium transition-colors disabled:opacity-50"
+              >
+                <Save className="w-3.5 h-3.5" /> {goalsBusy ? "Salvataggio…" : "Salva obiettivi"}
+              </button>
+            </form>
+          )}
+        </>
       ) : (
         <>
           <div className="mb-8">
