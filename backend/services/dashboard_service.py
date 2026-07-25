@@ -4,6 +4,7 @@ import math
 from datetime import datetime, timezone, timedelta, date
 from typing import Dict, Optional
 from core.database import db
+from core.utils import now_local, local_date_str, local_month_str
 from services.settings_service import DEFAULT_GOAL_REVENUE
 
 logger = logging.getLogger(__name__)
@@ -96,14 +97,17 @@ class DashboardService:
             sector = c.get("sector") or "Non specificato"
             by_sector[sector] = by_sector.get(sector, 0) + 1
 
-        # Monthly revenue (last 6 months) from accepted offers
+        # Monthly revenue (last 6 months) from accepted offers.
+        # local_month_str converte created_at (UTC) nel mese di calendario in
+        # ora italiana — affettare direttamente created_at[:7] attribuirebbe
+        # al mese sbagliato le offerte accettate nell'ora dopo la mezzanotte
+        # italiana, finché l'orologio UTC non ha ancora girato di giorno/mese.
         months: Dict[str, float] = {}
         for o in offers:
             if o.get("status") != "accettata":
                 continue
-            ca = o.get("created_at", "")
-            if len(ca) >= 7:
-                key = ca[:7]
+            key = local_month_str(o.get("created_at"))
+            if key:
                 months[key] = months.get(key, 0) + o.get("total", 0)
         monthly = sorted(
             [{"month": k, "revenue": round(v, 2)} for k, v in months.items()],
@@ -136,7 +140,10 @@ class DashboardService:
             key=lambda x: -x["amount"],
         )
 
-        # Upcoming appointments (next 7 days)
+        # Upcoming appointments (next 7 days). Qui "today"/"week_later" sono
+        # istanti UTC usati solo per un confronto di intervallo (today <=
+        # start <= week_later): corretto così, il fuso orario non conta per
+        # un confronto tra istanti.
         today = datetime.now(timezone.utc)
         week_later = today + timedelta(days=7)
         upcoming = []
@@ -159,27 +166,31 @@ class DashboardService:
         goal_new_clients = user.get("goal_new_clients")
         goal_visits = user.get("goal_visits")
 
-        # Goal: monthly target = 10000
-        current_month_key = today.strftime("%Y-%m")
+        # "Mese corrente" va stabilito in ora italiana, non UTC: altrimenti,
+        # tra la mezzanotte italiana e il momento in cui anche l'orologio UTC
+        # gira (1-2 ore, a seconda di CET/CEST), fatturato/provvigioni/nuovi
+        # clienti del "oggi" vengono attribuiti ancora al giorno/mese
+        # precedente. Vedi core/utils.now_local per i dettagli.
+        current_month_key = now_local().strftime("%Y-%m")
         current_month_rev = months.get(current_month_key, 0)
         current_month_expenses = exp_months.get(current_month_key, 0)
 
         # Provvigioni maturate questo mese (per l'obiettivo provvigioni)
         commissions_month = sum(
             c.get("amount", 0) for c in commissions
-            if (c.get("created_at") or "")[:7] == current_month_key
+            if local_month_str(c.get("created_at")) == current_month_key
         )
 
         # Nuovi clienti acquisiti questo mese (per l'obiettivo nuovi clienti)
         new_clients_month = sum(
-            1 for c in clients if (c.get("created_at") or "")[:7] == current_month_key
+            1 for c in clients if local_month_str(c.get("created_at")) == current_month_key
         )
 
         # Visite (appuntamenti completati) effettuate questo mese, in base
         # alla data dell'appuntamento (non a quando è stato creato il record)
         visits_month = sum(
             1 for a in appts
-            if a.get("status") == "completato" and (a.get("start") or "")[:7] == current_month_key
+            if a.get("status") == "completato" and local_month_str(a.get("start")) == current_month_key
         )
 
         def _pct(current, goal):
@@ -257,12 +268,20 @@ class DashboardService:
             appts = [a for a in appts if a.get("client_id") in client_ids]
 
         now = datetime.now(timezone.utc)
-        today_str = now.strftime("%Y-%m-%d")
+        # "Oggi" va stabilito in ora italiana: vedi la nota su
+        # current_month_key in get_stats / core/utils.now_local per il
+        # perché. `now` (UTC) resta invece l'istante corretto per tutti i
+        # confronti aritmetici più sotto (start_dt >= now, giorni trascorsi, ecc.).
+        today_local = now_local()
+        today_str = today_local.strftime("%Y-%m-%d")
         clients_by_id = {c["id"]: c for c in clients}
 
-        # Appuntamenti pianificati per oggi
+        # Appuntamenti pianificati per oggi. local_date_str converte lo
+        # start (UTC) nel suo giorno di calendario in ora italiana, invece di
+        # affettare direttamente la stringa UTC (che per un'ora o due dopo la
+        # mezzanotte italiana darebbe il giorno sbagliato).
         todays_appts = sorted(
-            (a for a in appts if (a.get("start") or "")[:10] == today_str and a.get("status") == "pianificato"),
+            (a for a in appts if local_date_str(a.get("start")) == today_str and a.get("status") == "pianificato"),
             key=lambda a: a.get("start", ""),
         )
 
@@ -378,14 +397,15 @@ class DashboardService:
         # goal_revenue è quello configurato dall'utente in Impostazioni, con
         # lo stesso fallback usato in get_stats per chi non l'ha ancora impostato.
         goal_revenue = user.get("goal_revenue") if user.get("goal_revenue") is not None else DEFAULT_GOAL_REVENUE
+        current_month_key = today_local.strftime("%Y-%m")
         month_revenue = sum(
             o.get("total", 0) for o in offers
-            if o.get("status") == "accettata" and (o.get("created_at") or "")[:7] == now.strftime("%Y-%m")
+            if o.get("status") == "accettata" and local_month_str(o.get("created_at")) == current_month_key
         )
-        _, days_in_month = calendar.monthrange(now.year, now.month)
+        _, days_in_month = calendar.monthrange(today_local.year, today_local.month)
         remaining_working_days = sum(
-            1 for d in range(now.day, days_in_month + 1)
-            if date(now.year, now.month, d).weekday() < 5
+            1 for d in range(today_local.day, days_in_month + 1)
+            if date(today_local.year, today_local.month, d).weekday() < 5
         ) or 1
         daily_goal = round(max(goal_revenue - month_revenue, 0) / remaining_working_days, 2)
 
@@ -394,7 +414,7 @@ class DashboardService:
         # del mese). Semplice e trasparente, non una stima statistica
         # sofisticata: comunica un ordine di grandezza, non una certezza.
         try:
-            elapsed_days = max(now.day, 1)
+            elapsed_days = max(today_local.day, 1)
             revenue_forecast_month = round(month_revenue / elapsed_days * days_in_month, 2)
         except Exception as e:
             logger.error(f"get_today_brief: errore calcolo revenue_forecast_month: {e}")
