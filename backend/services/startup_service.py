@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import datetime, timezone
 
 from core.database import db, close_db
 from services.storage_service import init_storage
@@ -14,8 +15,20 @@ GOOGLE_CALENDAR_SYNC_INTERVAL_SECONDS = 5 * 60
 # non solo al prossimo giro di sync di 5 minuti.
 STUCK_AI_ACTION_CHECK_INTERVAL_SECONDS = 60
 
+# Alert su anomalie: ogni 15 minuti si guarda il tasso di fallimento/errore
+# degli ultimi 15 minuti; se supera la soglia (e il campione è abbastanza
+# grande da non essere rumore, es. non allertare per 1 fallimento su 1
+# richiesta) viene inviata un'email all'admin, con un tempo minimo tra un
+# alert e il successivo per non spammare mentre il problema persiste.
+ALERT_CHECK_INTERVAL_SECONDS = 15 * 60
+ALERT_COOLDOWN_SECONDS = 60 * 60
+ALERT_ERROR_RATE_THRESHOLD_PCT = 20
+ALERT_MIN_SAMPLE_SIZE = 5
+
 _gcal_sync_task = None
 _stuck_ai_action_task = None
+_health_alert_task = None
+_last_alert_sent_at = None
 
 
 async def _google_calendar_sync_loop() -> None:
@@ -52,6 +65,55 @@ async def _stuck_ai_action_cleanup_loop() -> None:
             logger.error(f"Ciclo di recupero azioni AI bloccate fallito: {e}")
 
 
+async def _health_alert_loop() -> None:
+    """Controlla periodicamente il tasso di fallimento di chiamate AI, invii
+    email, sync Calendar ed endpoint API nella finestra recente, avvisando
+    l'admin via email (già configurata tramite ADMIN_NOTIFY_EMAIL, nessun
+    servizio nuovo da collegare) se supera una soglia — con un tempo minimo
+    tra un alert e il successivo per non spammare mentre il problema persiste."""
+    global _last_alert_sent_at
+    from services.health_service import health_service
+    from services.email_service import send_email
+    from core.config import ADMIN_NOTIFY_EMAIL
+
+    while True:
+        try:
+            await asyncio.sleep(ALERT_CHECK_INTERVAL_SECONDS)
+            health = await health_service.get_health(hours=ALERT_CHECK_INTERVAL_SECONDS / 3600)
+
+            problems = []
+            for key, label in [("ai", "chiamate AI"), ("email", "invii email"), ("calendar_sync", "sync Google Calendar")]:
+                stats = health[key]
+                if stats["total"] >= ALERT_MIN_SAMPLE_SIZE and stats["failure_rate_pct"] >= ALERT_ERROR_RATE_THRESHOLD_PCT:
+                    problems.append(f"{label}: {stats['failure_rate_pct']}% di fallimenti ({stats['failure']}/{stats['total']})")
+            for e in health["endpoints"]["most_errors"]:
+                if e["count"] >= ALERT_MIN_SAMPLE_SIZE and e["error_rate_pct"] >= ALERT_ERROR_RATE_THRESHOLD_PCT:
+                    problems.append(
+                        f"{e['method']} {e['path']}: {e['error_rate_pct']}% errori "
+                        f"({e['status_4xx'] + e['status_5xx']}/{e['count']})"
+                    )
+
+            if not problems:
+                continue
+
+            now = datetime.now(timezone.utc)
+            if _last_alert_sent_at and (now - _last_alert_sent_at).total_seconds() < ALERT_COOLDOWN_SECONDS:
+                continue
+
+            body = "".join(f"<li>{p}</li>" for p in problems)
+            sent = await send_email(
+                ADMIN_NOTIFY_EMAIL,
+                "⚠️ Salesfly — anomalie rilevate",
+                f"<p>Rilevate le seguenti anomalie negli ultimi {ALERT_CHECK_INTERVAL_SECONDS // 60} minuti:</p><ul>{body}</ul>",
+            )
+            if sent:
+                _last_alert_sent_at = now
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.error(f"Ciclo di controllo anomalie fallito: {e}")
+
+
 async def run_startup() -> None:
     # Init object storage (non-blocking on failure)
     try:
@@ -86,9 +148,22 @@ async def run_startup() -> None:
     # campi senza scoping per utente.
     await db.ai_action_logs.create_index([("status", 1), ("execution_started_at", 1)])
 
-    global _gcal_sync_task, _stuck_ai_action_task
+    # Telemetria (vedi core/observability.py): TTL a 30/7 giorni — è un
+    # cruscotto di salute recente, non un archivio permanente. L'indice su
+    # (category, created_at) copre l'aggregazione per categoria usata da
+    # health_service; quello su created_at da solo copre l'aggregazione per
+    # endpoint/minuto in api_metrics_minute.
+    await db.system_events.create_index([("category", 1), ("created_at", -1)])
+    await db.system_events.create_index("created_at", expireAfterSeconds=30 * 24 * 3600)
+    await db.api_metrics_minute.create_index("created_at", expireAfterSeconds=7 * 24 * 3600)
+    # Audit amministrativo: nessun TTL, va conservato (è un log di
+    # responsabilità, non solo di salute operativa).
+    await db.admin_audit_log.create_index([("created_at", -1)])
+
+    global _gcal_sync_task, _stuck_ai_action_task, _health_alert_task
     _gcal_sync_task = asyncio.create_task(_google_calendar_sync_loop())
     _stuck_ai_action_task = asyncio.create_task(_stuck_ai_action_cleanup_loop())
+    _health_alert_task = asyncio.create_task(_health_alert_loop())
 
 
 async def run_shutdown() -> None:
@@ -96,4 +171,6 @@ async def run_shutdown() -> None:
         _gcal_sync_task.cancel()
     if _stuck_ai_action_task:
         _stuck_ai_action_task.cancel()
+    if _health_alert_task:
+        _health_alert_task.cancel()
     close_db()
