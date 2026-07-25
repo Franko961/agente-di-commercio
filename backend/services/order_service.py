@@ -1,7 +1,13 @@
 from core.utils import gen_id, now_iso, now_local
+from core.exceptions import NotFoundError
 from repositories.order_repository import order_repository
 from repositories.mandante_repository import mandante_repository
 from services.commission_service import calc_offer_total, get_commission_rate, commission_service
+
+# Stati che comportano la rimozione della provvigione collegata: un ordine
+# annullato o reso non rappresenta più fatturato reale, quindi non deve più
+# contare né come provvigione maturata né ai fini della scala premi.
+_CANCELLED_STATUSES = ("annullato", "reso")
 
 
 class OrderService:
@@ -9,11 +15,35 @@ class OrderService:
         self.repo = repo
         self.mandante_repo = mandante_repo
 
+    async def _attach_commissions(self, user_id: str, orders: list) -> list:
+        """Arricchisce ogni ordine con la provvigione collegata (se presente),
+        per evitare che il frontend debba fare una chiamata separata per
+        ordine. Recupera tutte le provvigioni dell'utente una sola volta e
+        costruisce una mappa order_id -> commissione, invece di interrogare
+        il DB una volta per ordine (che sarebbe O(ordini) round-trip)."""
+        if not orders:
+            return orders
+        all_commissions = await commission_service.repo.find_many(user_id)
+        by_order_id = {c["order_id"]: c for c in all_commissions if c.get("order_id")}
+        for o in orders:
+            o["commission"] = by_order_id.get(o["id"])
+        return orders
+
     async def list_orders(self, user: dict, mandante_id: str = None) -> list:
-        return await self.repo.find_many(user["id"], mandante_id)
+        orders = await self.repo.find_many(user["id"], mandante_id)
+        return await self._attach_commissions(user["id"], orders)
 
     async def list_orders_by_client(self, user: dict, client_id: str) -> list:
-        return await self.repo.find_by_client(user["id"], client_id)
+        orders = await self.repo.find_by_client(user["id"], client_id)
+        return await self._attach_commissions(user["id"], orders)
+
+    async def get_order(self, user: dict, oid: str) -> dict:
+        order = await self.repo.find_one(oid, user["id"])
+        if not order:
+            raise NotFoundError("Ordine non trovato")
+        commissions = await commission_service.repo.find_by_order(oid, user["id"])
+        order["commission"] = commissions[0] if commissions else None
+        return order
 
     async def _create_commission_for_order(self, user: dict, order_doc: dict) -> None:
         # A differenza delle offerte (bozza → inviata → accettata), un ordine è già
@@ -36,16 +66,31 @@ class OrderService:
         await commission_service.repo.insert(comm)
         await commission_service.check_and_award_bonus(user["id"], order_doc["mandante_id"])
 
+    async def _remove_commission_for_order(self, user_id: str, order: dict) -> None:
+        """Rimuove la provvigione collegata a un ordine e ricalcola i bonus
+        del mandante — usata sia alla cancellazione dell'ordine sia quando
+        viene marcato annullato/reso senza cancellarlo."""
+        await commission_service.repo.delete_by_order(order["id"], user_id)
+        await commission_service.check_and_award_bonus(user_id, order["mandante_id"])
+
     async def _create_order_doc(self, user: dict, client_id: str, mandante_id: str, items: list,
-                                 sale_type: str = "nuovo", notes: str = "", source_offer_id: str = None) -> dict:
+                                 sale_type: str = "nuovo", notes: str = "", source_offer_id: str = None,
+                                 numero_ordine: str = None, status: str = "confermato",
+                                 payment_status: str = "non_pagato", expected_delivery_date: str = None,
+                                 delivery_date: str = None) -> dict:
         total = calc_offer_total(items)
+        if not numero_ordine:
+            numero_ordine = await self.repo.next_order_number(user["id"])
         doc = {
             "id": gen_id(), "user_id": user["id"], "client_id": client_id, "mandante_id": mandante_id,
             "items": items, "sale_type": sale_type, "notes": notes, "total": total,
+            "numero_ordine": numero_ordine, "status": status, "payment_status": payment_status,
+            "expected_delivery_date": expected_delivery_date, "delivery_date": delivery_date,
             "source_offer_id": source_offer_id, "created_at": now_iso(),
         }
         await self.repo.insert(doc)
-        await self._create_commission_for_order(user, doc)
+        if status not in _CANCELLED_STATUSES:
+            await self._create_commission_for_order(user, doc)
         return doc
 
     async def create_order(self, user: dict, payload) -> dict:
@@ -53,6 +98,10 @@ class OrderService:
         return await self._create_order_doc(
             user, data["client_id"], data["mandante_id"], data["items"],
             data.get("sale_type", "nuovo"), data.get("notes", ""),
+            numero_ordine=data.get("numero_ordine"), status=data.get("status", "confermato"),
+            payment_status=data.get("payment_status", "non_pagato"),
+            expected_delivery_date=data.get("expected_delivery_date"),
+            delivery_date=data.get("delivery_date"),
         )
 
     async def create_from_offer(self, user: dict, offer: dict) -> dict:
@@ -69,6 +118,75 @@ class OrderService:
             offer.get("sale_type", "nuovo"), offer.get("notes", ""),
             source_offer_id=offer["id"],
         )
+
+    async def update_order(self, user: dict, oid: str, payload) -> None:
+        """Modifica completa di un ordine esistente (righe, prezzi, mandante,
+        tipo vendita, ecc. — non solo lo stato, per quello vedi
+        update_order_status). Dato che la provvigione dipende da totale,
+        mandante e tipo vendita, va ricalcolata da zero dopo ogni modifica:
+        non basta aggiornarne l'importo, perché anche l'aliquota o il
+        mandante beneficiario potrebbero essere cambiati."""
+        existing = await self.repo.find_one(oid, user["id"])
+        if not existing:
+            raise NotFoundError("Ordine non trovato")
+
+        # Catturati subito dopo il fetch, PRIMA di chiamare update(): non va
+        # dato per scontato che self.repo.update() lasci intatto l'oggetto
+        # `existing` già in mano (con MongoDB reale è così, ma il codice non
+        # deve dipendere da quel dettaglio implementativo).
+        old_mandante_id = existing["mandante_id"]
+        old_status = existing.get("status", "confermato")
+
+        data = payload.model_dump()
+        data["total"] = calc_offer_total(data["items"])
+        if not data.get("numero_ordine"):
+            data["numero_ordine"] = existing.get("numero_ordine") or await self.repo.next_order_number(user["id"])
+        await self.repo.update(oid, user["id"], data)
+
+        new_mandante_id = data["mandante_id"]
+        is_cancelled = data.get("status") in _CANCELLED_STATUSES
+
+        # Rigenera sempre la provvigione (a meno che l'ordine risulti
+        # annullato/reso): più semplice e meno rischioso di provare ad
+        # aggiornare in-place importo/aliquota/mandante della provvigione
+        # esistente, e riusa la stessa logica già testata di creazione.
+        await commission_service.repo.delete_by_order(oid, user["id"])
+        updated_doc = {**existing, **data, "id": oid}
+        if not is_cancelled:
+            await self._create_commission_for_order(user, updated_doc)
+        await commission_service.check_and_award_bonus(user["id"], old_mandante_id)
+        if new_mandante_id != old_mandante_id:
+            await commission_service.check_and_award_bonus(user["id"], new_mandante_id)
+
+    async def update_order_status(self, user: dict, oid: str, payload) -> None:
+        """Aggiornamento mirato di stato/evasione/pagamento/date, senza
+        toccare righe e prezzi. Se lo stato passa a/da annullato o reso, la
+        provvigione collegata viene rispettivamente rimossa o rigenerata."""
+        order = await self.repo.find_one(oid, user["id"])
+        if not order:
+            raise NotFoundError("Ordine non trovato")
+        old_status = order.get("status", "confermato")
+
+        data = payload.model_dump(exclude_unset=True)
+        if not data:
+            return
+        await self.repo.update_fields(oid, user["id"], data)
+
+        new_status = data.get("status")
+        if new_status is None:
+            return
+        was_cancelled = old_status in _CANCELLED_STATUSES
+        is_cancelled = new_status in _CANCELLED_STATUSES
+
+        if is_cancelled and not was_cancelled:
+            await self._remove_commission_for_order(user["id"], order)
+        elif was_cancelled and not is_cancelled:
+            # Torna da annullato/reso a uno stato attivo: se non ha già una
+            # provvigione (non dovrebbe averla, ma per sicurezza controlliamo),
+            # la rigenera.
+            existing_comm = await commission_service.repo.find_by_order(oid, user["id"])
+            if not existing_comm:
+                await self._create_commission_for_order(user, {**order, **data})
 
     async def delete_order(self, user: dict, oid: str) -> None:
         # A differenza delle offerte, per gli ordini la provvigione è legata a un
