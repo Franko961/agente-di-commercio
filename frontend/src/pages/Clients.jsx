@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import { useMandante } from "../contexts/MandanteContext";
 import { exportClients, whatsappLink } from "../utils/export";
+import LocationPicker from "../components/LocationPicker";
 
 const POTENTIAL_COLOR = { alto: "#059669", medio: "#FF5A00", basso: "#A1A1AA" };
 
@@ -59,9 +60,13 @@ function ClientForm({ initial, onSave, onClose, mandanti }) {
             <option value="basso">Basso</option><option value="medio">Medio</option><option value="alto">Alto</option>
           </select>
         </div>
-        <Field label="Latitudine" v={f.lat || ""} on={(v) => update("lat", parseFloat(v) || null)} type="number" />
-        <Field label="Longitudine" v={f.lng || ""} on={(v) => update("lng", parseFloat(v) || null)} type="number" />
       </div>
+
+      <LocationPicker
+        address={f.address} city={f.city} province={f.province}
+        lat={f.lat} lng={f.lng}
+        onChange={(lat, lng) => setF((prev) => ({ ...prev, lat, lng }))}
+      />
       <div>
         <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Mandanti collegati</label>
         <div className="flex flex-wrap gap-2">
