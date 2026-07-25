@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../api";
-import { Link } from "react-router-dom";
-import { Plus, Search, MapPin, Phone, Mail, Filter, Download, MessageCircle, Pencil } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Plus, Search, MapPin, Phone, Mail, Filter, Download, Upload, MessageCircle, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { toast } from "sonner";
 import { useMandante } from "../contexts/MandanteContext";
@@ -107,6 +107,7 @@ function Field({ label, v, on, type = "text", required, testid }) {
 }
 
 export default function Clients() {
+  const navigate = useNavigate();
   const { mandanti, activeMandante } = useMandante();
   const mandanteParam = activeMandante && activeMandante !== "all" ? activeMandante : undefined;
   const [clients, setClients] = useState([]);
@@ -142,6 +143,13 @@ export default function Clients() {
           <p className="text-[14px] text-[#52525B] mt-2">{clients.length} aziende nel tuo portafoglio.</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            data-testid="import-clients-button"
+            onClick={() => navigate("/app/clienti/importa")}
+            className="flex items-center gap-2 px-4 py-2.5 border border-[#E4E4E1] hover:border-[#0A192F] rounded-md text-[13px] font-medium"
+          >
+            <Upload className="w-4 h-4" /> Importa
+          </button>
           <button
             data-testid="export-clients-button"
             onClick={() => exportClients().then(() => toast.success("Export scaricato")).catch(() => toast.error("Errore export"))}
