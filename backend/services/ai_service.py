@@ -1,6 +1,7 @@
 import os
 import json
 import re
+import time
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional
@@ -8,6 +9,7 @@ from typing import Dict, Optional
 from fastapi import HTTPException
 
 from core.utils import gen_id, now_iso, now_local, local_month_str, local_wallclock_to_utc_iso
+from core.observability import record_event
 from repositories.ai_repository import ai_repository
 from repositories.client_repository import client_repository
 from repositories.appointment_repository import appointment_repository
@@ -27,6 +29,31 @@ from services.dashboard_service import dashboard_service
 logger = logging.getLogger(__name__)
 
 AI_MODEL = "claude-haiku-4-5-20251001"
+
+# Prezzo per milione di token, usato solo per stimare il costo nel cruscotto
+# di salute applicativa (non per fatturazione reale). VERIFICARE PERIODICAMENTE
+# contro https://docs.claude.com/en/docs/about-claude/pricing — questi valori
+# possono cambiare e vanno aggiornati manualmente, non sono letti da nessuna
+# fonte live.
+AI_PRICE_PER_MTOK_INPUT_USD = 1.00
+AI_PRICE_PER_MTOK_OUTPUT_USD = 5.00
+
+
+def _estimate_cost_usd(input_tokens: int, output_tokens: int) -> float:
+    return round(
+        (input_tokens / 1_000_000) * AI_PRICE_PER_MTOK_INPUT_USD
+        + (output_tokens / 1_000_000) * AI_PRICE_PER_MTOK_OUTPUT_USD,
+        6,
+    )
+
+
+def _usage_tokens(message) -> tuple:
+    """Legge input/output token dalla risposta del modello in modo
+    difensivo: l'attributo usage potrebbe mancare (es. in ambienti di test
+    con un doppio finto dell'SDK) e questo non deve mai far fallire la
+    conversazione — al più sottostima il costo registrato in telemetria."""
+    usage = getattr(message, "usage", None)
+    return (getattr(usage, "input_tokens", 0) or 0, getattr(usage, "output_tokens", 0) or 0)
 
 # Tool che generano un record economico (offerte/vendite, spese sopra una certa
 # soglia): non vengono MAI eseguiti direttamente dall'AI, nemmeno se il modello
@@ -1103,9 +1130,12 @@ class AiService:
         channel = getattr(payload, "channel", None) or "chat"
 
         try:
+            _ai_start = time.perf_counter()
             client_ai = anthropic_sdk.Anthropic(api_key=api_key)
             actions_performed = []
             tools_invoked = set()
+            total_input_tokens = 0
+            total_output_tokens = 0
 
             # Primo turno — potrebbe usare tool
             message = client_ai.messages.create(
@@ -1115,6 +1145,9 @@ class AiService:
                 tools=all_tools,
                 messages=messages,
             )
+            _in, _out = _usage_tokens(message)
+            total_input_tokens += _in
+            total_output_tokens += _out
 
             # Gestisci tool use in loop
             forced_attempt_used = False
@@ -1179,6 +1212,9 @@ class AiService:
                         tools=all_tools,
                         messages=messages,
                     )
+                    _in, _out = _usage_tokens(message)
+                    total_input_tokens += _in
+                    total_output_tokens += _out
                     continue
 
                 # Il modello ha smesso di usare tool. Se l'utente aveva chiesto
@@ -1201,6 +1237,9 @@ class AiService:
                         tool_choice={"type": "tool", "name": intended_tool},
                         messages=messages,
                     )
+                    _in, _out = _usage_tokens(message)
+                    total_input_tokens += _in
+                    total_output_tokens += _out
                     continue
 
                 break
@@ -1226,7 +1265,20 @@ class AiService:
             raise
         except Exception as e:
             logger.error(f"AI error: {e}")
+            await record_event(
+                "ai_call", "failure", user_id=user["id"], channel=channel,
+                duration_ms=round((time.perf_counter() - _ai_start) * 1000, 1),
+                error=str(e)[:300],
+            )
             raise HTTPException(500, f"Errore AI: {str(e)[:200]}")
+
+        await record_event(
+            "ai_call", "success", user_id=user["id"], channel=channel,
+            duration_ms=round((time.perf_counter() - _ai_start) * 1000, 1),
+            tokens_in=total_input_tokens, tokens_out=total_output_tokens,
+            cost_usd=_estimate_cost_usd(total_input_tokens, total_output_tokens),
+            tools_invoked=list(tools_invoked),
+        )
 
         log = {"id": gen_id(), "user_id": user["id"], "message": payload.message,
                "response": response, "created_at": now_iso()}
