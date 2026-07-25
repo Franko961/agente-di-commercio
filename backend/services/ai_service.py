@@ -7,7 +7,7 @@ from typing import Dict, Optional
 
 from fastapi import HTTPException
 
-from core.utils import gen_id, now_iso
+from core.utils import gen_id, now_iso, now_local, local_month_str, local_wallclock_to_utc_iso
 from repositories.ai_repository import ai_repository
 from repositories.client_repository import client_repository
 from repositories.appointment_repository import appointment_repository
@@ -344,7 +344,7 @@ class AiService:
         for o in offers[-10:]:
             summary.append(f"- {o.get('title')} importo {o.get('total',0)}€ stato {o.get('status')}")
 
-        current_month = today.strftime("%Y-%m")
+        current_month = now_local().strftime("%Y-%m")
         month_expenses = [e for e in expenses if (e.get("date") or "").startswith(current_month)]
         total_month_expenses = sum(e.get("amount", 0) for e in month_expenses)
         summary.append(f"\nSpese del mese corrente: {round(total_month_expenses,2)}€ ({len(month_expenses)} voci)")
@@ -490,10 +490,21 @@ class AiService:
                     if cli:
                         client_id = cli["id"]
 
+                raw_start = tool_input.get("start", "")
+                try:
+                    # Il modello fornisce l'orario "a muro" in ora italiana
+                    # (naive, senza offset — vedi la descrizione del tool più
+                    # sopra). Va convertito in un vero istante UTC prima di
+                    # salvarlo, altrimenti risulterebbe incompatibile con gli
+                    # appuntamenti creati dal form web (che sono UTC veri).
+                    start_utc = local_wallclock_to_utc_iso(raw_start) if raw_start else ""
+                except (ValueError, TypeError):
+                    start_utc = raw_start  # meglio salvare così com'è che far fallire il tool
+
                 doc = {
                     "id": gen_id(), "user_id": user_id,
                     "title": tool_input.get("title", ""),
-                    "start": tool_input.get("start", ""),
+                    "start": start_utc,
                     "client_id": client_id,
                     "location": tool_input.get("location", ""),
                     "description": tool_input.get("description", ""),
@@ -501,7 +512,11 @@ class AiService:
                     "created_at": now_iso(),
                 }
                 await self.appointment_repo.insert(doc)
-                return f"✅ Appuntamento '{doc['title']}' fissato per {doc['start'][:10]} alle {doc['start'][11:16]}."
+                # Il messaggio di conferma mostra l'orario così come richiesto
+                # (raw_start, già in ora italiana), non il valore convertito
+                # in UTC appena salvato — evita un doppio giro di conversione
+                # solo per la visualizzazione.
+                return f"✅ Appuntamento '{doc['title']}' fissato per {raw_start[:10]} alle {raw_start[11:16]}."
 
             elif tool_name == "add_lead":
                 doc = {
@@ -587,8 +602,10 @@ class AiService:
         if visited_month:
             for a in appts:
                 cid = a.get("client_id")
-                start = a.get("start") or ""
-                if cid and start[:7] == visited_month:
+                # local_month_str converte start (UTC) nel mese di
+                # calendario in ora italiana, come altrove — vedi
+                # core/utils.now_local per il perché.
+                if cid and local_month_str(a.get("start")) == visited_month:
                     visited_in_month.add(cid)
 
         results = []
