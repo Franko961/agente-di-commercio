@@ -63,6 +63,7 @@ class FakeAutomationRepo:
 class FakeRunRepo:
     def __init__(self):
         self.docs = {}
+        self.claim_calls = 0
 
     def _key(self, automation_id, target_id):
         return (automation_id, target_id)
@@ -70,6 +71,40 @@ class FakeRunRepo:
     async def find_one(self, automation_id, target_id):
         d = self.docs.get(self._key(automation_id, target_id))
         return dict(d) if d else None
+
+    async def try_claim(self, automation_id, user_id, target_type, target_id, cooldown_days=None, stale_after_seconds=300):
+        self.claim_calls += 1
+        key = self._key(automation_id, target_id)
+        now = datetime.now(timezone.utc)
+        now_iso_str = now.isoformat()
+        existing = self.docs.get(key)
+
+        if existing is None:
+            self.docs[key] = {
+                "automation_id": automation_id, "user_id": user_id,
+                "target_type": target_type, "target_id": target_id,
+                "status": "processing", "attempts": 0, "last_error": None,
+                "claimed_at": now_iso_str, "updated_at": now_iso_str,
+            }
+            return True
+
+        status = existing.get("status")
+        can_claim = False
+        if status == "error":
+            can_claim = True
+        elif status == "processing":
+            claimed_at = existing.get("claimed_at")
+            if claimed_at and now - datetime.fromisoformat(claimed_at) >= timedelta(seconds=stale_after_seconds):
+                can_claim = True
+        elif status == "ok" and cooldown_days:
+            updated_at = existing.get("updated_at")
+            if updated_at and now - datetime.fromisoformat(updated_at) >= timedelta(days=cooldown_days):
+                can_claim = True
+
+        if can_claim:
+            existing.update({"status": "processing", "claimed_at": now_iso_str, "updated_at": now_iso_str})
+            return True
+        return False
 
     async def upsert(self, automation_id, user_id, target_type, target_id, data):
         key = self._key(automation_id, target_id)

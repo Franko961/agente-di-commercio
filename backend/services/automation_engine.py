@@ -206,12 +206,21 @@ class AutomationEngine:
             return {"executed": 0, "skipped": 0, "errors": 1}
 
         candidates = await evaluator(self, user_id, config)
+        cooldown_days = config.get("cooldown_days")
 
         executed = skipped = errors = 0
         for target_type, target_id, context in candidates:
             try:
-                should_run = await self._should_run(aid, target_id, config)
-                if not should_run:
+                # Prenotazione atomica PRIMA di eseguire l'azione (vedi
+                # AutomationRunRepository.try_claim): con più repliche del
+                # backend in esecuzione contemporaneamente, un controllo
+                # separato dall'esecuzione lascerebbe una finestra in cui
+                # entrambe potrebbero superarlo ed eseguire due volte
+                # l'azione (due email, due appuntamenti...) prima che una
+                # delle due registri il risultato. Solo l'istanza che vince
+                # questa prenotazione procede.
+                claimed = await self.run_repo.try_claim(aid, user_id, target_type, target_id, cooldown_days=cooldown_days)
+                if not claimed:
                     skipped += 1
                     continue
                 await _ACTION_EXECUTORS[action](self, automation, target_type, target_id, context)
@@ -240,29 +249,6 @@ class AutomationEngine:
             "last_run_errors": errors,
         })
         return {"executed": executed, "skipped": skipped, "errors": errors}
-
-    async def _should_run(self, automation_id: str, target_id: str, config: dict) -> bool:
-        """Dedup: non rieseguire per la stessa entità se già eseguita con
-        successo, a meno che sia passato config['cooldown_days'] dall'ultima
-        esecuzione (utile per promemoria che si vogliono ripetere, es. un
-        lead ancora inattivo una settimana dopo). Un'esecuzione fallita ma
-        sotto la soglia di tentativi va invece sempre ritentata."""
-        prev = await self.run_repo.find_one(automation_id, target_id)
-        if not prev:
-            return True
-        if prev.get("status") == "error":
-            return True  # ritenta finché non supera AUTOMATION_MAX_ATTEMPTS
-        if prev.get("status") == "failed_permanent":
-            return False
-        # status == "ok": rieseguito solo se è stato configurato un cooldown
-        # ed è già trascorso.
-        cooldown_days = config.get("cooldown_days")
-        if not cooldown_days:
-            return False
-        updated_at = _parse_iso(prev.get("updated_at"))
-        if not updated_at:
-            return True
-        return datetime.now(timezone.utc) - updated_at >= timedelta(days=cooldown_days)
 
     # ------------------------------------------------------------------
     # Valutatori di trigger — ognuno ritorna una lista di tuple
