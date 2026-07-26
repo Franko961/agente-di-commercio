@@ -123,6 +123,7 @@ class AutomationEngine:
             await self.automation_repo.update_last_run(aid, {
                 "last_run_at": now_iso(), "last_run_status": "error",
                 "last_run_error": f"trigger sconosciuto: {trigger}",
+                "last_run_executed": 0, "last_run_skipped": 0, "last_run_errors": 1,
             })
             return {"executed": 0, "skipped": 0, "errors": 1}
 
@@ -131,6 +132,7 @@ class AutomationEngine:
             await self.automation_repo.update_last_run(aid, {
                 "last_run_at": now_iso(), "last_run_status": "error",
                 "last_run_error": f"azione sconosciuta: {action}",
+                "last_run_executed": 0, "last_run_skipped": 0, "last_run_errors": 1,
             })
             return {"executed": 0, "skipped": 0, "errors": 1}
 
@@ -164,6 +166,9 @@ class AutomationEngine:
             "last_run_at": now_iso(),
             "last_run_status": "error" if errors else "ok",
             "last_run_error": None if not errors else f"{errors} esecuzione/i fallita/e nell'ultimo ciclo",
+            "last_run_executed": executed,
+            "last_run_skipped": skipped,
+            "last_run_errors": errors,
         })
         return {"executed": executed, "skipped": skipped, "errors": errors}
 

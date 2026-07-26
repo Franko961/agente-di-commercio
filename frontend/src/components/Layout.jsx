@@ -4,6 +4,7 @@ import { Helmet } from "react-helmet-async";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
 import VoiceAssistant from "./VoiceAssistant";
+import NotificationBell from "./NotificationBell";
 import { Sheet, SheetContent } from "./ui/sheet";
 import { useAuth } from "../contexts/AuthContext";
 import { useMandante } from "../contexts/MandanteContext";
@@ -67,17 +68,20 @@ export default function Layout() {
               {active?.name || "Tutti i mandanti"}
             </div>
           </div>
-          <button
-            data-testid="mobile-mandante-switcher"
-            onClick={() => {
-              const ids = ["all", ...mandanti.map(m => m.id)];
-              const next = ids[(ids.indexOf(activeMandante) + 1) % ids.length];
-              setActiveMandante(next);
-            }}
-            className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00] border border-[#E4E4E1] px-2 py-1.5 rounded-md"
-          >
-            cambia
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              data-testid="mobile-mandante-switcher"
+              onClick={() => {
+                const ids = ["all", ...mandanti.map(m => m.id)];
+                const next = ids[(ids.indexOf(activeMandante) + 1) % ids.length];
+                setActiveMandante(next);
+              }}
+              className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00] border border-[#E4E4E1] px-2 py-1.5 rounded-md"
+            >
+              cambia
+            </button>
+            <NotificationBell />
+          </div>
         </header>
 
         <Outlet />

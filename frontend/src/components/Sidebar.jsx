@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useMandante } from "../contexts/MandanteContext";
+import NotificationBell from "./NotificationBell";
 
 const navItems = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard },
@@ -39,16 +40,17 @@ export default function Sidebar({ collapsed, onToggle }) {
       className="hidden md:flex flex-col h-screen sticky top-0 bg-white border-r border-[#E4E4E1] w-[260px] shrink-0"
     >
       {/* Brand */}
-      <div className="px-6 py-5 border-b border-[#E4E4E1]">
-        <div className="flex items-center gap-2">
+      <div className="px-6 py-5 border-b border-[#E4E4E1] flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <div className="w-9 h-9 flex items-center justify-center shrink-0">
             <img src="/logo-mark.png" alt="SALESFLY" className="w-full h-full object-contain" />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="font-cabinet font-black text-[15px] leading-none">SALESFLY.</div>
             <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-0.5">gestionale</div>
           </div>
         </div>
+        <NotificationBell />
       </div>
 
       {/* Mandante switcher */}

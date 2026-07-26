@@ -429,5 +429,30 @@ def test_utente_demo_non_riceve_email_ma_notifica_in_app_si():
     assert len(engine._sent_emails) == 0  # ma nessuna email reale inviata
 
 
+def test_ultima_esecuzione_registra_conteggi_su_automazione():
+    """L'automazione stessa deve riportare quante azioni sono state
+    eseguite/saltate/fallite nell'ultimo ciclo — usato dall'interfaccia per
+    mostrare 'Ultima esecuzione: ... Risultato: N azioni eseguite'."""
+    automations = [{
+        "id": "auto-7", "user_id": "user-1", "name": "Promemoria scadenza",
+        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
+        "config": {"days_before": 3},
+    }]
+    offers = [{
+        "id": "offer-1", "user_id": "user-1", "client_id": "c-1", "title": "Offerta A",
+        "status": "inviata", "expires_at": _days_from_now(2),
+    }]
+    engine = build_engine(automations=automations, offers=offers)
+
+    run(engine.run_cycle())
+
+    updated = next(a for a in engine.automation_repo.docs if a["id"] == "auto-7")
+    assert updated["last_run_executed"] == 1
+    assert updated["last_run_skipped"] == 0
+    assert updated["last_run_errors"] == 0
+    assert updated["last_run_status"] == "ok"
+    assert updated["last_run_at"] is not None
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))
