@@ -1,9 +1,24 @@
+import tempfile
 from fastapi import HTTPException
 from typing import Optional
 from core.utils import gen_id, now_iso
 from repositories.document_repository import document_repository
-from services.storage_service import storage_put, ALLOWED_EXT, APP_NAME, sanitize_filename, _sniff_matches_extension
+from services.storage_service import storage_put_stream, ALLOWED_EXT, APP_NAME, sanitize_filename, _sniff_matches_extension
 from core.config import MAX_FILE_BYTES
+
+# Byte sufficienti per riconoscere qualunque firma tra quelle controllate da
+# _sniff_matches_extension (la più esigente è il controllo HTML/script su
+# txt/csv, che guarda i primi 2048 byte): un margine ampio, ma comunque
+# trascurabile anche per il file più piccolo, non serve leggerne di più per
+# lo sniffing indipendentemente da quanto è grande il file intero.
+HEAD_SNIFF_BYTES = 4096
+
+# Sopra questa soglia il contenuto smette di stare in RAM e viene scritto
+# automaticamente su disco (gestito da SpooledTemporaryFile): un upload
+# piccolo (la stragrande maggioranza) resta veloce senza toccare il disco,
+# mentre un video o un documento pesante non vengono mai tenuti per intero
+# in memoria.
+SPOOL_MAX_MEMORY_BYTES = 8 * 1024 * 1024
 
 
 class DocumentService:
@@ -33,37 +48,54 @@ class DocumentService:
         # essere caricato per intero in memoria prima del rifiuto (altrimenti
         # un upload malevolo enorme potrebbe esaurire la memoria del server
         # ancora prima che scattasse il controllo sulla dimensione).
+        #
+        # Il contenuto NON viene comunque accumulato in un bytes Python
+        # (evitava solo il caso "file troppo grande" oltre il limite, ma un
+        # file consentito da 1-2 GB di video finiva comunque intero in RAM):
+        # ogni blocco viene invece scritto in un file temporaneo "spooled"
+        # (in RAM solo fino a SPOOL_MAX_MEMORY_BYTES, oltre quella soglia su
+        # disco automaticamente), e in memoria restano solo i primi
+        # HEAD_SNIFF_BYTES byte, l'unica porzione che serve davvero per
+        # verificare la firma del file.
         chunk_size = 1024 * 1024  # 1 MB
-        chunks = []
+        head = b""
         total = 0
-        while True:
-            chunk = await file.read(chunk_size)
-            if not chunk:
-                break
-            total += len(chunk)
-            if total > MAX_FILE_BYTES:
-                raise HTTPException(413, f"File troppo grande (max {MAX_FILE_BYTES // (1024*1024)} MB)")
-            chunks.append(chunk)
-        data = b"".join(chunks)
-        if not data:
-            raise HTTPException(400, "File vuoto")
+        spooled = tempfile.SpooledTemporaryFile(max_size=SPOOL_MAX_MEMORY_BYTES)
+        try:
+            while True:
+                chunk = await file.read(chunk_size)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > MAX_FILE_BYTES:
+                    raise HTTPException(413, f"File troppo grande (max {MAX_FILE_BYTES // (1024*1024)} MB)")
+                if len(head) < HEAD_SNIFF_BYTES:
+                    head += chunk[: HEAD_SNIFF_BYTES - len(head)]
+                spooled.write(chunk)
 
-        # I byte reali del file devono corrispondere all'estensione
-        # dichiarata: non ci si fida né del nome file né del Content-Type
-        # inviato dal browser, entrambi liberamente falsificabili da chi
-        # carica il file (es. un file HTML rinominato in .txt).
-        if not _sniff_matches_extension(data, ext):
-            raise HTTPException(400, "Il contenuto del file non corrisponde al tipo dichiarato dall'estensione")
+            if total == 0:
+                raise HTTPException(400, "File vuoto")
 
-        # Il Content-Type salvato/servito è SEMPRE quello della nostra
-        # whitelist, mai quello dichiarato dal browser (file.content_type):
-        # altrimenti un file con estensione consentita potrebbe dichiarare
-        # Content-Type: text/html e, riaperto con Content-Disposition:
-        # inline nel download, essere eseguito dal browser come pagina HTML
-        # (stored XSS). Vedi anche X-Content-Type-Options: nosniff nel router.
-        content_type = ALLOWED_EXT[ext]
-        storage_path = f"{APP_NAME}/uploads/{user['id']}/{gen_id()}.{ext}"
-        result = storage_put(storage_path, data, content_type)
+            # I byte reali del file devono corrispondere all'estensione
+            # dichiarata: non ci si fida né del nome file né del Content-Type
+            # inviato dal browser, entrambi liberamente falsificabili da chi
+            # carica il file (es. un file HTML rinominato in .txt). Basta
+            # 'head' (i primi byte), non serve il file intero.
+            if not _sniff_matches_extension(head, ext):
+                raise HTTPException(400, "Il contenuto del file non corrisponde al tipo dichiarato dall'estensione")
+
+            # Il Content-Type salvato/servito è SEMPRE quello della nostra
+            # whitelist, mai quello dichiarato dal browser (file.content_type):
+            # altrimenti un file con estensione consentita potrebbe dichiarare
+            # Content-Type: text/html e, riaperto con Content-Disposition:
+            # inline nel download, essere eseguito dal browser come pagina HTML
+            # (stored XSS). Vedi anche X-Content-Type-Options: nosniff nel router.
+            content_type = ALLOWED_EXT[ext]
+            storage_path = f"{APP_NAME}/uploads/{user['id']}/{gen_id()}.{ext}"
+            spooled.seek(0)
+            result = storage_put_stream(storage_path, spooled, content_type)
+        finally:
+            spooled.close()
 
         tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
         # Il nome file originale va sanitizzato prima di salvarlo: viene
@@ -82,7 +114,7 @@ class DocumentService:
             "storage_path": result.get("path", storage_path),
             "original_filename": safe_original_filename,
             "content_type": content_type,
-            "size": len(data),
+            "size": total,
             "is_deleted": False,
             "created_at": now_iso(),
         }

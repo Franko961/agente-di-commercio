@@ -1,10 +1,11 @@
 import jwt
 from typing import Optional
-from fastapi import APIRouter, Depends, Body, UploadFile, File, Form, Header, Query, HTTPException, Response, Request
+from fastapi import APIRouter, Depends, Body, UploadFile, File, Form, Header, Query, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from core.security import get_current_user, forbid_demo_write
 from core.config import JWT_SECRET, JWT_ALG
 from services.document_service import document_service
-from services.storage_service import storage_get, sanitize_filename
+from services.storage_service import storage_get_stream, sanitize_filename
 from models.document import DocumentIn
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
@@ -62,24 +63,30 @@ async def download_document(
         raise HTTPException(401, "Invalid token")
 
     doc = await document_service.get_document_for_download(payload["sub"], did)
-    content, ctype = storage_get(doc["storage_path"])
+    # Streaming dal bucket S3 al browser: il contenuto non viene mai tenuto
+    # per intero in memoria sul server, nemmeno per un video o un documento
+    # pesante (vedi storage_get_stream in storage_service.py).
+    chunk_iterator, ctype, content_length = storage_get_stream(doc["storage_path"])
     # sanitize_filename applicato anche qui (non solo all'upload): protegge
     # anche i documenti già caricati prima di questa modifica, il cui
     # original_filename in DB potrebbe non essere ancora stato ripulito.
     filename = sanitize_filename(doc.get("original_filename") or doc.get("name") or "file")
-    return Response(
-        content=content,
+    headers = {
+        "Content-Disposition": f'inline; filename="{filename}"',
+        "Cache-Control": "private, max-age=300",
+        # Impedisce al browser di "indovinare" un tipo diverso da quello
+        # dichiarato in Content-Type ispezionando i byte del corpo —
+        # difesa aggiuntiva anche ora che Content-Type è sempre quello
+        # della nostra whitelist (mai preso dal browser in upload),
+        # non più solo un dato fidato per assunzione.
+        "X-Content-Type-Options": "nosniff",
+    }
+    if content_length is not None:
+        headers["Content-Length"] = str(content_length)
+    return StreamingResponse(
+        chunk_iterator,
         media_type=doc.get("content_type") or ctype,
-        headers={
-            "Content-Disposition": f'inline; filename="{filename}"',
-            "Cache-Control": "private, max-age=300",
-            # Impedisce al browser di "indovinare" un tipo diverso da quello
-            # dichiarato in Content-Type ispezionando i byte del corpo —
-            # difesa aggiuntiva anche ora che Content-Type è sempre quello
-            # della nostra whitelist (mai preso dal browser in upload),
-            # non più solo un dato fidato per assunzione.
-            "X-Content-Type-Options": "nosniff",
-        },
+        headers=headers,
     )
 
 

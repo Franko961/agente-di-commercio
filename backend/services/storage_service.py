@@ -139,6 +139,24 @@ def storage_put(path: str, data: bytes, content_type: str) -> dict:
         raise HTTPException(500, f"Errore upload S3: {str(e)[:200]}")
 
 
+def storage_put_stream(path: str, fileobj, content_type: str) -> dict:
+    """Come storage_put, ma accetta un file-like già posizionato all'inizio
+    (es. un tempfile.SpooledTemporaryFile) invece di un blob bytes già
+    interamente in memoria. boto3 gestisce da solo l'upload multipart in
+    streaming, leggendo il file a blocchi — così un video o un documento
+    pesante non devono mai esistere per intero come oggetto Python in RAM,
+    a differenza di storage_put(path, data, ...)."""
+    s3 = get_s3()
+    if not s3:
+        raise HTTPException(500, "Storage S3 non disponibile — controlla AWS_ACCESS_KEY_ID e AWS_S3_BUCKET")
+    try:
+        s3.upload_fileobj(fileobj, S3_BUCKET, path, ExtraArgs={"ContentType": content_type})
+        return {"path": path}
+    except (BotoCoreError, ClientError) as e:
+        logger.error(f"S3 upload_fileobj error: {e}")
+        raise HTTPException(500, f"Errore upload S3: {str(e)[:200]}")
+
+
 def storage_get(path: str) -> tuple:
     s3 = get_s3()
     if not s3:
@@ -151,6 +169,34 @@ def storage_get(path: str) -> tuple:
     except (BotoCoreError, ClientError) as e:
         logger.error(f"S3 get error: {e}")
         raise HTTPException(500, f"Errore download S3: {str(e)[:200]}")
+
+
+def storage_get_stream(path: str, chunk_size: int = 1024 * 1024) -> tuple:
+    """Come storage_get, ma restituisce un iteratore di blocchi invece del
+    contenuto già interamente letto in memoria — pensato per essere passato
+    a una StreamingResponse, così scaricare un video o un documento pesante
+    non richiede di tenerlo per intero in RAM sul server durante l'invio."""
+    s3 = get_s3()
+    if not s3:
+        raise HTTPException(500, "Storage S3 non disponibile")
+    try:
+        obj = s3.get_object(Bucket=S3_BUCKET, Key=path)
+    except (BotoCoreError, ClientError) as e:
+        logger.error(f"S3 get error: {e}")
+        raise HTTPException(500, f"Errore download S3: {str(e)[:200]}")
+
+    content_type = obj.get("ContentType", "application/octet-stream")
+    content_length = obj.get("ContentLength")
+    body = obj["Body"]
+
+    def _iterator():
+        try:
+            for chunk in body.iter_chunks(chunk_size):
+                yield chunk
+        finally:
+            body.close()
+
+    return _iterator(), content_type, content_length
 
 
 def storage_delete(path: str) -> None:
