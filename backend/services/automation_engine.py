@@ -36,7 +36,7 @@ from typing import Optional
 
 from core.config import AUTOMATION_MAX_ATTEMPTS, AUTOMATION_ENGINE_INTERVAL_SECONDS
 from core.observability import record_event
-from core.utils import gen_id, now_iso, now_local
+from core.utils import gen_id, now_iso, now_local, local_wallclock_to_utc_iso
 from repositories.automation_repository import automation_repository
 from repositories.automation_run_repository import automation_run_repository
 from repositories.automation_notification_repository import automation_notification_repository
@@ -373,7 +373,7 @@ class AutomationEngine:
         from models.appointment import AppointmentIn
 
         client_id = target_id if target_type == "client" else context.get("client_id")
-        start = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+        start = _next_task_datetime_utc_iso(automation.get("config") or {})
         payload = AppointmentIn(
             client_id=client_id,
             title=f"Follow-up: {automation.get('name') or 'automazione'}",
@@ -403,6 +403,39 @@ class AutomationEngine:
         sent = await self.send_email_fn(to, subject, f"<p>{body_text}</p>")
         if not sent:
             raise RuntimeError("Invio email fallito (vedi log email_service)")
+
+
+# Default per l'azione create_task: un orario lavorativo sensato invece
+# dell'ora esatta in cui capita di girare il ciclo del motore, e un giorno
+# di ritardo (domani) se non diversamente configurato.
+_DEFAULT_TASK_TIME = "09:00"
+_DEFAULT_TASK_DELAY_DAYS = 1
+
+
+def _next_task_datetime_utc_iso(config: dict) -> str:
+    """Calcola quando piazzare il task creato da 'create_task':
+    config['task_delay_days'] giorni da oggi IN ORA ITALIANA (non UTC —
+    altrimenti la mezzanotte italiana/UTC può far slittare il giorno di
+    calcolo), alle config['task_time'] (default 09:00). Prima si usava
+    semplicemente 'adesso in UTC + 24 ore', che produceva appuntamenti a
+    qualunque orario capitasse di girare il ciclo (es. le 21:30 di notte)
+    invece di un orario lavorativo scelto apposta."""
+    task_time = config.get("task_time") or _DEFAULT_TASK_TIME
+    task_delay_days = config.get("task_delay_days", _DEFAULT_TASK_DELAY_DAYS)
+
+    try:
+        hour, minute = (int(p) for p in task_time.split(":"))
+    except (ValueError, AttributeError, TypeError):
+        hour, minute = 9, 0  # config malformata: orario di default, mai un crash
+
+    try:
+        delay_days = int(task_delay_days)
+    except (ValueError, TypeError):
+        delay_days = _DEFAULT_TASK_DELAY_DAYS
+
+    target_date = (now_local() + timedelta(days=delay_days)).date()
+    local_wallclock = f"{target_date.isoformat()}T{hour:02d}:{minute:02d}:00"
+    return local_wallclock_to_utc_iso(local_wallclock)
 
 
 def _describe_target(target_type: str, context: dict) -> str:

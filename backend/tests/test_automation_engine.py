@@ -340,6 +340,100 @@ def test_cliente_visitato_di_recente_non_genera_task():
     assert summary["executed"] == 0
 
 
+def test_create_task_usa_le_09_del_mattino_in_ora_italiana_di_default(monkeypatch):
+    """Il caso che ha motivato il fix: prima veniva usato 'adesso in UTC +
+    24 ore', che produceva un task all'orario esatto in cui capitava di
+    girare il ciclo (es. le 21:30 di notte) invece di un orario lavorativo.
+    Di default deve finire domani alle 09:00 ora italiana."""
+    from core.utils import now_local, local_wallclock_to_utc_iso
+    from datetime import timedelta as td
+
+    automations = [{
+        "id": "auto-2", "user_id": "user-1", "name": "Cliente non visitato",
+        "trigger": "no_visit_30d", "action": "create_task", "enabled": True,
+        "config": {},
+    }]
+    clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Rossi Srl", "created_at": _days_ago(200)}]
+    engine = build_engine(automations=automations, clients=clients)
+
+    created = []
+
+    class FakeAppointmentService:
+        async def create_appointment(self, user, payload):
+            created.append(payload)
+            return {"id": "new-appt"}
+
+    import services.appointment_service as appt_mod
+    monkeypatch.setattr(appt_mod, "appointment_service", FakeAppointmentService())
+
+    run(engine.run_cycle())
+
+    expected_date = (now_local() + td(days=1)).date().isoformat()
+    expected_start = local_wallclock_to_utc_iso(f"{expected_date}T09:00:00")
+    assert created[0].start == expected_start
+
+
+def test_create_task_rispetta_task_time_e_task_delay_days_configurati(monkeypatch):
+    from core.utils import now_local, local_wallclock_to_utc_iso
+    from datetime import timedelta as td
+
+    automations = [{
+        "id": "auto-2", "user_id": "user-1", "name": "Cliente non visitato",
+        "trigger": "no_visit_30d", "action": "create_task", "enabled": True,
+        "config": {"task_time": "14:30", "task_delay_days": 3},
+    }]
+    clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Rossi Srl", "created_at": _days_ago(200)}]
+    engine = build_engine(automations=automations, clients=clients)
+
+    created = []
+
+    class FakeAppointmentService:
+        async def create_appointment(self, user, payload):
+            created.append(payload)
+            return {"id": "new-appt"}
+
+    import services.appointment_service as appt_mod
+    monkeypatch.setattr(appt_mod, "appointment_service", FakeAppointmentService())
+
+    run(engine.run_cycle())
+
+    expected_date = (now_local() + td(days=3)).date().isoformat()
+    expected_start = local_wallclock_to_utc_iso(f"{expected_date}T14:30:00")
+    assert created[0].start == expected_start
+
+
+def test_create_task_con_task_time_malformato_ricade_sul_default(monkeypatch):
+    """Una config['task_time'] scritta male non deve mai far fallire la
+    creazione del task: ricade sull'orario di default (09:00)."""
+    from core.utils import now_local, local_wallclock_to_utc_iso
+    from datetime import timedelta as td
+
+    automations = [{
+        "id": "auto-2", "user_id": "user-1", "name": "Cliente non visitato",
+        "trigger": "no_visit_30d", "action": "create_task", "enabled": True,
+        "config": {"task_time": "non-un-orario"},
+    }]
+    clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Rossi Srl", "created_at": _days_ago(200)}]
+    engine = build_engine(automations=automations, clients=clients)
+
+    created = []
+
+    class FakeAppointmentService:
+        async def create_appointment(self, user, payload):
+            created.append(payload)
+            return {"id": "new-appt"}
+
+    import services.appointment_service as appt_mod
+    monkeypatch.setattr(appt_mod, "appointment_service", FakeAppointmentService())
+
+    summary = run(engine.run_cycle())
+
+    assert summary["executed"] == 1
+    expected_date = (now_local() + td(days=1)).date().isoformat()
+    expected_start = local_wallclock_to_utc_iso(f"{expected_date}T09:00:00")
+    assert created[0].start == expected_start
+
+
 # ---------- lead_inactive + send_email ----------
 
 def test_lead_inattivo_invia_email_al_lead():

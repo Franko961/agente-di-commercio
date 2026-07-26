@@ -136,13 +136,15 @@ function ConfigSummary({ automation: a }) {
   const cooldown = a.config?.cooldown_days;
   const runAt = a.config?.run_at;
   const hasCustomEmail = !!(a.config?.email_subject || a.config?.email_message);
-  if (daysValue == null && !cooldown && !runAt && !hasCustomEmail) return null;
+  const isTask = a.action === "create_task";
+  if (daysValue == null && !cooldown && !runAt && !hasCustomEmail && !isTask) return null;
   return (
     <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-1">
       {daysValue != null && `${daysValue} giorni`}
       {cooldown ? ` · si ripete ogni ${cooldown} giorni` : ""}
       {runAt ? ` · ore ${runAt}` : ""}
       {hasCustomEmail ? " · email personalizzata" : ""}
+      {isTask ? ` · task tra ${a.config?.task_delay_days ?? 1}g alle ${a.config?.task_time || "09:00"}` : ""}
     </div>
   );
 }
@@ -247,6 +249,7 @@ function AutoForm({ initial, onSave }) {
   const daysValue = f.config?.[daysField] ?? DAYS_DEFAULT_BY_TRIGGER[f.trigger];
   const cooldownValue = f.config?.cooldown_days ?? "";
   const sendsEmail = f.action === "send_reminder" || f.action === "send_email";
+  const createsTask = f.action === "create_task";
 
   const setTrigger = (trigger) => {
     // Cambiando trigger cambia solo la chiave del campo "giorni"
@@ -269,6 +272,11 @@ function AutoForm({ initial, onSave }) {
 
   const setConfigText = (key, value) => {
     setF({ ...f, config: { ...f.config, [key]: value || undefined } });
+  };
+
+  const setConfigNumber = (key, value) => {
+    const n = value === "" ? undefined : Number(value);
+    setF({ ...f, config: { ...f.config, [key]: n } });
   };
 
   return (
@@ -323,6 +331,38 @@ function AutoForm({ initial, onSave }) {
           {Object.entries(ACTIONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </div>
+
+      {createsTask && (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">
+              Orario del task
+            </label>
+            <input
+              type="time"
+              data-testid="automation-task-time-input"
+              value={f.config?.task_time || "09:00"}
+              onChange={(e) => setConfigText("task_time", e.target.value)}
+              className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+            />
+          </div>
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">
+              Giorni di ritardo
+            </label>
+            <input
+              type="number" min={0} step={1}
+              data-testid="automation-task-delay-input"
+              value={f.config?.task_delay_days ?? 1}
+              onChange={(e) => setConfigNumber("task_delay_days", e.target.value)}
+              className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+            />
+          </div>
+          <p className="text-[11px] text-[#A1A1AA] col-span-2">
+            Il task viene piazzato a quest'ora (fuso orario italiano), i giorni di ritardo dopo il rilevamento della condizione.
+          </p>
+        </div>
+      )}
 
       {sendsEmail && (
         <>
