@@ -1,0 +1,151 @@
+import io
+import json
+import logging
+import zipfile
+from datetime import datetime, timezone
+
+from fastapi import HTTPException
+
+from core.database import db
+from core.security import verify_password
+from services.storage_service import storage_get, storage_delete
+from services.subscription_service import subscription_service
+
+logger = logging.getLogger(__name__)
+
+# Ogni collection che contiene dati riconducibili a un utente, con
+# l'etichetta usata nel file di export. Va mantenuta aggiornata quando si
+# aggiunge una nuova collection user-scoped — è la stessa lista usata sia per
+# l'esportazione (art. 20 GDPR) sia per la cancellazione (art. 17): dimenticare
+# una collection qui la lascerebbe fuori da entrambe, con conseguenze opposte
+# ma ugualmente serie (dati non esportati, o dati non cancellati).
+USER_SCOPED_COLLECTIONS = {
+    "clienti": "clients",
+    "lead": "leads",
+    "appuntamenti": "appointments",
+    "offerte": "offers",
+    "ordini": "orders",
+    "provvigioni": "commissions",
+    "spese": "expenses",
+    "prodotti": "products",
+    "mandanti": "mandanti",
+    "documenti": "documents",
+    "conversazioni_ai": "ai_logs",
+    "log_azioni_ai": "ai_action_logs",
+    "log_email": "email_logs",
+    "automazioni": "automations",
+    "connessione_google_calendar": "google_calendar_connections",
+}
+
+# Campi da rimuovere sempre dall'export e mai includere: segreti tecnici che
+# non sono "i dati dell'utente" nel senso previsto dal diritto alla
+# portabilità, e la cui esposizione sarebbe anzi un rischio di sicurezza
+# (token OAuth Google Calendar, hash password).
+_STRIP_FIELDS = {"password_hash", "google_access_token", "google_refresh_token", "_id"}
+
+
+def _strip(doc: dict) -> dict:
+    return {k: v for k, v in doc.items() if k not in _STRIP_FIELDS}
+
+
+class GdprService:
+    async def export_user_data(self, user: dict) -> bytes:
+        """Esportazione completa (art. 20 GDPR, diritto alla portabilità):
+        un unico file .zip con un JSON leggibile di tutti i dati strutturati
+        più i file dei documenti caricati (non solo i loro metadati — il
+        contenuto reale, altrimenti l'export sarebbe incompleto per la parte
+        più sensibile, contratti/firme)."""
+        user_id = user["id"]
+        bundle = {
+            "esportato_il": datetime.now(timezone.utc).isoformat(),
+            "profilo": _strip(await db.users.find_one({"id": user_id}, {"_id": 0}) or {}),
+        }
+        for label, collection_name in USER_SCOPED_COLLECTIONS.items():
+            docs = await db[collection_name].find({"user_id": user_id}, {"_id": 0}).to_list(20000)
+            bundle[label] = [_strip(d) for d in docs]
+
+        zip_buf = io.BytesIO()
+        with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("dati.json", json.dumps(bundle, default=str, ensure_ascii=False, indent=2))
+
+            # Documenti: contenuto reale dei file, non solo i metadati già
+            # inclusi in dati.json. Recuperati singolarmente da S3 — se uno
+            # fallisce (file mancante/corrotto), l'export prosegue comunque
+            # con gli altri, annotando l'errore invece di far fallire tutto.
+            seen_names = {}
+            for doc in bundle["documenti"]:
+                storage_path = doc.get("storage_path")
+                if not storage_path:
+                    continue
+                try:
+                    content, _ = storage_get(storage_path)
+                    name = doc.get("original_filename") or doc.get("name") or doc["id"]
+                    seen_names[name] = seen_names.get(name, 0) + 1
+                    if seen_names[name] > 1:
+                        stem, _, ext = name.rpartition(".")
+                        name = f"{stem or name} ({seen_names[name]}).{ext}" if ext else f"{name} ({seen_names[name]})"
+                    zf.writestr(f"documenti/{name}", content)
+                except Exception as e:
+                    logger.warning(f"Export: impossibile includere il documento {doc.get('id')}: {e}")
+
+        zip_buf.seek(0)
+        return zip_buf.read()
+
+    async def delete_account(self, user: dict, password: str) -> None:
+        """Cancellazione account e cancellazione DEFINITIVA dei dati (art. 17
+        GDPR, diritto all'oblio) — non un soft-delete: ogni documento viene
+        rimosso davvero dal database, e i file su S3 vengono cancellati
+        (non solo il loro record), altrimenti resterebbero comunque
+        leggibili a chi conoscesse il percorso di storage.
+
+        Richiede la password corrente come conferma: un'azione distruttiva e
+        irreversibile non deve poter essere innescata da una sessione rubata
+        senza che chi la esegue dimostri di conoscere la password."""
+        full_user = await db.users.find_one({"id": user["id"]})
+        if not full_user or not verify_password(password, full_user.get("password_hash", "")):
+            raise HTTPException(403, "Password non corretta")
+
+        user_id = user["id"]
+
+        # Ferma prima gli addebiti ricorrenti: cancellare l'account senza
+        # disdire l'abbonamento lascerebbe l'utente a pagare per un servizio
+        # che non esiste più.
+        try:
+            await subscription_service.cancel_subscription(user)
+        except Exception as e:
+            logger.warning(f"Cancellazione abbonamento durante eliminazione account fallita: {e}")
+
+        # Cancella davvero i file dei documenti da S3, non solo i record.
+        documents = await db.documents.find({"user_id": user_id}, {"_id": 0, "storage_path": 1}).to_list(20000)
+        for doc in documents:
+            storage_path = doc.get("storage_path")
+            if not storage_path:
+                continue
+            try:
+                storage_delete(storage_path)
+            except Exception as e:
+                logger.warning(f"Eliminazione file S3 durante eliminazione account fallita: {e}")
+
+        for collection_name in USER_SCOPED_COLLECTIONS.values():
+            await db[collection_name].delete_many({"user_id": user_id})
+
+        # Traccia amministrativa dell'eliminazione: si conserva DOPO la
+        # cancellazione dell'account (a differenza dei dati sopra) perché è
+        # un log di responsabilità/sicurezza su un evento avvenuto, non un
+        # dato personale nel senso previsto dal diritto all'oblio — lo
+        # stesso principio già applicato all'audit amministrativo esistente.
+        try:
+            await db.admin_audit_log.insert_one({
+                "actor": full_user.get("email", user_id),
+                "action": "self_delete_account",
+                "target_user_id": user_id,
+                "detail": {"email": full_user.get("email")},
+                "created_at": datetime.now(timezone.utc),
+            })
+        except Exception:
+            pass
+
+        await db.users.delete_one({"id": user_id})
+
+
+gdpr_service = GdprService()
