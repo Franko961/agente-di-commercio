@@ -2,9 +2,19 @@ import { useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
 import L from "leaflet";
 import { Link } from "react-router-dom";
-import { Route, Loader2, X, MapPin, Clock, Navigation } from "lucide-react";
+import { Route, Loader2, X, MapPin, Clock, Navigation, ExternalLink, CheckCircle2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import api from "../api";
+
+// Link universale di Google Maps: funziona su Android (apre l'app se
+// installata), iOS (apre l'app Google Maps se installata, altrimenti
+// Safari) e desktop (apre maps.google.com) con un'unica URL, senza dover
+// distinguere il dispositivo. Le indicazioni vere e proprie — voce, traffico
+// in tempo reale, ricalcolo se si sbaglia strada — restano tutte a carico di
+// Google Maps: non ha senso provare a ricostruirle dentro SalesFly.
+function navigationUrl(lat, lng) {
+  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+}
 
 // Stesso controllo di LocationPicker.jsx: una coordinata corrotta (fuori dai
 // limiti geografici possibili) passata direttamente a Leaflet può portare a
@@ -71,11 +81,15 @@ export default function MapView() {
   const [startTime, setStartTime] = useState(stored?.startTime || "09:00");
   const [visitMinutes, setVisitMinutes] = useState(stored?.visitMinutes || 30);
   const [plan, setPlan] = useState(stored?.plan || null);
+  // Tappe già visitate, segnate a mano dall'agente (vedi markVisited): non
+  // c'è modo affidabile di rilevarlo in automatico via GPS se per navigare
+  // si usa Google Maps in un'altra app, quindi resta un tocco manuale.
+  const [completedIds, setCompletedIds] = useState(stored?.completedIds || []);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    saveStoredRoutePlan({ planOpen, selectedIds, startTime, visitMinutes, plan });
-  }, [planOpen, selectedIds, startTime, visitMinutes, plan]);
+    saveStoredRoutePlan({ planOpen, selectedIds, startTime, visitMinutes, plan, completedIds });
+  }, [planOpen, selectedIds, startTime, visitMinutes, plan, completedIds]);
 
   useEffect(() => { api.get("/clients").then(({ data }) => setClients(data.filter(c => isValidCoord(c.lat, c.lng)))); }, []);
 
@@ -92,6 +106,7 @@ export default function MapView() {
     }
     setBusy(true);
     setPlan(null);
+    setCompletedIds([]);
     try {
       const { data } = await api.post("/route-planning/optimize", {
         client_ids: selectedIds,
@@ -109,6 +124,26 @@ export default function MapView() {
   const resetPlan = () => {
     setPlan(null);
     setSelectedIds([]);
+    setCompletedIds([]);
+  };
+
+  // La "tappa corrente" è la prima non ancora segnata come visitata,
+  // nell'ordine ottimizzato: è quella evidenziata nell'elenco e su cui ha
+  // senso premere "Naviga" adesso.
+  const currentStopId = plan?.stops.find((s) => !completedIds.includes(s.client_id))?.client_id ?? null;
+
+  const markVisited = (stop, isCurrentlyDone) => {
+    setCompletedIds((prev) => {
+      if (isCurrentlyDone) return prev.filter((id) => id !== stop.client_id);
+      return [...prev, stop.client_id];
+    });
+    if (!isCurrentlyDone && plan) {
+      const idx = plan.stops.findIndex((s) => s.client_id === stop.client_id);
+      const next = plan.stops.slice(idx + 1).find((s) => !completedIds.includes(s.client_id) && s.client_id !== stop.client_id);
+      toast.success(
+        next ? `Visita a "${stop.company_name}" conclusa — prossima tappa: ${next.company_name}` : `Visita a "${stop.company_name}" conclusa — giro completato!`
+      );
+    }
   };
 
   const routeLine = useMemo(
@@ -223,18 +258,29 @@ export default function MapView() {
 
             {plan && (
               <div className="flex-1 flex flex-col">
-                <div className="p-4 border-b border-[#E4E4E1] bg-[#F9F9F8] grid grid-cols-3 gap-2 text-center">
-                  <div>
-                    <div className="font-cabinet font-black text-lg">{plan.total_distance_km}</div>
-                    <div className="font-mono text-[9px] uppercase tracking-widest text-[#A1A1AA]">km</div>
+                <div className="p-4 border-b border-[#E4E4E1] bg-[#F9F9F8]">
+                  <div className="grid grid-cols-3 gap-2 text-center mb-3">
+                    <div>
+                      <div className="font-cabinet font-black text-lg">{plan.total_distance_km}</div>
+                      <div className="font-mono text-[9px] uppercase tracking-widest text-[#A1A1AA]">km</div>
+                    </div>
+                    <div>
+                      <div className="font-cabinet font-black text-lg">{plan.total_travel_minutes}</div>
+                      <div className="font-mono text-[9px] uppercase tracking-widest text-[#A1A1AA]">min. viaggio</div>
+                    </div>
+                    <div>
+                      <div className="font-cabinet font-black text-lg">{plan.estimated_end_time}</div>
+                      <div className="font-mono text-[9px] uppercase tracking-widest text-[#A1A1AA]">fine stimata</div>
+                    </div>
                   </div>
                   <div>
-                    <div className="font-cabinet font-black text-lg">{plan.total_travel_minutes}</div>
-                    <div className="font-mono text-[9px] uppercase tracking-widest text-[#A1A1AA]">min. viaggio</div>
-                  </div>
-                  <div>
-                    <div className="font-cabinet font-black text-lg">{plan.estimated_end_time}</div>
-                    <div className="font-mono text-[9px] uppercase tracking-widest text-[#A1A1AA]">fine stimata</div>
+                    <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-widest text-[#52525B] mb-1">
+                      <span>Avanzamento</span>
+                      <span data-testid="route-progress-count">{completedIds.length} / {plan.stops.length}</span>
+                    </div>
+                    <div className="h-1.5 bg-[#E4E4E1] rounded-full overflow-hidden">
+                      <div className="h-full bg-[#FF5A00] transition-all" style={{ width: `${(completedIds.length / plan.stops.length) * 100}%` }} />
+                    </div>
                   </div>
                 </div>
 
@@ -251,25 +297,51 @@ export default function MapView() {
                 )}
 
                 <div className="flex-1 overflow-y-auto divide-y divide-[#E4E4E1]">
-                  {plan.stops.map((s, i) => (
-                    <div key={s.client_id} data-testid={`route-stop-${s.client_id}`}
-                         className={`p-4 flex gap-3 ${s.suspicious_distance ? "bg-[#DC2626]/5" : ""}`}>
-                      <div className="w-6 h-6 rounded-full bg-[#0A192F] text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                        {i + 1}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="font-cabinet font-bold text-[13px] truncate">{s.company_name}</div>
-                        <div className="text-[11px] text-[#52525B] flex items-center gap-1 mt-0.5">
-                          <MapPin className="w-3 h-3 shrink-0" /> {s.city || s.address || "—"}
+                  {plan.stops.map((s, i) => {
+                    const isDone = completedIds.includes(s.client_id);
+                    const isCurrent = s.client_id === currentStopId;
+                    return (
+                      <div key={s.client_id} data-testid={`route-stop-${s.client_id}`}
+                           className={`p-4 flex gap-3 ${s.suspicious_distance ? "bg-[#DC2626]/5" : isCurrent ? "bg-[#FF5A00]/5 border-l-4 border-[#FF5A00]" : ""} ${isDone ? "opacity-50" : ""}`}>
+                        <div className={`w-6 h-6 rounded-full text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5 ${isDone ? "bg-[#059669]" : "bg-[#0A192F]"}`}>
+                          {isDone ? <CheckCircle2 className="w-3.5 h-3.5" /> : i + 1}
                         </div>
-                        <div className={`text-[11px] flex items-center gap-1 mt-0.5 ${s.suspicious_distance ? "text-[#DC2626] font-medium" : "text-[#52525B]"}`}>
-                          <Clock className="w-3 h-3 shrink-0" /> arrivo {s.eta} · uscita {s.departure}
-                          {i > 0 && ` · ${s.distance_from_prev_km} km (${s.travel_minutes_from_prev} min)`}
-                          {s.suspicious_distance && " ⚠️"}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <div className={`font-cabinet font-bold text-[13px] truncate ${isDone ? "line-through" : ""}`}>{s.company_name}</div>
+                            {isCurrent && !isDone && (
+                              <span className="font-mono text-[9px] uppercase tracking-widest text-[#FF5A00] shrink-0">prossima tappa</span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-[#52525B] flex items-center gap-1 mt-0.5">
+                            <MapPin className="w-3 h-3 shrink-0" /> {s.city || s.address || "—"}
+                          </div>
+                          <div className={`text-[11px] flex items-center gap-1 mt-0.5 ${s.suspicious_distance ? "text-[#DC2626] font-medium" : "text-[#52525B]"}`}>
+                            <Clock className="w-3 h-3 shrink-0" /> arrivo {s.eta} · uscita {s.departure}
+                            {i > 0 && ` · ${s.distance_from_prev_km} km (${s.travel_minutes_from_prev} min)`}
+                            {s.suspicious_distance && " ⚠️"}
+                          </div>
+                          <div className="flex items-center gap-2 mt-2">
+                            <a
+                              href={navigationUrl(s.lat, s.lng)}
+                              target="_blank" rel="noopener noreferrer"
+                              data-testid={`navigate-stop-${s.client_id}`}
+                              className="flex items-center gap-1 px-2.5 py-1.5 bg-[#0A192F] text-white rounded text-[11px] font-medium"
+                            >
+                              <ExternalLink className="w-3 h-3" /> Naviga
+                            </a>
+                            <button
+                              onClick={() => markVisited(s, isDone)}
+                              data-testid={`mark-visited-${s.client_id}`}
+                              className={`flex items-center gap-1 px-2.5 py-1.5 rounded text-[11px] font-medium border ${isDone ? "border-[#E4E4E1] text-[#52525B]" : "border-[#059669] text-[#059669]"}`}
+                            >
+                              {isDone ? <><RotateCcw className="w-3 h-3" /> Riapri</> : <><CheckCircle2 className="w-3 h-3" /> Segna come visitato</>}
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div className="p-4 border-t border-[#E4E4E1]">
