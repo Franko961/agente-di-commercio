@@ -18,6 +18,15 @@ services.startup_service — e che:
      l'esito (ok/errore + tentativi) e aggiorna last_run_at/last_run_status
      sull'automazione stessa.
 
+In più, tre opzioni facoltative in 'config', lette solo se presenti (in
+assenza si comporta esattamente come prima):
+  - 'email_subject'/'email_message': testo personalizzato per l'oggetto/il
+    corpo dell'email, con placeholder {nome}/{scadenza}/{citta} sostituiti
+    con i dati reali del cliente/offerta/lead coinvolto (vedi _render_template).
+  - 'run_at' ("HH:MM"): valuta la regola una sola volta al giorno, nella
+    finestra di ciclo più vicina a quell'orario, invece che ad ogni ciclo
+    (vedi _matches_schedule).
+
 Tutto avvolto in try/except a grana fine: un'automazione o un'entità che
 falliscono non devono mai interrompere il ciclo delle altre.
 """
@@ -25,7 +34,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from core.config import AUTOMATION_MAX_ATTEMPTS
+from core.config import AUTOMATION_MAX_ATTEMPTS, AUTOMATION_ENGINE_INTERVAL_SECONDS
 from core.observability import record_event
 from core.utils import gen_id, now_iso, now_local
 from repositories.automation_repository import automation_repository
@@ -58,6 +67,58 @@ def _parse_iso(ts: Optional[str]) -> Optional[datetime]:
         return dt
     except (ValueError, TypeError):
         return None
+
+
+class _SafeDict(dict):
+    """Usato con str.format_map: un placeholder sconosciuto (es. un typo
+    dell'utente tipo '{nom}') viene lasciato letterale nel testo invece di
+    far fallire l'invio con un KeyError — un errore di battitura nel
+    contenuto personalizzato non deve mai bloccare un'automazione."""
+    def __missing__(self, key):
+        return "{" + key + "}"
+
+
+def _placeholder_values(target_type: str, context: dict) -> dict:
+    """Valori disponibili per il testo personalizzato di oggetto/messaggio
+    (config['email_subject']/config['email_message']): {nome}, {scadenza}
+    (solo per le offerte), {citta} (solo per clienti/lead)."""
+    if target_type == "offer":
+        return {"nome": context.get("title", ""), "scadenza": (context.get("expires_at") or "")[:10], "citta": ""}
+    if target_type in ("client", "lead"):
+        return {"nome": context.get("company_name", ""), "scadenza": "", "citta": context.get("city", "")}
+    return {"nome": "", "scadenza": "", "citta": ""}
+
+
+def _render_template(template: str, target_type: str, context: dict) -> str:
+    try:
+        return template.format_map(_SafeDict(_placeholder_values(target_type, context)))
+    except Exception:
+        # Un template scritto male (es. una graffa spaiata) non deve mai far
+        # fallire l'invio: meglio il testo grezzo che nessun invio.
+        return template
+
+
+def _matches_schedule(config: dict) -> bool:
+    """Se config['run_at'] (formato 'HH:MM') è impostato, la regola viene
+    valutata una sola volta al giorno, nel ciclo la cui finestra copre
+    quell'orario — non ad ogni ciclo come le regole senza orario impostato.
+    La finestra di tolleranza è ampia quanto l'intervallo tra due cicli
+    (AUTOMATION_ENGINE_INTERVAL_SECONDS), così un solo ciclo al giorno vi
+    ricade, indipendentemente da micro-scarti nell'istante esatto in cui
+    il loop si sveglia."""
+    run_at = config.get("run_at")
+    if not run_at:
+        return True
+    try:
+        hour_str, minute_str = run_at.split(":")
+        target_minutes = int(hour_str) * 60 + int(minute_str)
+    except (ValueError, AttributeError):
+        return True  # config malformata: non bloccare l'automazione per questo
+
+    now = now_local()
+    now_minutes = now.hour * 60 + now.minute
+    window_minutes = max(1, AUTOMATION_ENGINE_INTERVAL_SECONDS // 60)
+    return 0 <= (now_minutes - target_minutes) % (24 * 60) < window_minutes
 
 
 class AutomationEngine:
@@ -116,6 +177,14 @@ class AutomationEngine:
         trigger = automation.get("trigger")
         action = automation.get("action")
         config = automation.get("config") or {}
+
+        if not _matches_schedule(config):
+            # Fuori dalla finestra oraria configurata (config['run_at']):
+            # non valutata affatto in questo ciclo, e last_run_at NON viene
+            # toccato — altrimenti l'interfaccia mostrerebbe "eseguita 10
+            # minuti fa" ad ogni ciclo anche quando la regola non è stata
+            # davvero valutata.
+            return {"executed": 0, "skipped": 0, "errors": 0}
 
         evaluator = _TRIGGER_EVALUATORS.get(trigger)
         if not evaluator:
@@ -287,9 +356,12 @@ class AutomationEngine:
         if not user:
             raise RuntimeError("Utente dell'automazione non trovato")
 
+        config = automation.get("config") or {}
         label = _describe_target(target_type, context)
-        title = automation.get("name") or "Promemoria automazione"
-        message = f"{title}: {label}"
+        custom_subject = config.get("email_subject")
+        custom_message = config.get("email_message")
+        title = _render_template(custom_subject, target_type, context) if custom_subject else (automation.get("name") or "Promemoria automazione")
+        message = _render_template(custom_message, target_type, context) if custom_message else f"{title}: {label}"
 
         await self.notification_repo.insert({
             "id": gen_id(), "user_id": automation["user_id"], "automation_id": automation["id"],
@@ -336,9 +408,13 @@ class AutomationEngine:
         if not to:
             raise RuntimeError("Nessun indirizzo email disponibile per il destinatario")
 
+        config = automation.get("config") or {}
+        custom_subject = config.get("email_subject")
+        custom_message = config.get("email_message")
         label = _describe_target(target_type, context)
-        subject = automation.get("name") or "Follow-up"
-        sent = await self.send_email_fn(to, subject, f"<p>{label}</p>")
+        subject = _render_template(custom_subject, target_type, context) if custom_subject else (automation.get("name") or "Follow-up")
+        body_text = _render_template(custom_message, target_type, context) if custom_message else label
+        sent = await self.send_email_fn(to, subject, f"<p>{body_text}</p>")
         if not sent:
             raise RuntimeError("Invio email fallito (vedi log email_service)")
 

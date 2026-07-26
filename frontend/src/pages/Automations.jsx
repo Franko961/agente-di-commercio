@@ -134,11 +134,15 @@ function ConfigSummary({ automation: a }) {
   const daysField = DAYS_FIELD_BY_TRIGGER[a.trigger];
   const daysValue = a.config?.[daysField];
   const cooldown = a.config?.cooldown_days;
-  if (daysValue == null && !cooldown) return null;
+  const runAt = a.config?.run_at;
+  const hasCustomEmail = !!(a.config?.email_subject || a.config?.email_message);
+  if (daysValue == null && !cooldown && !runAt && !hasCustomEmail) return null;
   return (
     <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-1">
       {daysValue != null && `${daysValue} giorni`}
       {cooldown ? ` · si ripete ogni ${cooldown} giorni` : ""}
+      {runAt ? ` · ore ${runAt}` : ""}
+      {hasCustomEmail ? " · email personalizzata" : ""}
     </div>
   );
 }
@@ -242,13 +246,15 @@ function AutoForm({ initial, onSave }) {
   const daysField = DAYS_FIELD_BY_TRIGGER[f.trigger];
   const daysValue = f.config?.[daysField] ?? DAYS_DEFAULT_BY_TRIGGER[f.trigger];
   const cooldownValue = f.config?.cooldown_days ?? "";
+  const sendsEmail = f.action === "send_reminder" || f.action === "send_email";
 
   const setTrigger = (trigger) => {
-    // Cambiando trigger, il campo giorni si applica a una chiave diversa
-    // (days_before vs days): ripartiamo dal default di quel trigger invece
-    // di lasciare un valore residuo che non verrebbe nemmeno letto dal
-    // motore per il nuovo trigger selezionato.
-    setF({ ...f, trigger, config: { cooldown_days: f.config?.cooldown_days } });
+    // Cambiando trigger cambia solo la chiave del campo "giorni"
+    // (days_before vs days, si riparte dal default del nuovo trigger): le
+    // altre opzioni (cooldown, email personalizzata, orario) sono
+    // indipendenti dal trigger e restano quelle già impostate.
+    const { [DAYS_FIELD_BY_TRIGGER[f.trigger]]: _drop, ...rest } = f.config || {};
+    setF({ ...f, trigger, config: rest });
   };
 
   const setDays = (value) => {
@@ -261,13 +267,21 @@ function AutoForm({ initial, onSave }) {
     setF({ ...f, config: { ...f.config, cooldown_days: n } });
   };
 
+  const setConfigText = (key, value) => {
+    setF({ ...f, config: { ...f.config, [key]: value || undefined } });
+  };
+
   return (
     <form onSubmit={async (e) => { e.preventDefault(); await onSave(f); }} className="space-y-3">
       <div>
         <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Nome regola *</label>
         <input required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })}
                className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
-        <p className="text-[11px] text-[#A1A1AA] mt-1">Usato anche come oggetto dell'email inviata da questa regola.</p>
+        <p className="text-[11px] text-[#A1A1AA] mt-1">
+          {sendsEmail && !f.config?.email_subject
+            ? "Usato anche come oggetto dell'email, se non imposti un oggetto personalizzato qui sotto."
+            : ""}
+        </p>
       </div>
       <div>
         <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Trigger</label>
@@ -309,6 +323,54 @@ function AutoForm({ initial, onSave }) {
           {Object.entries(ACTIONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </div>
+
+      {sendsEmail && (
+        <>
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">
+              Oggetto email personalizzato (facoltativo)
+            </label>
+            <input
+              data-testid="automation-email-subject-input"
+              value={f.config?.email_subject || ""}
+              onChange={(e) => setConfigText("email_subject", e.target.value)}
+              placeholder={f.name || "usa il nome della regola"}
+              className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+            />
+          </div>
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">
+              Contenuto email personalizzato (facoltativo)
+            </label>
+            <textarea
+              rows={3}
+              data-testid="automation-email-message-input"
+              value={f.config?.email_message || ""}
+              onChange={(e) => setConfigText("email_message", e.target.value)}
+              placeholder="es. Ciao {nome}, non ti vediamo da un po'…"
+              className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+            />
+            <p className="text-[11px] text-[#A1A1AA] mt-1">
+              Puoi usare <code>{"{nome}"}</code>{f.trigger === "offer_expiring" ? <>, <code>{"{scadenza}"}</code></> : <>, <code>{"{citta}"}</code></>} — vengono sostituiti con i dati reali.
+            </p>
+          </div>
+        </>
+      )}
+
+      <div>
+        <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Orario di esecuzione (facoltativo)</label>
+        <input
+          type="time"
+          data-testid="automation-run-at-input"
+          value={f.config?.run_at || ""}
+          onChange={(e) => setConfigText("run_at", e.target.value)}
+          className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+        />
+        <p className="text-[11px] text-[#A1A1AA] mt-1">
+          Se impostato, la regola viene valutata una volta al giorno a quest'ora invece che ad ogni ciclo (ogni 10 minuti).
+        </p>
+      </div>
+
       <button data-testid="save-automation-button" type="submit" className="w-full bg-[#0A192F] text-white py-2.5 rounded-md text-[13px] font-medium">
         {initial ? "Salva modifiche" : "Salva regola"}
       </button>

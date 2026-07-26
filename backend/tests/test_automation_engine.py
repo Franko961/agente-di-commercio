@@ -454,5 +454,145 @@ def test_ultima_esecuzione_registra_conteggi_su_automazione():
     assert updated["last_run_at"] is not None
 
 
+# ---------- Oggetto/contenuto email personalizzati ----------
+
+def test_send_email_usa_oggetto_e_contenuto_personalizzati():
+    automations = [{
+        "id": "auto-8", "user_id": "user-1", "name": "Lead inattivo",
+        "trigger": "lead_inactive", "action": "send_email", "enabled": True,
+        "config": {
+            "days": 7,
+            "email_subject": "Ciao {nome}, ci sei ancora?",
+            "email_message": "Notiamo che {nome} ({citta}) non risponde da un po'.",
+        },
+    }]
+    leads = [{
+        "id": "l-1", "user_id": "user-1", "company_name": "Bianchi Spa",
+        "email": "bianchi@example.com", "city": "Ancona", "status": "nuovo", "created_at": _days_ago(10),
+    }]
+    engine = build_engine(automations=automations, leads=leads)
+
+    run(engine.run_cycle())
+
+    assert len(engine._sent_emails) == 1
+    assert engine._sent_emails[0]["subject"] == "Ciao Bianchi Spa, ci sei ancora?"
+    assert "Bianchi Spa (Ancona)" in engine._sent_emails[0]["html"]
+
+
+def test_send_reminder_usa_oggetto_e_contenuto_personalizzati():
+    automations = [{
+        "id": "auto-9", "user_id": "user-1", "name": "Promemoria scadenza",
+        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
+        "config": {
+            "days_before": 3,
+            "email_subject": "Offerta {nome} in scadenza",
+            "email_message": "L'offerta {nome} scade il {scadenza}, contatta il cliente.",
+        },
+    }]
+    offers = [{
+        "id": "offer-1", "user_id": "user-1", "client_id": "c-1", "title": "Fornitura Uffici",
+        "status": "inviata", "expires_at": _days_from_now(2),
+    }]
+    engine = build_engine(automations=automations, offers=offers)
+
+    run(engine.run_cycle())
+
+    assert len(engine._sent_emails) == 1
+    assert "🔔 SALESFLY — Offerta Fornitura Uffici in scadenza" == engine._sent_emails[0]["subject"]
+    assert "Fornitura Uffici" in engine._sent_emails[0]["html"]
+    assert len(engine.notification_repo.docs) == 1
+    assert "Fornitura Uffici" in engine.notification_repo.docs[0]["message"]
+
+
+def test_placeholder_sconosciuto_non_fa_fallire_linvio():
+    """Un typo nel placeholder (es. '{nom}' invece di '{nome}') non deve
+    mai far fallire l'invio: viene lasciato letterale nel testo."""
+    automations = [{
+        "id": "auto-10", "user_id": "user-1", "name": "Lead inattivo",
+        "trigger": "lead_inactive", "action": "send_email", "enabled": True,
+        "config": {"days": 7, "email_message": "Ciao {nom}, tutto ok?"},
+    }]
+    leads = [{
+        "id": "l-1", "user_id": "user-1", "company_name": "Bianchi Spa",
+        "email": "bianchi@example.com", "status": "nuovo", "created_at": _days_ago(10),
+    }]
+    engine = build_engine(automations=automations, leads=leads)
+
+    summary = run(engine.run_cycle())
+
+    assert summary["executed"] == 1
+    assert "{nom}" in engine._sent_emails[0]["html"]  # lasciato letterale, non un crash
+
+
+# ---------- Orario di esecuzione per regola (config['run_at']) ----------
+
+def test_regola_senza_run_at_viene_valutata_sempre():
+    automations = [{
+        "id": "auto-11", "user_id": "user-1", "name": "Promemoria scadenza",
+        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
+        "config": {"days_before": 3},
+    }]
+    offers = [{
+        "id": "offer-1", "user_id": "user-1", "client_id": "c-1", "title": "Offerta A",
+        "status": "inviata", "expires_at": _days_from_now(2),
+    }]
+    engine = build_engine(automations=automations, offers=offers)
+
+    summary = run(engine.run_cycle())
+
+    assert summary["executed"] == 1
+
+
+def test_regola_fuori_dalla_finestra_oraria_non_viene_valutata(monkeypatch):
+    import services.automation_engine as automation_engine_mod
+    from datetime import datetime as real_datetime
+
+    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 7, 26, 8, 0))
+
+    automations = [{
+        "id": "auto-12", "user_id": "user-1", "name": "Promemoria scadenza",
+        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
+        "config": {"days_before": 3, "run_at": "18:00"},
+    }]
+    offers = [{
+        "id": "offer-1", "user_id": "user-1", "client_id": "c-1", "title": "Offerta A",
+        "status": "inviata", "expires_at": _days_from_now(2),
+    }]
+    engine = build_engine(automations=automations, offers=offers)
+
+    summary = run(engine.run_cycle())
+
+    assert summary["executed"] == 0
+    assert engine._sent_emails == []
+    # Fuori dalla finestra: la regola non è stata valutata affatto, quindi
+    # last_run_at non deve essere stato toccato.
+    updated = next(a for a in engine.automation_repo.docs if a["id"] == "auto-12")
+    assert updated.get("last_run_at") is None
+
+
+def test_regola_dentro_la_finestra_oraria_viene_valutata(monkeypatch):
+    import services.automation_engine as automation_engine_mod
+    from datetime import datetime as real_datetime
+
+    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 7, 26, 18, 3))
+
+    automations = [{
+        "id": "auto-13", "user_id": "user-1", "name": "Promemoria scadenza",
+        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
+        "config": {"days_before": 3, "run_at": "18:00"},
+    }]
+    offers = [{
+        "id": "offer-1", "user_id": "user-1", "client_id": "c-1", "title": "Offerta A",
+        "status": "inviata", "expires_at": _days_from_now(2),
+    }]
+    engine = build_engine(automations=automations, offers=offers)
+
+    summary = run(engine.run_cycle())
+
+    assert summary["executed"] == 1
+    updated = next(a for a in engine.automation_repo.docs if a["id"] == "auto-13")
+    assert updated["last_run_at"] is not None
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))
