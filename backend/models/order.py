@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 
 # Stato del ciclo di vita dell'ordine. "annullato"/"reso" sono gli unici due
@@ -11,9 +11,12 @@ PAYMENT_STATUSES = ["non_pagato", "parziale", "pagato"]
 class OrderLineItem(BaseModel):
     product_id: Optional[str] = None
     description: str
-    quantity: float = 1
-    unit_price: float = 0.0
-    discount: float = 0.0
+    # Stessi limiti di OfferLineItem (models/offer.py): evitano un
+    # sub-totale riga negativo che si propagherebbe al totale ordine e da
+    # lì alla provvigione calcolata su di esso.
+    quantity: float = Field(1, gt=0)
+    unit_price: float = Field(0.0, ge=0)
+    discount: float = Field(0.0, ge=0, le=100)
 
 
 class OrderIn(BaseModel):

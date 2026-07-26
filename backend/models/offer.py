@@ -1,13 +1,18 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 
 
 class OfferLineItem(BaseModel):
     product_id: Optional[str] = None
     description: str
-    quantity: float = 1
-    unit_price: float = 0.0
-    discount: float = 0.0
+    # Limiti che evitano un totale riga negativo o assurdo, che si
+    # propagherebbe al totale dell'offerta e da lì alla provvigione
+    # calcolata su di esso (services.commission_service.calc_offer_total):
+    # una quantità <= 0, un prezzo negativo, o uno sconto oltre il 100%
+    # produrrebbero un sub-totale negativo senza che nulla lo impedisse.
+    quantity: float = Field(1, gt=0)
+    unit_price: float = Field(0.0, ge=0)
+    discount: float = Field(0.0, ge=0, le=100)
 
 
 class OfferIn(BaseModel):

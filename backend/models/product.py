@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 
 
@@ -6,9 +6,13 @@ class ProductIn(BaseModel):
     mandante_id: str
     name: str
     sku: Optional[str] = ""
-    price: float
-    cost: Optional[float] = 0.0
-    commission_rate: Optional[float] = None  # override mandante if set
+    # Un prezzo/costo negativo si propagherebbe a qualunque offerta/ordine
+    # che riusi questo prodotto per precompilare la riga (stesso rischio già
+    # sistemato su OfferLineItem/OrderLineItem in models/offer.py e
+    # models/order.py).
+    price: float = Field(ge=0)
+    cost: Optional[float] = Field(0.0, ge=0)
+    commission_rate: Optional[float] = Field(None, ge=0, le=100)  # override mandante if set
     category: Optional[str] = ""
 
 
@@ -18,9 +22,9 @@ class ProductBulkItem(BaseModel):
     sola volta a livello di richiesta tramite mandante_name."""
     sku: str
     name: str
-    price: float
-    cost: Optional[float] = 0.0
-    commission_rate: Optional[float] = None
+    price: float = Field(ge=0)
+    cost: Optional[float] = Field(0.0, ge=0)
+    commission_rate: Optional[float] = Field(None, ge=0, le=100)
     category: Optional[str] = ""
 
 
