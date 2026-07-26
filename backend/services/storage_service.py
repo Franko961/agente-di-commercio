@@ -151,3 +151,20 @@ def storage_get(path: str) -> tuple:
     except (BotoCoreError, ClientError) as e:
         logger.error(f"S3 get error: {e}")
         raise HTTPException(500, f"Errore download S3: {str(e)[:200]}")
+
+
+def storage_delete(path: str) -> None:
+    """Cancellazione definitiva del file da S3 — non un semplice soft-delete
+    del record nel database. Usata dalla cancellazione account (diritto
+    all'oblio, art. 17 GDPR): un documento rimosso "per finta" (solo
+    is_deleted=True) resterebbe comunque leggibile a chi conoscesse il
+    percorso di storage. Non solleva se il file non esiste già (idempotente),
+    solo per errori reali di comunicazione con S3."""
+    s3 = get_s3()
+    if not s3:
+        raise HTTPException(500, "Storage S3 non disponibile")
+    try:
+        s3.delete_object(Bucket=S3_BUCKET, Key=path)
+    except (BotoCoreError, ClientError) as e:
+        logger.error(f"S3 delete error: {e}")
+        raise HTTPException(500, f"Errore cancellazione S3: {str(e)[:200]}")
