@@ -28,6 +28,7 @@ ALERT_MIN_SAMPLE_SIZE = 5
 _gcal_sync_task = None
 _stuck_ai_action_task = None
 _health_alert_task = None
+_automation_engine_task = None
 _last_alert_sent_at = None
 
 
@@ -82,7 +83,7 @@ async def _health_alert_loop() -> None:
             health = await health_service.get_health(hours=ALERT_CHECK_INTERVAL_SECONDS / 3600)
 
             problems = []
-            for key, label in [("ai", "chiamate AI"), ("email", "invii email"), ("calendar_sync", "sync Google Calendar")]:
+            for key, label in [("ai", "chiamate AI"), ("email", "invii email"), ("calendar_sync", "sync Google Calendar"), ("automation_run", "esecuzioni automazioni")]:
                 stats = health[key]
                 if stats["total"] >= ALERT_MIN_SAMPLE_SIZE and stats["failure_rate_pct"] >= ALERT_ERROR_RATE_THRESHOLD_PCT:
                     problems.append(f"{label}: {stats['failure_rate_pct']}% di fallimenti ({stats['failure']}/{stats['total']})")
@@ -112,6 +113,26 @@ async def _health_alert_loop() -> None:
             raise
         except Exception as e:
             logger.error(f"Ciclo di controllo anomalie fallito: {e}")
+
+
+async def _automation_engine_loop() -> None:
+    """Ciclo periodico del motore delle automazioni personalizzabili
+    (services.automation_engine): controlla le condizioni di tutte le
+    regole attive di tutti gli utenti ed esegue le azioni corrispondenti
+    (promemoria, task, email di follow-up). Vedi automation_engine.py per
+    il dettaglio di valutazione/esecuzione/dedup."""
+    from core.config import AUTOMATION_ENGINE_INTERVAL_SECONDS
+    from services.automation_engine import automation_engine
+    while True:
+        try:
+            await asyncio.sleep(AUTOMATION_ENGINE_INTERVAL_SECONDS)
+            summary = await automation_engine.run_cycle()
+            if summary["executed"] or summary["errors"]:
+                logger.info(f"Ciclo automazioni: {summary}")
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.error(f"Ciclo motore automazioni fallito: {e}")
 
 
 async def run_startup() -> None:
@@ -160,10 +181,16 @@ async def run_startup() -> None:
     # responsabilità, non solo di salute operativa).
     await db.admin_audit_log.create_index([("created_at", -1)])
 
-    global _gcal_sync_task, _stuck_ai_action_task, _health_alert_task
+    # Indici usati dal motore automazioni: dedup/retry per (automation_id,
+    # target_id) e lettura notifiche per utente ordinate per data.
+    await db.automation_runs.create_index([("automation_id", 1), ("target_id", 1)], unique=True)
+    await db.automation_notifications.create_index([("user_id", 1), ("created_at", -1)])
+
+    global _gcal_sync_task, _stuck_ai_action_task, _health_alert_task, _automation_engine_task
     _gcal_sync_task = asyncio.create_task(_google_calendar_sync_loop())
     _stuck_ai_action_task = asyncio.create_task(_stuck_ai_action_cleanup_loop())
     _health_alert_task = asyncio.create_task(_health_alert_loop())
+    _automation_engine_task = asyncio.create_task(_automation_engine_loop())
 
 
 async def run_shutdown() -> None:
@@ -173,4 +200,6 @@ async def run_shutdown() -> None:
         _stuck_ai_action_task.cancel()
     if _health_alert_task:
         _health_alert_task.cancel()
+    if _automation_engine_task:
+        _automation_engine_task.cancel()
     close_db()

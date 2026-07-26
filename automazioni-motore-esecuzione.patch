@@ -1,0 +1,1099 @@
+diff --git a/backend/core/config.py b/backend/core/config.py
+index 5cddfc1..663c8da 100644
+--- a/backend/core/config.py
++++ b/backend/core/config.py
+@@ -69,6 +69,17 @@ PLANS = {
+     },
+ }
+ 
++# --- Motore automazioni ---
++# Intervallo tra un ciclo di valutazione e il successivo (controlla tutte le
++# automazioni attive di tutti gli utenti). 10 minuti di default: abbastanza
++# reattivo per promemoria/scadenze, senza martellare il DB.
++AUTOMATION_ENGINE_INTERVAL_SECONDS = int(os.environ.get("AUTOMATION_ENGINE_INTERVAL_SECONDS", str(10 * 60)))
++# Dopo questo numero di tentativi falliti consecutivi per lo stesso
++# automation+target, si smette di ritentare (l'errore è quasi certamente
++# persistente, es. configurazione invalida) e si segna come fallita in modo
++# permanente invece di ritentare all'infinito ogni ciclo.
++AUTOMATION_MAX_ATTEMPTS = int(os.environ.get("AUTOMATION_MAX_ATTEMPTS", "5"))
++
+ RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+ ADMIN_NOTIFY_EMAIL = os.environ.get("ADMIN_NOTIFY_EMAIL", "franco.bruni.art@gmail.com")
+ # Vuoto di default: Sentry resta disattivato finché non si imposta questa
+diff --git a/backend/repositories/automation_notification_repository.py b/backend/repositories/automation_notification_repository.py
+new file mode 100644
+index 0000000..3b81eaa
+--- /dev/null
++++ b/backend/repositories/automation_notification_repository.py
+@@ -0,0 +1,26 @@
++from core.database import db
++
++
++class AutomationNotificationRepository:
++    """Notifiche in-app generate dal motore delle automazioni (azione
++    'send_reminder'), da mostrare all'utente indipendentemente dal fatto che
++    l'email di accompagnamento sia stata consegnata o meno."""
++
++    collection = db.automation_notifications
++
++    async def insert(self, doc: dict) -> dict:
++        await self.collection.insert_one(doc)
++        doc.pop("_id", None)
++        return doc
++
++    async def find_many(self, user_id: str, unread_only: bool = False, limit: int = 100) -> list:
++        query = {"user_id": user_id}
++        if unread_only:
++            query["read"] = False
++        return await self.collection.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
++
++    async def mark_read(self, nid: str, user_id: str) -> None:
++        await self.collection.update_one({"id": nid, "user_id": user_id}, {"$set": {"read": True}})
++
++
++automation_notification_repository = AutomationNotificationRepository()
+diff --git a/backend/repositories/automation_repository.py b/backend/repositories/automation_repository.py
+index ab3f7dd..fcbed9f 100644
+--- a/backend/repositories/automation_repository.py
++++ b/backend/repositories/automation_repository.py
+@@ -7,6 +7,16 @@ class AutomationRepository:
+     async def find_many(self, user_id: str) -> list:
+         return await self.collection.find({"user_id": user_id}, {"_id": 0}).to_list(500)
+ 
++    async def find_all_enabled(self) -> list:
++        """Usato dal motore di esecuzione (automation_engine): scorre le
++        automazioni attive di TUTTI gli utenti, non solo di uno, a
++        differenza di find_many che e' scoped per singolo utente per le
++        rotte API."""
++        return await self.collection.find({"enabled": True}, {"_id": 0}).to_list(5000)
++
++    async def update_last_run(self, aid: str, data: dict) -> None:
++        await self.collection.update_one({"id": aid}, {"$set": data})
++
+     async def insert(self, doc: dict) -> dict:
+         await self.collection.insert_one(doc)
+         doc.pop("_id", None)
+diff --git a/backend/repositories/automation_run_repository.py b/backend/repositories/automation_run_repository.py
+new file mode 100644
+index 0000000..5196d3b
+--- /dev/null
++++ b/backend/repositories/automation_run_repository.py
+@@ -0,0 +1,44 @@
++from typing import Optional
++
++from core.database import db
++
++
++class AutomationRunRepository:
++    """Traccia, per ogni coppia (automazione, entità target — es. una
++    specifica offerta/cliente/lead), l'esito dell'ultima esecuzione: serve
++    sia a evitare di rieseguire la stessa azione più volte per la stessa
++    condizione (dedup), sia a contare i tentativi falliti consecutivi per
++    poter smettere di ritentare dopo una soglia (vedi AUTOMATION_MAX_ATTEMPTS
++    in core/config.py)."""
++
++    collection = db.automation_runs
++
++    async def find_one(self, automation_id: str, target_id: str) -> Optional[dict]:
++        return await self.collection.find_one(
++            {"automation_id": automation_id, "target_id": target_id}, {"_id": 0}
++        )
++
++    async def upsert(self, automation_id: str, user_id: str, target_type: str, target_id: str, data: dict) -> None:
++        await self.collection.update_one(
++            {"automation_id": automation_id, "target_id": target_id},
++            {"$set": {
++                "automation_id": automation_id,
++                "user_id": user_id,
++                "target_type": target_type,
++                "target_id": target_id,
++                **data,
++            }},
++            upsert=True,
++        )
++
++    async def find_many_by_automation(self, automation_id: str, limit: int = 200) -> list:
++        return await self.collection.find({"automation_id": automation_id}, {"_id": 0}) \
++            .sort("updated_at", -1).to_list(limit)
++
++    async def delete_by_automation(self, automation_id: str) -> None:
++        """Ripulisce lo storico esecuzioni quando l'automazione stessa viene
++        cancellata, per non lasciare record orfani in questa collection."""
++        await self.collection.delete_many({"automation_id": automation_id})
++
++
++automation_run_repository = AutomationRunRepository()
+diff --git a/backend/routers/automations.py b/backend/routers/automations.py
+index 76c5efd..edadf00 100644
+--- a/backend/routers/automations.py
++++ b/backend/routers/automations.py
+@@ -26,3 +26,19 @@ async def update_automation(aid: str, payload: AutomationIn, user=Depends(get_cu
+ async def delete_automation(aid: str, user=Depends(forbid_demo_write)):
+     await automation_service.delete_automation(user, aid)
+     return {"ok": True}
++
++
++@router.get("/notifications")
++async def list_notifications(unread_only: bool = False, user=Depends(get_current_user)):
++    return await automation_service.list_notifications(user, unread_only=unread_only)
++
++
++@router.put("/notifications/{nid}/read")
++async def mark_notification_read(nid: str, user=Depends(get_current_user)):
++    await automation_service.mark_notification_read(user, nid)
++    return {"ok": True}
++
++
++@router.get("/{aid}/runs")
++async def list_runs(aid: str, user=Depends(get_current_user)):
++    return await automation_service.list_runs(user, aid)
+diff --git a/backend/services/automation_engine.py b/backend/services/automation_engine.py
+new file mode 100644
+index 0000000..d3e2347
+--- /dev/null
++++ b/backend/services/automation_engine.py
+@@ -0,0 +1,363 @@
++"""Motore di esecuzione delle automazioni.
++
++Il modello/servizio/router delle automazioni (models.automation,
++services.automation_service, repositories.automation_repository) gestiscono
++solo il CRUD della regola: nome, trigger, azione, config, enabled. Questo
++modulo è il pezzo che mancava — chiamato periodicamente da
++services.startup_service — e che:
++
++  1. scorre le automazioni ATTIVE di tutti gli utenti;
++  2. per ognuna, valuta la condizione del trigger (offer_expiring,
++     no_visit_30d, lead_inactive) e produce la lista delle entità che la
++     soddisfano oggi (un'offerta, un cliente, un lead...);
++  3. per ogni entità, verifica in automation_runs se è già stata eseguita
++     (dedup: la stessa automazione non spara due volte per la stessa
++     entità, a meno che config.cooldown_days non ne richieda la ripetizione
++     dopo N giorni);
++  4. esegue l'azione (send_reminder, create_task, send_email), registra
++     l'esito (ok/errore + tentativi) e aggiorna last_run_at/last_run_status
++     sull'automazione stessa.
++
++Tutto avvolto in try/except a grana fine: un'automazione o un'entità che
++falliscono non devono mai interrompere il ciclo delle altre.
++"""
++import logging
++from datetime import datetime, timedelta, timezone
++from typing import Optional
++
++from core.config import AUTOMATION_MAX_ATTEMPTS
++from core.observability import record_event
++from core.utils import gen_id, now_iso, now_local
++from repositories.automation_repository import automation_repository
++from repositories.automation_run_repository import automation_run_repository
++from repositories.automation_notification_repository import automation_notification_repository
++from repositories.client_repository import client_repository
++from repositories.offer_repository import offer_repository
++from repositories.lead_repository import lead_repository
++from repositories.appointment_repository import appointment_repository
++from repositories.user_repository import user_repository
++from services.email_service import send_email
++
++logger = logging.getLogger(__name__)
++
++# Stati di offerta per cui una scadenza imminente ha ancora senso di essere
++# segnalata: un'offerta già accettata/rifiutata/scaduta non è più "in corso".
++_OPEN_OFFER_STATUSES = ("bozza", "inviata")
++# Stati di lead considerati "chiusi": non ha senso avvisare che un lead vinto
++# o perso è "inattivo".
++_CLOSED_LEAD_STATUSES = ("vinto", "perso")
++
++
++def _parse_iso(ts: Optional[str]) -> Optional[datetime]:
++    if not ts:
++        return None
++    try:
++        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
++        if dt.tzinfo is None:
++            dt = dt.replace(tzinfo=timezone.utc)
++        return dt
++    except (ValueError, TypeError):
++        return None
++
++
++class AutomationEngine:
++    def __init__(
++        self,
++        automation_repo=automation_repository,
++        run_repo=automation_run_repository,
++        notification_repo=automation_notification_repository,
++        client_repo=client_repository,
++        offer_repo=offer_repository,
++        lead_repo=lead_repository,
++        appointment_repo=appointment_repository,
++        user_repo=user_repository,
++        send_email_fn=send_email,
++    ):
++        self.automation_repo = automation_repo
++        self.run_repo = run_repo
++        self.notification_repo = notification_repo
++        self.client_repo = client_repo
++        self.offer_repo = offer_repo
++        self.lead_repo = lead_repo
++        self.appointment_repo = appointment_repo
++        self.user_repo = user_repo
++        self.send_email_fn = send_email_fn
++
++    # ------------------------------------------------------------------
++    # Ciclo principale
++    # ------------------------------------------------------------------
++    async def run_cycle(self) -> dict:
++        """Esegue un intero ciclo di valutazione. Ritorna un piccolo
++        riepilogo (utile per i log e per i test), non solleva mai
++        eccezioni verso il chiamante: ogni errore di singola automazione o
++        singola entità viene isolato."""
++        summary = {"automations": 0, "executed": 0, "skipped": 0, "errors": 0}
++        automations = await self.automation_repo.find_all_enabled()
++
++        for automation in automations:
++            summary["automations"] += 1
++            try:
++                result = await self._run_automation(automation)
++                summary["executed"] += result["executed"]
++                summary["skipped"] += result["skipped"]
++                summary["errors"] += result["errors"]
++            except Exception as e:
++                # Un'automazione mal configurata (trigger/azione sconosciuti,
++                # config malformata) non deve bloccare le altre.
++                logger.error(f"Automazione {automation.get('id')} fallita per errore inatteso: {e}")
++                await record_event("automation_run", "failure", automation_id=automation.get("id"), error=str(e)[:300])
++                summary["errors"] += 1
++
++        return summary
++
++    async def _run_automation(self, automation: dict) -> dict:
++        aid = automation["id"]
++        user_id = automation["user_id"]
++        trigger = automation.get("trigger")
++        action = automation.get("action")
++        config = automation.get("config") or {}
++
++        evaluator = _TRIGGER_EVALUATORS.get(trigger)
++        if not evaluator:
++            logger.warning(f"Automazione {aid}: trigger sconosciuto '{trigger}', ignorata")
++            await self.automation_repo.update_last_run(aid, {
++                "last_run_at": now_iso(), "last_run_status": "error",
++                "last_run_error": f"trigger sconosciuto: {trigger}",
++            })
++            return {"executed": 0, "skipped": 0, "errors": 1}
++
++        if action not in _ACTION_EXECUTORS:
++            logger.warning(f"Automazione {aid}: azione sconosciuta '{action}', ignorata")
++            await self.automation_repo.update_last_run(aid, {
++                "last_run_at": now_iso(), "last_run_status": "error",
++                "last_run_error": f"azione sconosciuta: {action}",
++            })
++            return {"executed": 0, "skipped": 0, "errors": 1}
++
++        candidates = await evaluator(self, user_id, config)
++
++        executed = skipped = errors = 0
++        for target_type, target_id, context in candidates:
++            try:
++                should_run = await self._should_run(aid, target_id, config)
++                if not should_run:
++                    skipped += 1
++                    continue
++                await _ACTION_EXECUTORS[action](self, automation, target_type, target_id, context)
++                await self.run_repo.upsert(aid, user_id, target_type, target_id, {
++                    "status": "ok", "attempts": 0, "last_error": None, "updated_at": now_iso(),
++                })
++                await record_event("automation_run", "success", automation_id=aid, trigger=trigger, action=action)
++                executed += 1
++            except Exception as e:
++                prev = await self.run_repo.find_one(aid, target_id)
++                attempts = (prev.get("attempts", 0) if prev else 0) + 1
++                status = "error" if attempts < AUTOMATION_MAX_ATTEMPTS else "failed_permanent"
++                await self.run_repo.upsert(aid, user_id, target_type, target_id, {
++                    "status": status, "attempts": attempts, "last_error": str(e)[:500], "updated_at": now_iso(),
++                })
++                await record_event("automation_run", "failure", automation_id=aid, trigger=trigger, action=action, error=str(e)[:300])
++                logger.error(f"Automazione {aid} fallita su {target_type} {target_id} (tentativo {attempts}): {e}")
++                errors += 1
++
++        await self.automation_repo.update_last_run(aid, {
++            "last_run_at": now_iso(),
++            "last_run_status": "error" if errors else "ok",
++            "last_run_error": None if not errors else f"{errors} esecuzione/i fallita/e nell'ultimo ciclo",
++        })
++        return {"executed": executed, "skipped": skipped, "errors": errors}
++
++    async def _should_run(self, automation_id: str, target_id: str, config: dict) -> bool:
++        """Dedup: non rieseguire per la stessa entità se già eseguita con
++        successo, a meno che sia passato config['cooldown_days'] dall'ultima
++        esecuzione (utile per promemoria che si vogliono ripetere, es. un
++        lead ancora inattivo una settimana dopo). Un'esecuzione fallita ma
++        sotto la soglia di tentativi va invece sempre ritentata."""
++        prev = await self.run_repo.find_one(automation_id, target_id)
++        if not prev:
++            return True
++        if prev.get("status") == "error":
++            return True  # ritenta finché non supera AUTOMATION_MAX_ATTEMPTS
++        if prev.get("status") == "failed_permanent":
++            return False
++        # status == "ok": rieseguito solo se è stato configurato un cooldown
++        # ed è già trascorso.
++        cooldown_days = config.get("cooldown_days")
++        if not cooldown_days:
++            return False
++        updated_at = _parse_iso(prev.get("updated_at"))
++        if not updated_at:
++            return True
++        return datetime.now(timezone.utc) - updated_at >= timedelta(days=cooldown_days)
++
++    # ------------------------------------------------------------------
++    # Valutatori di trigger — ognuno ritorna una lista di tuple
++    # (target_type, target_id, context) dove context sono i dati già
++    # caricati dell'entità, per non doverla ricaricare nell'executor.
++    # ------------------------------------------------------------------
++    async def _eval_offer_expiring(self, user_id: str, config: dict) -> list:
++        days_before = config.get("days_before", 3)
++        today = now_local().date()
++        offers = await self.offer_repo.find_many(user_id)
++        out = []
++        for o in offers:
++            if o.get("status") not in _OPEN_OFFER_STATUSES:
++                continue
++            expires_at = _parse_iso(o.get("expires_at"))
++            if not expires_at:
++                continue
++            days_left = (expires_at.date() - today).days
++            if 0 <= days_left <= days_before:
++                out.append(("offer", o["id"], o))
++        return out
++
++    async def _eval_no_visit_30d(self, user_id: str, config: dict) -> list:
++        days = config.get("days", 30)
++        threshold = datetime.now(timezone.utc) - timedelta(days=days)
++        clients = await self.client_repo.find_many(user_id, {})
++        appointments = await self.appointment_repo.find_many(user_id)
++
++        last_visit_by_client: dict = {}
++        for a in appointments:
++            if a.get("status") == "annullato" or not a.get("client_id"):
++                continue
++            start = _parse_iso(a.get("start"))
++            if not start or start > datetime.now(timezone.utc):
++                continue  # un appuntamento futuro non è ancora una "visita avvenuta"
++            cid = a["client_id"]
++            if cid not in last_visit_by_client or start > last_visit_by_client[cid]:
++                last_visit_by_client[cid] = start
++
++        out = []
++        for c in clients:
++            last_visit = last_visit_by_client.get(c["id"])
++            if last_visit is None:
++                # Nessuna visita mai registrata: usa la data di creazione del
++                # cliente come riferimento, per non segnalare come "non
++                # visitato da 30 giorni" un cliente appena inserito.
++                last_visit = _parse_iso(c.get("created_at"))
++            if last_visit and last_visit <= threshold:
++                out.append(("client", c["id"], c))
++        return out
++
++    async def _eval_lead_inactive(self, user_id: str, config: dict) -> list:
++        days = config.get("days", 7)
++        threshold = datetime.now(timezone.utc) - timedelta(days=days)
++        leads = await self.lead_repo.find_many(user_id)
++        out = []
++        for lead in leads:
++            if lead.get("status") in _CLOSED_LEAD_STATUSES:
++                continue
++            # NOTA: il modello Lead non traccia un updated_at (nessun campo
++            # "ultima interazione"), quindi created_at è l'unico riferimento
++            # disponibile per "inattività". Se in futuro si aggiunge un
++            # updated_at aggiornato ad ogni cambio di stato/nota, va usato
++            # quello al posto di created_at qui sotto.
++            created_at = _parse_iso(lead.get("created_at"))
++            if created_at and created_at <= threshold:
++                out.append(("lead", lead["id"], lead))
++        return out
++
++    # ------------------------------------------------------------------
++    # Esecutori di azione
++    # ------------------------------------------------------------------
++    async def _get_user(self, user_id: str) -> Optional[dict]:
++        return await self.user_repo.find_by_id(user_id)
++
++    async def _recipient_email_for(self, target_type: str, context: dict, user: dict) -> str:
++        """Determina il destinatario di un'email di follow-up: il cliente o
++        il lead coinvolto se ha un'email, altrimenti l'agente stesso."""
++        if target_type == "offer":
++            client = await self.client_repo.find_one(context.get("client_id"), context.get("user_id", ""))
++            if client and client.get("email"):
++                return client["email"]
++        elif target_type == "client" and context.get("email"):
++            return context["email"]
++        elif target_type == "lead" and context.get("email"):
++            return context["email"]
++        return user.get("email", "")
++
++    async def _action_send_reminder(self, automation: dict, target_type: str, target_id: str, context: dict) -> None:
++        user = await self._get_user(automation["user_id"])
++        if not user:
++            raise RuntimeError("Utente dell'automazione non trovato")
++
++        label = _describe_target(target_type, context)
++        title = automation.get("name") or "Promemoria automazione"
++        message = f"{title}: {label}"
++
++        await self.notification_repo.insert({
++            "id": gen_id(), "user_id": automation["user_id"], "automation_id": automation["id"],
++            "title": title, "message": message, "target_type": target_type, "target_id": target_id,
++            "read": False, "created_at": now_iso(),
++        })
++
++        if user.get("is_demo"):
++            return  # niente invii reali per l'account demo condiviso
++
++        await self.send_email_fn(
++            user.get("email", ""),
++            f"🔔 SALESFLY — {title}",
++            f"<p>{message}</p>",
++        )
++
++    async def _action_create_task(self, automation: dict, target_type: str, target_id: str, context: dict) -> None:
++        user = await self._get_user(automation["user_id"])
++        if not user or user.get("is_demo"):
++            return  # non scrive appuntamenti reali sull'account demo condiviso
++
++        from services.appointment_service import appointment_service
++        from models.appointment import AppointmentIn
++
++        client_id = target_id if target_type == "client" else context.get("client_id")
++        start = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
++        payload = AppointmentIn(
++            client_id=client_id,
++            title=f"Follow-up: {automation.get('name') or 'automazione'}",
++            description=_describe_target(target_type, context),
++            start=start,
++            status="pianificato",
++        )
++        await appointment_service.create_appointment(user, payload)
++
++    async def _action_send_email(self, automation: dict, target_type: str, target_id: str, context: dict) -> None:
++        user = await self._get_user(automation["user_id"])
++        if not user:
++            raise RuntimeError("Utente dell'automazione non trovato")
++        if user.get("is_demo"):
++            return
++
++        to = await self._recipient_email_for(target_type, context, user)
++        if not to:
++            raise RuntimeError("Nessun indirizzo email disponibile per il destinatario")
++
++        label = _describe_target(target_type, context)
++        subject = automation.get("name") or "Follow-up"
++        sent = await self.send_email_fn(to, subject, f"<p>{label}</p>")
++        if not sent:
++            raise RuntimeError("Invio email fallito (vedi log email_service)")
++
++
++def _describe_target(target_type: str, context: dict) -> str:
++    if target_type == "offer":
++        return f"Offerta \"{context.get('title', '')}\" (scadenza {context.get('expires_at', '')[:10]})"
++    if target_type == "client":
++        return f"Cliente \"{context.get('company_name', '')}\""
++    if target_type == "lead":
++        return f"Lead \"{context.get('company_name', '')}\""
++    return target_type
++
++
++_TRIGGER_EVALUATORS = {
++    "offer_expiring": AutomationEngine._eval_offer_expiring,
++    "no_visit_30d": AutomationEngine._eval_no_visit_30d,
++    "lead_inactive": AutomationEngine._eval_lead_inactive,
++}
++
++_ACTION_EXECUTORS = {
++    "send_reminder": AutomationEngine._action_send_reminder,
++    "create_task": AutomationEngine._action_create_task,
++    "send_email": AutomationEngine._action_send_email,
++}
++
++automation_engine = AutomationEngine()
+diff --git a/backend/services/automation_service.py b/backend/services/automation_service.py
+index e4f1471..4b4bff2 100644
+--- a/backend/services/automation_service.py
++++ b/backend/services/automation_service.py
+@@ -1,10 +1,15 @@
+ from core.utils import gen_id, now_iso
+ from repositories.automation_repository import automation_repository
++from repositories.automation_run_repository import automation_run_repository
++from repositories.automation_notification_repository import automation_notification_repository
+ 
+ 
+ class AutomationService:
+-    def __init__(self, repo=automation_repository):
++    def __init__(self, repo=automation_repository, run_repo=automation_run_repository,
++                 notification_repo=automation_notification_repository):
+         self.repo = repo
++        self.run_repo = run_repo
++        self.notification_repo = notification_repo
+ 
+     async def list_automations(self, user: dict) -> list:
+         return await self.repo.find_many(user["id"])
+@@ -18,6 +23,27 @@ class AutomationService:
+ 
+     async def delete_automation(self, user: dict, aid: str) -> None:
+         await self.repo.delete(aid, user["id"])
++        # Ripulisce anche lo storico esecuzioni legato a questa automazione,
++        # altrimenti resterebbero record orfani in automation_runs.
++        await self.run_repo.delete_by_automation(aid)
++
++    # ------------------------------------------------------------------
++    # Notifiche in-app generate dal motore (automation_engine)
++    # ------------------------------------------------------------------
++    async def list_notifications(self, user: dict, unread_only: bool = False) -> list:
++        return await self.notification_repo.find_many(user["id"], unread_only=unread_only)
++
++    async def mark_notification_read(self, user: dict, nid: str) -> None:
++        await self.notification_repo.mark_read(nid, user["id"])
++
++    async def list_runs(self, user: dict, aid: str) -> list:
++        """Storico delle esecuzioni di una specifica automazione (ultima
++        esecuzione per ciascuna entita' target), utile per capire perche'
++        una regola non sembra aver fatto nulla."""
++        automation = next((a for a in await self.repo.find_many(user["id"]) if a["id"] == aid), None)
++        if not automation:
++            return []
++        return await self.run_repo.find_many_by_automation(aid)
+ 
+ 
+ automation_service = AutomationService()
+diff --git a/backend/services/health_service.py b/backend/services/health_service.py
+index ff2c266..81972bb 100644
+--- a/backend/services/health_service.py
++++ b/backend/services/health_service.py
+@@ -53,6 +53,7 @@ class HealthService:
+         ai_stats = await self._category_stats("ai_call", since, extra_sum_fields=["cost_usd", "tokens_in", "tokens_out"])
+         email_stats = await self._category_stats("email_send", since)
+         calendar_stats = await self._category_stats("calendar_sync", since)
++        automation_stats = await self._category_stats("automation_run", since)
+ 
+         return {
+             "window_hours": hours,
+@@ -64,6 +65,7 @@ class HealthService:
+             "ai": ai_stats,
+             "email": email_stats,
+             "calendar_sync": calendar_stats,
++            "automation_run": automation_stats,
+         }
+ 
+     async def _category_stats(self, category: str, since, extra_sum_fields=None) -> dict:
+diff --git a/backend/services/startup_service.py b/backend/services/startup_service.py
+index 59d107a..5214605 100644
+--- a/backend/services/startup_service.py
++++ b/backend/services/startup_service.py
+@@ -28,6 +28,7 @@ ALERT_MIN_SAMPLE_SIZE = 5
+ _gcal_sync_task = None
+ _stuck_ai_action_task = None
+ _health_alert_task = None
++_automation_engine_task = None
+ _last_alert_sent_at = None
+ 
+ 
+@@ -82,7 +83,7 @@ async def _health_alert_loop() -> None:
+             health = await health_service.get_health(hours=ALERT_CHECK_INTERVAL_SECONDS / 3600)
+ 
+             problems = []
+-            for key, label in [("ai", "chiamate AI"), ("email", "invii email"), ("calendar_sync", "sync Google Calendar")]:
++            for key, label in [("ai", "chiamate AI"), ("email", "invii email"), ("calendar_sync", "sync Google Calendar"), ("automation_run", "esecuzioni automazioni")]:
+                 stats = health[key]
+                 if stats["total"] >= ALERT_MIN_SAMPLE_SIZE and stats["failure_rate_pct"] >= ALERT_ERROR_RATE_THRESHOLD_PCT:
+                     problems.append(f"{label}: {stats['failure_rate_pct']}% di fallimenti ({stats['failure']}/{stats['total']})")
+@@ -114,6 +115,26 @@ async def _health_alert_loop() -> None:
+             logger.error(f"Ciclo di controllo anomalie fallito: {e}")
+ 
+ 
++async def _automation_engine_loop() -> None:
++    """Ciclo periodico del motore delle automazioni personalizzabili
++    (services.automation_engine): controlla le condizioni di tutte le
++    regole attive di tutti gli utenti ed esegue le azioni corrispondenti
++    (promemoria, task, email di follow-up). Vedi automation_engine.py per
++    il dettaglio di valutazione/esecuzione/dedup."""
++    from core.config import AUTOMATION_ENGINE_INTERVAL_SECONDS
++    from services.automation_engine import automation_engine
++    while True:
++        try:
++            await asyncio.sleep(AUTOMATION_ENGINE_INTERVAL_SECONDS)
++            summary = await automation_engine.run_cycle()
++            if summary["executed"] or summary["errors"]:
++                logger.info(f"Ciclo automazioni: {summary}")
++        except asyncio.CancelledError:
++            raise
++        except Exception as e:
++            logger.error(f"Ciclo motore automazioni fallito: {e}")
++
++
+ async def run_startup() -> None:
+     # Init object storage (non-blocking on failure)
+     try:
+@@ -160,10 +181,16 @@ async def run_startup() -> None:
+     # responsabilità, non solo di salute operativa).
+     await db.admin_audit_log.create_index([("created_at", -1)])
+ 
+-    global _gcal_sync_task, _stuck_ai_action_task, _health_alert_task
++    # Indici usati dal motore automazioni: dedup/retry per (automation_id,
++    # target_id) e lettura notifiche per utente ordinate per data.
++    await db.automation_runs.create_index([("automation_id", 1), ("target_id", 1)], unique=True)
++    await db.automation_notifications.create_index([("user_id", 1), ("created_at", -1)])
++
++    global _gcal_sync_task, _stuck_ai_action_task, _health_alert_task, _automation_engine_task
+     _gcal_sync_task = asyncio.create_task(_google_calendar_sync_loop())
+     _stuck_ai_action_task = asyncio.create_task(_stuck_ai_action_cleanup_loop())
+     _health_alert_task = asyncio.create_task(_health_alert_loop())
++    _automation_engine_task = asyncio.create_task(_automation_engine_loop())
+ 
+ 
+ async def run_shutdown() -> None:
+@@ -173,4 +200,6 @@ async def run_shutdown() -> None:
+         _stuck_ai_action_task.cancel()
+     if _health_alert_task:
+         _health_alert_task.cancel()
++    if _automation_engine_task:
++        _automation_engine_task.cancel()
+     close_db()
+diff --git a/backend/tests/test_automation_engine.py b/backend/tests/test_automation_engine.py
+new file mode 100644
+index 0000000..2476e24
+--- /dev/null
++++ b/backend/tests/test_automation_engine.py
+@@ -0,0 +1,433 @@
++"""
++Test per il motore di esecuzione delle automazioni (services.automation_engine).
++
++Verifica che, a differenza del solo CRUD già esistente in
++automation_service, le automazioni vengano davvero VALUTATE ED ESEGUITE:
++condizione soddisfatta -> azione eseguita -> non rieseguita una seconda
++volta per la stessa entità (dedup) -> un errore persistente smette di
++essere ritentato dopo AUTOMATION_MAX_ATTEMPTS tentativi.
++
++Usa repository finti in memoria (nessun MongoDB reale), stesso stile degli
++altri test del progetto (vedi tests/test_ai_tool_forcing.py).
++
++Esegui con:
++    JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
++    python -m pytest tests/test_automation_engine.py -v
++"""
++import sys
++import asyncio
++from datetime import datetime, timedelta, timezone
++
++import pytest
++
++sys.path.insert(0, ".")
++
++from services.automation_engine import AutomationEngine
++from core.config import AUTOMATION_MAX_ATTEMPTS
++
++
++def run(coro):
++    return asyncio.get_event_loop().run_until_complete(coro)
++
++
++def _iso(dt: datetime) -> str:
++    return dt.isoformat()
++
++
++def _days_ago(n: float) -> str:
++    return _iso(datetime.now(timezone.utc) - timedelta(days=n))
++
++
++def _days_from_now(n: float) -> str:
++    return _iso(datetime.now(timezone.utc) + timedelta(days=n))
++
++
++# ---------- Repository finti ----------
++
++class FakeAutomationRepo:
++    def __init__(self, docs=None):
++        self.docs = docs or []
++
++    async def find_all_enabled(self):
++        return [dict(d) for d in self.docs if d.get("enabled")]
++
++    async def find_many(self, user_id):
++        return [dict(d) for d in self.docs if d["user_id"] == user_id]
++
++    async def update_last_run(self, aid, data):
++        for d in self.docs:
++            if d["id"] == aid:
++                d.update(data)
++
++
++class FakeRunRepo:
++    def __init__(self):
++        self.docs = {}
++
++    def _key(self, automation_id, target_id):
++        return (automation_id, target_id)
++
++    async def find_one(self, automation_id, target_id):
++        d = self.docs.get(self._key(automation_id, target_id))
++        return dict(d) if d else None
++
++    async def upsert(self, automation_id, user_id, target_type, target_id, data):
++        key = self._key(automation_id, target_id)
++        existing = self.docs.get(key, {})
++        existing.update({
++            "automation_id": automation_id, "user_id": user_id,
++            "target_type": target_type, "target_id": target_id, **data,
++        })
++        self.docs[key] = existing
++
++    async def find_many_by_automation(self, automation_id, limit=200):
++        return [dict(d) for d in self.docs.values() if d["automation_id"] == automation_id]
++
++    async def delete_by_automation(self, automation_id):
++        self.docs = {k: v for k, v in self.docs.items() if v["automation_id"] != automation_id}
++
++
++class FakeNotificationRepo:
++    def __init__(self):
++        self.docs = []
++
++    async def insert(self, doc):
++        self.docs.append(doc)
++        return doc
++
++    async def find_many(self, user_id, unread_only=False, limit=100):
++        return [d for d in self.docs if d["user_id"] == user_id]
++
++    async def mark_read(self, nid, user_id):
++        for d in self.docs:
++            if d["id"] == nid and d["user_id"] == user_id:
++                d["read"] = True
++
++
++class FakeSimpleRepo:
++    """Repo generico find_many/find_one su una lista fissa di dict — usato
++    per client/offer/lead/appointment nei test."""
++    def __init__(self, docs=None):
++        self.docs = docs or []
++
++    async def find_many(self, user_id, *args, **kwargs):
++        return [dict(d) for d in self.docs if d.get("user_id") == user_id]
++
++    async def find_one(self, doc_id, user_id=None):
++        for d in self.docs:
++            if d["id"] == doc_id:
++                return dict(d)
++        return None
++
++
++class FakeUserRepo:
++    def __init__(self, users):
++        self.users = {u["id"]: u for u in users}
++
++    async def find_by_id(self, uid):
++        return dict(self.users[uid]) if uid in self.users else None
++
++
++def build_engine(automations=None, offers=None, clients=None, leads=None,
++                  appointments=None, users=None, send_email_fn=None):
++    sent_emails = []
++
++    async def default_send_email(to, subject, html):
++        sent_emails.append({"to": to, "subject": subject, "html": html})
++        return True
++
++    engine = AutomationEngine(
++        automation_repo=FakeAutomationRepo(automations or []),
++        run_repo=FakeRunRepo(),
++        notification_repo=FakeNotificationRepo(),
++        client_repo=FakeSimpleRepo(clients or []),
++        offer_repo=FakeSimpleRepo(offers or []),
++        lead_repo=FakeSimpleRepo(leads or []),
++        appointment_repo=FakeSimpleRepo(appointments or []),
++        user_repo=FakeUserRepo(users or [{"id": "user-1", "email": "agente@example.com"}]),
++        send_email_fn=send_email_fn or default_send_email,
++    )
++    engine._sent_emails = sent_emails
++    return engine
++
++
++# ---------- offer_expiring + send_reminder ----------
++
++def test_offerta_in_scadenza_genera_promemoria_e_notifica():
++    automations = [{
++        "id": "auto-1", "user_id": "user-1", "name": "Promemoria scadenza",
++        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
++        "config": {"days_before": 3},
++    }]
++    offers = [{
++        "id": "offer-1", "user_id": "user-1", "client_id": "c-1", "title": "Offerta Rossi",
++        "status": "inviata", "expires_at": _days_from_now(2),
++    }]
++    engine = build_engine(automations=automations, offers=offers)
++
++    summary = run(engine.run_cycle())
++
++    assert summary == {"automations": 1, "executed": 1, "skipped": 0, "errors": 0}
++    assert len(engine.notification_repo.docs) == 1
++    assert engine.notification_repo.docs[0]["target_id"] == "offer-1"
++    assert len(engine._sent_emails) == 1
++    assert engine._sent_emails[0]["to"] == "agente@example.com"
++
++
++def test_offerta_non_in_scadenza_non_genera_nulla():
++    automations = [{
++        "id": "auto-1", "user_id": "user-1", "name": "Promemoria scadenza",
++        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
++        "config": {"days_before": 3},
++    }]
++    offers = [{
++        "id": "offer-1", "user_id": "user-1", "client_id": "c-1", "title": "Offerta lontana",
++        "status": "inviata", "expires_at": _days_from_now(20),
++    }]
++    engine = build_engine(automations=automations, offers=offers)
++
++    summary = run(engine.run_cycle())
++
++    assert summary["executed"] == 0
++    assert engine.notification_repo.docs == []
++
++
++def test_offerta_gia_accettata_viene_ignorata():
++    automations = [{
++        "id": "auto-1", "user_id": "user-1", "name": "Promemoria scadenza",
++        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
++        "config": {"days_before": 3},
++    }]
++    offers = [{
++        "id": "offer-1", "user_id": "user-1", "client_id": "c-1", "title": "Offerta chiusa",
++        "status": "accettata", "expires_at": _days_from_now(1),
++    }]
++    engine = build_engine(automations=automations, offers=offers)
++
++    summary = run(engine.run_cycle())
++
++    assert summary["executed"] == 0
++
++
++# ---------- Dedup: stessa entità non rieseguita due volte ----------
++
++def test_stessa_offerta_non_genera_due_promemoria_in_due_cicli():
++    automations = [{
++        "id": "auto-1", "user_id": "user-1", "name": "Promemoria scadenza",
++        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
++        "config": {"days_before": 3},
++    }]
++    offers = [{
++        "id": "offer-1", "user_id": "user-1", "client_id": "c-1", "title": "Offerta Rossi",
++        "status": "inviata", "expires_at": _days_from_now(2),
++    }]
++    engine = build_engine(automations=automations, offers=offers)
++
++    first = run(engine.run_cycle())
++    second = run(engine.run_cycle())
++
++    assert first["executed"] == 1
++    assert second["executed"] == 0
++    assert second["skipped"] == 1
++    assert len(engine._sent_emails) == 1  # non due
++
++
++def test_cooldown_permette_di_ripetere_il_promemoria_dopo_n_giorni():
++    automations = [{
++        "id": "auto-1", "user_id": "user-1", "name": "Promemoria ricorrente",
++        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
++        "config": {"days_before": 10, "cooldown_days": 5},
++    }]
++    offers = [{
++        "id": "offer-1", "user_id": "user-1", "client_id": "c-1", "title": "Offerta Rossi",
++        "status": "inviata", "expires_at": _days_from_now(9),
++    }]
++    engine = build_engine(automations=automations, offers=offers)
++
++    run(engine.run_cycle())
++    # Forza l'ultima esecuzione a 6 giorni fa (> cooldown di 5): deve ripartire.
++    key = ("auto-1", "offer-1")
++    engine.run_repo.docs[key]["updated_at"] = _days_ago(6)
++
++    second = run(engine.run_cycle())
++
++    assert second["executed"] == 1
++    assert len(engine._sent_emails) == 2
++
++
++# ---------- no_visit_30d + create_task ----------
++
++def test_cliente_non_visitato_da_30_giorni_crea_task(monkeypatch):
++    automations = [{
++        "id": "auto-2", "user_id": "user-1", "name": "Cliente non visitato",
++        "trigger": "no_visit_30d", "action": "create_task", "enabled": True,
++        "config": {},
++    }]
++    clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Rossi Srl", "created_at": _days_ago(200)}]
++    appointments = [{
++        "id": "a-1", "user_id": "user-1", "client_id": "c-1",
++        "status": "completato", "start": _days_ago(45),
++    }]
++    engine = build_engine(automations=automations, clients=clients, appointments=appointments)
++
++    created = []
++
++    class FakeAppointmentService:
++        async def create_appointment(self, user, payload):
++            created.append(payload)
++            return {"id": "new-appt"}
++
++    import services.appointment_service as appt_mod
++    monkeypatch.setattr(appt_mod, "appointment_service", FakeAppointmentService())
++
++    summary = run(engine.run_cycle())
++
++    assert summary["executed"] == 1
++    assert len(created) == 1
++    assert created[0].client_id == "c-1"
++
++
++def test_cliente_visitato_di_recente_non_genera_task():
++    automations = [{
++        "id": "auto-2", "user_id": "user-1", "name": "Cliente non visitato",
++        "trigger": "no_visit_30d", "action": "create_task", "enabled": True,
++        "config": {},
++    }]
++    clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Rossi Srl", "created_at": _days_ago(200)}]
++    appointments = [{
++        "id": "a-1", "user_id": "user-1", "client_id": "c-1",
++        "status": "completato", "start": _days_ago(5),
++    }]
++    engine = build_engine(automations=automations, clients=clients, appointments=appointments)
++
++    summary = run(engine.run_cycle())
++
++    assert summary["executed"] == 0
++
++
++# ---------- lead_inactive + send_email ----------
++
++def test_lead_inattivo_invia_email_al_lead():
++    automations = [{
++        "id": "auto-3", "user_id": "user-1", "name": "Lead inattivo",
++        "trigger": "lead_inactive", "action": "send_email", "enabled": True,
++        "config": {"days": 7},
++    }]
++    leads = [{
++        "id": "l-1", "user_id": "user-1", "company_name": "Bianchi Spa",
++        "email": "bianchi@example.com", "status": "contattato", "created_at": _days_ago(10),
++    }]
++    engine = build_engine(automations=automations, leads=leads)
++
++    summary = run(engine.run_cycle())
++
++    assert summary["executed"] == 1
++    assert engine._sent_emails[0]["to"] == "bianchi@example.com"
++
++
++def test_lead_vinto_non_viene_considerato_inattivo():
++    automations = [{
++        "id": "auto-3", "user_id": "user-1", "name": "Lead inattivo",
++        "trigger": "lead_inactive", "action": "send_email", "enabled": True,
++        "config": {"days": 7},
++    }]
++    leads = [{
++        "id": "l-1", "user_id": "user-1", "company_name": "Bianchi Spa",
++        "email": "bianchi@example.com", "status": "vinto", "created_at": _days_ago(30),
++    }]
++    engine = build_engine(automations=automations, leads=leads)
++
++    summary = run(engine.run_cycle())
++
++    assert summary["executed"] == 0
++
++
++# ---------- Retry ed errori persistenti ----------
++
++def test_errore_persistente_smette_di_essere_ritentato_dopo_max_tentativi():
++    automations = [{
++        "id": "auto-4", "user_id": "user-1", "name": "Lead inattivo (email rotta)",
++        "trigger": "lead_inactive", "action": "send_email", "enabled": True,
++        "config": {"days": 7},
++    }]
++    leads = [{
++        "id": "l-1", "user_id": "user-1", "company_name": "Bianchi Spa",
++        "email": "", "status": "nuovo", "created_at": _days_ago(10),
++    }]
++
++    async def failing_send_email(to, subject, html):
++        raise AssertionError("non dovrebbe mai essere chiamato: nessuna email disponibile")
++
++    engine = build_engine(automations=automations, leads=leads, send_email_fn=failing_send_email)
++    # Nessuna email sul lead e nessuna sull'utente -> _action_send_email solleva
++    # RuntimeError("Nessun indirizzo email disponibile...") prima di chiamare send_email_fn.
++    engine.user_repo.users["user-1"]["email"] = ""
++
++    for _ in range(AUTOMATION_MAX_ATTEMPTS):
++        run(engine.run_cycle())
++
++    run_doc = engine.run_repo.docs[("auto-4", "l-1")]
++    assert run_doc["attempts"] == AUTOMATION_MAX_ATTEMPTS
++    assert run_doc["status"] == "failed_permanent"
++
++    # Un ciclo ulteriore non deve ritentare più (should_run == False).
++    summary = run(engine.run_cycle())
++    assert summary["executed"] == 0
++    assert summary["errors"] == 0
++    assert summary["skipped"] == 1
++    assert engine.run_repo.docs[("auto-4", "l-1")]["attempts"] == AUTOMATION_MAX_ATTEMPTS
++
++
++def test_errore_transitorio_viene_ritentato_e_puo_riuscire():
++    automations = [{
++        "id": "auto-5", "user_id": "user-1", "name": "Lead inattivo",
++        "trigger": "lead_inactive", "action": "send_email", "enabled": True,
++        "config": {"days": 7},
++    }]
++    leads = [{
++        "id": "l-1", "user_id": "user-1", "company_name": "Bianchi Spa",
++        "email": "bianchi@example.com", "status": "nuovo", "created_at": _days_ago(10),
++    }]
++
++    calls = {"n": 0}
++
++    async def flaky_send_email(to, subject, html):
++        calls["n"] += 1
++        if calls["n"] == 1:
++            return False  # simula un invio fallito (send_email ritorna False)
++        return True
++
++    engine = build_engine(automations=automations, leads=leads, send_email_fn=flaky_send_email)
++
++    first = run(engine.run_cycle())
++    second = run(engine.run_cycle())
++
++    assert first["errors"] == 1
++    assert second["executed"] == 1
++    assert engine.run_repo.docs[("auto-5", "l-1")]["status"] == "ok"
++
++
++# ---------- Account demo: nessun invio/scrittura reale ----------
++
++def test_utente_demo_non_riceve_email_ma_notifica_in_app_si():
++    automations = [{
++        "id": "auto-6", "user_id": "user-demo", "name": "Promemoria scadenza",
++        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
++        "config": {"days_before": 3},
++    }]
++    offers = [{
++        "id": "offer-1", "user_id": "user-demo", "client_id": "c-1", "title": "Offerta demo",
++        "status": "inviata", "expires_at": _days_from_now(2),
++    }]
++    users = [{"id": "user-demo", "email": "demo@example.com", "is_demo": True}]
++    engine = build_engine(automations=automations, offers=offers, users=users)
++
++    summary = run(engine.run_cycle())
++
++    assert summary["executed"] == 1
++    assert len(engine.notification_repo.docs) == 1  # notifica in-app comunque creata
++    assert len(engine._sent_emails) == 0  # ma nessuna email reale inviata
++
++
++if __name__ == "__main__":
++    raise SystemExit(pytest.main([__file__, "-v"]))

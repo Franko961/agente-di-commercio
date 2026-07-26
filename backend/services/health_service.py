@@ -53,6 +53,7 @@ class HealthService:
         ai_stats = await self._category_stats("ai_call", since, extra_sum_fields=["cost_usd", "tokens_in", "tokens_out"])
         email_stats = await self._category_stats("email_send", since)
         calendar_stats = await self._category_stats("calendar_sync", since)
+        automation_stats = await self._category_stats("automation_run", since)
 
         return {
             "window_hours": hours,
@@ -64,6 +65,7 @@ class HealthService:
             "ai": ai_stats,
             "email": email_stats,
             "calendar_sync": calendar_stats,
+            "automation_run": automation_stats,
         }
 
     async def _category_stats(self, category: str, since, extra_sum_fields=None) -> dict:

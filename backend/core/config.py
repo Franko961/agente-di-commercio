@@ -69,6 +69,17 @@ PLANS = {
     },
 }
 
+# --- Motore automazioni ---
+# Intervallo tra un ciclo di valutazione e il successivo (controlla tutte le
+# automazioni attive di tutti gli utenti). 10 minuti di default: abbastanza
+# reattivo per promemoria/scadenze, senza martellare il DB.
+AUTOMATION_ENGINE_INTERVAL_SECONDS = int(os.environ.get("AUTOMATION_ENGINE_INTERVAL_SECONDS", str(10 * 60)))
+# Dopo questo numero di tentativi falliti consecutivi per lo stesso
+# automation+target, si smette di ritentare (l'errore è quasi certamente
+# persistente, es. configurazione invalida) e si segna come fallita in modo
+# permanente invece di ritentare all'infinito ogni ciclo.
+AUTOMATION_MAX_ATTEMPTS = int(os.environ.get("AUTOMATION_MAX_ATTEMPTS", "5"))
+
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 ADMIN_NOTIFY_EMAIL = os.environ.get("ADMIN_NOTIFY_EMAIL", "franco.bruni.art@gmail.com")
 # Vuoto di default: Sentry resta disattivato finché non si imposta questa
