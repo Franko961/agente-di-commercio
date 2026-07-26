@@ -47,7 +47,7 @@ const CommandInput = React.forwardRef(({ className, ...props }, ref) => (
 
 CommandInput.displayName = CommandPrimitive.Input.displayName
 
-const CommandList = React.forwardRef(({ className, onWheel, ...props }, ref) => (
+const CommandList = React.forwardRef(({ className, onWheel, onTouchStart, onTouchMove, ...props }, ref) => (
   <CommandPrimitive.List
     ref={ref}
     onWheel={(e) => {
@@ -59,6 +59,20 @@ const CommandList = React.forwardRef(({ className, onWheel, ...props }, ref) => 
       // e non viene riconosciuto come parte del contenuto del Dialog.
       e.stopPropagation();
       onWheel?.(e);
+    }}
+    onTouchStart={(e) => {
+      // Stesso problema del wheel qui sopra, ma per lo scroll con il dito
+      // su mobile: react-remove-scroll intercetta anche touchstart/touchmove
+      // per bloccare lo scroll della pagina sotto al Dialog, e senza questo
+      // blocca anche lo scroll dentro la lista prodotti in un Popover
+      // annidato — su desktop il wheel funzionava già, ma su mobile
+      // (l'unica modalità di scroll disponibile) restava rotto.
+      e.stopPropagation();
+      onTouchStart?.(e);
+    }}
+    onTouchMove={(e) => {
+      e.stopPropagation();
+      onTouchMove?.(e);
     }}
     className={cn("max-h-[300px] overflow-y-auto overflow-x-hidden", className)}
     {...props} />
