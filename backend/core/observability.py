@@ -5,6 +5,7 @@ import time
 import uuid
 from contextvars import ContextVar
 from datetime import datetime, timezone
+from typing import Optional
 
 from core.database import db
 
@@ -52,9 +53,30 @@ class JsonLogFormatter(logging.Formatter):
             "message": record.getMessage(),
             "request_id": get_request_id(),
         }
+        # Se OpenTelemetry è attivo (vedi init_opentelemetry più sotto),
+        # include il trace id nella riga di log: permette di partire da un
+        # log ("questa richiesta ha dato errore") e trovare la traccia
+        # dettagliata corrispondente nel backend OTel (es. Honeycomb), o
+        # viceversa — senza questo, log e tracce restano due mondi separati
+        # senza modo di collegare uno specifico log a una specifica traccia.
+        trace_id = _current_otel_trace_id()
+        if trace_id:
+            payload["otel_trace_id"] = trace_id
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)
         return json.dumps(payload, ensure_ascii=False)
+
+
+def _current_otel_trace_id() -> Optional[str]:
+    try:
+        from opentelemetry import trace
+        span = trace.get_current_span()
+        ctx = span.get_span_context()
+        if ctx and ctx.trace_id and ctx.trace_id != 0:
+            return format(ctx.trace_id, "032x")
+    except Exception:
+        pass
+    return None
 
 
 def configure_logging() -> None:
@@ -143,3 +165,51 @@ class Timer:
     def __exit__(self, *exc):
         self.duration_ms = (time.perf_counter() - self._start) * 1000
         return False
+
+
+# ---------------------------------------------------------------------------
+# OpenTelemetry: come Sentry, resta completamente spento finché non si
+# imposta OTEL_EXPORTER_OTLP_ENDPOINT — nessun account/servizio richiesto nel
+# frattempo. A differenza della telemetria "fatta in casa" sopra (eventi ed
+# metriche a bucket, pensate per il cruscotto interno), OpenTelemetry dà la
+# scomposizione dettagliata di UNA richiesta: quanto tempo è andato in
+# MongoDB, quanto in una chiamata a Stripe/PayPal/Anthropic, quanto nel
+# resto del codice — la domanda "perché QUESTA richiesta è stata lenta",
+# complementare a "quale endpoint è lento in media" che copre già
+# api_metrics_minute.
+# ---------------------------------------------------------------------------
+def init_opentelemetry(app) -> bool:
+    """Va chiamata una sola volta all'avvio, passando l'app FastAPI.
+    Restituisce True se attivata, False se lasciata spenta (nessun
+    OTEL_EXPORTER_OTLP_ENDPOINT configurato)."""
+    from core.config import OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_SERVICE_NAME
+    if not OTEL_EXPORTER_OTLP_ENDPOINT:
+        return False
+
+    from opentelemetry import trace
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+    from opentelemetry.instrumentation.pymongo import PymongoInstrumentor
+    from opentelemetry.instrumentation.requests import RequestsInstrumentor
+    from opentelemetry.instrumentation.logging import LoggingInstrumentor
+
+    provider = TracerProvider(resource=Resource.create({"service.name": OTEL_SERVICE_NAME}))
+    provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
+    trace.set_tracer_provider(provider)
+
+    FastAPIInstrumentor.instrument_app(app)
+    # Copre anche Motor (il client MongoDB asincrono usato in tutto il
+    # progetto), che internamente si appoggia a pymongo.
+    PymongoInstrumentor().instrument()
+    # Copre le chiamate in uscita fatte con `requests` (geocoding, Google
+    # Calendar, PayPal) — non Stripe, che usa il proprio SDK HTTP interno e
+    # quindi non passa da qui.
+    RequestsInstrumentor().instrument()
+    # Inietta automaticamente trace_id/span_id nei LogRecord: ridondante con
+    # _current_otel_trace_id() sopra ma innocuo tenerli entrambi.
+    LoggingInstrumentor().instrument(set_logging_format=False)
+
+    return True
