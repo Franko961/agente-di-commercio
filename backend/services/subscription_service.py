@@ -299,6 +299,21 @@ class SubscriptionService:
                 stripe.Subscription.cancel(u["stripe_subscription_id"])
             except Exception as e:
                 logger.warning(f"Stripe cancel error: {e}")
+        # Cancella su PayPal se presente — prima d'ora questo ramo non
+        # esisteva: la cancellazione lato PayPal avveniva solo se l'utente la
+        # faceva direttamente sul proprio account PayPal (il nostro webhook
+        # se ne accorgeva a cose fatte, ma non la richiedevamo mai noi).
+        if u.get("paypal_subscription_id") and PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET:
+            try:
+                token = self._paypal_token()
+                requests.post(
+                    f"{PAYPAL_API_BASE}/v1/billing/subscriptions/{u['paypal_subscription_id']}/cancel",
+                    headers={"Authorization": f"Bearer {token}"},
+                    json={"reason": "Cancellato dall'utente"},
+                    timeout=10,
+                )
+            except Exception as e:
+                logger.warning(f"PayPal cancel error: {e}")
         await self.repo.update_by_id(user["id"], {"subscription_status": "cancelled"})
         return {"ok": True}
 
