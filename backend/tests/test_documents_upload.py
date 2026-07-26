@@ -1,7 +1,7 @@
 """
 Iteration 4 - Document Upload (Emergent object storage)
 - POST /api/documents/upload (multipart) success + validation errors
-- GET /api/documents/{id}/download (auth via header + ?auth query)
+- GET /api/documents/{id}/download (auth via header, o via token firmato da /signed-url)
 - DELETE /api/documents/{id} soft delete + listing excludes them
 """
 import os
@@ -107,10 +107,40 @@ class TestDownload:
         cd = r.headers.get("Content-Disposition", "")
         assert "TEST_doc.pdf" in cd
 
-    def test_download_with_query_token(self, token, created_doc):
-        r = requests.get(f"{API}/documents/{created_doc['id']}/download?auth={token}", timeout=60)
+    def test_download_with_signed_url_token(self, auth_headers, created_doc):
+        """Il vecchio ?auth=<token di sessione> è stato rimosso (un JWT
+        valido 7 giorni per l'intero account non deve mai finire in una
+        query string). Al suo posto: /signed-url emette un token specifico
+        per QUESTO documento, valido pochi minuti, usabile in query string
+        senza gli stessi rischi (cronologia browser, log, analytics...)."""
+        r = requests.get(f"{API}/documents/{created_doc['id']}/signed-url", headers=auth_headers, timeout=30)
+        assert r.status_code == 200, r.text
+        signed_path = r.json()["url"]
+        assert f"/documents/{created_doc['id']}/download?token=" in signed_path
+
+        r = requests.get(f"{BASE_URL}{signed_path}", timeout=60)
         assert r.status_code == 200
         assert r.content == MINI_PDF
+
+    def test_signed_url_token_non_valido_per_un_altro_documento(self, auth_headers, created_doc):
+        """Un token firmato emesso per il documento A non deve funzionare
+        se usato sull'URL di download del documento B."""
+        files = {"file": ("TEST_altro.pdf", MINI_PDF, "application/pdf")}
+        data = {"name": "TEST_altro_doc"}
+        r = requests.post(f"{API}/documents/upload", headers=auth_headers, files=files, data=data, timeout=30)
+        other_doc = r.json()
+        try:
+            signed = requests.get(f"{API}/documents/{created_doc['id']}/signed-url", headers=auth_headers, timeout=30)
+            token = signed.json()["url"].split("token=")[-1]
+
+            r = requests.get(f"{API}/documents/{other_doc['id']}/download?token={token}", timeout=30)
+            assert r.status_code == 401
+        finally:
+            requests.delete(f"{API}/documents/{other_doc['id']}", headers=auth_headers)
+
+    def test_signed_url_richiede_autenticazione(self, created_doc):
+        r = requests.get(f"{API}/documents/{created_doc['id']}/signed-url", timeout=30)
+        assert r.status_code == 401
 
     def test_download_without_auth_returns_401(self, created_doc):
         r = requests.get(f"{API}/documents/{created_doc['id']}/download", timeout=30)

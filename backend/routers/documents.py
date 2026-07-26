@@ -2,7 +2,11 @@ import jwt
 from typing import Optional
 from fastapi import APIRouter, Depends, Body, UploadFile, File, Form, Header, Query, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from core.security import get_current_user, forbid_demo_write
+from core.security import (
+    get_current_user, forbid_demo_write,
+    create_document_download_token, decode_document_download_token,
+    DOCUMENT_DOWNLOAD_TOKEN_TTL_MINUTES,
+)
 from core.config import JWT_SECRET, JWT_ALG
 from services.document_service import document_service
 from services.storage_service import storage_get_stream, sanitize_filename
@@ -41,28 +45,58 @@ async def update_document_meta(did: str, payload: dict = Body(...), user=Depends
     return {"ok": True}
 
 
+@router.get("/{did}/signed-url")
+async def get_signed_download_url(did: str, user=Depends(get_current_user)):
+    """Genera un link di download temporaneo e specifico per QUESTO
+    documento, da usare per link diretti (es. aprire in una nuova scheda,
+    incollare in un'email) al posto di mettere il token di sessione completo
+    — valido 7 giorni per l'intero account — in una query string. Il token
+    restituito qui scade dopo pochi minuti e non serve a nient'altro che a
+    scaricare questo specifico documento."""
+    await document_service.get_document_for_download(user["id"], did)  # verifica esistenza + proprietà
+    token = create_document_download_token(user["id"], did)
+    return {
+        "url": f"/api/documents/{did}/download?token={token}",
+        "expires_in_minutes": DOCUMENT_DOWNLOAD_TOKEN_TTL_MINUTES,
+    }
+
+
 @router.get("/{did}/download")
 async def download_document(
     did: str,
     request: Request,
     authorization: Optional[str] = Header(None),
-    auth: Optional[str] = Query(None),
+    token: Optional[str] = Query(None),
 ):
-    # Allow auth via httponly cookie (standard, usato da fetch con credentials:"include"),
-    # Authorization header, oppure ?auth=token query param (per link diretti nel browser)
-    token = request.cookies.get("access_token")
-    if not token and authorization and authorization.startswith("Bearer "):
-        token = authorization[7:]
-    elif not token and auth:
-        token = auth
-    if not token:
-        raise HTTPException(401, "Not authenticated")
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
-    except jwt.InvalidTokenError:
-        raise HTTPException(401, "Invalid token")
+    # Due modalità di autenticazione, entrambe legittime per usi diversi:
+    # 1) cookie httponly o header Authorization — la sessione normale usata
+    #    da fetch(..., {credentials: "include"}), come fa già il frontend
+    #    per il download e l'anteprima (nessun token in query string qui).
+    # 2) query param 'token' — SOLO il token firmato specifico per questo
+    #    documento emesso da /signed-url qui sopra, mai il JWT di sessione
+    #    completo: quel token durava 7 giorni e valeva per l'intero account,
+    #    esattamente il tipo di segreto che non deve mai finire in un URL
+    #    (cronologia browser, log server/reverse proxy, analytics, ecc.).
+    user_id = None
+    session_token = request.cookies.get("access_token")
+    if not session_token and authorization and authorization.startswith("Bearer "):
+        session_token = authorization[7:]
 
-    doc = await document_service.get_document_for_download(payload["sub"], did)
+    if session_token:
+        try:
+            payload = jwt.decode(session_token, JWT_SECRET, algorithms=[JWT_ALG])
+            user_id = payload["sub"]
+        except jwt.InvalidTokenError:
+            raise HTTPException(401, "Invalid token")
+    elif token:
+        try:
+            user_id = decode_document_download_token(token, did)
+        except jwt.InvalidTokenError:
+            raise HTTPException(401, "Link di download non valido o scaduto")
+    else:
+        raise HTTPException(401, "Not authenticated")
+
+    doc = await document_service.get_document_for_download(user_id, did)
     # Streaming dal bucket S3 al browser: il contenuto non viene mai tenuto
     # per intero in memoria sul server, nemmeno per un video o un documento
     # pesante (vedi storage_get_stream in storage_service.py).

@@ -11,6 +11,13 @@ from core.subscription_utils import is_subscription_active
 # Validità del link "password dimenticata" prima che vada rigenerato.
 RESET_TOKEN_TTL_MINUTES = 60
 
+# Validità del link di download firmato per un singolo documento (vedi
+# create_document_download_token/decode_document_download_token più sotto):
+# breve apposta, il link è pensato per essere usato subito dopo averlo
+# richiesto (es. aprire un documento in una nuova scheda), non per essere
+# salvato o condiviso.
+DOCUMENT_DOWNLOAD_TOKEN_TTL_MINUTES = 5
+
 # Prefissi esenti dal blocco per trial/abbonamento scaduto: l'utente deve
 # sempre poter vedere il proprio stato, pagare, o gestire l'account anche
 # a prova scaduta. Tutte le altre rotte /api/* vengono bloccate con 402.
@@ -64,6 +71,35 @@ async def get_current_user(request: Request) -> dict:
             },
         )
     return user
+
+
+def create_document_download_token(user_id: str, document_id: str) -> str:
+    """Genera un token firmato valido SOLO per scaricare QUESTO documento,
+    per QUESTO utente, per pochi minuti — pensato per essere messo in una
+    query string (es. un link aperto in una nuova scheda, o incollato in
+    un'email), a differenza del token di sessione completo (valido 7 giorni
+    per l'intero account) che non deve mai finire in un URL: un URL può
+    restare in cronologia del browser, log del server/reverse proxy,
+    strumenti di analytics/monitoring, o uno screenshot copiato altrove."""
+    payload = {
+        "sub": user_id,
+        "doc_id": document_id,
+        "purpose": "doc_download",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=DOCUMENT_DOWNLOAD_TOKEN_TTL_MINUTES),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
+
+
+def decode_document_download_token(token: str, document_id: str) -> str:
+    """Verifica il token generato da create_document_download_token: deve
+    essere valido, non scaduto, con lo scopo giusto ('doc_download') e
+    specifico per QUESTO document_id — un token valido per un altro
+    documento viene rifiutato. Ritorna lo user_id se tutto corrisponde,
+    solleva jwt.InvalidTokenError altrimenti."""
+    payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
+    if payload.get("purpose") != "doc_download" or payload.get("doc_id") != document_id:
+        raise jwt.InvalidTokenError("Token non valido per questo documento")
+    return payload["sub"]
 
 
 def generate_reset_token() -> tuple:
