@@ -308,13 +308,13 @@ class AutomationEngine:
         for lead in leads:
             if lead.get("status") in _CLOSED_LEAD_STATUSES:
                 continue
-            # NOTA: il modello Lead non traccia un updated_at (nessun campo
-            # "ultima interazione"), quindi created_at è l'unico riferimento
-            # disponibile per "inattività". Se in futuro si aggiunge un
-            # updated_at aggiornato ad ogni cambio di stato/nota, va usato
-            # quello al posto di created_at qui sotto.
-            created_at = _parse_iso(lead.get("created_at"))
-            if created_at and created_at <= threshold:
+            # last_interaction_at viene aggiornato ad ogni modifica/cambio
+            # di stato del lead (vedi lead_service.update_lead/update_status):
+            # riflette la VERA ultima interazione, non solo quando è stato
+            # creato. created_at resta come fallback solo per i lead creati
+            # prima dell'introduzione di questo campo, che ne sono privi.
+            last_activity = _parse_iso(lead.get("last_interaction_at")) or _parse_iso(lead.get("created_at"))
+            if last_activity and last_activity <= threshold:
                 out.append(("lead", lead["id"], lead))
         return out
 

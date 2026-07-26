@@ -377,6 +377,47 @@ def test_lead_vinto_non_viene_considerato_inattivo():
     assert summary["executed"] == 0
 
 
+def test_lead_vecchio_ma_contattato_di_recente_non_e_inattivo():
+    """Lo scenario che ha motivato il fix: un lead creato 60 giorni fa ma
+    contattato ieri non deve essere considerato inattivo — prima veniva
+    usato solo created_at, che lo avrebbe segnalato erroneamente."""
+    automations = [{
+        "id": "auto-3", "user_id": "user-1", "name": "Lead inattivo",
+        "trigger": "lead_inactive", "action": "send_email", "enabled": True,
+        "config": {"days": 7},
+    }]
+    leads = [{
+        "id": "l-1", "user_id": "user-1", "company_name": "Bianchi Spa",
+        "email": "bianchi@example.com", "status": "contattato",
+        "created_at": _days_ago(60), "last_interaction_at": _days_ago(1),
+    }]
+    engine = build_engine(automations=automations, leads=leads)
+
+    summary = run(engine.run_cycle())
+
+    assert summary["executed"] == 0
+
+
+def test_lead_senza_last_interaction_at_ricade_su_created_at():
+    """Retrocompatibilità: un lead creato prima dell'introduzione del
+    campo last_interaction_at (quindi privo di quel campo) continua a
+    usare created_at come prima, invece di non essere mai valutato."""
+    automations = [{
+        "id": "auto-3", "user_id": "user-1", "name": "Lead inattivo",
+        "trigger": "lead_inactive", "action": "send_email", "enabled": True,
+        "config": {"days": 7},
+    }]
+    leads = [{
+        "id": "l-1", "user_id": "user-1", "company_name": "Bianchi Spa",
+        "email": "bianchi@example.com", "status": "contattato", "created_at": _days_ago(10),
+    }]
+    engine = build_engine(automations=automations, leads=leads)
+
+    summary = run(engine.run_cycle())
+
+    assert summary["executed"] == 1
+
+
 # ---------- Retry ed errori persistenti ----------
 
 def test_errore_persistente_smette_di_essere_ritentato_dopo_max_tentativi():

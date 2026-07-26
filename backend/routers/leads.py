@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Body
 from core.security import get_current_user, forbid_demo_write
 from services.lead_service import lead_service
-from models.lead import LeadIn
+from models.lead import LeadIn, LeadContactIn
 
 router = APIRouter(prefix="/api/leads", tags=["leads"])
 
@@ -21,6 +21,14 @@ async def update_lead(lid: str, payload: LeadIn, user=Depends(get_current_user))
 @router.patch("/{lid}/status")
 async def update_lead_status(lid: str, payload: dict = Body(...), user=Depends(get_current_user)):
     await lead_service.update_status(user, lid, payload.get("status"))
+    return {"ok": True}
+
+@router.post("/{lid}/log-contact")
+async def log_contact(lid: str, payload: LeadContactIn, user=Depends(get_current_user)):
+    """Registra esplicitamente un contatto avvenuto col lead (chiamata,
+    email, incontro), aggiornando last_contact_at/last_interaction_at senza
+    dover passare da una modifica completa del lead."""
+    await lead_service.log_contact(user, lid, payload.note)
     return {"ok": True}
 
 @router.delete("/{lid}")
