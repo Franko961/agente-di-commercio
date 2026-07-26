@@ -2,10 +2,13 @@ import logging
 import secrets
 from datetime import datetime, timezone, timedelta
 
+from fastapi import HTTPException
+
 from core.utils import gen_id, now_iso
 from core.security import hash_password
 from core.exceptions import ValidationAppError
 from core.config import FRONTEND_URL, ADMIN_NOTIFY_EMAIL, TRIAL_DAYS
+from core.rate_limit import check_and_record
 from repositories.demo_request_repository import demo_request_repository
 from repositories.user_repository import user_repository
 from services.email_service import send_email
@@ -33,6 +36,20 @@ class DemoRequestService:
         self.users = users
 
     async def create(self, payload, ip_address: str = None, user_agent: str = None) -> dict:
+        # Endpoint pubblico non autenticato che crea un account VERO e
+        # funzionante (con dati demo già seminati) e manda una password reale
+        # via email all'indirizzo indicato: senza un limite di frequenza,
+        # chiunque potrebbe scriptare la creazione di account fasulli in
+        # massa e/o far ricevere a indirizzi altrui email di "credenziali"
+        # non richieste — oltre al costo/rischio reputazionale sull'invio
+        # email. Limite per IP (non per email: un attaccante userebbe email
+        # sempre diverse, è l'IP a doversi arginare), stesso principio già
+        # applicato a forgot-password in auth_service.
+        if ip_address:
+            ip_ok = await check_and_record("demo_request_ip", ip_address, max_attempts=5, window_minutes=60)
+            if not ip_ok:
+                raise HTTPException(429, "Troppe richieste da questo indirizzo, riprova più tardi.")
+
         if not payload.privacy_consent:
             raise ValidationAppError(
                 "È necessario accettare l'informativa sulla privacy per procedere."

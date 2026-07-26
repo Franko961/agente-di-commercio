@@ -23,6 +23,14 @@ def run(coro):
     return asyncio.run(coro)
 
 
+async def _allow_always(*a, **kw):
+    return True
+
+
+async def _deny_always(*a, **kw):
+    return False
+
+
 class FakeAuditCollection:
     def __init__(self):
         self.inserted = []
@@ -60,6 +68,7 @@ def build_service(monkeypatch):
 
 def test_make_admin_traccia_audit(monkeypatch):
     monkeypatch.setenv("ADMIN_SECRET", "s3gr3t0")
+    monkeypatch.setattr(admin_service_mod, "check_and_record", _allow_always)
     service, fake_db, repo = build_service(monkeypatch)
 
     run(service.make_admin("franco@test.it", "s3gr3t0"))

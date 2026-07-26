@@ -1,9 +1,11 @@
 import os
+import secrets
 from datetime import datetime, timezone
 from fastapi import HTTPException
 
 from core.config import PLANS
 from core.database import db
+from core.rate_limit import check_and_record
 from repositories.admin_repository import admin_repository
 
 ALLOWED_USER_UPDATE_FIELDS = {"plan", "subscription_status", "role"}
@@ -29,18 +31,40 @@ class AdminService:
         except Exception:
             pass  # l'audit log non deve mai far fallire l'azione amministrativa reale
 
-    async def make_admin(self, email: str, secret: str) -> dict:
-        """Promuove un utente ad admin. Richiede ADMIN_SECRET."""
-        expected_secret = os.environ.get("ADMIN_SECRET", "")
-        if not expected_secret or secret != expected_secret:
-            raise HTTPException(403, "Secret non valido")
+    async def make_admin(self, email: str, secret: str, ip_address: str = None) -> dict:
+        """Promuove un utente ad admin. Richiede ADMIN_SECRET.
+
+        Endpoint non autenticato per natura (serve a creare il PRIMO admin,
+        prima che esista una sessione con privilegi): la sicurezza dipende
+        interamente dalla segretezza di ADMIN_SECRET. Per questo:
+        - il confronto usa secrets.compare_digest (a tempo costante), non
+          '!=', per non lasciare trapelare quanti caratteri iniziali del
+          secret sono corretti tramite differenze di tempo di risposta;
+        - i tentativi sono limitati per email e per IP (stesso principio già
+          applicato a forgot-password in auth_service), per non lasciare la
+          porta aperta a un tentativo di forza bruta illimitato su un
+          secret eventualmente debole.
+        """
         email = email.lower().strip()
+        if email:
+            email_ok = await check_and_record("make_admin_email", email, max_attempts=5, window_minutes=60)
+            if not email_ok:
+                raise HTTPException(429, "Troppi tentativi, riprova più tardi")
+        if ip_address:
+            ip_ok = await check_and_record("make_admin_ip", ip_address, max_attempts=10, window_minutes=60)
+            if not ip_ok:
+                raise HTTPException(429, "Troppi tentativi, riprova più tardi")
+
+        expected_secret = os.environ.get("ADMIN_SECRET", "")
+        if not expected_secret or not secrets.compare_digest(secret, expected_secret):
+            await self._record_audit("bootstrap (ADMIN_SECRET)", "make_admin_failed", detail={"email": email, "ip": ip_address})
+            raise HTTPException(403, "Secret non valido")
         if not email:
             raise HTTPException(400, "Email mancante")
         promoted = await self.repo.promote_by_email(email)
         if not promoted:
             raise HTTPException(404, f"Utente {email} non trovato")
-        await self._record_audit("bootstrap (ADMIN_SECRET)", "make_admin", detail={"email": email})
+        await self._record_audit("bootstrap (ADMIN_SECRET)", "make_admin", detail={"email": email, "ip": ip_address})
         return {"ok": True, "message": f"{email} è ora admin"}
 
     async def get_stats(self) -> dict:
