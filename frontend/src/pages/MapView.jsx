@@ -199,9 +199,16 @@ export default function MapView() {
                   </div>
                 )}
 
+                {plan.warnings && plan.warnings.length > 0 && (
+                  <div data-testid="route-warnings" className="px-4 py-2.5 text-[11px] text-[#DC2626] bg-[#DC2626]/5 border-b border-[#DC2626]/20 space-y-1">
+                    {plan.warnings.map((w, i) => <div key={i}>⚠️ {w}</div>)}
+                  </div>
+                )}
+
                 <div className="flex-1 overflow-y-auto divide-y divide-[#E4E4E1]">
                   {plan.stops.map((s, i) => (
-                    <div key={s.client_id} data-testid={`route-stop-${s.client_id}`} className="p-4 flex gap-3">
+                    <div key={s.client_id} data-testid={`route-stop-${s.client_id}`}
+                         className={`p-4 flex gap-3 ${s.suspicious_distance ? "bg-[#DC2626]/5" : ""}`}>
                       <div className="w-6 h-6 rounded-full bg-[#0A192F] text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
                         {i + 1}
                       </div>
@@ -210,9 +217,10 @@ export default function MapView() {
                         <div className="text-[11px] text-[#52525B] flex items-center gap-1 mt-0.5">
                           <MapPin className="w-3 h-3 shrink-0" /> {s.city || s.address || "—"}
                         </div>
-                        <div className="text-[11px] text-[#52525B] flex items-center gap-1 mt-0.5">
+                        <div className={`text-[11px] flex items-center gap-1 mt-0.5 ${s.suspicious_distance ? "text-[#DC2626] font-medium" : "text-[#52525B]"}`}>
                           <Clock className="w-3 h-3 shrink-0" /> arrivo {s.eta} · uscita {s.departure}
                           {i > 0 && ` · ${s.distance_from_prev_km} km (${s.travel_minutes_from_prev} min)`}
+                          {s.suspicious_distance && " ⚠️"}
                         </div>
                       </div>
                     </div>

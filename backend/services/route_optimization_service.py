@@ -49,6 +49,15 @@ DEFAULT_START_TIME = "09:00"
 # ben prima, questo è solo un paracadute contro input anomali.
 _MAX_TWO_OPT_ITERATIONS = 200
 
+# Un giro visita giornaliero resta per natura in una zona limitata: una
+# singola tratta oltre questa soglia è quasi certamente un sintomo di
+# coordinate sbagliate per uno dei due clienti coinvolti (es. un indirizzo
+# geocodificato su un omonimo dall'altra parte del mondo), non un genuino
+# spostamento nella stessa giornata. Non blocca il calcolo — il giro viene
+# comunque proposto — ma segnala chiaramente la tratta sospetta invece di
+# presentarla come un dato affidabile.
+_SUSPICIOUS_LEG_DISTANCE_KM = 300
+
 
 def haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     """Distanza in linea d'aria tra due coordinate, in km (formula
@@ -222,11 +231,13 @@ class RouteOptimizationService:
                     "lat": client["lat"], "lng": client["lng"],
                     "distance_from_prev_km": 0.0, "travel_minutes_from_prev": 0,
                     "eta": current_time.strftime("%H:%M"), "departure": departure.strftime("%H:%M"),
+                    "suspicious_distance": False,
                 }],
                 "total_distance_km": 0.0, "total_travel_minutes": 0,
                 "total_visit_minutes": visit_minutes,
                 "estimated_end_time": departure.strftime("%H:%M"),
                 "used_real_routing": False,
+                "warnings": [],
             }
 
         coords = [(c["lat"], c["lng"]) for c in selected]
@@ -236,12 +247,14 @@ class RouteOptimizationService:
         order_idx = _two_opt(order_idx, distances_km)
 
         stops = []
+        warnings = []
         total_km = 0.0
         total_travel_minutes = 0.0
         for pos, idx in enumerate(order_idx):
             client = selected[idx]
             distance_km = 0.0
             travel_minutes = 0.0
+            suspicious = False
             if pos > 0:
                 prev_idx = order_idx[pos - 1]
                 distance_km = distances_km[prev_idx][idx]
@@ -249,6 +262,14 @@ class RouteOptimizationService:
                 current_time += timedelta(minutes=travel_minutes)
                 total_km += distance_km
                 total_travel_minutes += travel_minutes
+                if distance_km > _SUSPICIOUS_LEG_DISTANCE_KM:
+                    suspicious = True
+                    prev_client = selected[prev_idx]
+                    warnings.append(
+                        f"Distanza implausibile ({round(distance_km)} km) tra "
+                        f"\"{prev_client['company_name']}\" e \"{client['company_name']}\": "
+                        "controlla l'indirizzo geolocalizzato di questi clienti, probabilmente errato."
+                    )
             eta = current_time
             departure = eta + timedelta(minutes=visit_minutes)
             stops.append({
@@ -258,6 +279,7 @@ class RouteOptimizationService:
                 "distance_from_prev_km": round(distance_km, 1),
                 "travel_minutes_from_prev": round(travel_minutes),
                 "eta": eta.strftime("%H:%M"), "departure": departure.strftime("%H:%M"),
+                "suspicious_distance": suspicious,
             })
             current_time = departure
 
@@ -268,6 +290,7 @@ class RouteOptimizationService:
             "total_visit_minutes": visit_minutes * len(selected),
             "estimated_end_time": current_time.strftime("%H:%M"),
             "used_real_routing": used_real_routing,
+            "warnings": warnings,
         }
 
 

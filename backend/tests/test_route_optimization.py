@@ -222,5 +222,33 @@ def test_orario_di_inizio_non_valido_ricade_sul_default(monkeypatch):
     assert plan["stops"][0]["eta"] == "09:00"  # DEFAULT_START_TIME
 
 
+def test_distanza_normale_non_genera_avvisi():
+    service = build_service([MILANO, BERGAMO, BRESCIA])
+    plan = run(service.plan_day("user-1", [MILANO["id"], BERGAMO["id"], BRESCIA["id"]]))
+
+    assert plan["warnings"] == []
+    assert all(not s["suspicious_distance"] for s in plan["stops"])
+
+
+def test_coordinate_palesemente_sbagliate_generano_avviso():
+    """Simula esattamente il caso reale osservato: un cliente con lat/lng
+    invertite (o comunque geocodificate su un punto lontanissimo) produce
+    una tratta di migliaia di km — il sistema deve segnalarlo chiaramente
+    invece di presentarlo come un dato affidabile."""
+    cliente_lontano = {
+        "id": "c-lontano", "user_id": "user-1", "company_name": "Cliente Coordinate Sbagliate",
+        "lat": 13.88, "lng": 42.95,  # lat/lng plausibilmente invertite rispetto a un punto italiano
+        "address": "", "city": "",
+    }
+    service = build_service([MILANO, cliente_lontano])
+    plan = run(service.plan_day("user-1", [MILANO["id"], cliente_lontano["id"]]))
+
+    assert len(plan["warnings"]) == 1
+    assert "Cliente Coordinate Sbagliate" in plan["warnings"][0]
+    suspicious_stops = [s for s in plan["stops"] if s["suspicious_distance"]]
+    assert len(suspicious_stops) == 1
+    assert suspicious_stops[0]["client_id"] == cliente_lontano["id"]
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))
