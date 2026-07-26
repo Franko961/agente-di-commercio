@@ -184,6 +184,22 @@ def _two_opt(order: List[int], matrix: list) -> List[int]:
     return order
 
 
+def _has_valid_coords(client: dict) -> bool:
+    """Come il controllo analogo lato frontend (LocationPicker.jsx,
+    MapView.jsx): una coordinata fuori dai limiti geografici reali non è
+    solo "sospetta" (vedi _SUSPICIOUS_LEG_DISTANCE_KM più sotto, che
+    riguarda la DISTANZA tra due punti comunque validi) — è proprio un dato
+    corrotto, e va trattato come assente, non usato per calcolare nulla."""
+    lat, lng = client.get("lat"), client.get("lng")
+    if lat is None or lng is None:
+        return False
+    try:
+        lat, lng = float(lat), float(lng)
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(lat) and math.isfinite(lng) and -90 <= lat <= 90 and -180 <= lng <= 180
+
+
 class RouteOptimizationService:
     def __init__(self, client_repo=client_repository):
         self.client_repo = client_repo
@@ -203,7 +219,7 @@ class RouteOptimizationService:
             c = by_id.get(cid)
             if not c:
                 missing_ids.append(cid)
-            elif c.get("lat") is None or c.get("lng") is None:
+            elif not _has_valid_coords(c):
                 no_coords.append(c)
             else:
                 selected.append(c)

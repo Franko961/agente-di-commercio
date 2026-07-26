@@ -65,7 +65,15 @@ def test_token_con_scopo_diverso_viene_rifiutato():
 
 def test_token_manomesso_viene_rifiutato():
     token = create_document_download_token("user-1", "doc-1")
-    tampered = token[:-1] + ("A" if token[-1] != "A" else "B")
+    # Manomette un carattere a metà del token, non l'ultimo: l'ultimo
+    # carattere di un gruppo base64 può codificare bit non significativi
+    # (padding), quindi alterarlo a volte non cambia il valore decodificato
+    # e il test risulterebbe intermittente. Un carattere a metà stringa
+    # cade quasi certamente dentro la firma o il payload in un punto che
+    # ne altera davvero il contenuto, indipendentemente dalla lunghezza
+    # esatta del token generato in questo run.
+    mid = len(token) // 2
+    tampered = token[:mid] + ("A" if token[mid] != "A" else "B") + token[mid + 1:]
     with pytest.raises(jwt.InvalidTokenError):
         decode_document_download_token(tampered, "doc-1")
 

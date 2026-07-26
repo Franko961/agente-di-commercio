@@ -6,6 +6,18 @@ import { Route, Loader2, X, MapPin, Clock, Navigation } from "lucide-react";
 import { toast } from "sonner";
 import api from "../api";
 
+// Stesso controllo di LocationPicker.jsx: una coordinata corrotta (fuori dai
+// limiti geografici possibili) passata direttamente a Leaflet può portare a
+// un crash "Out of Memory" del browser a certi livelli di zoom, invece di
+// limitarsi a non mostrare quel marker.
+function isValidCoord(lat, lng) {
+  return (
+    typeof lat === "number" && typeof lng === "number" &&
+    Number.isFinite(lat) && Number.isFinite(lng) &&
+    lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
+  );
+}
+
 // Custom marker
 const orangeIcon = L.divIcon({
   className: "",
@@ -32,7 +44,7 @@ export default function MapView() {
   const [plan, setPlan] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { api.get("/clients").then(({ data }) => setClients(data.filter(c => c.lat && c.lng))); }, []);
+  useEffect(() => { api.get("/clients").then(({ data }) => setClients(data.filter(c => isValidCoord(c.lat, c.lng)))); }, []);
 
   const center = clients.length ? [clients[0].lat, clients[0].lng] : [44.5, 11.0];
 

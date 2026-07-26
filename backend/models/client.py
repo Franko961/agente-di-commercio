@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 
 class ClientIn(BaseModel):
@@ -13,8 +13,13 @@ class ClientIn(BaseModel):
     zone: Optional[str] = ""
     sector: Optional[str] = ""
     potential: Optional[str] = "medio"
-    lat: Optional[float] = None
-    lng: Optional[float] = None
+    # Limiti geografici reali (-90/90, -180/180): senza questo vincolo, una
+    # coordinata corrotta (es. lat/lng invertite da un match di geocodifica
+    # sbagliato) poteva essere salvata e poi mandare in crash "Out of
+    # Memory" il browser quando Leaflet provava a renderla su una mappa a
+    # zoom alto (vedi LocationPicker.jsx/MapView.jsx).
+    lat: Optional[float] = Field(None, ge=-90, le=90)
+    lng: Optional[float] = Field(None, ge=-180, le=180)
     notes: Optional[str] = ""
     mandante_ids: List[str] = []
 

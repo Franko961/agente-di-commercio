@@ -178,6 +178,21 @@ def test_cliente_senza_coordinate_solleva_errore_chiaro():
     assert "Senza Indirizzo" in str(exc_info.value.detail)
 
 
+def test_coordinate_fuori_dai_limiti_geografici_trattate_come_assenti():
+    """Riproduce il bug reale osservato in produzione: un cliente con
+    lat/lng corrotte (es. invertite, o fuori dai limiti fisici possibili)
+    non deve mai entrare nei calcoli — va segnalato come 'da geolocalizzare',
+    esattamente come un cliente senza coordinate del tutto."""
+    cliente_coordinate_corrotte = {
+        "id": "c-corrotto", "user_id": "user-1", "company_name": "Cliente Coordinate Corrotte",
+        "lat": 999.0, "lng": 42.95,
+    }
+    service = build_service([MILANO, cliente_coordinate_corrotte])
+    with pytest.raises(ValidationAppError) as exc_info:
+        run(service.plan_day("user-1", [MILANO["id"], cliente_coordinate_corrotte["id"]]))
+    assert "Coordinate Corrotte" in str(exc_info.value.detail)
+
+
 def test_singolo_cliente_nessun_viaggio():
     service = build_service([MILANO])
     plan = run(service.plan_day("user-1", [MILANO["id"]], start_time="09:00", visit_minutes=30))

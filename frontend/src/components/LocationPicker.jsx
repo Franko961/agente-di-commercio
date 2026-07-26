@@ -13,6 +13,22 @@ const orangeIcon = L.divIcon({
 
 const ITALY_CENTER = [42.5, 12.5];
 
+// Coordinate al di fuori di questi limiti non sono fisicamente valide (una
+// latitudine/longitudine reale sta sempre in questo intervallo). Senza
+// questo controllo, un valore corrotto (es. lat/lng invertite da un
+// geocoding finito su un omonimo altrove, o un dato salvato male) veniva
+// passato così com'è a Leaflet: a zoom alto, Leaflet prova a calcolare la
+// griglia di tile per quel punto e può arrivare a esaurire la memoria del
+// browser (crash "Out of Memory" osservato in produzione), invece di
+// limitarsi a non mostrare un pin.
+function isValidCoord(lat, lng) {
+  return (
+    typeof lat === "number" && typeof lng === "number" &&
+    Number.isFinite(lat) && Number.isFinite(lng) &&
+    lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
+  );
+}
+
 // Ascolta i click sulla mappa e li inoltra al genitore: react-leaflet non
 // espone un prop onClick diretto su MapContainer per questo caso, va fatto
 // con un figlio "invisibile" che si aggancia agli eventi della mappa.
@@ -38,7 +54,7 @@ export default function LocationPicker({ address, city, province, lat, lng, onCh
   const [searching, setSearching] = useState(false);
   const [searched, setSearched] = useState(false);
 
-  const hasPosition = lat != null && lng != null;
+  const hasPosition = isValidCoord(lat, lng);
   const center = hasPosition ? [lat, lng] : ITALY_CENTER;
 
   const search = async () => {
