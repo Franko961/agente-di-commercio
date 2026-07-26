@@ -35,7 +35,7 @@ from routers.geocoding import router as geocoding_router
 from services.startup_service import run_startup, run_shutdown
 from core.exceptions import AppError
 from core.config import CORS_ORIGINS, SENTRY_DSN
-from core.observability import configure_logging, new_request_id, set_request_id, record_api_call
+from core.observability import configure_logging, new_request_id, set_request_id, record_api_call, init_opentelemetry
 
 app = FastAPI(title="Gestionale Agenti di Commercio")
 
@@ -61,6 +61,14 @@ if SENTRY_DSN:
         logging.getLogger(__name__).info("Sentry inizializzato")
     except Exception as e:
         logging.getLogger(__name__).error(f"Inizializzazione Sentry fallita: {e}")
+
+# OpenTelemetry: stesso principio, spento finché non si imposta
+# OTEL_EXPORTER_OTLP_ENDPOINT (vedi core/observability.init_opentelemetry).
+try:
+    if init_opentelemetry(app):
+        logging.getLogger(__name__).info("OpenTelemetry inizializzato")
+except Exception as e:
+    logging.getLogger(__name__).error(f"Inizializzazione OpenTelemetry fallita: {e}")
 
 
 class ObservabilityMiddleware(BaseHTTPMiddleware):
