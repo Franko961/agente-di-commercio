@@ -40,9 +40,15 @@ async def _deny_always(*a, **kw):
 class FakeUserRepo:
     def __init__(self, users_by_email=None):
         self.users_by_email = users_by_email or {}
+        self.inserted = []
 
     async def find_by_email(self, email):
         return self.users_by_email.get(email)
+
+    async def insert(self, doc):
+        self.inserted.append(doc)
+        self.users_by_email[doc["email"]] = doc
+        return doc
 
 
 def _user(email="mario@example.com", password="password-corretta"):
@@ -125,6 +131,49 @@ def test_checkout_expired_troppi_tentativi_bloccati(monkeypatch):
     with pytest.raises(HTTPException) as exc_info:
         run(service.create_checkout_for_expired_account(
             {"email": "mario@example.com", "password": "qualsiasi", "plan": "base"},
+            ip_address="1.2.3.4",
+        ))
+    assert exc_info.value.status_code == 429
+
+
+# ---------- register (stesso rischio di demo-requests: crea un account vero) ----------
+
+async def _fake_seed_demo(user_id):
+    return None
+
+
+async def _fake_send_email(to, subject, html):
+    return True
+
+
+def test_registrazione_normale_funziona(monkeypatch):
+    from models.auth import RegisterIn
+    monkeypatch.setattr(auth_service_mod, "check_and_record", _allow_always)
+    monkeypatch.setattr(auth_service_mod.seed_service, "seed_demo", _fake_seed_demo)
+    monkeypatch.setattr(auth_service_mod, "send_email", _fake_send_email)
+    service = AuthService(repo=FakeUserRepo())
+
+    token, out = run(service.register(
+        RegisterIn(email="nuovo@example.com", password="password123", name="Nuovo Utente"),
+        ip_address="1.2.3.4",
+    ))
+
+    assert token
+    assert out["email"] == "nuovo@example.com"
+
+
+def test_troppe_registrazioni_dallo_stesso_ip_vengono_bloccate(monkeypatch):
+    """Stesso rischio già sistemato su /api/demo-requests: senza rate
+    limit, uno script potrebbe creare account fasulli in massa."""
+    from models.auth import RegisterIn
+    monkeypatch.setattr(auth_service_mod, "check_and_record", _deny_always)
+    monkeypatch.setattr(auth_service_mod.seed_service, "seed_demo", _fake_seed_demo)
+    monkeypatch.setattr(auth_service_mod, "send_email", _fake_send_email)
+    service = AuthService(repo=FakeUserRepo())
+
+    with pytest.raises(HTTPException) as exc_info:
+        run(service.register(
+            RegisterIn(email="altro@example.com", password="password123", name="Altro"),
             ip_address="1.2.3.4",
         ))
     assert exc_info.value.status_code == 429

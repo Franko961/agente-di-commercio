@@ -17,7 +17,16 @@ class AuthService:
     def __init__(self, repo=user_repository):
         self.repo = repo
 
-    async def register(self, payload) -> dict:
+    async def register(self, payload, ip_address: str = None) -> dict:
+        # Endpoint pubblico che crea un account VERO (con dati demo seminati)
+        # e manda un'email di benvenuto: stesso rischio già sistemato su
+        # /api/demo-requests — senza un limite di frequenza, uno script
+        # potrebbe creare account fasulli in massa dallo stesso IP.
+        if ip_address:
+            ip_ok = await check_and_record("register_ip", ip_address, max_attempts=5, window_minutes=60)
+            if not ip_ok:
+                raise HTTPException(status_code=429, detail="Troppe registrazioni da questo indirizzo, riprova più tardi.")
+
         email = payload.email.lower().strip()
         if await self.repo.find_by_email(email):
             raise HTTPException(status_code=400, detail="Email gia' registrata")

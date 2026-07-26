@@ -7,8 +7,9 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
 @router.post("/register")
-async def register(payload: RegisterIn, response: Response):
-    token, out = await auth_service.register(payload)
+async def register(payload: RegisterIn, response: Response, request: Request):
+    ip_address = request.client.host if request.client else None
+    token, out = await auth_service.register(payload, ip_address=ip_address)
     response.set_cookie("access_token", token, httponly=True, secure=True,
                          samesite="none", max_age=7 * 24 * 3600, path="/")
     return out
