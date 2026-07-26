@@ -75,7 +75,7 @@ class AuthService:
                     <div style="font-size:20px;font-weight:900;color:#FF5A00;">{PLANS[plan]['name']} — €{PLANS[plan]['price_eur']:.0f}/mese</div>
                     <div style="font-size:13px;color:#52525B;margin-top:4px;">{TRIAL_DAYS} giorni gratuiti, nessuna carta richiesta</div>
                   </div>
-                  <a href="https://salesfly.netlify.app" 
+                  <a href="{FRONTEND_URL}" 
                      style="display:inline-block;background:#0A192F;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">
                     Accedi al gestionale →
                   </a>
@@ -103,7 +103,7 @@ class AuthService:
                     <tr><td style="padding:8px;color:#52525B;">Piano</td><td style="padding:8px;font-weight:600;color:#FF5A00;">{PLANS[plan]['name']}</td></tr>
                     <tr style="background:#F9F9F8;"><td style="padding:8px;color:#52525B;">Data</td><td style="padding:8px;">{now_iso()[:16].replace('T',' ')}</td></tr>
                   </table>
-                  <a href="https://salesfly.netlify.app/admin"
+                  <a href="{FRONTEND_URL}/app/admin"
                      style="display:inline-block;margin-top:20px;background:#FF5A00;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">
                     Vedi Admin Dashboard →
                   </a>

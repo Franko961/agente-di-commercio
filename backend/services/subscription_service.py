@@ -100,8 +100,8 @@ class SubscriptionService:
                 payment_method_types=["card"],
                 mode="subscription",
                 line_items=[{"price": plan["stripe_price_id"], "quantity": 1}],
-                success_url=f"{payload.get('return_url', 'https://salesfly.netlify.app')}/abbonamento?success=stripe",
-                cancel_url=f"{payload.get('return_url', 'https://salesfly.netlify.app')}/abbonamento?cancelled=1",
+                success_url=f"{payload.get('return_url', FRONTEND_URL)}/abbonamento?success=stripe",
+                cancel_url=f"{payload.get('return_url', FRONTEND_URL)}/abbonamento?cancelled=1",
                 metadata={"user_id": user["id"], "plan": plan_id},
             )
             return {"url": session.url}
