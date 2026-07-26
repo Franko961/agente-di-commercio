@@ -124,6 +124,14 @@ class DocumentService:
         allowed = {k: v for k, v in payload.items() if k in {"name", "category", "notes", "client_id", "tags"}}
         if "tags" in allowed and isinstance(allowed["tags"], list):
             allowed["tags"] = [str(t).strip() for t in allowed["tags"] if str(t).strip()]
+        if "name" in allowed:
+            # Stessa sanitizzazione applicata al nome in upload_document: senza
+            # questa, un nome impostato qui in un secondo momento (a differenza
+            # di quello al primo caricamento) restava privo di ripulitura,
+            # potendo contenere separatori di percorso o caratteri di
+            # controllo — poi riusati in Content-Disposition al download e
+            # come nome voce nello zip dell'export GDPR (services/gdpr_service.py).
+            allowed["name"] = sanitize_filename(allowed["name"])
         ok = await self.repo.update_meta(did, user["id"], allowed)
         if not ok:
             raise HTTPException(404, "Documento non trovato")

@@ -49,6 +49,13 @@ class FakeDocRepo:
         self.docs.append(doc)
         return doc
 
+    async def update_meta(self, did, user_id, data):
+        for d in self.docs:
+            if d["id"] == did:
+                d.update(data)
+                return True
+        return False
+
 
 def build_service():
     return DocumentService(repo=FakeDocRepo())
@@ -161,6 +168,22 @@ def test_estensione_non_supportata_rifiutata_prima_di_leggere_il_file():
         run(service.upload_document({"id": "user-1"}, file, "Doc", "altro", None, "", ""))
     assert exc_info.value.status_code == 400
     assert file.read_calls == 0  # rifiutato dall'estensione, il file non va nemmeno letto
+
+
+def test_update_document_meta_sanifica_il_nome():
+    """A differenza del nome impostato al primo upload (già ripulito da
+    sanitize_filename), il nome modificato in un secondo momento via
+    update_document_meta non veniva più sanificato: un valore con
+    separatori di percorso poteva restare salvato così com'è, per poi
+    essere riusato come nome voce nello zip dell'export GDPR."""
+    service = build_service()
+    run(service.repo.insert({"id": "doc-1", "user_id": "user-1", "name": "originale.pdf"}))
+
+    run(service.update_document_meta({"id": "user-1"}, "doc-1", {"name": "../../evil.sh"}))
+
+    saved = service.repo.docs[0]
+    assert "/" not in saved["name"]
+    assert "\\" not in saved["name"]
 
 
 if __name__ == "__main__":

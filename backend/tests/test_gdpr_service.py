@@ -155,6 +155,39 @@ def test_export_prosegue_se_un_documento_non_si_trova(monkeypatch):
         assert "documenti/contratto.pdf" not in zf.namelist()
 
 
+def test_export_neutralizza_un_nome_documento_con_percorso_malevolo(monkeypatch):
+    """Un documento il cui campo 'name' contiene separatori di percorso
+    (es. impostato via PATCH dopo il caricamento, che a differenza
+    dell'upload iniziale non veniva più ripulito) non deve poter far
+    scrivere una voce zip fuori dalla cartella 'documenti/' prevista —
+    zipfile non protegge da solo da un arcname tipo '../../evil.sh'."""
+    fake_db = FakeDb()
+    fake_db.users.docs.append({"id": "u1", "email": "franco@test.it", "name": "Franco", "password_hash": "x"})
+    fake_db.documents.docs.append({
+        "id": "d1", "user_id": "u1", "name": "../../evil.sh",
+        "storage_path": "path/to/evil.sh",
+        # Nessun original_filename: il caso realistico è un vecchio
+        # documento, o uno il cui original_filename manca per qualche
+        # motivo, che ricade sul campo 'name' modificabile dall'utente.
+    })
+    monkeypatch.setattr(gdpr_mod, "db", fake_db)
+    monkeypatch.setattr(gdpr_mod, "storage_get", lambda path: (b"contenuto", "application/octet-stream"))
+    service = GdprService()
+
+    zip_bytes = run(service.export_user_data(USER))
+
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        names = zf.namelist()
+        # La garanzia reale di sanitize_filename è l'assenza di separatori di
+        # percorso (/ e \) — punti letterali residui (es. ".._.._evil.sh")
+        # sono innocui, restano un nome file con caratteri insoliti, non un
+        # percorso che uno strumento di estrazione possa risalire. Vedi
+        # anche test_percorso_relativo_neutralizzato in
+        # test_document_upload_security.py per la stessa proprietà.
+        assert not any("/" in n.removeprefix("documenti/") or "\\" in n for n in names)
+        assert any(n.startswith("documenti/") for n in names)
+
+
 def test_cancellazione_richiede_password_corretta(monkeypatch):
     fake_db = build_fake_db_with_data()
     monkeypatch.setattr(gdpr_mod, "db", fake_db)

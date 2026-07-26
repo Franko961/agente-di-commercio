@@ -4,6 +4,27 @@ from typing import List
 from fastapi.responses import StreamingResponse
 from core.database import db
 
+# Caratteri che Excel/Google Sheets interpretano come inizio di una formula
+# quando aprono un file CSV: un valore testuale come '=HYPERLINK(...)' o
+# '=cmd|...' finito in un nome cliente, una nota, o un qualunque campo
+# testuale libero verrebbe eseguito come formula da chi apre il file
+# esportato — che potrebbe non essere la stessa persona che ha inserito
+# quel dato (es. l'export viene girato al proprio mandante o commercialista).
+# Vulnerabilità nota come "CSV Injection"/"Formula Injection" (OWASP).
+_FORMULA_TRIGGER_CHARS = ("=", "+", "-", "@")
+
+
+def _sanitize_csv_cell(value):
+    """Antepone un apostrofo ai valori testuali che iniziano con un
+    carattere che attiverebbe l'interpretazione come formula — la stessa
+    convenzione che usa Excel per forzare un valore a essere trattato come
+    testo, invisibile nella visualizzazione normale della cella. Si applica
+    solo alle stringhe: i valori numerici (importi, conteggi) restano
+    intatti, non essendo mai a rischio di questa vulnerabilità."""
+    if isinstance(value, str) and value.startswith(_FORMULA_TRIGGER_CHARS):
+        return "'" + value
+    return value
+
 
 def csv_response(rows: List[dict], headers: List[str], filename: str) -> StreamingResponse:
     buf = io.StringIO()
@@ -11,7 +32,7 @@ def csv_response(rows: List[dict], headers: List[str], filename: str) -> Streami
     writer = csv.DictWriter(buf, fieldnames=headers, delimiter=";", extrasaction="ignore")
     writer.writeheader()
     for r in rows:
-        writer.writerow({h: r.get(h, "") for h in headers})
+        writer.writerow({h: _sanitize_csv_cell(r.get(h, "")) for h in headers})
     buf.seek(0)
     return StreamingResponse(
         iter([buf.getvalue()]),

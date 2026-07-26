@@ -8,7 +8,7 @@ from fastapi import HTTPException
 
 from core.database import db
 from core.security import verify_password
-from services.storage_service import storage_get, storage_delete
+from services.storage_service import storage_get, storage_delete, sanitize_filename
 from services.subscription_service import subscription_service
 
 logger = logging.getLogger(__name__)
@@ -79,7 +79,14 @@ class GdprService:
                     continue
                 try:
                     content, _ = storage_get(storage_path)
-                    name = doc.get("original_filename") or doc.get("name") or doc["id"]
+                    # sanitize_filename anche qui, non solo alla creazione del
+                    # documento: un nome impostato da payload["name"] prima di
+                    # questa modifica potrebbe ancora contenere separatori di
+                    # percorso; qui è la difesa in profondità che impedisce
+                    # comunque a un nome del genere di finire come "arcname"
+                    # dentro lo zip (zipfile non protegge da solo da percorsi
+                    # tipo "../../evil.sh" nel nome della voce).
+                    name = sanitize_filename(doc.get("original_filename") or doc.get("name") or doc["id"])
                     seen_names[name] = seen_names.get(name, 0) + 1
                     if seen_names[name] > 1:
                         stem, _, ext = name.rpartition(".")
