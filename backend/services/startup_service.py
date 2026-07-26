@@ -66,6 +66,36 @@ async def _stuck_ai_action_cleanup_loop() -> None:
             logger.error(f"Ciclo di recupero azioni AI bloccate fallito: {e}")
 
 
+# Endpoint le cui risposte d'errore sono l'esito ATTESO di un controllo, non
+# un sintomo di guasto: GET /api/auth/me risponde 401 ogni volta che chi
+# naviga il sito non ha (più) una sessione valida — visitatore anonimo,
+# sessione scaduta, logout — che è la risposta corretta a "sono
+# autenticato?", non un errore di sistema. Includerlo nell'alert anomalie
+# genera falsi allarmi ad ogni manciata di visite anonime, specialmente con
+# poco traffico (con MIN_SAMPLE_SIZE=5 bastano 2 richieste su 5 per superare
+# la soglia del 20%).
+_BENIGN_ENDPOINT_ERRORS = {("GET", "/api/auth/me")}
+
+
+def _endpoint_problems(most_errors: list) -> list:
+    """Filtra health['endpoints']['most_errors'] escludendo le combinazioni
+    endpoint+status note come attese (vedi _BENIGN_ENDPOINT_ERRORS), e
+    ritorna le righe di descrizione per l'email di alert per quelle
+    rimanenti che superano le soglie di campione/tasso d'errore. Estratta
+    dal ciclo principale per poter essere testata senza dover far girare
+    l'intero loop asincrono."""
+    problems = []
+    for e in most_errors:
+        if (e["method"], e["path"]) in _BENIGN_ENDPOINT_ERRORS:
+            continue
+        if e["count"] >= ALERT_MIN_SAMPLE_SIZE and e["error_rate_pct"] >= ALERT_ERROR_RATE_THRESHOLD_PCT:
+            problems.append(
+                f"{e['method']} {e['path']}: {e['error_rate_pct']}% errori "
+                f"({e['status_4xx'] + e['status_5xx']}/{e['count']})"
+            )
+    return problems
+
+
 async def _health_alert_loop() -> None:
     """Controlla periodicamente il tasso di fallimento di chiamate AI, invii
     email, sync Calendar ed endpoint API nella finestra recente, avvisando
@@ -87,12 +117,7 @@ async def _health_alert_loop() -> None:
                 stats = health[key]
                 if stats["total"] >= ALERT_MIN_SAMPLE_SIZE and stats["failure_rate_pct"] >= ALERT_ERROR_RATE_THRESHOLD_PCT:
                     problems.append(f"{label}: {stats['failure_rate_pct']}% di fallimenti ({stats['failure']}/{stats['total']})")
-            for e in health["endpoints"]["most_errors"]:
-                if e["count"] >= ALERT_MIN_SAMPLE_SIZE and e["error_rate_pct"] >= ALERT_ERROR_RATE_THRESHOLD_PCT:
-                    problems.append(
-                        f"{e['method']} {e['path']}: {e['error_rate_pct']}% errori "
-                        f"({e['status_4xx'] + e['status_5xx']}/{e['count']})"
-                    )
+            problems.extend(_endpoint_problems(health["endpoints"]["most_errors"]))
 
             if not problems:
                 continue
