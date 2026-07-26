@@ -74,6 +74,13 @@ ADMIN_NOTIFY_EMAIL = os.environ.get("ADMIN_NOTIFY_EMAIL", "franco.bruni.art@gmai
 # Vuoto di default: Sentry resta disattivato finché non si imposta questa
 # variabile con il DSN di un account Sentry (anche gratuito).
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
+# Vuoto di default: OpenTelemetry resta disattivato finché non si imposta
+# l'endpoint OTLP del vendor scelto (es. https://api.honeycomb.io per
+# Honeycomb). OTEL_EXPORTER_OTLP_HEADERS (es. "x-honeycomb-team=<api-key>")
+# va impostato allo stesso modo, letto automaticamente dall'SDK OTel senza
+# bisogno di leggerlo qui.
+OTEL_EXPORTER_OTLP_ENDPOINT = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+OTEL_SERVICE_NAME = os.environ.get("OTEL_SERVICE_NAME", "salesfly-backend")
 APP_FROM_EMAIL = os.environ.get("APP_FROM_EMAIL", "SALESFLY <noreply@salesfly.it>")
 
 AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
