@@ -35,14 +35,47 @@ function numberedIcon(n) {
   });
 }
 
+// La pianificazione del giro visita viene tenuta in sessionStorage (non solo
+// nello stato del componente): senza questo, uscire dalla pagina Mappa per
+// aprire una scheda cliente e poi tornare indietro faceva sparire il piano
+// appena calcolato, perché React smonta il componente ad ogni cambio pagina
+// e ne riparte da zero. sessionStorage sopravvive alla navigazione tra le
+// pagine dell'app (si perde solo chiudendo la scheda/il browser, il che ha
+// senso per un piano pensato per "la giornata di oggi").
+const ROUTE_PLAN_STORAGE_KEY = "salesfly:route-plan";
+
+function loadStoredRoutePlan() {
+  try {
+    const raw = sessionStorage.getItem(ROUTE_PLAN_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredRoutePlan(state) {
+  try {
+    sessionStorage.setItem(ROUTE_PLAN_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // sessionStorage può non essere disponibile (es. modalità privata con
+    // restrizioni) — la pianificazione resta comunque utilizzabile per la
+    // sessione corrente, semplicemente non sopravvive alla navigazione.
+  }
+}
+
 export default function MapView() {
+  const stored = loadStoredRoutePlan();
   const [clients, setClients] = useState([]);
-  const [planOpen, setPlanOpen] = useState(false);
-  const [selectedIds, setSelectedIds] = useState([]);
-  const [startTime, setStartTime] = useState("09:00");
-  const [visitMinutes, setVisitMinutes] = useState(30);
-  const [plan, setPlan] = useState(null);
+  const [planOpen, setPlanOpen] = useState(stored?.planOpen || false);
+  const [selectedIds, setSelectedIds] = useState(stored?.selectedIds || []);
+  const [startTime, setStartTime] = useState(stored?.startTime || "09:00");
+  const [visitMinutes, setVisitMinutes] = useState(stored?.visitMinutes || 30);
+  const [plan, setPlan] = useState(stored?.plan || null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    saveStoredRoutePlan({ planOpen, selectedIds, startTime, visitMinutes, plan });
+  }, [planOpen, selectedIds, startTime, visitMinutes, plan]);
 
   useEffect(() => { api.get("/clients").then(({ data }) => setClients(data.filter(c => isValidCoord(c.lat, c.lng)))); }, []);
 
