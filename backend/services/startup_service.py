@@ -158,6 +158,18 @@ async def run_startup() -> None:
     await db.commissions.create_index([("user_id", 1)])
     await db.expenses.create_index([("user_id", 1)])
     await db.orders.create_index([("user_id", 1)])
+    # Indice univoco su (user_id, numero_ordine): next_order_number() (vedi
+    # repositories/order_repository.py) è già atomico via $inc e non collide
+    # mai da solo, ma numero_ordine resta un campo modificabile a mano da
+    # form (creazione/modifica ordine) — un valore digitato dall'utente
+    # potrebbe altrimenti collidere con uno già esistente senza che nulla lo
+    # impedisca. Partial: esclude i (rari) ordini storici privi del campo,
+    # applicando il vincolo solo dove numero_ordine è presente.
+    await db.orders.create_index(
+        [("user_id", 1), ("numero_ordine", 1)],
+        unique=True,
+        partialFilterExpression={"numero_ordine": {"$exists": True}},
+    )
     # TTL: gli eventi di rate limiting più vecchi di 2 ore vengono eliminati
     # automaticamente da MongoDB (le finestre usate sono tutte <= 15 minuti).
     await db.rate_limit_events.create_index("created_at", expireAfterSeconds=7200)

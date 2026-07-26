@@ -21,3 +21,8 @@ class PermissionDeniedError(AppError):
 class ValidationAppError(AppError):
     status_code = 400
     detail = "Dati non validi"
+
+
+class ConflictError(AppError):
+    status_code = 409
+    detail = "La risorsa è in conflitto con lo stato attuale"

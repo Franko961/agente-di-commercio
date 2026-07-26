@@ -1,5 +1,5 @@
 from core.utils import gen_id, now_iso, now_local
-from core.exceptions import NotFoundError
+from core.exceptions import NotFoundError, ConflictError
 from repositories.order_repository import order_repository
 from repositories.mandante_repository import mandante_repository
 from services.commission_service import calc_offer_total, get_commission_rate, commission_service
@@ -8,6 +8,16 @@ from services.commission_service import calc_offer_total, get_commission_rate, c
 # annullato o reso non rappresenta più fatturato reale, quindi non deve più
 # contare né come provvigione maturata né ai fini della scala premi.
 _CANCELLED_STATUSES = ("annullato", "reso")
+
+# Quante volte ritentare con il numero ordine successivo se quello generato
+# automaticamente da next_order_number() collide con un numero già esistente
+# (indice univoco su user_id+numero_ordine — vedi startup_service). Può
+# succedere solo se un numero è stato in precedenza inserito a mano con un
+# valore che il contatore automatico raggiunge più avanti (es. l'utente
+# digita "ORD-0050" quando il contatore è ancora a 10): un caso raro ma
+# reale, che altrimenti farebbe fallire la creazione dell'ordine con un
+# errore che l'utente non saprebbe come risolvere.
+_MAX_AUTO_NUMBER_RETRIES = 5
 
 
 class OrderService:
@@ -79,16 +89,33 @@ class OrderService:
                                  payment_status: str = "non_pagato", expected_delivery_date: str = None,
                                  delivery_date: str = None) -> dict:
         total = calc_offer_total(items)
-        if not numero_ordine:
-            numero_ordine = await self.repo.next_order_number(user["id"])
-        doc = {
-            "id": gen_id(), "user_id": user["id"], "client_id": client_id, "mandante_id": mandante_id,
-            "items": items, "sale_type": sale_type, "notes": notes, "total": total,
-            "numero_ordine": numero_ordine, "status": status, "payment_status": payment_status,
-            "expected_delivery_date": expected_delivery_date, "delivery_date": delivery_date,
-            "source_offer_id": source_offer_id, "created_at": now_iso(),
-        }
-        await self.repo.insert(doc)
+        auto_generate = not numero_ordine
+
+        attempts = 0
+        while True:
+            if auto_generate:
+                numero_ordine = await self.repo.next_order_number(user["id"])
+            doc = {
+                "id": gen_id(), "user_id": user["id"], "client_id": client_id, "mandante_id": mandante_id,
+                "items": items, "sale_type": sale_type, "notes": notes, "total": total,
+                "numero_ordine": numero_ordine, "status": status, "payment_status": payment_status,
+                "expected_delivery_date": expected_delivery_date, "delivery_date": delivery_date,
+                "source_offer_id": source_offer_id, "created_at": now_iso(),
+            }
+            try:
+                await self.repo.insert(doc)
+                break
+            except ConflictError:
+                if not auto_generate:
+                    # Numero scelto a mano dall'utente: l'errore va restituito
+                    # così com'è, è lui a dover scegliere un numero diverso.
+                    raise
+                attempts += 1
+                if attempts >= _MAX_AUTO_NUMBER_RETRIES:
+                    raise
+                # Altrimenti ritenta con il numero automatico successivo
+                # (vedi commento su _MAX_AUTO_NUMBER_RETRIES).
+
         if status not in _CANCELLED_STATUSES:
             await self._create_commission_for_order(user, doc)
         return doc

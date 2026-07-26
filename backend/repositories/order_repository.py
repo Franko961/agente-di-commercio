@@ -1,5 +1,7 @@
 from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
 from core.database import db
+from core.exceptions import ConflictError
 
 
 class OrderRepository:
@@ -21,20 +23,35 @@ class OrderRepository:
         return await self.collection.find_one({"id": oid, "user_id": user_id}, {"_id": 0})
 
     async def insert(self, doc: dict) -> dict:
-        await self.collection.insert_one(doc)
+        # L'indice univoco su (user_id, numero_ordine) — vedi
+        # startup_service.run_startup — è l'ultima linea di difesa contro i
+        # duplicati: next_order_number() è atomico e non collide mai da
+        # solo, ma numero_ordine resta un campo modificabile a mano da form
+        # (creazione/modifica), quindi un valore digitato dall'utente
+        # potrebbe collidere con uno già esistente (proprio o generato).
+        try:
+            await self.collection.insert_one(doc)
+        except DuplicateKeyError:
+            raise ConflictError(f"Numero ordine \"{doc.get('numero_ordine')}\" già in uso")
         doc.pop("_id", None)
         return doc
 
     async def update(self, oid: str, user_id: str, data: dict) -> None:
         """Sostituzione completa dei campi modificabili (righe, prezzi,
         mandante, ecc.), stesso pattern usato da offer_repository.update."""
-        await self.collection.update_one({"id": oid, "user_id": user_id}, {"$set": data})
+        try:
+            await self.collection.update_one({"id": oid, "user_id": user_id}, {"$set": data})
+        except DuplicateKeyError:
+            raise ConflictError(f"Numero ordine \"{data.get('numero_ordine')}\" già in uso")
 
     async def update_fields(self, oid: str, user_id: str, data: dict) -> bool:
         """Aggiornamento parziale (solo i campi presenti in data): usato per
         stato/evasione/pagamento senza toccare righe e prezzi. Restituisce
         True se un documento è stato trovato e aggiornato."""
-        res = await self.collection.update_one({"id": oid, "user_id": user_id}, {"$set": data})
+        try:
+            res = await self.collection.update_one({"id": oid, "user_id": user_id}, {"$set": data})
+        except DuplicateKeyError:
+            raise ConflictError(f"Numero ordine \"{data.get('numero_ordine')}\" già in uso")
         return res.matched_count > 0
 
     async def delete(self, oid: str, user_id: str) -> None:
