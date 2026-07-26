@@ -11,12 +11,15 @@ from requests_oauthlib import OAuth2Session
 from core.observability import record_event, Timer
 from core.config import (
     GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI,
-    GOOGLE_CALENDAR_SCOPES, JWT_SECRET, JWT_ALG,
+    GOOGLE_CALENDAR_SCOPES, JWT_SECRET, JWT_ALG, GOOGLE_REAUTH_NOTIFY_COOLDOWN_HOURS,
 )
 from core.crypto import encrypt_str, decrypt_str
 from core.utils import gen_id, now_iso
 from repositories.google_calendar_repository import google_calendar_repository
 from repositories.appointment_repository import appointment_repository
+from repositories.automation_notification_repository import automation_notification_repository
+from repositories.user_repository import user_repository
+from services.email_service import send_email
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +30,16 @@ CALENDAR_API_BASE = "https://www.googleapis.com/calendar/v3"
 
 
 class GoogleCalendarService:
-    def __init__(self, repo=google_calendar_repository, appt_repo=appointment_repository):
+    def __init__(
+        self, repo=google_calendar_repository, appt_repo=appointment_repository,
+        notification_repo=automation_notification_repository, user_repo=user_repository,
+        send_email_fn=send_email,
+    ):
         self.repo = repo
         self.appt_repo = appt_repo
+        self.notification_repo = notification_repo
+        self.user_repo = user_repo
+        self.send_email_fn = send_email_fn
 
     # ------------------------------------------------------------------ #
     # OAuth
@@ -77,6 +87,10 @@ class GoogleCalendarService:
             "access_token_expiry": token.get("expires_at", time.time() + 3000),
             "calendar_id": "primary",
             "connected_at": now_iso(),
+            # Una nuova connessione riuscita azzera qualunque avviso di
+            # riconnessione pendente da una connessione precedente rotta.
+            "needs_reauth": False,
+            "reauth_notified_at": None,
         }
         if refresh_token:
             data["refresh_token_enc"] = encrypt_str(refresh_token)
@@ -99,7 +113,11 @@ class GoogleCalendarService:
         conn = await self.repo.find_by_user(user_id)
         if not conn:
             return {"connected": False}
-        return {"connected": True, "google_email": conn.get("google_email", "")}
+        return {
+            "connected": True,
+            "google_email": conn.get("google_email", ""),
+            "needs_reauth": bool(conn.get("needs_reauth")),
+        }
 
     # ------------------------------------------------------------------ #
     # Access token helpers
@@ -123,13 +141,64 @@ class GoogleCalendarService:
             result = await asyncio.to_thread(_refresh)
         except requests.HTTPError as e:
             logger.error(f"Refresh token Google fallito per user {conn['user_id']}: {e}")
+            # Un 4xx da Google sul refresh (tipicamente invalid_grant) significa
+            # che il token e' stato rifiutato in modo permanente — l'utente ha
+            # revocato l'accesso, o (caso piu' comune per un'app OAuth ancora
+            # in stato "Test" su Google Cloud) il token e' scaduto dopo ~7
+            # giorni. In questo caso avvisiamo l'utente che deve riconnettersi,
+            # invece di ritentare in silenzio ad ogni ciclo per sempre.
+            status_code = e.response.status_code if e.response is not None else None
+            if status_code is not None and 400 <= status_code < 500:
+                await self._notify_needs_reauth(conn)
             return None
+        # Un refresh riuscito dopo un precedente fallimento azzera l'eventuale
+        # avviso pendente (es. l'utente ha ririsolto il problema da solo).
+        if conn.get("needs_reauth"):
+            await self.repo.upsert(conn["user_id"], {"needs_reauth": False, "reauth_notified_at": None})
         access_token = result["access_token"]
         expiry = time.time() + result.get("expires_in", 3600) - 60
         await self.repo.upsert(conn["user_id"], {
             "access_token": access_token, "access_token_expiry": expiry,
         })
         return access_token
+
+    async def _notify_needs_reauth(self, conn: dict) -> None:
+        """Segna la connessione come da riconnettere e avvisa l'utente (email
+        + notifica in-app), rispettando un cooldown per non spammarlo ad ogni
+        ciclo di sync (ogni 5 minuti) finche' non si riconnette."""
+        user_id = conn["user_id"]
+        already_notified_recently = False
+        if conn.get("needs_reauth") and conn.get("reauth_notified_at"):
+            try:
+                last = datetime.fromisoformat(conn["reauth_notified_at"].replace("Z", "+00:00"))
+                already_notified_recently = (
+                    datetime.now(last.tzinfo) - last < timedelta(hours=GOOGLE_REAUTH_NOTIFY_COOLDOWN_HOURS)
+                )
+            except (ValueError, TypeError):
+                already_notified_recently = False
+
+        await self.repo.upsert(user_id, {"needs_reauth": True})
+        if already_notified_recently:
+            return
+
+        await self.repo.upsert(user_id, {"reauth_notified_at": now_iso()})
+        user = await self.user_repo.find_by_id(user_id)
+        if not user or user.get("is_demo"):
+            return
+
+        title = "Riconnetti Google Calendar"
+        message = (
+            "La sincronizzazione con Google Calendar si e' interrotta: "
+            "l'autorizzazione non e' piu' valida. Vai in Impostazioni e "
+            "collega di nuovo il tuo account Google per riprenderla."
+        )
+        await self.notification_repo.insert({
+            "id": gen_id(), "user_id": user_id, "automation_id": None,
+            "title": title, "message": message,
+            "target_type": "google_calendar", "target_id": user_id,
+            "read": False, "created_at": now_iso(),
+        })
+        await self.send_email_fn(user.get("email", ""), f"⚠️ SALESFLY — {title}", f"<p>{message}</p>")
 
     # ------------------------------------------------------------------ #
     # Push: Salesfly -> Google Calendar

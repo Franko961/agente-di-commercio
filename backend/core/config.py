@@ -69,6 +69,14 @@ PLANS = {
     },
 }
 
+# Google Calendar: quando il refresh token viene rifiutato da Google (es.
+# perche' l'app OAuth e' ancora in modalita' "Test", che fa scadere i token
+# dopo ~7 giorni, o perche' l'utente ha revocato l'accesso), evita di
+# avvisare l'utente ad ogni ciclo di sync (ogni 5 minuti): un promemoria
+# ogni 24 ore e' piu' che sufficiente per fargli notare che deve
+# riconnettersi, senza spammargli la casella di posta.
+GOOGLE_REAUTH_NOTIFY_COOLDOWN_HOURS = int(os.environ.get("GOOGLE_REAUTH_NOTIFY_COOLDOWN_HOURS", "24"))
+
 # --- Motore automazioni ---
 # Intervallo tra un ciclo di valutazione e il successivo (controlla tutte le
 # automazioni attive di tutti gli utenti). 10 minuti di default: abbastanza

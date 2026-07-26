@@ -33,6 +33,7 @@ import BlogPost from "./pages/BlogPost";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 import OfflineBanner from "./components/OfflineBanner";
 import { Toaster } from "./components/ui/sonner";
 
@@ -53,6 +54,7 @@ function App() {
               <Route path="/password-dimenticata" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/privacy" element={<Privacy />} />
+              <Route path="/termini" element={<Terms />} />
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route path="/app" element={<Dashboard />} />
                 <Route path="/app/clienti" element={<Clients />} />

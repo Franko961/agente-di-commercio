@@ -397,6 +397,12 @@ export default function Settings() {
                       Collegato come {status.google_email}
                     </div>
                   )}
+                  {status?.connected && status.needs_reauth && (
+                    <div className="flex items-center gap-1.5 mt-2 text-[12px] text-[#DC2626] font-medium">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      L'autorizzazione non è più valida: riconnetti per riprendere la sincronizzazione
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -404,6 +410,16 @@ export default function Settings() {
                 <Loader2 className="w-4 h-4 animate-spin text-[#A1A1AA]" />
               ) : status.connected ? (
                 <div className="flex items-center gap-2 shrink-0">
+                  {status.needs_reauth && (
+                    <button
+                      data-testid="gcal-reconnect-button"
+                      onClick={connect}
+                      disabled={busy}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-[#FF5A00] hover:bg-[#E04F00] text-white rounded-md text-[12px] font-medium transition-colors disabled:opacity-50"
+                    >
+                      <Plug className="w-3.5 h-3.5" /> Riconnetti
+                    </button>
+                  )}
                   <button
                     data-testid="gcal-sync-button"
                     onClick={syncNow}

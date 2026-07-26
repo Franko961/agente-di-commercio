@@ -199,6 +199,8 @@ export default function Landing() {
           <nav className="flex items-center gap-6 text-[12px] text-[#52525B]">
             <Link to="/prezzi" className="hover:text-[#0A192F]">Prezzi</Link>
             <Link to="/blog" className="hover:text-[#0A192F]">Guide</Link>
+            <Link to="/privacy" className="hover:text-[#0A192F]">Privacy</Link>
+            <Link to="/termini" className="hover:text-[#0A192F]">Termini</Link>
             <Link to="/login" className="hover:text-[#0A192F]">Accedi</Link>
           </nav>
           <div className="text-[12px] text-[#A1A1AA]">© 2026 SALESFLY. · Gestionale per agenti di commercio</div>
