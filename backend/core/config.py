@@ -77,6 +77,14 @@ PLANS = {
 # riconnettersi, senza spammargli la casella di posta.
 GOOGLE_REAUTH_NOTIFY_COOLDOWN_HOURS = int(os.environ.get("GOOGLE_REAUTH_NOTIFY_COOLDOWN_HOURS", "24"))
 
+# --- OpenRouteService (pianificazione giro visita) ---
+# Vuoto di default: senza chiave, il pianificatore usa una stima in linea
+# d'aria (haversine) con velocità media assunta, invece di distanze/tempi
+# reali su strada. Il piano gratuito di OpenRouteService (2000
+# richieste/giorno) è più che sufficiente per un singolo agente — chiave
+# gratuita registrabile su openrouteservice.org/dev/#/signup.
+ORS_API_KEY = os.environ.get("ORS_API_KEY", "")
+
 # --- Motore automazioni ---
 # Intervallo tra un ciclo di valutazione e il successivo (controlla tutte le
 # automazioni attive di tutti gli utenti). 10 minuti di default: abbastanza
