@@ -15,8 +15,9 @@ async def register(payload: RegisterIn, response: Response):
 
 
 @router.post("/login")
-async def login(payload: LoginIn, response: Response):
-    token, out = await auth_service.login(payload)
+async def login(payload: LoginIn, response: Response, request: Request):
+    ip_address = request.client.host if request.client else None
+    token, out = await auth_service.login(payload, ip_address=ip_address)
     response.set_cookie("access_token", token, httponly=True, secure=True,
                          samesite="none", max_age=7 * 24 * 3600, path="/")
     return out

@@ -106,8 +106,23 @@ class AuthService:
 
         return token, clean(doc)
 
-    async def login(self, payload) -> tuple:
+    async def login(self, payload, ip_address: str = None) -> tuple:
         email = payload.email.lower()
+
+        # Nessuna protezione contro i tentativi ripetuti di password esisteva
+        # qui: un attaccante poteva provare password illimitate su una email
+        # nota (brute-force), o scandire molte combinazioni email+password
+        # dallo stesso IP (credential stuffing). Stesso principio già
+        # applicato a forgot-password: limite per email (soglia più alta,
+        # login è un'operazione quotidiana legittima) e per IP.
+        email_ok = await check_and_record("login_email", email, max_attempts=10, window_minutes=15)
+        if not email_ok:
+            raise HTTPException(status_code=429, detail="Troppi tentativi di accesso, riprova più tardi")
+        if ip_address:
+            ip_ok = await check_and_record("login_ip", ip_address, max_attempts=30, window_minutes=15)
+            if not ip_ok:
+                raise HTTPException(status_code=429, detail="Troppi tentativi di accesso, riprova più tardi")
+
         user = await self.repo.find_by_email(email)
         if not user or not verify_password(payload.password, user["password_hash"]):
             raise HTTPException(status_code=401, detail="Credenziali non valide")

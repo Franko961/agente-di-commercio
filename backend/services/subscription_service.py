@@ -10,6 +10,7 @@ from core.config import (
 from core.database import db
 from core.security import verify_password
 from core.subscription_utils import is_subscription_active
+from core.rate_limit import check_and_record
 from repositories.user_repository import user_repository
 
 logger = logging.getLogger(__name__)
@@ -46,13 +47,27 @@ class SubscriptionService:
             "active": subscription_active(u),
         }
 
-    async def create_checkout_for_expired_account(self, payload: dict) -> dict:
+    async def create_checkout_for_expired_account(self, payload: dict, ip_address: str = None) -> dict:
         """Avvia un checkout Stripe per un account con trial scaduto (quindi bloccato al
         login). Non richiede un cookie di sessione valido: verifica email+password una
         tantum per confermare che sia davvero il titolare dell'account, poi procede come
         create_stripe_session. Usato dalla schermata di pagamento mostrata al posto del
         login quando i 14 giorni di prova sono terminati."""
         email = (payload.get("email") or "").lower().strip()
+
+        # Verifica una password proprio come /auth/login: stessa protezione
+        # contro i tentativi ripetuti, altrimenti questo endpoint pubblico
+        # sarebbe un secondo punto da cui tentare il brute-force di una
+        # password senza incappare nel limite già impostato sul login.
+        if email:
+            email_ok = await check_and_record("checkout_expired_email", email, max_attempts=10, window_minutes=15)
+            if not email_ok:
+                raise HTTPException(status_code=429, detail="Troppi tentativi, riprova più tardi")
+        if ip_address:
+            ip_ok = await check_and_record("checkout_expired_ip", ip_address, max_attempts=30, window_minutes=15)
+            if not ip_ok:
+                raise HTTPException(status_code=429, detail="Troppi tentativi, riprova più tardi")
+
         password = payload.get("password") or ""
         user = await self.repo.find_by_email(email)
         if not user or not verify_password(password, user.get("password_hash", "")):
