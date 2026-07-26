@@ -284,7 +284,7 @@ def test_forza_tool_choice_quando_il_modello_racconta_senza_eseguire():
     service, client_repo = build_service()
 
     payload = Payload("aggiungi questo cliente https://www.carrozzeriapalandrani.com/")
-    result = asyncio.get_event_loop().run_until_complete(service.chat(FAKE_USER, payload))
+    result = asyncio.run(service.chat(FAKE_USER, payload))
 
     # Il cliente DEVE essere stato inserito davvero nel repository
     assert len(client_repo.docs) == 1
@@ -315,7 +315,7 @@ def test_nessuna_forzatura_se_il_tool_giusto_viene_gia_chiamato():
     service, client_repo = build_service()
 
     payload = Payload("aggiungi cliente Bar Rossi")
-    result = asyncio.get_event_loop().run_until_complete(service.chat(FAKE_USER, payload))
+    result = asyncio.run(service.chat(FAKE_USER, payload))
 
     assert len(client_repo.docs) == 1
     assert client_repo.docs[0]["company_name"] == "Bar Rossi"
@@ -335,7 +335,7 @@ def test_nessuna_forzatura_se_non_richiesta_azione_crm():
     service, client_repo = build_service()
 
     payload = Payload("quali clienti devo visitare questa settimana?")
-    result = asyncio.get_event_loop().run_until_complete(service.chat(FAKE_USER, payload))
+    result = asyncio.run(service.chat(FAKE_USER, payload))
 
     assert len(client_repo.docs) == 0
     assert result["actions"] == []
@@ -368,7 +368,7 @@ def test_add_offer_non_scrive_subito_ma_richiede_conferma():
     service, offer_repo = build_service_with_offer()
 
     payload = Payload("registra una vendita accettata da 15000 euro per Rossi con Paginesi")
-    result = asyncio.get_event_loop().run_until_complete(service.chat(FAKE_USER, payload))
+    result = asyncio.run(service.chat(FAKE_USER, payload))
 
     # Nessuna scrittura reale: né azione "eseguita", né offerta nel repository
     assert result["actions"] == []
@@ -387,7 +387,7 @@ def test_add_offer_non_scrive_subito_ma_richiede_conferma():
     resolved["amount"] = 1500
     with patch("services.ai_service.order_service") as mock_order_service:
         mock_order_service.create_from_offer = AsyncMock(return_value={"total": 1500})
-        confirm_result = asyncio.get_event_loop().run_until_complete(
+        confirm_result = asyncio.run(
             service.execute_confirmed_action(FAKE_USER, {
                 "tool_name": "add_offer", "resolved_input": resolved, "log_id": pending["log_id"],
             })

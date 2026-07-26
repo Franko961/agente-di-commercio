@@ -27,7 +27,7 @@ from tests.test_ai_tool_forcing import (
 
 
 def run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 def test_tool_diretto_eseguito_subito_viene_loggato_come_eseguita():

@@ -81,7 +81,7 @@ def test_demo_user_cannot_write_via_chat_tool_loop(monkeypatch):
 
     demo_user = {"id": "demo_user_1", "is_demo": True, "role": "user"}
 
-    result = asyncio.get_event_loop().run_until_complete(
+    result = asyncio.run(
         service.chat(demo_user, FakePayload())
     )
 

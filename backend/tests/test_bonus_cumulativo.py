@@ -73,7 +73,7 @@ MANDANTE = {
 def _run_and_get_bonus(fatturato):
     commissions = [make_sale_commission("c1", base_amount=fatturato)]
     service, repo = build_service(MANDANTE, commissions)
-    asyncio.get_event_loop().run_until_complete(service.check_and_award_bonus("user-1", "m-1"))
+    asyncio.run(service.check_and_award_bonus("user-1", "m-1"))
     bonus_records = [d for d in repo.docs if d.get("sale_type") == "bonus"]
     return bonus_records, repo
 
@@ -109,13 +109,13 @@ def test_transizione_da_3000_a_5000_sostituisce_il_bonus():
     rimosso e sostituito da quello del 5000 (non si accumulano)."""
     commissions = [make_sale_commission("c1", base_amount=3100)]
     service, repo = build_service(MANDANTE, commissions)
-    asyncio.get_event_loop().run_until_complete(service.check_and_award_bonus("user-1", "m-1"))
+    asyncio.run(service.check_and_award_bonus("user-1", "m-1"))
     assert sorted(d["bonus_tier_threshold"] for d in repo.docs if d.get("sale_type") == "bonus") == [2000, 3000]
 
     # il fatturato sale a 5100
     repo.docs = [d for d in repo.docs if d.get("sale_type") != "nuovo"]
     repo.docs.append(make_sale_commission("c1", base_amount=5100))
-    asyncio.get_event_loop().run_until_complete(service.check_and_award_bonus("user-1", "m-1"))
+    asyncio.run(service.check_and_award_bonus("user-1", "m-1"))
 
     bonus_records = [d for d in repo.docs if d.get("sale_type") == "bonus"]
     thresholds = sorted(d["bonus_tier_threshold"] for d in bonus_records)
@@ -127,7 +127,7 @@ def test_transizione_da_3000_a_5000_sostituisce_il_bonus():
 def test_bonus_summary_totale_coerente():
     commissions = [make_sale_commission("c1", base_amount=5100)]
     service, repo = build_service(MANDANTE, commissions)
-    result = asyncio.get_event_loop().run_until_complete(service.bonus_summary({"id": "user-1"}))
+    result = asyncio.run(service.bonus_summary({"id": "user-1"}))
     assert len(result) == 1
     assert result[0]["total_bonus"] == 1100
 

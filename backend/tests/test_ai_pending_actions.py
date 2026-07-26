@@ -34,7 +34,7 @@ from tests.test_ai_tool_forcing import (
 
 
 def run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 def test_azione_in_attesa_viene_restituita_nel_formato_atteso_dal_frontend():

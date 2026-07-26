@@ -19,7 +19,7 @@ from tests.test_ai_tool_forcing import build_service_with_offer, build_service, 
 
 
 def run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 def _prepare_pending_offer(service):

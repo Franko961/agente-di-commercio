@@ -19,7 +19,7 @@ from services.ai_service import ai_service, _safe_float
 
 
 def run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 # ---------- _safe_float ----------
@@ -96,7 +96,7 @@ def test_prepare_expense_accetta_importo_in_formato_italiano():
 # ---------- _finalize_expense (chiamato anche direttamente da /execute-action) ----------
 
 def test_finalize_expense_con_importo_malformato_non_scrive_e_non_esplode():
-    msg = asyncio.get_event_loop().run_until_complete(
+    msg = asyncio.run(
         ai_service._finalize_expense("u1", {"category": "vitto", "amount": "abc", "date": "2026-07-17"})
     )
     assert msg.startswith("❌")
@@ -105,7 +105,7 @@ def test_finalize_expense_con_importo_malformato_non_scrive_e_non_esplode():
 # ---------- execute_crm_tool (percorso diretto per spese sotto soglia) ----------
 
 def test_execute_crm_tool_add_expense_con_importo_testuale_non_esplode():
-    result = asyncio.get_event_loop().run_until_complete(
+    result = asyncio.run(
         ai_service.execute_crm_tool("add_expense", {"category": "vitto", "amount": "non è un numero"}, "u1")
     )
     assert result.startswith("❌")
