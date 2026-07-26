@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../api";
-import { Plus, Trash2, Zap, Clock, CheckCircle2, AlertTriangle, History } from "lucide-react";
+import { Plus, Trash2, Zap, Clock, CheckCircle2, AlertTriangle, History, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { Switch } from "../components/ui/switch";
 import { toast } from "sonner";
@@ -18,9 +18,31 @@ const ACTIONS = {
   send_email: "Invia email follow-up",
 };
 
+// Ogni trigger legge dal proprio 'config' un campo diverso (vedi
+// backend/services/automation_engine.py::_eval_offer_expiring/_eval_no_visit_30d/_eval_lead_inactive):
+// offer_expiring usa 'days_before', gli altri due usano 'days'. 'cooldown_days'
+// è invece condiviso da tutti i trigger (facoltativo, ripete il promemoria dopo N
+// giorni invece di eseguirlo una sola volta).
+const DAYS_FIELD_BY_TRIGGER = {
+  offer_expiring: "days_before",
+  no_visit_30d: "days",
+  lead_inactive: "days",
+};
+const DAYS_LABEL_BY_TRIGGER = {
+  offer_expiring: "Giorni di preavviso prima della scadenza",
+  no_visit_30d: "Giorni senza visita prima di considerare il cliente inattivo",
+  lead_inactive: "Giorni di inattività prima di considerare il lead inattivo",
+};
+const DAYS_DEFAULT_BY_TRIGGER = {
+  offer_expiring: 3,
+  no_visit_30d: 30,
+  lead_inactive: 7,
+};
+
 export default function Automations() {
   const [items, setItems] = useState([]);
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
   const [historyFor, setHistoryFor] = useState(null);
 
   const load = async () => { const { data } = await api.get("/automations"); setItems(data); };
@@ -65,8 +87,12 @@ export default function Automations() {
                   <span className="font-mono uppercase tracking-widest text-[10px] text-[#FF5A00]">quando</span> {TRIGGERS[a.trigger] || a.trigger} →
                   <span className="font-mono uppercase tracking-widest text-[10px] text-[#0A192F] ml-1">allora</span> {ACTIONS[a.action] || a.action}
                 </div>
+                <ConfigSummary automation={a} />
               </div>
               <Switch checked={a.enabled} onCheckedChange={() => toggle(a)} data-testid={`toggle-automation-${a.id}`} />
+              <button onClick={() => setEditing(a)} data-testid={`edit-automation-${a.id}`} className="text-[#A1A1AA] hover:text-[#0A192F]">
+                <Pencil className="w-4 h-4" />
+              </button>
               <button onClick={async () => { await api.delete(`/automations/${a.id}`); load(); }} className="text-[#A1A1AA] hover:text-[#DC2626]">
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -82,7 +108,37 @@ export default function Automations() {
         )}
       </div>
 
+      {editing && (
+        <Dialog open onOpenChange={(v) => !v && setEditing(null)}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Modifica automazione</DialogTitle></DialogHeader>
+            <AutoForm
+              initial={editing}
+              onSave={async (f) => {
+                await api.put(`/automations/${editing.id}`, f);
+                load();
+                toast.success("Regola aggiornata");
+                setEditing(null);
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
       {historyFor && <RunHistoryDialog automation={historyFor} onClose={() => setHistoryFor(null)} />}
+    </div>
+  );
+}
+
+function ConfigSummary({ automation: a }) {
+  const daysField = DAYS_FIELD_BY_TRIGGER[a.trigger];
+  const daysValue = a.config?.[daysField];
+  const cooldown = a.config?.cooldown_days;
+  if (daysValue == null && !cooldown) return null;
+  return (
+    <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-1">
+      {daysValue != null && `${daysValue} giorni`}
+      {cooldown ? ` · si ripete ogni ${cooldown} giorni` : ""}
     </div>
   );
 }
@@ -177,21 +233,74 @@ function RunHistoryDialog({ automation, onClose }) {
   );
 }
 
-function AutoForm({ onSave }) {
-  const [f, setF] = useState({ name: "", trigger: "offer_expiring", action: "send_reminder", enabled: true, config: {} });
+function AutoForm({ initial, onSave }) {
+  const [f, setF] = useState(() => initial
+    ? { ...initial, config: { ...(initial.config || {}) } }
+    : { name: "", trigger: "offer_expiring", action: "send_reminder", enabled: true, config: {} }
+  );
+
+  const daysField = DAYS_FIELD_BY_TRIGGER[f.trigger];
+  const daysValue = f.config?.[daysField] ?? DAYS_DEFAULT_BY_TRIGGER[f.trigger];
+  const cooldownValue = f.config?.cooldown_days ?? "";
+
+  const setTrigger = (trigger) => {
+    // Cambiando trigger, il campo giorni si applica a una chiave diversa
+    // (days_before vs days): ripartiamo dal default di quel trigger invece
+    // di lasciare un valore residuo che non verrebbe nemmeno letto dal
+    // motore per il nuovo trigger selezionato.
+    setF({ ...f, trigger, config: { cooldown_days: f.config?.cooldown_days } });
+  };
+
+  const setDays = (value) => {
+    const n = value === "" ? undefined : Number(value);
+    setF({ ...f, config: { ...f.config, [daysField]: n } });
+  };
+
+  const setCooldown = (value) => {
+    const n = value === "" ? undefined : Number(value);
+    setF({ ...f, config: { ...f.config, cooldown_days: n } });
+  };
+
   return (
     <form onSubmit={async (e) => { e.preventDefault(); await onSave(f); }} className="space-y-3">
       <div>
         <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Nome regola *</label>
         <input required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })}
                className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
+        <p className="text-[11px] text-[#A1A1AA] mt-1">Usato anche come oggetto dell'email inviata da questa regola.</p>
       </div>
       <div>
         <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Trigger</label>
-        <select value={f.trigger} onChange={(e) => setF({ ...f, trigger: e.target.value })}
+        <select value={f.trigger} onChange={(e) => setTrigger(e.target.value)}
                 className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]">
           {Object.entries(TRIGGERS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
+      </div>
+      <div>
+        <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">
+          {DAYS_LABEL_BY_TRIGGER[f.trigger]}
+        </label>
+        <input
+          type="number" min={1} step={1}
+          data-testid="automation-days-input"
+          value={daysValue ?? ""}
+          onChange={(e) => setDays(e.target.value)}
+          placeholder={String(DAYS_DEFAULT_BY_TRIGGER[f.trigger])}
+          className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+        />
+      </div>
+      <div>
+        <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">
+          Ripeti il promemoria dopo (giorni, facoltativo)
+        </label>
+        <input
+          type="number" min={1} step={1}
+          data-testid="automation-cooldown-input"
+          value={cooldownValue}
+          onChange={(e) => setCooldown(e.target.value)}
+          placeholder="mai (una sola volta per elemento)"
+          className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+        />
       </div>
       <div>
         <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Azione</label>
@@ -200,7 +309,9 @@ function AutoForm({ onSave }) {
           {Object.entries(ACTIONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </div>
-      <button data-testid="save-automation-button" type="submit" className="w-full bg-[#0A192F] text-white py-2.5 rounded-md text-[13px] font-medium">Salva regola</button>
+      <button data-testid="save-automation-button" type="submit" className="w-full bg-[#0A192F] text-white py-2.5 rounded-md text-[13px] font-medium">
+        {initial ? "Salva modifiche" : "Salva regola"}
+      </button>
     </form>
   );
 }
