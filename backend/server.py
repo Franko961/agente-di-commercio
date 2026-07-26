@@ -32,6 +32,7 @@ from routers.orders import router as orders_router
 from routers.expenses import router as expenses_router
 from routers.settings import router as settings_router
 from routers.geocoding import router as geocoding_router
+from routers.gdpr import router as gdpr_router
 from services.startup_service import run_startup, run_shutdown
 from core.exceptions import AppError
 from core.config import CORS_ORIGINS, SENTRY_DSN
@@ -137,6 +138,7 @@ app.include_router(orders_router)
 app.include_router(expenses_router)
 app.include_router(settings_router)
 app.include_router(geocoding_router)
+app.include_router(gdpr_router)
 
 app.add_middleware(ObservabilityMiddleware)
 
