@@ -161,11 +161,12 @@ function ExpenseForm({ initial, onSave, submitLabel = "Salva" }) {
       fd.append("category", "scontrino");
       fd.append("notes", "");
       fd.append("tags", "spese");
-      const { data } = await api.post("/documents/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      const { data } = await api.post("/documents/upload", fd);
       setF((prev) => ({ ...prev, receipt_document_id: data.id, receipt_filename: data.original_filename || file.name }));
       toast.success("Scontrino allegato");
     } catch (err) {
-      toast.error("Errore caricamento scontrino");
+      const detail = err?.response?.data?.detail;
+      toast.error(typeof detail === "string" ? detail : "Errore caricamento scontrino");
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

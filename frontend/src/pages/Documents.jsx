@@ -19,7 +19,7 @@ function fileTypeIcon(contentType, filename) {
   if (ct.startsWith("video/") || ["mp4", "mov", "webm", "avi", "mkv"].includes(ext)) return Video;
   if (ct.includes("spreadsheet") || ct.includes("excel") || ["xls", "xlsx", "csv"].includes(ext)) return FileSpreadsheet;
   if (ct.includes("pdf") || ext === "pdf") return FileText;
-  if (ct.startsWith("image/") || ["png", "jpg", "jpeg", "webp", "gif"].includes(ext)) return FileImage;
+  if (ct.startsWith("image/") || ["png", "jpg", "jpeg", "webp", "heic", "heif", "gif"].includes(ext)) return FileImage;
   return FileIcon;
 }
 
@@ -293,7 +293,6 @@ function UploadForm({ clients, existingTags, onDone }) {
 
     try {
       const { data } = await api.post("/documents/upload", fd, {
-        headers: { "Content-Type": "multipart/form-data" },
         onUploadProgress: (p) => setProgress(p.total ? Math.round((p.loaded / p.total) * 100) : 0),
       });
       toast.success("Documento caricato");
@@ -323,7 +322,7 @@ function UploadForm({ clients, existingTags, onDone }) {
         <input
           ref={fileInputRef} type="file"
           data-testid="file-input"
-          accept=".pdf,.xls,.xlsx,.csv,.doc,.docx,.txt,.png,.jpg,.jpeg,.mp4,.mov,.webm,.avi,.mkv"
+          accept=".pdf,.xls,.xlsx,.csv,.doc,.docx,.txt,.png,.jpg,.jpeg,.webp,.heic,.heif,.mp4,.mov,.webm,.avi,.mkv"
           onChange={(e) => onPick(e.target.files[0])}
           className="hidden"
         />

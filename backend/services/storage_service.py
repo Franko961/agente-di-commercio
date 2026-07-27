@@ -21,6 +21,7 @@ ALLOWED_EXT = {
     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "txt": "text/plain",
     "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+    "webp": "image/webp", "heic": "image/heic", "heif": "image/heif",
     "mp4": "video/mp4", "mov": "video/quicktime", "webm": "video/webm",
     "avi": "video/x-msvideo", "mkv": "video/x-matroska",
 }
@@ -67,6 +68,15 @@ def _sniff_matches_extension(data: bytes, ext: str) -> bool:
         # Contenitori ISO-BMFF (MPEG-4/QuickTime): il box 'ftyp' è sempre ai
         # byte 4-8 nei file validi, non c'è un magic number a inizio file.
         return data[4:8] == b"ftyp"
+    if ext in ("heic", "heif"):
+        # Anche HEIC/HEIF sono contenitori ISO-BMFF (come mp4/mov): stesso box
+        # 'ftyp', ma con 'brand' specifico ai byte 8-12 (i valori tipici
+        # prodotti da iPhone/fotocamere).
+        return data[4:8] == b"ftyp" and data[8:12] in (
+            b"heic", b"heix", b"hevc", b"hevx", b"mif1", b"msf1",
+        )
+    if ext == "webp":
+        return head.startswith(b"RIFF") and data[8:12] == b"WEBP"
     if ext == "webm" or ext == "mkv":
         return head.startswith(b"\x1a\x45\xdf\xa3")  # header EBML (Matroska/WebM)
     if ext == "avi":
