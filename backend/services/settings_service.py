@@ -33,5 +33,24 @@ class SettingsService:
         await self.repo.update_by_id(user["id"], data)
         return self._goals_view({**user, **data})
 
+    @staticmethod
+    def _addresses_view(user: dict) -> dict:
+        return {
+            "home_address": user.get("home_address"),
+            "home_lat": user.get("home_lat"),
+            "home_lng": user.get("home_lng"),
+            "office_address": user.get("office_address"),
+            "office_lat": user.get("office_lat"),
+            "office_lng": user.get("office_lng"),
+        }
+
+    async def get_addresses(self, user: dict) -> dict:
+        return self._addresses_view(user)
+
+    async def update_addresses(self, user: dict, payload) -> dict:
+        data = payload.model_dump(exclude_unset=True)
+        await self.repo.update_by_id(user["id"], data)
+        return self._addresses_view({**user, **data})
+
 
 settings_service = SettingsService()

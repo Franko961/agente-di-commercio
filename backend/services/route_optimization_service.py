@@ -200,16 +200,53 @@ def _has_valid_coords(client: dict) -> bool:
     return math.isfinite(lat) and math.isfinite(lng) and -90 <= lat <= 90 and -180 <= lng <= 180
 
 
+_START_MODE_LABELS = {
+    "current_location": "la tua posizione attuale",
+    "home": "casa",
+    "office": "ufficio",
+    "custom": "il punto di partenza scelto",
+}
+
+
 class RouteOptimizationService:
     def __init__(self, client_repo=client_repository):
         self.client_repo = client_repo
 
+    def _resolve_start(self, user: dict, start_mode: str, start_lat, start_lng) -> Optional[Tuple[float, float]]:
+        """Ritorna la coordinata di partenza "virtuale" (non una delle tappe
+        da visitare) da usare come ancora del giro, oppure None se il punto di
+        partenza resta il primo cliente selezionato (comportamento storico)."""
+        if start_mode == "first_client":
+            return None
+        if start_mode in ("current_location", "custom"):
+            coord = {"lat": start_lat, "lng": start_lng}
+            if not _has_valid_coords(coord):
+                raise ValidationAppError(
+                    "Coordinate di partenza mancanti o non valide per la modalità scelta"
+                )
+            return float(start_lat), float(start_lng)
+        if start_mode in ("home", "office"):
+            lat_key, lng_key = (("home_lat", "home_lng") if start_mode == "home" else ("office_lat", "office_lng"))
+            coord = {"lat": user.get(lat_key), "lng": user.get(lng_key)}
+            if not _has_valid_coords(coord):
+                label = "casa" if start_mode == "home" else "ufficio"
+                raise ValidationAppError(
+                    f"Non hai ancora impostato l'indirizzo di {label} — configuralo nelle Impostazioni per usarlo come punto di partenza"
+                )
+            return float(coord["lat"]), float(coord["lng"])
+        raise ValidationAppError("Modalità di partenza non valida")
+
     async def plan_day(
-        self, user_id: str, client_ids: List[str],
+        self, user: dict, client_ids: List[str],
         start_time: str = DEFAULT_START_TIME, visit_minutes: int = DEFAULT_VISIT_MINUTES,
+        start_mode: str = "first_client", start_lat: Optional[float] = None,
+        start_lng: Optional[float] = None, round_trip: bool = False,
     ) -> dict:
+        user_id = user["id"]
         if not client_ids:
             raise ValidationAppError("Seleziona almeno un cliente da visitare")
+
+        origin = self._resolve_start(user, start_mode, start_lat, start_lng)
 
         all_clients = await self.client_repo.find_many(user_id, {})
         by_id = {c["id"]: c for c in all_clients}
@@ -237,7 +274,11 @@ class RouteOptimizationService:
         except (ValueError, TypeError):
             current_time = datetime.strptime(DEFAULT_START_TIME, "%H:%M")
 
-        if len(selected) == 1:
+        # Percorso più semplice possibile: un solo cliente, punto di partenza
+        # storico (il cliente stesso) e nessun ritorno da calcolare. In tutti
+        # gli altri casi (origine virtuale e/o ritorno richiesto) serve
+        # comunque la matrice distanze anche con un solo cliente.
+        if len(selected) == 1 and origin is None and not round_trip:
             client = selected[0]
             departure = current_time + timedelta(minutes=visit_minutes)
             return {
@@ -254,25 +295,43 @@ class RouteOptimizationService:
                 "estimated_end_time": departure.strftime("%H:%M"),
                 "used_real_routing": False,
                 "warnings": [],
+                "start_mode": start_mode,
+                "round_trip": False,
             }
 
         coords = [(c["lat"], c["lng"]) for c in selected]
+        if origin is not None:
+            # L'origine virtuale va SEMPRE in testa alla lista di coordinate:
+            # è l'unico modo per fissarla come ancora del giro (vedi _two_opt,
+            # che non sposta mai order[0]) senza che venga trattata come una
+            # tappa da visitare.
+            coords = [origin] + coords
+            client_of_idx = {i + 1: selected[i] for i in range(len(selected))}
+        else:
+            client_of_idx = {i: selected[i] for i in range(len(selected))}
+        origin_idx = 0
+
         distances_km, durations_min, used_real_routing = await get_distance_duration_matrix(coords)
 
         order_idx = _nearest_neighbor_order(distances_km, start=0)
         order_idx = _two_opt(order_idx, distances_km)
 
+        def _label(idx: int) -> str:
+            if origin is not None and idx == origin_idx:
+                return "Punto di partenza"
+            return client_of_idx[idx]["company_name"]
+
         stops = []
         warnings = []
         total_km = 0.0
         total_travel_minutes = 0.0
-        for pos, idx in enumerate(order_idx):
-            client = selected[idx]
+        prev_idx = None
+        for idx in order_idx:
+            is_virtual_origin = origin is not None and idx == origin_idx
             distance_km = 0.0
             travel_minutes = 0.0
             suspicious = False
-            if pos > 0:
-                prev_idx = order_idx[pos - 1]
+            if prev_idx is not None:
                 distance_km = distances_km[prev_idx][idx]
                 travel_minutes = durations_min[prev_idx][idx]
                 current_time += timedelta(minutes=travel_minutes)
@@ -280,12 +339,18 @@ class RouteOptimizationService:
                 total_travel_minutes += travel_minutes
                 if distance_km > _SUSPICIOUS_LEG_DISTANCE_KM:
                     suspicious = True
-                    prev_client = selected[prev_idx]
                     warnings.append(
                         f"Distanza implausibile ({round(distance_km)} km) tra "
-                        f"\"{prev_client['company_name']}\" e \"{client['company_name']}\": "
+                        f"\"{_label(prev_idx)}\" e \"{_label(idx)}\": "
                         "controlla l'indirizzo geolocalizzato di questi clienti, probabilmente errato."
                     )
+            if is_virtual_origin:
+                # L'origine virtuale non è una tappa da visitare: serve solo
+                # come punto da cui calcolare la prima tratta reale.
+                prev_idx = idx
+                continue
+
+            client = client_of_idx[idx]
             eta = current_time
             departure = eta + timedelta(minutes=visit_minutes)
             stops.append({
@@ -298,8 +363,9 @@ class RouteOptimizationService:
                 "suspicious_distance": suspicious,
             })
             current_time = departure
+            prev_idx = idx
 
-        return {
+        result = {
             "stops": stops,
             "total_distance_km": round(total_km, 1),
             "total_travel_minutes": round(total_travel_minutes),
@@ -307,7 +373,25 @@ class RouteOptimizationService:
             "estimated_end_time": current_time.strftime("%H:%M"),
             "used_real_routing": used_real_routing,
             "warnings": warnings,
+            "start_mode": start_mode,
+            "round_trip": round_trip,
         }
+        if origin is not None:
+            result["origin"] = {"lat": origin[0], "lng": origin[1], "label": _START_MODE_LABELS.get(start_mode, "Punto di partenza")}
+
+        if round_trip and prev_idx is not None and prev_idx != origin_idx:
+            return_km = distances_km[prev_idx][origin_idx]
+            return_minutes = durations_min[prev_idx][origin_idx]
+            current_time += timedelta(minutes=return_minutes)
+            result["total_distance_km"] = round(total_km + return_km, 1)
+            result["total_travel_minutes"] = round(total_travel_minutes + return_minutes)
+            result["estimated_end_time"] = current_time.strftime("%H:%M")
+            result["return_leg"] = {
+                "distance_km": round(return_km, 1),
+                "travel_minutes": round(return_minutes),
+            }
+
+        return result
 
 
 route_optimization_service = RouteOptimizationService()

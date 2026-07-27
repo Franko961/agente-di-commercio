@@ -2,9 +2,23 @@ import { useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
 import L from "leaflet";
 import { Link } from "react-router-dom";
-import { Route, Loader2, X, MapPin, Clock, Navigation, ExternalLink, CheckCircle2, RotateCcw } from "lucide-react";
+import {
+  Route, Loader2, X, MapPin, Clock, Navigation, ExternalLink, CheckCircle2, RotateCcw,
+  LocateFixed, Search,
+} from "lucide-react";
 import { toast } from "sonner";
 import api from "../api";
+
+// Etichette leggibili per ogni modalità di partenza, usate sia nel <select>
+// sia per riassumere all'utente cosa è stato scelto una volta calcolato il
+// giro (plan.start_mode arriva identico dal backend).
+const START_MODE_LABELS = {
+  first_client: "Primo cliente selezionato",
+  current_location: "La mia posizione attuale",
+  home: "Casa",
+  office: "Ufficio",
+  custom: "Indirizzo personalizzato",
+};
 
 // Link universale di Google Maps: funziona su Android (apre l'app se
 // installata), iOS (apre l'app Google Maps se installata, altrimenti
@@ -45,6 +59,16 @@ function numberedIcon(n) {
   });
 }
 
+// Marker distinto per il punto di partenza "virtuale" (posizione attuale,
+// casa, ufficio o indirizzo personalizzato): non è una tappa da visitare,
+// quindi non deve confondersi con i pin numerati dei clienti.
+const originIcon = L.divIcon({
+  className: "",
+  html: '<div class="custom-pin" style="background:#0A192F"></div>',
+  iconSize: [28, 28],
+  iconAnchor: [14, 28],
+});
+
 // La pianificazione del giro visita viene tenuta in sessionStorage (non solo
 // nello stato del componente): senza questo, uscire dalla pagina Mappa per
 // aprire una scheda cliente e poi tornare indietro faceva sparire il piano
@@ -80,6 +104,14 @@ export default function MapView() {
   const [selectedIds, setSelectedIds] = useState(stored?.selectedIds || []);
   const [startTime, setStartTime] = useState(stored?.startTime || "09:00");
   const [visitMinutes, setVisitMinutes] = useState(stored?.visitMinutes || 30);
+  const [startMode, setStartMode] = useState(stored?.startMode || "first_client");
+  const [roundTrip, setRoundTrip] = useState(stored?.roundTrip || false);
+  const [customQuery, setCustomQuery] = useState(stored?.customQuery || "");
+  const [customCoord, setCustomCoord] = useState(stored?.customCoord || null);
+  const [customResults, setCustomResults] = useState([]);
+  const [customSearching, setCustomSearching] = useState(false);
+  const [geoBusy, setGeoBusy] = useState(false);
+  const [addresses, setAddresses] = useState(null);
   const [plan, setPlan] = useState(stored?.plan || null);
   // Tappe già visitate, segnate a mano dall'agente (vedi markVisited): non
   // c'è modo affidabile di rilevarlo in automatico via GPS se per navigare
@@ -88,10 +120,49 @@ export default function MapView() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    saveStoredRoutePlan({ planOpen, selectedIds, startTime, visitMinutes, plan, completedIds });
-  }, [planOpen, selectedIds, startTime, visitMinutes, plan, completedIds]);
+    saveStoredRoutePlan({
+      planOpen, selectedIds, startTime, visitMinutes, plan, completedIds,
+      startMode, roundTrip, customQuery, customCoord,
+    });
+  }, [planOpen, selectedIds, startTime, visitMinutes, plan, completedIds, startMode, roundTrip, customQuery, customCoord]);
 
   useEffect(() => { api.get("/clients").then(({ data }) => setClients(data.filter(c => isValidCoord(c.lat, c.lng)))); }, []);
+  useEffect(() => { api.get("/settings/addresses").then(({ data }) => setAddresses(data)).catch(() => setAddresses({})); }, []);
+
+  const homeReady = isValidCoord(addresses?.home_lat, addresses?.home_lng);
+  const officeReady = isValidCoord(addresses?.office_lat, addresses?.office_lng);
+
+  const searchCustomAddress = async () => {
+    if (customQuery.trim().length < 3) return;
+    setCustomSearching(true);
+    try {
+      const { data } = await api.get("/geocode", { params: { q: customQuery.trim() } });
+      setCustomResults(data);
+    } catch {
+      setCustomResults([]);
+    } finally {
+      setCustomSearching(false);
+    }
+  };
+
+  const pickCustomAddress = (r) => {
+    setCustomCoord({ lat: r.lat, lng: r.lng });
+    setCustomQuery(r.display_name);
+    setCustomResults([]);
+  };
+
+  const getCurrentPosition = () =>
+    new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocalizzazione non supportata da questo browser"));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => reject(new Error("Impossibile ottenere la posizione attuale — controlla i permessi di localizzazione")),
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
 
   const center = clients.length ? [clients[0].lat, clients[0].lng] : [44.5, 11.0];
 
@@ -104,6 +175,29 @@ export default function MapView() {
       toast.error("Seleziona almeno un cliente da visitare");
       return;
     }
+
+    let startLat = null, startLng = null;
+    if (startMode === "current_location") {
+      setGeoBusy(true);
+      try {
+        const pos = await getCurrentPosition();
+        startLat = pos.lat;
+        startLng = pos.lng;
+      } catch (e) {
+        toast.error(e.message);
+        setGeoBusy(false);
+        return;
+      }
+      setGeoBusy(false);
+    } else if (startMode === "custom") {
+      if (!customCoord) {
+        toast.error("Cerca e scegli un indirizzo di partenza prima di continuare");
+        return;
+      }
+      startLat = customCoord.lat;
+      startLng = customCoord.lng;
+    }
+
     setBusy(true);
     setPlan(null);
     setCompletedIds([]);
@@ -112,6 +206,10 @@ export default function MapView() {
         client_ids: selectedIds,
         start_time: startTime,
         visit_minutes: Number(visitMinutes) || 30,
+        start_mode: startMode,
+        start_lat: startLat,
+        start_lng: startLng,
+        round_trip: roundTrip,
       });
       setPlan(data);
     } catch (e) {
@@ -146,10 +244,13 @@ export default function MapView() {
     }
   };
 
-  const routeLine = useMemo(
-    () => plan ? plan.stops.map((s) => [s.lat, s.lng]) : null,
-    [plan]
-  );
+  const routeLine = useMemo(() => {
+    if (!plan) return null;
+    const points = plan.stops.map((s) => [s.lat, s.lng]);
+    if (plan.origin) points.unshift([plan.origin.lat, plan.origin.lng]);
+    if (plan.round_trip) points.push(plan.origin ? [plan.origin.lat, plan.origin.lng] : points[0]);
+    return points;
+  }, [plan]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] md:h-screen">
@@ -168,7 +269,7 @@ export default function MapView() {
         </button>
       </div>
 
-      <div className="flex-1 relative flex">
+      <div className="flex-1 min-h-0 relative flex">
         <div className="flex-1 relative" data-testid="map-container">
           <MapContainer center={center} zoom={6} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
             <TileLayer
@@ -177,6 +278,14 @@ export default function MapView() {
             />
             {routeLine && (
               <Polyline positions={routeLine} pathOptions={{ color: "#FF5A00", weight: 3, dashArray: "6 6" }} />
+            )}
+            {plan?.origin && (
+              <Marker position={[plan.origin.lat, plan.origin.lng]} icon={originIcon}>
+                <Popup>
+                  <div className="font-cabinet font-bold text-[14px]">Punto di partenza</div>
+                  <div className="text-[11px] text-[#52525B] mt-1">{START_MODE_LABELS[plan.start_mode] || plan.origin.label}</div>
+                </Popup>
+              </Marker>
             )}
             {clients.map((c) => {
               const stopIndex = plan?.stops.findIndex((s) => s.client_id === c.id);
@@ -196,7 +305,7 @@ export default function MapView() {
         </div>
 
         {planOpen && (
-          <div data-testid="route-planner-panel" className="w-full sm:w-[380px] shrink-0 bg-white border-l border-[#E4E4E1] overflow-y-auto flex flex-col">
+          <div data-testid="route-planner-panel" className="w-full sm:w-[380px] shrink-0 min-h-0 bg-white border-l border-[#E4E4E1] flex flex-col">
             <div className="p-4 border-b border-[#E4E4E1] flex items-center justify-between">
               <div className="font-cabinet font-bold text-[15px] flex items-center gap-2">
                 <Route className="w-4 h-4 text-[#FF5A00]" /> Pianifica giornata
@@ -207,7 +316,7 @@ export default function MapView() {
             </div>
 
             {!plan && (
-              <div className="p-4 space-y-4">
+              <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
                 <div>
                   <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">
                     Clienti da visitare ({selectedIds.length} selezionati)
@@ -231,6 +340,81 @@ export default function MapView() {
                   </div>
                 </div>
 
+                <div>
+                  <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Punto di partenza</label>
+                  <select
+                    data-testid="start-mode-select"
+                    value={startMode}
+                    onChange={(e) => setStartMode(e.target.value)}
+                    className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+                  >
+                    <option value="first_client">Primo cliente selezionato</option>
+                    <option value="current_location">La mia posizione attuale (GPS)</option>
+                    <option value="home" disabled={!homeReady}>Casa{!homeReady ? " (non impostata)" : ""}</option>
+                    <option value="office" disabled={!officeReady}>Ufficio{!officeReady ? " (non impostato)" : ""}</option>
+                    <option value="custom">Indirizzo personalizzato</option>
+                  </select>
+                  {(startMode === "home" && !homeReady) || (startMode === "office" && !officeReady) ? (
+                    <div className="text-[11px] text-[#A1A1AA] mt-1">
+                      Configura l'indirizzo in <Link to="/app/impostazioni" className="text-[#FF5A00] underline">Impostazioni → Punti di partenza</Link>.
+                    </div>
+                  ) : null}
+
+                  {startMode === "current_location" && (
+                    <div className="flex items-center gap-1.5 text-[11px] text-[#52525B] mt-1.5">
+                      <LocateFixed className="w-3.5 h-3.5 shrink-0" /> Ti verrà chiesto il permesso di localizzazione al momento del calcolo.
+                    </div>
+                  )}
+
+                  {startMode === "custom" && (
+                    <div className="mt-2">
+                      <div className="flex gap-2">
+                        <input
+                          value={customQuery}
+                          onChange={(e) => { setCustomQuery(e.target.value); setCustomCoord(null); }}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); searchCustomAddress(); } }}
+                          placeholder="Cerca indirizzo di partenza…"
+                          data-testid="custom-start-address-input"
+                          className="flex-1 bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+                        />
+                        <button
+                          type="button"
+                          onClick={searchCustomAddress}
+                          disabled={customSearching || customQuery.trim().length < 3}
+                          className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-[#0A192F] text-white rounded-md text-[12px] font-medium disabled:opacity-50"
+                        >
+                          {customSearching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                      {customResults.length > 0 && (
+                        <div className="mt-2 border border-[#E4E4E1] rounded-md overflow-hidden bg-white">
+                          {customResults.map((r, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => pickCustomAddress(r)}
+                              className="w-full text-left px-3 py-2 text-[12px] hover:bg-[#F3F3F1] border-b border-[#E4E4E1] last:border-b-0 flex items-start gap-2"
+                            >
+                              <MapPin className="w-3.5 h-3.5 text-[#FF5A00] shrink-0 mt-0.5" />
+                              <span>{r.display_name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {customCoord && (
+                        <div className="text-[11px] text-[#059669] mt-1.5 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Punto di partenza selezionato
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                  <input type="checkbox" checked={roundTrip} onChange={(e) => setRoundTrip(e.target.checked)} data-testid="round-trip-checkbox" />
+                  Torna al punto di partenza a fine giornata
+                </label>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Ora inizio</label>
@@ -247,18 +431,23 @@ export default function MapView() {
                 <button
                   data-testid="optimize-route-submit"
                   onClick={optimize}
-                  disabled={busy}
+                  disabled={busy || geoBusy}
                   className="w-full flex items-center justify-center gap-2 bg-[#FF5A00] hover:bg-[#E04F00] text-white py-2.5 rounded-md text-[13px] font-medium disabled:opacity-50"
                 >
-                  {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Navigation className="w-4 h-4" />}
-                  {busy ? "Calcolo in corso…" : "Ottimizza giro"}
+                  {(busy || geoBusy) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Navigation className="w-4 h-4" />}
+                  {geoBusy ? "Rilevamento posizione…" : busy ? "Calcolo in corso…" : "Ottimizza giro"}
                 </button>
               </div>
             )}
 
             {plan && (
-              <div className="flex-1 flex flex-col">
+              <div className="flex-1 min-h-0 flex flex-col">
                 <div className="p-4 border-b border-[#E4E4E1] bg-[#F9F9F8]">
+                  <div className="flex items-center gap-1.5 text-[11px] text-[#52525B] mb-3">
+                    <MapPin className="w-3 h-3 shrink-0" />
+                    Partenza: {START_MODE_LABELS[plan.start_mode] || "Primo cliente selezionato"}
+                    {plan.round_trip && " · con ritorno al punto di partenza"}
+                  </div>
                   <div className="grid grid-cols-3 gap-2 text-center mb-3">
                     <div>
                       <div className="font-cabinet font-black text-lg">{plan.total_distance_km}</div>
@@ -296,7 +485,7 @@ export default function MapView() {
                   </div>
                 )}
 
-                <div className="flex-1 overflow-y-auto divide-y divide-[#E4E4E1]">
+                <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-[#E4E4E1]">
                   {plan.stops.map((s, i) => {
                     const isDone = completedIds.includes(s.client_id);
                     const isCurrent = s.client_id === currentStopId;
@@ -318,7 +507,7 @@ export default function MapView() {
                           </div>
                           <div className={`text-[11px] flex items-center gap-1 mt-0.5 ${s.suspicious_distance ? "text-[#DC2626] font-medium" : "text-[#52525B]"}`}>
                             <Clock className="w-3 h-3 shrink-0" /> arrivo {s.eta} · uscita {s.departure}
-                            {i > 0 && ` · ${s.distance_from_prev_km} km (${s.travel_minutes_from_prev} min)`}
+                            {(i > 0 || plan.origin) && ` · ${s.distance_from_prev_km} km (${s.travel_minutes_from_prev} min)`}
                             {s.suspicious_distance && " ⚠️"}
                           </div>
                           <div className="flex items-center gap-2 mt-2">
@@ -342,6 +531,19 @@ export default function MapView() {
                       </div>
                     );
                   })}
+                  {plan.return_leg && (
+                    <div data-testid="route-return-leg" className="p-4 flex gap-3 bg-[#F9F9F8]">
+                      <div className="w-6 h-6 rounded-full text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5 bg-[#0A192F]">
+                        <RotateCcw className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-cabinet font-bold text-[13px]">Ritorno al punto di partenza</div>
+                        <div className="text-[11px] text-[#52525B] flex items-center gap-1 mt-0.5">
+                          <Clock className="w-3 h-3 shrink-0" /> {plan.return_leg.distance_km} km ({plan.return_leg.travel_minutes} min)
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-4 border-t border-[#E4E4E1]">

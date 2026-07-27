@@ -16,5 +16,6 @@ async def optimize_route(payload: RoutePlanIn, user=Depends(get_current_user)):
     if not allowed:
         raise HTTPException(429, "Troppe richieste di pianificazione giro in poco tempo, riprova tra qualche minuto")
     return await route_optimization_service.plan_day(
-        user["id"], payload.client_ids, payload.start_time, payload.visit_minutes,
+        user, payload.client_ids, payload.start_time, payload.visit_minutes,
+        payload.start_mode, payload.start_lat, payload.start_lng, payload.round_trip,
     )

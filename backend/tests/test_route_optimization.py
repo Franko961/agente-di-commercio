@@ -159,22 +159,25 @@ def build_service(clients):
     return RouteOptimizationService(client_repo=FakeClientRepo(clients))
 
 
+USER = {"id": "user-1"}
+
+
 def test_nessun_cliente_selezionato_solleva_errore():
     service = build_service([MILANO])
     with pytest.raises(ValidationAppError):
-        run(service.plan_day("user-1", []))
+        run(service.plan_day(USER, []))
 
 
 def test_cliente_inesistente_solleva_not_found():
     service = build_service([MILANO])
     with pytest.raises(NotFoundError):
-        run(service.plan_day("user-1", ["id-che-non-esiste"]))
+        run(service.plan_day(USER, ["id-che-non-esiste"]))
 
 
 def test_cliente_senza_coordinate_solleva_errore_chiaro():
     service = build_service([MILANO, NO_COORDS])
     with pytest.raises(ValidationAppError) as exc_info:
-        run(service.plan_day("user-1", [MILANO["id"], NO_COORDS["id"]]))
+        run(service.plan_day(USER, [MILANO["id"], NO_COORDS["id"]]))
     assert "Senza Indirizzo" in str(exc_info.value.detail)
 
 
@@ -189,13 +192,13 @@ def test_coordinate_fuori_dai_limiti_geografici_trattate_come_assenti():
     }
     service = build_service([MILANO, cliente_coordinate_corrotte])
     with pytest.raises(ValidationAppError) as exc_info:
-        run(service.plan_day("user-1", [MILANO["id"], cliente_coordinate_corrotte["id"]]))
+        run(service.plan_day(USER, [MILANO["id"], cliente_coordinate_corrotte["id"]]))
     assert "Coordinate Corrotte" in str(exc_info.value.detail)
 
 
 def test_singolo_cliente_nessun_viaggio():
     service = build_service([MILANO])
-    plan = run(service.plan_day("user-1", [MILANO["id"]], start_time="09:00", visit_minutes=30))
+    plan = run(service.plan_day(USER, [MILANO["id"]], start_time="09:00", visit_minutes=30))
 
     assert len(plan["stops"]) == 1
     assert plan["stops"][0]["eta"] == "09:00"
@@ -207,7 +210,7 @@ def test_singolo_cliente_nessun_viaggio():
 def test_piu_clienti_partenza_fissa_e_schedulazione_coerente():
     service = build_service([MILANO, BERGAMO, BRESCIA])
     plan = run(service.plan_day(
-        "user-1", [MILANO["id"], BERGAMO["id"], BRESCIA["id"]],
+        USER, [MILANO["id"], BERGAMO["id"], BRESCIA["id"]],
         start_time="09:00", visit_minutes=20,
     ))
 
@@ -233,13 +236,13 @@ def test_piu_clienti_partenza_fissa_e_schedulazione_coerente():
 
 def test_orario_di_inizio_non_valido_ricade_sul_default(monkeypatch):
     service = build_service([MILANO])
-    plan = run(service.plan_day("user-1", [MILANO["id"]], start_time="non-un-orario"))
+    plan = run(service.plan_day(USER, [MILANO["id"]], start_time="non-un-orario"))
     assert plan["stops"][0]["eta"] == "09:00"  # DEFAULT_START_TIME
 
 
 def test_distanza_normale_non_genera_avvisi():
     service = build_service([MILANO, BERGAMO, BRESCIA])
-    plan = run(service.plan_day("user-1", [MILANO["id"], BERGAMO["id"], BRESCIA["id"]]))
+    plan = run(service.plan_day(USER, [MILANO["id"], BERGAMO["id"], BRESCIA["id"]]))
 
     assert plan["warnings"] == []
     assert all(not s["suspicious_distance"] for s in plan["stops"])
@@ -256,13 +259,100 @@ def test_coordinate_palesemente_sbagliate_generano_avviso():
         "address": "", "city": "",
     }
     service = build_service([MILANO, cliente_lontano])
-    plan = run(service.plan_day("user-1", [MILANO["id"], cliente_lontano["id"]]))
+    plan = run(service.plan_day(USER, [MILANO["id"], cliente_lontano["id"]]))
 
     assert len(plan["warnings"]) == 1
     assert "Cliente Coordinate Sbagliate" in plan["warnings"][0]
     suspicious_stops = [s for s in plan["stops"] if s["suspicious_distance"]]
     assert len(suspicious_stops) == 1
     assert suspicious_stops[0]["client_id"] == cliente_lontano["id"]
+
+
+# ---------- start_mode personalizzato / home / office / round_trip ----------
+
+USER_WITH_ADDRESSES = {
+    "id": "user-1",
+    "home_lat": 45.5, "home_lng": 9.0,
+    "office_lat": None, "office_lng": None,
+}
+
+
+def test_current_location_come_origine_non_e_una_tappa_ma_ancora_il_giro():
+    service = build_service([MILANO, BERGAMO, BRESCIA])
+    plan = run(service.plan_day(
+        USER, [MILANO["id"], BERGAMO["id"], BRESCIA["id"]],
+        start_mode="current_location", start_lat=45.5, start_lng=9.0,
+    ))
+
+    # L'origine virtuale non compare tra le tappe, ma è esposta a parte.
+    assert len(plan["stops"]) == 3
+    assert {s["client_id"] for s in plan["stops"]} == {MILANO["id"], BERGAMO["id"], BRESCIA["id"]}
+    assert plan["origin"]["lat"] == 45.5 and plan["origin"]["lng"] == 9.0
+    # La prima tappa ha una distanza dall'origine, non zero.
+    assert plan["stops"][0]["distance_from_prev_km"] > 0
+
+
+def test_current_location_senza_coordinate_solleva_errore():
+    service = build_service([MILANO])
+    with pytest.raises(ValidationAppError):
+        run(service.plan_day(USER, [MILANO["id"]], start_mode="current_location"))
+
+
+def test_home_non_configurata_solleva_errore_chiaro():
+    service = build_service([MILANO])
+    with pytest.raises(ValidationAppError) as exc_info:
+        run(service.plan_day(USER, [MILANO["id"]], start_mode="home"))
+    assert "casa" in str(exc_info.value.detail).lower()
+
+
+def test_home_configurata_viene_usata_come_origine():
+    service = build_service([MILANO, BERGAMO])
+    plan = run(service.plan_day(
+        USER_WITH_ADDRESSES, [MILANO["id"], BERGAMO["id"]], start_mode="home",
+    ))
+    assert plan["origin"]["lat"] == 45.5 and plan["origin"]["lng"] == 9.0
+    assert len(plan["stops"]) == 2
+
+
+def test_start_mode_non_valido_solleva_errore():
+    service = build_service([MILANO])
+    with pytest.raises(ValidationAppError):
+        run(service.plan_day(USER, [MILANO["id"]], start_mode="qualcosa-di-strano"))
+
+
+def test_round_trip_aggiunge_return_leg_e_somma_ai_totali():
+    service = build_service([MILANO, BERGAMO, BRESCIA])
+    plan_senza = run(service.plan_day(USER, [MILANO["id"], BERGAMO["id"], BRESCIA["id"]]))
+    plan_con = run(service.plan_day(
+        USER, [MILANO["id"], BERGAMO["id"], BRESCIA["id"]], round_trip=True,
+    ))
+
+    assert "return_leg" not in plan_senza
+    assert plan_con["return_leg"]["distance_km"] > 0
+    assert plan_con["total_distance_km"] > plan_senza["total_distance_km"]
+    assert plan_con["total_travel_minutes"] > plan_senza["total_travel_minutes"]
+
+
+def test_round_trip_singolo_cliente_partenza_fissa_ritorno_nullo():
+    # Con un solo cliente e nessuna origine virtuale, "tornare al punto di
+    # partenza" coincide con l'unica tappa: nessuna tratta di ritorno reale
+    # da aggiungere.
+    service = build_service([MILANO])
+    plan = run(service.plan_day(USER, [MILANO["id"]], round_trip=True))
+    assert "return_leg" not in plan
+
+
+# ---------- RoutePlanIn: limite massimo clienti ----------
+
+def test_route_plan_in_rifiuta_piu_di_max_clienti():
+    from pydantic import ValidationError
+    from models.route_planning import RoutePlanIn, MAX_ROUTE_CLIENTS
+
+    with pytest.raises(ValidationError):
+        RoutePlanIn(client_ids=[f"c{i}" for i in range(MAX_ROUTE_CLIENTS + 1)])
+
+    # Al limite esatto deve invece essere accettato.
+    RoutePlanIn(client_ids=[f"c{i}" for i in range(MAX_ROUTE_CLIENTS)])
 
 
 if __name__ == "__main__":
