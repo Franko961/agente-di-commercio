@@ -21,6 +21,24 @@ def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     return 2 * R * math.asin(math.sqrt(a))
 
 
+def _focus_reason_text(focus: dict) -> str:
+    """Motivo in linguaggio naturale per cui il briefing propone questo
+    cliente — SEMPRE onesto rispetto a cosa sappiamo davvero: mai un
+    riferimento al traffico stradale, che l'app non ha modo di conoscere
+    (il pianificatore giro visite usa OpenRouteService/stima in linea
+    d'aria, non dati di traffico in tempo reale, vedi route_optimization_service)."""
+    reason = focus.get("reason")
+    if reason == "expiry_and_inactivity":
+        days = focus.get("days_since_last_order")
+        return f"ha un'offerta in scadenza a breve e non fa un ordine da {days} giorni"
+    if reason == "expiry_only":
+        return "ha un'offerta in scadenza a breve"
+    days = focus.get("days_since_last_visit")
+    if days is not None:
+        return f"non lo visiti da {days} giorni"
+    return "non lo visiti da molto tempo"
+
+
 def _pluralize_it(count: int, singular: str, plural: str, none_label: Optional[str] = None) -> str:
     """Restituisce una stringa tipo '5 clienti da richiamare', gestendo i
     casi 0/1/N in italiano. Se none_label è dato, viene usato al posto di
@@ -444,29 +462,40 @@ class DashboardService:
             if cid not in nearest_expiry_by_client or o["_expires_dt"] < nearest_expiry_by_client[cid]["_expires_dt"]:
                 nearest_expiry_by_client[cid] = o
 
-        focus_client: Optional[dict] = None
-        best_days = -1
-        for cid, offer in nearest_expiry_by_client.items():
-            cli = clients_by_id.get(cid)
-            if not cli:
-                continue
-            last_order = last_order_by_client.get(cid)
-            days_since_order = (now - last_order).days if last_order else None
-            rank = days_since_order if days_since_order is not None else 9999
-            if rank > best_days:
-                best_days = rank
-                focus_client = {
-                    "client_id": cid,
-                    "client_name": cli.get("company_name"),
-                    "days_since_last_order": days_since_order,
-                    "offer_title": offer.get("title"),
-                    "offer_expires_at": offer.get("expires_at"),
-                    "reason": "expiry_and_inactivity" if days_since_order and days_since_order >= 14 else "expiry_only",
-                }
+        def _pick_focus_client(eligible_ids: Optional[set] = None) -> Optional[dict]:
+            """Sceglie il cliente da segnalare come priorità (offerta in
+            scadenza + più tempo senza ordini, altrimenti il più trascurato).
+            eligible_ids, se dato, restringe la scelta a un sottoinsieme di
+            clienti (es. solo quelli con una visita in programma oggi) —
+            usato per il suggerimento "inizia da X" del briefing, che non ha
+            senso su un cliente che oggi non si visita comunque."""
+            best, best_days = None, -1
+            for cid, offer in nearest_expiry_by_client.items():
+                if eligible_ids is not None and cid not in eligible_ids:
+                    continue
+                cli = clients_by_id.get(cid)
+                if not cli:
+                    continue
+                last_order = last_order_by_client.get(cid)
+                days_since_order = (now - last_order).days if last_order else None
+                rank = days_since_order if days_since_order is not None else 9999
+                if rank > best_days:
+                    best_days = rank
+                    best = {
+                        "client_id": cid,
+                        "client_name": cli.get("company_name"),
+                        "days_since_last_order": days_since_order,
+                        "offer_title": offer.get("title"),
+                        "offer_expires_at": offer.get("expires_at"),
+                        "reason": "expiry_and_inactivity" if days_since_order and days_since_order >= 14 else "expiry_only",
+                    }
+            if best:
+                return best
 
-        if not focus_client:
             most_neglected, max_days = None, -1
             for c in clients:
+                if eligible_ids is not None and c["id"] not in eligible_ids:
+                    continue
                 if c.get("status") == "inattivo":
                     continue
                 last = last_appt_by_client.get(c["id"])
@@ -474,7 +503,7 @@ class DashboardService:
                 if days > max_days:
                     max_days, most_neglected = days, c
             if most_neglected and max_days >= CALLBACK_DAYS:
-                focus_client = {
+                return {
                     "client_id": most_neglected["id"],
                     "client_name": most_neglected.get("company_name"),
                     "days_since_last_order": None,
@@ -483,6 +512,29 @@ class DashboardService:
                     "offer_expires_at": None,
                     "reason": "inactivity_only",
                 }
+            return None
+
+        focus_client = _pick_focus_client()
+        # Priorità ristretta ai clienti che hanno DAVVERO una visita in
+        # programma oggi: consigliare di "iniziare da" un cliente che non è
+        # nemmeno tra le visite odierne non avrebbe senso nel briefing.
+        todays_client_ids = {a["client_id"] for a in todays_appts if a.get("client_id")}
+        todays_focus_client = (
+            _pick_focus_client(todays_client_ids) if todays_client_ids else None
+        )
+
+        # Fatturato "potenziale" se si chiudessero anche tutte le offerte in
+        # scadenza mostrate sopra: non una previsione, solo un incentivo
+        # concreto ("chiudine 2 e arrivi al 96%"), calcolato sul fatturato
+        # già fatto questo mese (non sulla previsione lineare, che è già di
+        # per sé una stima — sommarne un'altra sopra renderebbe il numero
+        # meno difendibile).
+        offers_expiring_total = round(sum(o.get("total", 0) for o in offers_expiring), 2)
+        projected_pct_if_expiring_closed = None
+        if offers_expiring_total > 0 and goal_revenue:
+            projected_pct_if_expiring_closed = round(
+                (month_revenue + offers_expiring_total) / goal_revenue * 100
+            )
 
         return {
             "date": today_str,
@@ -493,12 +545,15 @@ class DashboardService:
             "km_today": km_today,
             "daily_goal": daily_goal,
             "focus_client": focus_client,
+            "todays_focus_client": todays_focus_client,
             "next_appointment_minutes": next_appointment_minutes,
             "next_appointment_client": next_appointment_client,
             "inactive_clients_60d": inactive_clients_60d,
             "month_revenue_so_far": round(month_revenue, 2),
             "revenue_forecast_month": revenue_forecast_month,
             "monthly_goal": goal_revenue,
+            "offers_expiring_total": offers_expiring_total,
+            "projected_pct_if_expiring_closed": projected_pct_if_expiring_closed,
         }
 
     def format_morning_briefing(self, brief: dict, user_name: Optional[str] = None) -> str:
@@ -508,7 +563,19 @@ class DashboardService:
         aggregati da get_today_brief: nessuna chiamata al modello, stesso
         principio di rapidità/costo zero già documentato lì."""
         saluto = f"Buongiorno {user_name}." if user_name else "Buongiorno."
-        lines = [saluto, "", "Hai:", ""]
+        lines = [saluto, ""]
+
+        visits = brief.get("appointments_today", 0)
+        if visits == 0:
+            lines.append("Oggi non hai visite in programma.")
+        else:
+            lines.append(f"Oggi hai {visits} visit{'a' if visits == 1 else 'e'} in programma.")
+
+        todays_focus = brief.get("todays_focus_client")
+        if todays_focus:
+            lines.append(f"Ti consiglio di iniziare da {todays_focus['client_name']}: {_focus_reason_text(todays_focus)}.")
+
+        lines += ["", "Hai:", ""]
 
         lines.append("✓ " + _pluralize_it(
             brief["clients_to_call"], "cliente da richiamare", "clienti da richiamare",
@@ -555,6 +622,13 @@ class DashboardService:
             forecast_str = f"{forecast:,.0f}".replace(",", ".")
             goal_str = f"{goal:,.0f}".replace(",", ".")
             lines.append(f"✓ Previsione fatturato mese: €{forecast_str} ({trend} l'obiettivo di €{goal_str})")
+
+        pct = brief.get("projected_pct_if_expiring_closed")
+        n_expiring = brief.get("offers_expiring", 0)
+        if pct is not None and n_expiring > 0:
+            offerte_str = "l'offerta in scadenza" if n_expiring == 1 else f"le {n_expiring} offerte in scadenza"
+            lines.append("")
+            lines.append(f"Se chiudi {offerte_str} raggiungeresti il {pct}% dell'obiettivo mensile.")
 
         return "\n".join(lines)
 

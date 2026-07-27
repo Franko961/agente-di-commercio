@@ -60,6 +60,14 @@ function focusClientSentence(focus) {
   return null;
 }
 
+function projectionSentence(today) {
+  const pct = today?.projected_pct_if_expiring_closed;
+  const n = today?.offers_expiring || 0;
+  if (pct == null || n === 0) return null;
+  const offerteLabel = n === 1 ? "l'offerta in scadenza" : `le ${n} offerte in scadenza`;
+  return `Se chiudi ${offerteLabel} raggiungeresti il ${pct}% dell'obiettivo mensile.`;
+}
+
 function TodayStat({ to, icon: Icon, value, label }) {
   return (
     <Link to={to} className="flex items-center gap-3 py-3 px-3 rounded-md hover:bg-[#F3F3F1] transition-colors">
@@ -148,12 +156,13 @@ export default function Dashboard() {
             <TodayStat to="/app/mappa" icon={Navigation} value={today.km_today != null ? `${today.km_today} km` : "—"} label="km previsti" />
             <TodayStat to="/app/provvigioni" icon={Target} value={fmt(today.daily_goal)} label="obiettivo del giorno" />
           </div>
-          {focusClientSentence(today.focus_client) && (
+          {(focusClientSentence(today.focus_client) || projectionSentence(today)) && (
             <div className="mx-4 mb-4 mt-1 flex items-start gap-2.5 bg-[#FFF7ED] border border-[#FED7AA] rounded-md px-4 py-3">
               <Sparkles className="w-4 h-4 text-[#FF5A00] shrink-0 mt-0.5" />
-              <div className="text-[13px] text-[#0A0A0A] leading-snug">
+              <div className="text-[13px] text-[#0A0A0A] leading-snug space-y-1">
                 <span className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00] block mb-1">Suggerimento AI</span>
-                {focusClientSentence(today.focus_client)}
+                {focusClientSentence(today.focus_client) && <div>{focusClientSentence(today.focus_client)}</div>}
+                {projectionSentence(today) && <div>{projectionSentence(today)}</div>}
               </div>
               {today.focus_client?.client_id && (
                 <Link to={`/app/clienti/${today.focus_client.client_id}`} className="ml-auto shrink-0 mt-0.5">

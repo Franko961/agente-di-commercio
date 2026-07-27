@@ -131,6 +131,194 @@ def test_format_briefing_previsione_sopra_obiettivo():
     assert "sopra l'obiettivo" in text
 
 
+# ---------- nuove frasi: visite di oggi, focus cliente, proiezione obiettivo ----------
+
+def test_format_briefing_conta_le_visite_di_oggi_plurale():
+    service = DashboardService()
+    text = service.format_morning_briefing(_base_brief(appointments_today=7), "Franco")
+    assert "Oggi hai 7 visite in programma." in text
+
+
+def test_format_briefing_conta_le_visite_di_oggi_singolare():
+    service = DashboardService()
+    text = service.format_morning_briefing(_base_brief(appointments_today=1), "Franco")
+    assert "Oggi hai 1 visita in programma." in text
+
+
+def test_format_briefing_nessuna_visita_oggi_frase_naturale():
+    service = DashboardService()
+    text = service.format_morning_briefing(_base_brief(appointments_today=0), "Franco")
+    assert "Oggi non hai visite in programma." in text
+
+
+def test_format_briefing_suggerisce_focus_client_di_oggi():
+    service = DashboardService()
+    todays_focus = {
+        "client_name": "Rossi Spa", "reason": "expiry_and_inactivity", "days_since_last_order": 20,
+    }
+    text = service.format_morning_briefing(
+        _base_brief(appointments_today=3, todays_focus_client=todays_focus), "Franco",
+    )
+    assert "Ti consiglio di iniziare da Rossi Spa" in text
+    assert "offerta in scadenza" in text
+    assert "20 giorni" in text
+
+
+def test_format_briefing_focus_client_non_menziona_mai_il_traffico():
+    """Il pianificatore non ha dati di traffico reale (vedi
+    route_optimization_service): il briefing non deve mai fingere di
+    saperne qualcosa, per nessuna delle categorie di motivazione."""
+    service = DashboardService()
+    for reason, extra in [
+        ("expiry_and_inactivity", {"days_since_last_order": 10}),
+        ("expiry_only", {}),
+        ("inactivity_only", {"days_since_last_visit": 45}),
+    ]:
+        todays_focus = {"client_name": "Rossi Spa", "reason": reason, **extra}
+        text = service.format_morning_briefing(
+            _base_brief(appointments_today=1, todays_focus_client=todays_focus), "Franco",
+        )
+        assert "traffic" not in text.lower() and "traffico" not in text.lower()
+
+
+def test_format_briefing_senza_focus_client_di_oggi_non_lo_menziona():
+    service = DashboardService()
+    text = service.format_morning_briefing(
+        _base_brief(appointments_today=3, todays_focus_client=None), "Franco",
+    )
+    assert "Ti consiglio di iniziare da" not in text
+
+
+def test_format_briefing_proiezione_obiettivo_se_chiudi_le_offerte():
+    service = DashboardService()
+    text = service.format_morning_briefing(
+        _base_brief(offers_expiring=2, projected_pct_if_expiring_closed=96), "Franco",
+    )
+    assert "Se chiudi le 2 offerte in scadenza raggiungeresti il 96% dell'obiettivo mensile." in text
+
+
+def test_format_briefing_proiezione_obiettivo_singolare():
+    service = DashboardService()
+    text = service.format_morning_briefing(
+        _base_brief(offers_expiring=1, projected_pct_if_expiring_closed=60), "Franco",
+    )
+    assert "Se chiudi l'offerta in scadenza raggiungeresti il 60%" in text
+
+
+def test_format_briefing_senza_proiezione_se_nessuna_offerta_in_scadenza():
+    service = DashboardService()
+    text = service.format_morning_briefing(
+        _base_brief(offers_expiring=0, projected_pct_if_expiring_closed=None), "Franco",
+    )
+    assert "raggiungeresti" not in text
+
+
+# ---------- get_today_brief: todays_focus_client, offers_expiring_total, proiezione ----------
+
+def test_todays_focus_client_solo_se_ha_una_visita_oggi(monkeypatch):
+    """Il cliente prioritario del mese (focus_client) non deve diventare
+    'inizia da lui' se oggi non ha alcuna visita in programma. Il cliente
+    visitato oggi, per non far scattare a sua volta il ripiego 'più
+    trascurato' dentro l'insieme ristretto, ha una visita recente registrata
+    (altrimenti risulterebbe lui stesso 'mai visitato', innescando comunque
+    un suggerimento — comportamento corretto, ma non quello che questo test
+    vuole isolare)."""
+    import services.dashboard_service as dash_mod
+    now = datetime.now(timezone.utc)
+    fake_db = FakeDB(
+        clients=[
+            {"id": "c-priorita", "user_id": "u1", "company_name": "Priorità Mese", "status": "attivo"},
+            {"id": "c-oggi", "user_id": "u1", "company_name": "Visita Oggi", "status": "attivo"},
+        ],
+        appointments=[
+            {
+                "id": "a-oggi", "user_id": "u1", "client_id": "c-oggi",
+                "start": _iso(now + timedelta(hours=1)), "status": "pianificato",
+            },
+            {  # visita recente: c-oggi non risulta trascurato
+                "id": "a-oggi-passata", "user_id": "u1", "client_id": "c-oggi",
+                "start": _iso(now - timedelta(days=3)), "status": "pianificato",
+            },
+        ],
+        offers=[{
+            "id": "o-1", "user_id": "u1", "client_id": "c-priorita", "status": "inviata",
+            "title": "Offerta Priorità", "total": 500,
+            "expires_at": _iso(now + timedelta(days=2)),
+        }],
+    )
+    monkeypatch.setattr(dash_mod, "db", fake_db)
+    service = DashboardService()
+
+    brief = run(service.get_today_brief({"id": "u1"}))
+
+    assert brief["focus_client"]["client_id"] == "c-priorita"  # priorità mensile invariata
+    assert brief["todays_focus_client"] is None  # ma non è tra le visite di oggi
+
+
+def test_todays_focus_client_coincide_se_il_cliente_prioritario_e_tra_le_visite_di_oggi(monkeypatch):
+    import services.dashboard_service as dash_mod
+    now = datetime.now(timezone.utc)
+    fake_db = FakeDB(
+        clients=[{"id": "c-1", "user_id": "u1", "company_name": "Rossi Spa", "status": "attivo"}],
+        appointments=[{
+            "id": "a-1", "user_id": "u1", "client_id": "c-1",
+            "start": _iso(now + timedelta(hours=1)), "status": "pianificato",
+        }],
+        offers=[{
+            "id": "o-1", "user_id": "u1", "client_id": "c-1", "status": "inviata",
+            "title": "Offerta Rossi", "total": 500,
+            "expires_at": _iso(now + timedelta(days=2)),
+        }],
+    )
+    monkeypatch.setattr(dash_mod, "db", fake_db)
+    service = DashboardService()
+
+    brief = run(service.get_today_brief({"id": "u1"}))
+
+    assert brief["todays_focus_client"]["client_id"] == "c-1"
+    assert brief["todays_focus_client"]["client_name"] == "Rossi Spa"
+
+
+def test_offers_expiring_total_e_proiezione_obiettivo(monkeypatch):
+    import services.dashboard_service as dash_mod
+    now = datetime.now(timezone.utc)
+    fake_db = FakeDB(
+        clients=[{"id": "c-1", "user_id": "u1", "company_name": "Cliente A", "status": "attivo"}],
+        offers=[
+            {
+                "id": "o-1", "user_id": "u1", "client_id": "c-1", "status": "inviata",
+                "title": "Offerta A", "total": 3000, "expires_at": _iso(now + timedelta(days=1)),
+            },
+            {
+                "id": "o-2", "user_id": "u1", "client_id": "c-1", "status": "bozza",
+                "title": "Offerta B", "total": 2600, "expires_at": _iso(now + timedelta(days=3)),
+            },
+        ],
+    )
+    monkeypatch.setattr(dash_mod, "db", fake_db)
+    service = DashboardService()
+
+    brief = run(service.get_today_brief({"id": "u1", "goal_revenue": 10000}))
+
+    assert brief["offers_expiring"] == 2
+    assert brief["offers_expiring_total"] == 5600
+    # month_revenue_so_far è 0 (nessun ordine/offerta accettata questo mese):
+    # (0 + 5600) / 10000 * 100 = 56%
+    assert brief["projected_pct_if_expiring_closed"] == 56
+
+
+def test_nessuna_proiezione_se_nessuna_offerta_in_scadenza(monkeypatch):
+    import services.dashboard_service as dash_mod
+    fake_db = FakeDB()
+    monkeypatch.setattr(dash_mod, "db", fake_db)
+    service = DashboardService()
+
+    brief = run(service.get_today_brief({"id": "u1", "goal_revenue": 10000}))
+
+    assert brief["offers_expiring_total"] == 0
+    assert brief["projected_pct_if_expiring_closed"] is None
+
+
 # ---------- get_today_brief: nuovi calcoli, con un finto DB in memoria ----------
 
 class FakeCursor:
