@@ -95,7 +95,7 @@ export default function Login() {
     const cleanEmail = email.trim().toLowerCase();
     if (mode === "register") {
       if (!name.trim()) { setError("Inserisci nome e cognome"); return; }
-      if (password.length < 6) { setError("La password deve avere almeno 6 caratteri"); return; }
+      if (password.length < 10) { setError("La password deve avere almeno 10 caratteri"); return; }
     }
     setBusy(true);
     try {

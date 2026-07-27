@@ -30,8 +30,8 @@ class AuthService:
         email = payload.email.lower().strip()
         if await self.repo.find_by_email(email):
             raise HTTPException(status_code=400, detail="Email gia' registrata")
-        if len(payload.password) < 6:
-            raise HTTPException(status_code=400, detail="Password troppo corta (min 6 caratteri)")
+        if len(payload.password) < 10:
+            raise HTTPException(status_code=400, detail="Password troppo corta (min 10 caratteri)")
         user_id = gen_id()
         plan = payload.plan if payload.plan in PLANS else "base"
         doc = {
@@ -216,8 +216,8 @@ class AuthService:
             if not ip_ok:
                 raise HTTPException(status_code=429, detail="Troppi tentativi. Riprova tra qualche minuto.")
 
-        if len(payload.new_password) < 6:
-            raise HTTPException(status_code=400, detail="Password troppo corta (min 6 caratteri)")
+        if len(payload.new_password) < 10:
+            raise HTTPException(status_code=400, detail="Password troppo corta (min 10 caratteri)")
 
         token_hash = hash_reset_token(payload.token)
         user = await self.repo.find_by_reset_token_hash(token_hash)

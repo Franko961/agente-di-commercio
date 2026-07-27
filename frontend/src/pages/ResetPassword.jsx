@@ -20,8 +20,8 @@ export default function ResetPassword() {
   const submit = async (e) => {
     e.preventDefault();
     setError("");
-    if (password.length < 6) {
-      setError("La password deve avere almeno 6 caratteri");
+    if (password.length < 10) {
+      setError("La password deve avere almeno 10 caratteri");
       return;
     }
     if (password !== confirm) {
