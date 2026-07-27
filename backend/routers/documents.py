@@ -105,8 +105,14 @@ async def download_document(
     # anche i documenti già caricati prima di questa modifica, il cui
     # original_filename in DB potrebbe non essere ancora stato ripulito.
     filename = sanitize_filename(doc.get("original_filename") or doc.get("name") or "file")
+    # inline solo per i tipi "sicuri" da mostrare direttamente nel browser
+    # (PDF e immagini): tutti gli altri (Office, video, testo, ecc.) vengono
+    # forzati come attachment, così il browser li scarica invece di provare
+    # a renderizzarli — riduce la superficie d'attacco anche se Content-Type
+    # è già vincolato alla whitelist e servito con nosniff.
+    disposition = "inline" if (ctype == "application/pdf" or ctype.startswith("image/")) else "attachment"
     headers = {
-        "Content-Disposition": f'inline; filename="{filename}"',
+        "Content-Disposition": f'{disposition}; filename="{filename}"',
         "Cache-Control": "private, max-age=300",
         # Impedisce al browser di "indovinare" un tipo diverso da quello
         # dichiarato in Content-Type ispezionando i byte del corpo —
