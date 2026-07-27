@@ -222,9 +222,23 @@ def test_todays_focus_client_solo_se_ha_una_visita_oggi(monkeypatch):
     trascurato' dentro l'insieme ristretto, ha una visita recente registrata
     (altrimenti risulterebbe lui stesso 'mai visitato', innescando comunque
     un suggerimento — comportamento corretto, ma non quello che questo test
-    vuole isolare)."""
+    vuole isolare).
+
+    Tempo congelato a un istante fisso lontano dalla mezzanotte italiana:
+    con 'adesso + 1 ora' preso dall'orologio reale, un'esecuzione del test
+    tra le 22 e le 24 ora italiana farebbe cadere quell'appuntamento nel
+    giorno di calendario SUCCESSIVO (vedi local_date_str/now_local), facendo
+    sparire l'appuntamento da 'oggi' e rendendo il test intermittente."""
     import services.dashboard_service as dash_mod
-    now = datetime.now(timezone.utc)
+
+    class FakeDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 6, 15, 12, 0, tzinfo=timezone.utc)
+
+    monkeypatch.setattr(dash_mod, "datetime", FakeDatetime)
+    monkeypatch.setattr(utils_mod, "datetime", FakeDatetime)
+    now = FakeDatetime.now()
     fake_db = FakeDB(
         clients=[
             {"id": "c-priorita", "user_id": "u1", "company_name": "Priorità Mese", "status": "attivo"},
@@ -256,8 +270,18 @@ def test_todays_focus_client_solo_se_ha_una_visita_oggi(monkeypatch):
 
 
 def test_todays_focus_client_coincide_se_il_cliente_prioritario_e_tra_le_visite_di_oggi(monkeypatch):
+    """Tempo congelato per lo stesso motivo del test precedente (evitare il
+    bordo mezzanotte italiana con un appuntamento a 'adesso + 1 ora')."""
     import services.dashboard_service as dash_mod
-    now = datetime.now(timezone.utc)
+
+    class FakeDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 6, 15, 12, 0, tzinfo=timezone.utc)
+
+    monkeypatch.setattr(dash_mod, "datetime", FakeDatetime)
+    monkeypatch.setattr(utils_mod, "datetime", FakeDatetime)
+    now = FakeDatetime.now()
     fake_db = FakeDB(
         clients=[{"id": "c-1", "user_id": "u1", "company_name": "Rossi Spa", "status": "attivo"}],
         appointments=[{
