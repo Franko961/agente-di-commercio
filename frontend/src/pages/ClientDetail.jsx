@@ -110,6 +110,7 @@ const provvigioniCliente = data.commissions.reduce((s, cm) => s + (cm.amount || 
             <InfoCard label="Potenziale" value={c.potential} />
             <InfoCard label="Settore" value={c.sector || "—"} />
             <InfoCard label="Zona" value={c.zone || "—"} />
+            <InfoCard label="Data di nascita" value={c.birthday ? format(parseISO(c.birthday), "d MMMM", { locale: it }) : "—"} />
             {c.lat && c.lng && <InfoCard label="Coordinate" value={`${c.lat.toFixed(4)}, ${c.lng.toFixed(4)}`} />}
             <div className="md:col-span-2 bg-white border border-[#E4E4E1] rounded-md p-5">
               <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-2">Note</div>

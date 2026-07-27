@@ -22,6 +22,7 @@ class ClientIn(BaseModel):
     lng: Optional[float] = Field(None, ge=-180, le=180)
     notes: Optional[str] = ""
     mandante_ids: List[str] = []
+    birthday: Optional[str] = None  # data di nascita, formato "YYYY-MM-DD" (facoltativa)
 
 
 class ClientBulkItem(BaseModel):

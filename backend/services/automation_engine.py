@@ -36,7 +36,7 @@ from typing import Optional
 
 from core.config import AUTOMATION_MAX_ATTEMPTS, AUTOMATION_ENGINE_INTERVAL_SECONDS
 from core.observability import record_event
-from core.utils import gen_id, now_iso, now_local, local_wallclock_to_utc_iso
+from core.utils import gen_id, now_iso, now_local, local_wallclock_to_utc_iso, local_month_str, local_date_str
 from repositories.automation_repository import automation_repository
 from repositories.automation_run_repository import automation_run_repository
 from repositories.automation_notification_repository import automation_notification_repository
@@ -44,6 +44,8 @@ from repositories.client_repository import client_repository
 from repositories.offer_repository import offer_repository
 from repositories.lead_repository import lead_repository
 from repositories.appointment_repository import appointment_repository
+from repositories.order_repository import order_repository
+from repositories.commission_repository import commission_repository
 from repositories.user_repository import user_repository
 from services.email_service import send_email
 
@@ -131,6 +133,8 @@ class AutomationEngine:
         offer_repo=offer_repository,
         lead_repo=lead_repository,
         appointment_repo=appointment_repository,
+        order_repo=order_repository,
+        commission_repo=commission_repository,
         user_repo=user_repository,
         send_email_fn=send_email,
     ):
@@ -141,6 +145,8 @@ class AutomationEngine:
         self.offer_repo = offer_repo
         self.lead_repo = lead_repo
         self.appointment_repo = appointment_repo
+        self.order_repo = order_repo
+        self.commission_repo = commission_repo
         self.user_repo = user_repo
         self.send_email_fn = send_email_fn
 
@@ -318,6 +324,157 @@ class AutomationEngine:
                 out.append(("lead", lead["id"], lead))
         return out
 
+    async def _eval_no_order_days(self, user_id: str, config: dict) -> list:
+        """Cliente senza ordini da N giorni (default 90): stesso schema di
+        _eval_no_visit_30d, ma sul repository ordini invece che appuntamenti —
+        un cliente che non ordina da tempo è un segnale commerciale diverso
+        (e spesso più urgente) di uno semplicemente non visitato."""
+        days = config.get("days", 90)
+        threshold = datetime.now(timezone.utc) - timedelta(days=days)
+        clients = await self.client_repo.find_many(user_id, {})
+        orders = await self.order_repo.find_many(user_id)
+
+        last_order_by_client: dict = {}
+        for o in orders:
+            cid = o.get("client_id")
+            created = _parse_iso(o.get("created_at"))
+            if not cid or not created:
+                continue
+            if cid not in last_order_by_client or created > last_order_by_client[cid]:
+                last_order_by_client[cid] = created
+
+        out = []
+        for c in clients:
+            last_order = last_order_by_client.get(c["id"])
+            if last_order is None:
+                # Nessun ordine mai registrato: usa la data di creazione del
+                # cliente come riferimento, per non segnalare come "senza
+                # ordini da 90 giorni" un cliente inserito ieri.
+                last_order = _parse_iso(c.get("created_at"))
+            if last_order and last_order <= threshold:
+                out.append(("client", c["id"], c))
+        return out
+
+    async def _eval_client_created(self, user_id: str, config: dict) -> list:
+        """Nuovo cliente inserito: candidato per i clienti creati negli
+        ultimi N giorni (default 2). La finestra serve solo a limitare la
+        query e a evitare che l'attivazione della regola faccia scattare
+        l'azione retroattivamente su TUTTO il portafoglio esistente — il
+        dedup vero (una volta sola per cliente, per sempre) è comunque
+        garantito da automation_runs, indipendentemente dalla finestra."""
+        days = config.get("days", 2)
+        threshold = datetime.now(timezone.utc) - timedelta(days=days)
+        clients = await self.client_repo.find_many(user_id, {})
+        out = []
+        for c in clients:
+            created = _parse_iso(c.get("created_at"))
+            if created and created >= threshold:
+                out.append(("client", c["id"], c))
+        return out
+
+    async def _eval_client_birthday(self, user_id: str, config: dict) -> list:
+        """Compleanno cliente: confronta solo mese/giorno (l'anno di nascita
+        salvato non conta ai fini del trigger). target_id include l'anno
+        corrente ("<client_id>:<anno>") apposta: a differenza degli altri
+        trigger, qui vogliamo che si ripeta ogni anno, non una sola volta per
+        sempre — senza bisogno che l'utente configuri un cooldown_days per
+        farlo funzionare correttamente."""
+        days_before = config.get("days_before", 0)
+        today = now_local().date()
+        clients = await self.client_repo.find_many(user_id, {})
+        out = []
+        for c in clients:
+            birthday = c.get("birthday")
+            if not birthday:
+                continue
+            try:
+                bday = datetime.strptime(birthday, "%Y-%m-%d").date()
+            except (ValueError, TypeError):
+                continue
+            # Prossimo compleanno nel calendario corrente (quest'anno, o
+            # l'anno prossimo se è già passato) — per calcolare quanti giorni
+            # mancano indipendentemente da quanto è vecchio l'anno salvato.
+            try:
+                next_bday = bday.replace(year=today.year)
+            except ValueError:
+                continue  # 29 febbraio in un anno non bisestile: nessun match quest'anno
+            if next_bday < today:
+                try:
+                    next_bday = bday.replace(year=today.year + 1)
+                except ValueError:
+                    continue
+            days_until = (next_bday - today).days
+            if 0 <= days_until <= days_before:
+                out.append(("client", f"{c['id']}:{next_bday.year}", c))
+        return out
+
+    async def _eval_tomorrow_appointments(self, user_id: str, config: dict) -> list:
+        """Digest 'domani hai N visite': un solo invio aggregato al giorno,
+        non uno per appuntamento. target_id include la data odierna apposta:
+        così si ripete automaticamente ogni giorno (un giorno diverso = un
+        target_id mai visto prima), senza bisogno di alcun cooldown."""
+        tomorrow = (now_local() + timedelta(days=1)).strftime("%Y-%m-%d")
+        appts = await self.appointment_repo.find_many(user_id)
+        tomorrow_appts = [
+            a for a in appts
+            if a.get("status") == "pianificato" and local_date_str(a.get("start")) == tomorrow
+        ]
+        if not tomorrow_appts:
+            return []
+
+        clients = await self.client_repo.find_many(user_id, {})
+        clients_by_id = {c["id"]: c for c in clients}
+        client_names = [
+            clients_by_id[a["client_id"]]["company_name"]
+            for a in tomorrow_appts
+            if a.get("client_id") in clients_by_id
+        ]
+
+        today_str = now_local().strftime("%Y-%m-%d")
+        context = {"count": len(tomorrow_appts), "client_names": client_names}
+        return [("digest_appointments", f"{user_id}:{today_str}", context)]
+
+    async def _eval_commissions_below_target_mid_month(self, user_id: str, config: dict) -> list:
+        """Digest 'provvigioni sotto obiettivo': valutato solo il giorno del
+        mese configurato (default 15, check_day) — _matches_schedule copre
+        solo l'orario, non il giorno del mese, quindi il controllo va fatto
+        qui. Calcolo del fatturato provvigioni del mese volutamente NON
+        riusa dashboard_service.get_stats (che aggrega molto di più: grafici
+        per zona/settore/mese, pipeline...) per non appesantire ogni ciclo
+        del motore con letture/calcoli che qui non servono — mirror solo
+        della formula usata lì (stesso goal_commissions, stesso
+        local_month_str)."""
+        check_day = config.get("check_day", 15)
+        if now_local().day != check_day:
+            return []
+
+        user = await self.user_repo.find_by_id(user_id)
+        if not user:
+            return []
+        goal_commissions = user.get("goal_commissions")
+        if not goal_commissions:
+            return []  # nessun obiettivo provvigioni impostato: nulla da confrontare
+
+        threshold_pct = config.get("threshold_pct", 50)
+        current_month_key = now_local().strftime("%Y-%m")
+        commissions = await self.commission_repo.find_many(user_id)
+        commissions_month = sum(
+            c.get("amount", 0) for c in commissions
+            if local_month_str(c.get("created_at")) == current_month_key
+        )
+        pct = (commissions_month / goal_commissions * 100) if goal_commissions else 0
+        if pct >= threshold_pct:
+            return []
+
+        today_str = now_local().strftime("%Y-%m-%d")
+        context = {
+            "commissions_month": round(commissions_month, 2),
+            "goal_commissions": goal_commissions,
+            "pct": round(pct),
+            "missing": round(goal_commissions - commissions_month, 2),
+        }
+        return [("digest_commissions", f"{user_id}:{today_str}", context)]
+
     # ------------------------------------------------------------------
     # Esecutori di azione
     # ------------------------------------------------------------------
@@ -372,7 +529,12 @@ class AutomationEngine:
         from services.appointment_service import appointment_service
         from models.appointment import AppointmentIn
 
-        client_id = target_id if target_type == "client" else context.get("client_id")
+        # context["id"] invece di target_id per target_type=="client": per il
+        # trigger compleanno target_id è composito ("<client_id>:<anno>", per
+        # far ripetere l'automazione ogni anno — vedi _eval_client_birthday),
+        # mentre context è sempre il documento cliente vero e proprio, il cui
+        # "id" coincide con target_id per tutti gli altri trigger su cliente.
+        client_id = context.get("id") if target_type == "client" else context.get("client_id")
         start = _next_task_datetime_utc_iso(automation.get("config") or {})
         payload = AppointmentIn(
             client_id=client_id,
@@ -445,6 +607,18 @@ def _describe_target(target_type: str, context: dict) -> str:
         return f"Cliente \"{context.get('company_name', '')}\""
     if target_type == "lead":
         return f"Lead \"{context.get('company_name', '')}\""
+    if target_type == "digest_appointments":
+        names = context.get("client_names") or []
+        names_str = ", ".join(names[:5]) + (", ..." if len(names) > 5 else "")
+        count = context.get("count", 0)
+        tappe = "visita" if count == 1 else "visite"
+        suffix = f": {names_str}" if names_str else ""
+        return f"Domani hai {count} {tappe} in programma{suffix}"
+    if target_type == "digest_commissions":
+        return (
+            f"Provvigioni al {context.get('pct', 0)}% dell'obiettivo mensile "
+            f"— mancano €{context.get('missing', 0):,.0f}".replace(",", ".")
+        )
     return target_type
 
 
@@ -452,6 +626,11 @@ _TRIGGER_EVALUATORS = {
     "offer_expiring": AutomationEngine._eval_offer_expiring,
     "no_visit_30d": AutomationEngine._eval_no_visit_30d,
     "lead_inactive": AutomationEngine._eval_lead_inactive,
+    "no_order_days": AutomationEngine._eval_no_order_days,
+    "client_created": AutomationEngine._eval_client_created,
+    "client_birthday": AutomationEngine._eval_client_birthday,
+    "tomorrow_appointments": AutomationEngine._eval_tomorrow_appointments,
+    "commissions_below_target_mid_month": AutomationEngine._eval_commissions_below_target_mid_month,
 }
 
 _ACTION_EXECUTORS = {

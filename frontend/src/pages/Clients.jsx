@@ -27,7 +27,7 @@ function ClientForm({ initial, onSave, onClose, mandanti }) {
   const [f, setF] = useState(initial || {
     company_name: "", contact_name: "", email: "", phone: "", vat_number: "",
     address: "", city: "", province: "", zone: "", sector: "", potential: "medio",
-    lat: null, lng: null, notes: "", mandante_ids: []
+    lat: null, lng: null, notes: "", mandante_ids: [], birthday: null
   });
   const update = (k, v) => setF({ ...f, [k]: v });
   return (
@@ -45,6 +45,7 @@ function ClientForm({ initial, onSave, onClose, mandanti }) {
         <Field label="Città" v={f.city} on={(v) => update("city", v)} />
         <Field label="Provincia" v={f.province} on={(v) => update("province", v)} />
         <Field label="Zona / Regione" v={f.zone} on={(v) => update("zone", v)} />
+        <Field label="Data di nascita" v={f.birthday} on={(v) => update("birthday", v || null)} type="date" />
         <div>
           <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Settore merceologico</label>
           <select value={f.sector || ""} onChange={(e) => update("sector", e.target.value)}
@@ -182,7 +183,7 @@ export default function Clients() {
                 company_name: "", contact_name: "", email: "", phone: "",
                 vat_number: "", address: "", city: "", province: "", zone: "",
                 sector: "", potential: "medio", lat: null, lng: null, notes: "",
-                mandante_ids: [],
+                mandante_ids: [], birthday: null,
                 ...editTarget,
                 mandante_ids: editTarget.mandante_ids || [],
               }}

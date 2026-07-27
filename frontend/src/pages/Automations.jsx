@@ -11,32 +11,54 @@ const TRIGGERS = {
   offer_expiring: "Offerta in scadenza",
   no_visit_30d: "Cliente non visitato da 30 giorni",
   lead_inactive: "Lead inattivo",
+  no_order_days: "Cliente senza ordini da X giorni",
+  client_created: "Nuovo cliente inserito",
+  client_birthday: "Compleanno cliente",
+  tomorrow_appointments: "Riepilogo visite di domani",
+  commissions_below_target_mid_month: "Provvigioni sotto obiettivo a metà mese",
 };
 const ACTIONS = {
   send_reminder: "Invia promemoria",
   create_task: "Crea task",
   send_email: "Invia email follow-up",
 };
+// Le due regole "digest" (riepilogo aggregato per l'agente stesso, non per
+// un cliente/offerta/lead specifico) hanno senso solo con "Invia
+// promemoria": create_task/send_email creerebbero un appuntamento o
+// un'email senza un destinatario reale a cui riferirsi.
+const DIGEST_TRIGGERS = new Set(["tomorrow_appointments", "commissions_below_target_mid_month"]);
 
 // Ogni trigger legge dal proprio 'config' un campo diverso (vedi
-// backend/services/automation_engine.py::_eval_offer_expiring/_eval_no_visit_30d/_eval_lead_inactive):
-// offer_expiring usa 'days_before', gli altri due usano 'days'. 'cooldown_days'
-// è invece condiviso da tutti i trigger (facoltativo, ripete il promemoria dopo N
-// giorni invece di eseguirlo una sola volta).
+// backend/services/automation_engine.py::_eval_offer_expiring/_eval_no_visit_30d/_eval_lead_inactive/ecc.):
+// la maggior parte usa 'days_before' o 'days'; i due digest non hanno alcun
+// campo "giorni" (vedi DIGEST_TRIGGERS più sotto per i loro campi dedicati).
+// 'cooldown_days' è invece condiviso da tutti i trigger con un campo giorni
+// (facoltativo, ripete il promemoria dopo N giorni invece di eseguirlo una
+// sola volta) — non si applica a client_birthday (si ripete già ogni anno
+// da solo) né ai due digest (si ripetono già ogni giorno da soli).
 const DAYS_FIELD_BY_TRIGGER = {
   offer_expiring: "days_before",
   no_visit_30d: "days",
   lead_inactive: "days",
+  no_order_days: "days",
+  client_created: "days",
+  client_birthday: "days_before",
 };
 const DAYS_LABEL_BY_TRIGGER = {
   offer_expiring: "Giorni di preavviso prima della scadenza",
   no_visit_30d: "Giorni senza visita prima di considerare il cliente inattivo",
   lead_inactive: "Giorni di inattività prima di considerare il lead inattivo",
+  no_order_days: "Giorni senza ordini prima di segnalare il cliente",
+  client_created: "Considera 'nuovo' un cliente creato negli ultimi N giorni",
+  client_birthday: "Giorni di anticipo prima del compleanno (0 = il giorno stesso)",
 };
 const DAYS_DEFAULT_BY_TRIGGER = {
   offer_expiring: 3,
   no_visit_30d: 30,
   lead_inactive: 7,
+  no_order_days: 90,
+  client_created: 2,
+  client_birthday: 0,
 };
 
 export default function Automations() {
@@ -137,10 +159,12 @@ function ConfigSummary({ automation: a }) {
   const runAt = a.config?.run_at;
   const hasCustomEmail = !!(a.config?.email_subject || a.config?.email_message);
   const isTask = a.action === "create_task";
-  if (daysValue == null && !cooldown && !runAt && !hasCustomEmail && !isTask) return null;
+  const isCommissionsDigest = a.trigger === "commissions_below_target_mid_month";
+  if (daysValue == null && !cooldown && !runAt && !hasCustomEmail && !isTask && !isCommissionsDigest) return null;
   return (
     <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-1">
       {daysValue != null && `${daysValue} giorni`}
+      {isCommissionsDigest && `giorno ${a.config?.check_day ?? 15} · sotto il ${a.config?.threshold_pct ?? 50}%`}
       {cooldown ? ` · si ripete ogni ${cooldown} giorni` : ""}
       {runAt ? ` · ore ${runAt}` : ""}
       {hasCustomEmail ? " · email personalizzata" : ""}
@@ -250,6 +274,8 @@ function AutoForm({ initial, onSave }) {
   const cooldownValue = f.config?.cooldown_days ?? "";
   const sendsEmail = f.action === "send_reminder" || f.action === "send_email";
   const createsTask = f.action === "create_task";
+  const isDigest = DIGEST_TRIGGERS.has(f.trigger);
+  const isCommissionsDigest = f.trigger === "commissions_below_target_mid_month";
 
   const setTrigger = (trigger) => {
     // Cambiando trigger cambia solo la chiave del campo "giorni"
@@ -257,7 +283,11 @@ function AutoForm({ initial, onSave }) {
     // altre opzioni (cooldown, email personalizzata, orario) sono
     // indipendenti dal trigger e restano quelle già impostate.
     const { [DAYS_FIELD_BY_TRIGGER[f.trigger]]: _drop, ...rest } = f.config || {};
-    setF({ ...f, trigger, config: rest });
+    // I due digest hanno senso solo con "Invia promemoria" (riepilogo per
+    // l'agente stesso, non per un cliente/offerta/lead specifico): passando
+    // a uno di questi trigger l'azione viene impostata di conseguenza.
+    const action = DIGEST_TRIGGERS.has(trigger) ? "send_reminder" : f.action;
+    setF({ ...f, trigger, action, config: rest });
   };
 
   const setDays = (value) => {
@@ -298,37 +328,75 @@ function AutoForm({ initial, onSave }) {
           {Object.entries(TRIGGERS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </div>
-      <div>
-        <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">
-          {DAYS_LABEL_BY_TRIGGER[f.trigger]}
-        </label>
-        <input
-          type="number" min={1} step={1}
-          data-testid="automation-days-input"
-          value={daysValue ?? ""}
-          onChange={(e) => setDays(e.target.value)}
-          placeholder={String(DAYS_DEFAULT_BY_TRIGGER[f.trigger])}
-          className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
-        />
-      </div>
-      <div>
-        <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">
-          Ripeti il promemoria dopo (giorni, facoltativo)
-        </label>
-        <input
-          type="number" min={1} step={1}
-          data-testid="automation-cooldown-input"
-          value={cooldownValue}
-          onChange={(e) => setCooldown(e.target.value)}
-          placeholder="mai (una sola volta per elemento)"
-          className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
-        />
-      </div>
+      {daysField && (
+        <div>
+          <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">
+            {DAYS_LABEL_BY_TRIGGER[f.trigger]}
+          </label>
+          <input
+            type="number" min={0} step={1}
+            data-testid="automation-days-input"
+            value={daysValue ?? ""}
+            onChange={(e) => setDays(e.target.value)}
+            placeholder={String(DAYS_DEFAULT_BY_TRIGGER[f.trigger])}
+            className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+          />
+        </div>
+      )}
+
+      {isCommissionsDigest && (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">
+              Giorno del mese per il controllo
+            </label>
+            <input
+              type="number" min={1} max={28} step={1}
+              data-testid="automation-check-day-input"
+              value={f.config?.check_day ?? 15}
+              onChange={(e) => setConfigNumber("check_day", e.target.value)}
+              className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+            />
+          </div>
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">
+              Soglia (% obiettivo provvigioni)
+            </label>
+            <input
+              type="number" min={0} max={100} step={5}
+              data-testid="automation-threshold-pct-input"
+              value={f.config?.threshold_pct ?? 50}
+              onChange={(e) => setConfigNumber("threshold_pct", e.target.value)}
+              className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+            />
+          </div>
+          <p className="text-[11px] text-[#A1A1AA] col-span-2">
+            Segnala solo se, al giorno indicato, le provvigioni del mese sono sotto questa percentuale del tuo obiettivo mensile (impostato in Impostazioni). Richiede un obiettivo provvigioni configurato.
+          </p>
+        </div>
+      )}
+
+      {!isDigest && (
+        <div>
+          <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">
+            Ripeti il promemoria dopo (giorni, facoltativo)
+          </label>
+          <input
+            type="number" min={1} step={1}
+            data-testid="automation-cooldown-input"
+            value={cooldownValue}
+            onChange={(e) => setCooldown(e.target.value)}
+            placeholder="mai (una sola volta per elemento)"
+            className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+          />
+        </div>
+      )}
       <div>
         <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Azione</label>
         <select value={f.action} onChange={(e) => setF({ ...f, action: e.target.value })}
-                className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]">
-          {Object.entries(ACTIONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                disabled={isDigest}
+                className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px] disabled:opacity-60 disabled:cursor-not-allowed">
+          {(isDigest ? [["send_reminder", ACTIONS.send_reminder]] : Object.entries(ACTIONS)).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </div>
 
