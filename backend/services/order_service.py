@@ -140,11 +140,24 @@ class OrderService:
         existing = await self.repo.find_by_source_offer(offer["id"], user["id"])
         if existing:
             return existing
-        return await self._create_order_doc(
-            user, offer["client_id"], offer["mandante_id"], offer.get("items", []),
-            offer.get("sale_type", "nuovo"), offer.get("notes", ""),
-            source_offer_id=offer["id"],
-        )
+        try:
+            return await self._create_order_doc(
+                user, offer["client_id"], offer["mandante_id"], offer.get("items", []),
+                offer.get("sale_type", "nuovo"), offer.get("notes", ""),
+                source_offer_id=offer["id"],
+            )
+        except ConflictError:
+            # Rete di sicurezza per la race condition che il check sopra da
+            # solo non copre (due richieste concorrenti sulla stessa offerta
+            # arrivate quasi insieme): l'indice univoco DB su
+            # (user_id, source_offer_id) — vedi startup_service — ha bloccato
+            # l'insert duplicato. Non è un vero errore per l'utente: l'altra
+            # richiesta ha già creato l'ordine, lo recuperiamo e restituiamo
+            # invece di propagare un 409, per restare idempotente anche qui.
+            existing = await self.repo.find_by_source_offer(offer["id"], user["id"])
+            if existing:
+                return existing
+            raise
 
     async def update_order(self, user: dict, oid: str, payload) -> None:
         """Modifica completa di un ordine esistente (righe, prezzi, mandante,

@@ -195,6 +195,21 @@ async def run_startup() -> None:
         unique=True,
         partialFilterExpression={"numero_ordine": {"$exists": True}},
     )
+    # Indice univoco su (user_id, source_offer_id): find_by_source_offer()
+    # (vedi order_repository/order_service.create_from_offer) fa già da check
+    # preventivo prima di creare l'ordine da un'offerta, ma da solo è un
+    # check-then-act — due richieste concorrenti sulla stessa offerta (es. il
+    # pulsante di stato e la firma digitale quasi simultanei) potrebbero
+    # superarlo entrambe prima che il primo insert completi, creando due
+    # ordini per la stessa offerta. Partial con $type "string": si applica
+    # solo agli ordini generati da un'offerta, non ai normali ordini creati a
+    # mano, che hanno tutti source_offer_id=None e altrimenti collidirebbero
+    # tra loro (un $exists semplice includerebbe anche i null).
+    await db.orders.create_index(
+        [("user_id", 1), ("source_offer_id", 1)],
+        unique=True,
+        partialFilterExpression={"source_offer_id": {"$type": "string"}},
+    )
     # TTL: gli eventi di rate limiting più vecchi di 2 ore vengono eliminati
     # automaticamente da MongoDB (le finestre usate sono tutte <= 15 minuti).
     await db.rate_limit_events.create_index("created_at", expireAfterSeconds=7200)

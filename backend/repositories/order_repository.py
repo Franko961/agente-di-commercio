@@ -31,7 +31,13 @@ class OrderRepository:
         # potrebbe collidere con uno già esistente (proprio o generato).
         try:
             await self.collection.insert_one(doc)
-        except DuplicateKeyError:
+        except DuplicateKeyError as e:
+            # Distingue quale dei due indici univoci ha bloccato l'insert
+            # (vedi startup_service.run_startup): stesso doc, due possibili
+            # collisioni con causa e messaggio diversi.
+            key_pattern = (e.details or {}).get("keyPattern", {})
+            if "source_offer_id" in key_pattern:
+                raise ConflictError("Esiste già un ordine creato da questa offerta")
             raise ConflictError(f"Numero ordine \"{doc.get('numero_ordine')}\" già in uso")
         doc.pop("_id", None)
         return doc
