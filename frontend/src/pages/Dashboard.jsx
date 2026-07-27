@@ -55,7 +55,13 @@ function focusClientSentence(focus) {
     return `Visita prima ${focus.client_name}: l'offerta "${focus.offer_title}" scade ${formatExpiry(focus.offer_expires_at)}.`;
   }
   if (focus.reason === "inactivity_only") {
-    return `Contatta ${focus.client_name}: non lo senti da ${focus.days_since_last_visit} giorni.`;
+    // days_since_last_visit è null quando il cliente non ha MAI avuto una
+    // visita registrata (non solo "da tanti giorni") — vedi
+    // dashboard_service.py, max_days == 9999 -> None.
+    const daysPart = focus.days_since_last_visit != null
+      ? `non lo senti da ${focus.days_since_last_visit} giorni`
+      : "non hai ancora registrato nessuna visita con lui";
+    return `Contatta ${focus.client_name}: ${daysPart}.`;
   }
   return null;
 }
