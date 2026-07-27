@@ -18,6 +18,14 @@ class AppointmentService:
         await self._push_to_google_calendar_safe(user["id"], doc, action="create")
         return doc
 
+    async def create_many(self, user: dict, payloads: list) -> list:
+        # In sequenza (non asyncio.gather) e non su repo.insert_many: ogni
+        # appuntamento va creato con lo stesso percorso di create_appointment
+        # per ottenere un "id" locale prima del push verso Google Calendar
+        # (push_create lo usa per salvare il google_event_id di ritorno) — un
+        # insert_many bulk grezzo salterebbe del tutto la sincronizzazione.
+        return [await self.create_appointment(user, payload) for payload in payloads]
+
     async def update_appointment(self, user: dict, aid: str, payload) -> None:
         await self.repo.update(aid, user["id"], payload.model_dump())
         updated = await self.repo.find_one(aid, user["id"])

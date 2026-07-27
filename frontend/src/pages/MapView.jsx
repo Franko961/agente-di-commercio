@@ -4,7 +4,7 @@ import L from "leaflet";
 import { Link } from "react-router-dom";
 import {
   Route, Loader2, X, MapPin, Clock, Navigation, ExternalLink, CheckCircle2, RotateCcw,
-  LocateFixed, Search,
+  LocateFixed, Search, CalendarPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "../api";
@@ -87,6 +87,8 @@ function loadStoredRoutePlan() {
   }
 }
 
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
 function saveStoredRoutePlan(state) {
   try {
     sessionStorage.setItem(ROUTE_PLAN_STORAGE_KEY, JSON.stringify(state));
@@ -102,6 +104,7 @@ export default function MapView() {
   const [clients, setClients] = useState([]);
   const [planOpen, setPlanOpen] = useState(stored?.planOpen || false);
   const [selectedIds, setSelectedIds] = useState(stored?.selectedIds || []);
+  const [planDate, setPlanDate] = useState(stored?.planDate || todayIso());
   const [startTime, setStartTime] = useState(stored?.startTime || "09:00");
   const [visitMinutes, setVisitMinutes] = useState(stored?.visitMinutes || 30);
   const [startMode, setStartMode] = useState(stored?.startMode || "first_client");
@@ -118,13 +121,15 @@ export default function MapView() {
   // si usa Google Maps in un'altra app, quindi resta un tocco manuale.
   const [completedIds, setCompletedIds] = useState(stored?.completedIds || []);
   const [busy, setBusy] = useState(false);
+  const [savingAgenda, setSavingAgenda] = useState(false);
+  const [savedToAgenda, setSavedToAgenda] = useState(stored?.savedToAgenda || false);
 
   useEffect(() => {
     saveStoredRoutePlan({
-      planOpen, selectedIds, startTime, visitMinutes, plan, completedIds,
+      planOpen, selectedIds, startTime, visitMinutes, plan, completedIds, planDate, savedToAgenda,
       startMode, roundTrip, customQuery, customCoord,
     });
-  }, [planOpen, selectedIds, startTime, visitMinutes, plan, completedIds, startMode, roundTrip, customQuery, customCoord]);
+  }, [planOpen, selectedIds, startTime, visitMinutes, plan, completedIds, planDate, savedToAgenda, startMode, roundTrip, customQuery, customCoord]);
 
   useEffect(() => { api.get("/clients").then(({ data }) => setClients(data.filter(c => isValidCoord(c.lat, c.lng)))); }, []);
   useEffect(() => { api.get("/settings/addresses").then(({ data }) => setAddresses(data)).catch(() => setAddresses({})); }, []);
@@ -201,6 +206,7 @@ export default function MapView() {
     setBusy(true);
     setPlan(null);
     setCompletedIds([]);
+    setSavedToAgenda(false);
     try {
       const { data } = await api.post("/route-planning/optimize", {
         client_ids: selectedIds,
@@ -219,10 +225,34 @@ export default function MapView() {
     }
   };
 
+  const saveToAgenda = async () => {
+    if (!plan) return;
+    setSavingAgenda(true);
+    try {
+      const appointments = plan.stops.map((s) => ({
+        client_id: s.client_id,
+        title: `Visita: ${s.company_name}`,
+        description: "Generato dal pianificatore giro visite",
+        start: new Date(`${planDate}T${s.eta}:00`).toISOString(),
+        end: new Date(`${planDate}T${s.departure}:00`).toISOString(),
+        location: [s.address, s.city].filter(Boolean).join(", "),
+        status: "pianificato",
+      }));
+      await api.post("/appointments/bulk", { appointments });
+      setSavedToAgenda(true);
+      toast.success(`${appointments.length} appuntamenti creati in Agenda`);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Errore nel salvataggio in Agenda");
+    } finally {
+      setSavingAgenda(false);
+    }
+  };
+
   const resetPlan = () => {
     setPlan(null);
     setSelectedIds([]);
     setCompletedIds([]);
+    setSavedToAgenda(false);
   };
 
   // La "tappa corrente" è la prima non ancora segnata come visitata,
@@ -415,6 +445,13 @@ export default function MapView() {
                   Torna al punto di partenza a fine giornata
                 </label>
 
+                <div>
+                  <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Data del giro</label>
+                  <input type="date" value={planDate} onChange={(e) => setPlanDate(e.target.value)}
+                         data-testid="plan-date-input"
+                         className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Ora inizio</label>
@@ -443,10 +480,14 @@ export default function MapView() {
             {plan && (
               <div className="flex-1 min-h-0 flex flex-col">
                 <div className="p-4 border-b border-[#E4E4E1] bg-[#F9F9F8]">
-                  <div className="flex items-center gap-1.5 text-[11px] text-[#52525B] mb-3">
+                  <div className="flex items-center gap-1.5 text-[11px] text-[#52525B] mb-1">
                     <MapPin className="w-3 h-3 shrink-0" />
                     Partenza: {START_MODE_LABELS[plan.start_mode] || "Primo cliente selezionato"}
                     {plan.round_trip && " · con ritorno al punto di partenza"}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-[#52525B] mb-3">
+                    <CalendarPlus className="w-3 h-3 shrink-0" />
+                    Giorno: {new Date(`${planDate}T00:00:00`).toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })}
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-center mb-3">
                     <div>
@@ -546,7 +587,16 @@ export default function MapView() {
                   )}
                 </div>
 
-                <div className="p-4 border-t border-[#E4E4E1]">
+                <div className="p-4 border-t border-[#E4E4E1] space-y-2">
+                  <button
+                    onClick={saveToAgenda}
+                    disabled={savingAgenda || savedToAgenda}
+                    data-testid="save-route-to-agenda"
+                    className="w-full flex items-center justify-center gap-2 bg-[#0A192F] hover:bg-[#172A45] text-white py-2.5 rounded-md text-[13px] font-medium disabled:opacity-50"
+                  >
+                    {savingAgenda ? <Loader2 className="w-4 h-4 animate-spin" /> : savedToAgenda ? <CheckCircle2 className="w-4 h-4" /> : <CalendarPlus className="w-4 h-4" />}
+                    {savingAgenda ? "Salvataggio…" : savedToAgenda ? "Salvato in Agenda" : "Salva il giro in Agenda"}
+                  </button>
                   <button onClick={resetPlan} className="w-full text-[12px] text-[#52525B] underline">
                     ← Nuova pianificazione
                   </button>

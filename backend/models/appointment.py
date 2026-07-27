@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, Field
+from typing import List, Optional
 
 class AppointmentIn(BaseModel):
     client_id: Optional[str] = None
@@ -9,3 +9,12 @@ class AppointmentIn(BaseModel):
     end: Optional[str] = None
     location: Optional[str] = ""
     status: str = "pianificato"
+
+
+class AppointmentBulkIn(BaseModel):
+    """Creazione in blocco, usata dal pianificatore giro visite per salvare
+    tutte le tappe calcolate come appuntamenti in un'unica richiesta. Stesso
+    tetto del numero massimo di clienti del pianificatore (MAX_ROUTE_CLIENTS),
+    per lo stesso motivo: evitare un numero enorme di push verso Google
+    Calendar in un colpo solo."""
+    appointments: List[AppointmentIn] = Field(..., min_length=1, max_length=50)
