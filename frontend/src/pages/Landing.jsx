@@ -3,6 +3,8 @@ import { Helmet } from "react-helmet-async";
 import {
   Users, KanbanSquare, CalendarDays, Map, FileText, Coins,
   Building2, Package, Sparkles, Zap, Check, ArrowRight, ShieldCheck,
+  Calendar, PhoneCall, AlertTriangle, Banknote, Navigation, Target,
+  LayoutDashboard,
 } from "lucide-react";
 import usePlans from "../hooks/usePlans";
 
@@ -16,6 +18,125 @@ const FEATURES = [
   { icon: Building2, title: "Multi-mandante", desc: "Gestisci più mandanti e listini contemporaneamente, ognuno con le proprie regole di commissione." },
   { icon: Sparkles, title: "Assistente AI", desc: "Aggiungi clienti, appuntamenti e note parlando o scrivendo: l'AI aggiorna il CRM al posto tuo." },
 ];
+
+// Ricostruzione stilizzata della schermata Dashboard (non uno screenshot
+// reale): stessi colori/layout dell'app (vedi Dashboard.jsx) con dati di
+// esempio, per non dipendere da un file immagine esterno né mostrare dati
+// veri/demo che potrebbero cambiare o svuotarsi (vedi il reset periodico
+// dell'account demo).
+function PhoneMockupScreen() {
+  const stats = [
+    { icon: Calendar, value: "7", label: "appuntamenti" },
+    { icon: PhoneCall, value: "3", label: "da richiamare" },
+    { icon: AlertTriangle, value: "2", label: "offerte in scadenza" },
+    { icon: Banknote, value: "4", label: "pagamenti" },
+    { icon: Navigation, value: "38 km", label: "previsti" },
+    { icon: Target, value: "€180", label: "obiettivo giorno" },
+  ];
+  return (
+    <div className="h-full w-full bg-[#F9F9F8] overflow-hidden text-[#0A0A0A] flex flex-col">
+      <div className="px-3.5 pt-7 pb-3">
+        <div className="font-mono text-[6px] uppercase tracking-[0.2em] text-[#FF5A00] mb-1">
+          Cruscotto · Lunedì 27 Luglio
+        </div>
+        <div className="font-cabinet font-black text-[15px] tracking-tight leading-none">Buongiorno, agente.</div>
+      </div>
+
+      <div className="mx-3 bg-white border border-[#E4E4E1] rounded-md overflow-hidden shrink-0">
+        <div className="px-2.5 pt-2 font-mono text-[6px] uppercase tracking-[0.15em] text-[#FF5A00]">Oggi</div>
+        <div className="grid grid-cols-3 gap-y-1.5 px-2 py-2">
+          {stats.map(({ icon: Icon, value, label }) => (
+            <div key={label} className="flex items-center gap-1">
+              <div className="w-4 h-4 rounded bg-[#F3F3F1] flex items-center justify-center shrink-0">
+                <Icon className="w-2 h-2 text-[#0A192F]" strokeWidth={2} />
+              </div>
+              <div className="min-w-0 leading-none">
+                <div className="font-cabinet font-black text-[8px] leading-none">{value}</div>
+                <div className="text-[4.5px] text-[#52525B] truncate">{label}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mx-2 mb-2 flex items-start gap-1 bg-[#FFF7ED] border border-[#FED7AA] rounded px-1.5 py-1.5">
+          <Sparkles className="w-2 h-2 text-[#FF5A00] shrink-0 mt-0.5" />
+          <div className="text-[5px] text-[#0A0A0A] leading-snug">
+            <div className="font-mono text-[4px] uppercase tracking-widest text-[#FF5A00] mb-0.5">Suggerimento AI</div>
+            Visita prima Rossi Spa: l'offerta scade venerdì.
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-1.5 px-3 mt-2 shrink-0">
+        {[
+          { label: "Fatturato vinto", value: "€10.126" },
+          { label: "Provvigioni", value: "€3.313" },
+        ].map(({ label, value }) => (
+          <div key={label} className="bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5">
+            <div className="font-mono text-[4px] uppercase tracking-widest text-[#A1A1AA]">{label}</div>
+            <div className="font-cabinet font-black text-[9px] mt-0.5">{value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mx-3 mt-2 bg-white border border-[#E4E4E1] rounded-md px-2.5 py-2 shrink-0">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-1">
+            <Target className="w-2 h-2 text-[#FF5A00]" />
+            <span className="font-mono text-[4.5px] uppercase tracking-widest text-[#52525B]">Fatturato del mese</span>
+          </div>
+          <span className="font-mono text-[6px] font-semibold">100%</span>
+        </div>
+        <div className="h-1 bg-[#F3F3F1] rounded-full overflow-hidden">
+          <div className="h-full bg-[#FF5A00] rounded-full" style={{ width: "100%" }} />
+        </div>
+      </div>
+
+      <div className="mx-3 mt-2 bg-white border border-[#E4E4E1] rounded-md px-2.5 py-2 shrink-0">
+        <div className="font-mono text-[4.5px] uppercase tracking-widest text-[#52525B] mb-1.5">Andamento mensile</div>
+        <div className="flex items-end gap-1 h-8">
+          {[35, 55, 40, 70, 50, 90, 65].map((h, i) => (
+            <div key={i} className="flex-1 rounded-t-sm bg-[#0A192F]" style={{ height: `${h}%`, opacity: i === 5 ? 1 : 0.35 }} />
+          ))}
+        </div>
+      </div>
+
+      {/* Riempie lo spazio restante, così la barra di navigazione resta
+          sempre in fondo allo schermo indipendentemente da quanto contenuto
+          c'è sopra. */}
+      <div className="flex-1" />
+
+      <div className="shrink-0 border-t border-[#E4E4E1] bg-white flex items-stretch justify-around px-1 py-1.5">
+        {[
+          { icon: LayoutDashboard, label: "Home", active: true },
+          { icon: Users, label: "Clienti" },
+          { icon: CalendarDays, label: "Agenda" },
+          { icon: Map, label: "Mappa" },
+          { icon: FileText, label: "Offerte" },
+        ].map(({ icon: Icon, label, active }) => (
+          <div key={label} className="flex flex-col items-center gap-0.5 px-1">
+            <Icon className="w-2.5 h-2.5" strokeWidth={active ? 2.5 : 1.75} color={active ? "#FF5A00" : "#A1A1AA"} />
+            <span className={`text-[3.5px] font-mono uppercase tracking-widest ${active ? "text-[#FF5A00]" : "text-[#A1A1AA]"}`}>{label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PhoneMockup() {
+  return (
+    <div className="relative mx-auto md:mx-0 w-[230px] sm:w-[260px] select-none" aria-hidden="true">
+      <div className="relative bg-[#0A192F] rounded-[2.2rem] p-2.5 shadow-2xl ring-1 ring-black/10">
+        <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-16 h-4 bg-[#0A192F] rounded-b-lg z-10" />
+        <div className="relative bg-white rounded-[1.7rem] overflow-hidden aspect-[9/19.5]">
+          <PhoneMockupScreen />
+        </div>
+      </div>
+      {/* Ombra/riflesso decorativo dietro il telefono */}
+      <div className="absolute -z-10 -inset-6 bg-gradient-to-br from-[#FF5A00]/10 to-[#0A192F]/10 rounded-[3rem] blur-2xl" />
+    </div>
+  );
+}
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -89,34 +210,41 @@ export default function Landing() {
 
       {/* Hero */}
       <main>
-        <section className="px-6 pt-20 pb-16 max-w-5xl mx-auto text-center">
-          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-4">
-            Il CRM per agenti plurimandatari
-          </div>
-          <h1 className="font-cabinet font-black text-4xl md:text-6xl tracking-tight mb-6 max-w-3xl mx-auto">
-            Gestisci clienti, agenda e provvigioni. Tutto in un posto solo.
-          </h1>
-          <p className="text-[16px] md:text-[18px] text-[#52525B] max-w-2xl mx-auto mb-10">
-            SALESFLY è il gestionale pensato per chi vive di visite, mandanti e provvigioni.
-            Clienti, pipeline lead, agenda, offerte e calcolo provvigioni automatico, con
-            un assistente AI che aggiorna il CRM per te.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <button
-              onClick={() => navigate("/richiedi-demo")}
-              className="w-full sm:w-auto px-6 py-3.5 bg-[#FF5A00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors flex items-center justify-center gap-2"
-            >
-              Prova gratis {trialDays} giorni <ArrowRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => navigate("/prezzi")}
-              className="w-full sm:w-auto px-6 py-3.5 border-2 border-[#0A192F] text-[#0A192F] rounded-lg text-[15px] font-bold hover:bg-[#0A192F] hover:text-white transition-colors"
-            >
-              Vedi i prezzi
-            </button>
-          </div>
-          <div className="font-mono text-[11px] uppercase tracking-widest text-[#A1A1AA] mt-5">
-            Nessuna carta di credito richiesta
+        <section className="px-6 pt-16 pb-16 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-8 items-center">
+            <div className="order-1">
+              <PhoneMockup />
+            </div>
+            <div className="order-2 text-center md:text-left">
+              <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-4">
+                Il CRM per agenti plurimandatari
+              </div>
+              <h1 className="font-cabinet font-black text-4xl md:text-5xl tracking-tight mb-6">
+                Gestisci clienti, agenda e provvigioni. Tutto in un posto solo.
+              </h1>
+              <p className="text-[16px] md:text-[18px] text-[#52525B] mb-10">
+                SALESFLY è il gestionale pensato per chi vive di visite, mandanti e provvigioni.
+                Clienti, pipeline lead, agenda, offerte e calcolo provvigioni automatico, con
+                un assistente AI che aggiorna il CRM per te.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center md:items-start justify-center md:justify-start gap-3">
+                <button
+                  onClick={() => navigate("/richiedi-demo")}
+                  className="w-full sm:w-auto px-6 py-3.5 bg-[#FF5A00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors flex items-center justify-center gap-2"
+                >
+                  Prova gratis {trialDays} giorni <ArrowRight className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => navigate("/prezzi")}
+                  className="w-full sm:w-auto px-6 py-3.5 border-2 border-[#0A192F] text-[#0A192F] rounded-lg text-[15px] font-bold hover:bg-[#0A192F] hover:text-white transition-colors"
+                >
+                  Vedi i prezzi
+                </button>
+              </div>
+              <div className="font-mono text-[11px] uppercase tracking-widest text-[#A1A1AA] mt-5">
+                Nessuna carta di credito richiesta
+              </div>
+            </div>
           </div>
         </section>
 
