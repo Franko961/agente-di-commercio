@@ -38,6 +38,15 @@ class SubscriptionService:
             "trial_days": TRIAL_DAYS,
         }
 
+    async def _forbid_if_demo(self, user_id: str) -> dict:
+        """L'account demo condiviso non deve poter avviare pagamenti/abbonamenti
+        reali (Stripe/PayPal) né cancellarli: nessun visitatore anonimo deve
+        poter toccare denaro vero o lo stato di fatturazione condiviso."""
+        u = await self.repo.find_by_id(user_id)
+        if u and u.get("is_demo"):
+            raise HTTPException(403, "Questa azione non è disponibile nell'account demo")
+        return u
+
     async def get_status(self, user: dict) -> dict:
         u = await self.repo.find_by_id(user["id"])
         return {
@@ -88,7 +97,7 @@ class SubscriptionService:
             stripe.api_key = STRIPE_SECRET_KEY
 
             # Crea o recupera customer Stripe
-            u = await self.repo.find_by_id(user["id"])
+            u = await self._forbid_if_demo(user["id"])
             customer_id = u.get("stripe_customer_id")
             if not customer_id:
                 customer = stripe.Customer.create(email=user["email"], name=u.get("name", ""))
@@ -196,6 +205,7 @@ class SubscriptionService:
         al nostro frontend, invece di affidarci a un link statico che non
         permette di controllare dove l'utente viene reindirizzato dopo il
         pagamento."""
+        await self._forbid_if_demo(user["id"])
         plan_id = payload.get("plan", "base")
         plan = PLANS.get(plan_id)
         if not plan or not plan.get("paypal_plan_id"):
@@ -232,6 +242,7 @@ class SubscriptionService:
         Il frontend segnala solo che l'utente ha approvato: il backend
         interroga sempre PayPal per lo stato reale prima di attivare
         qualunque funzionalità a pagamento."""
+        await self._forbid_if_demo(user["id"])
         subscription_id = payload.get("subscription_id")
         if not subscription_id:
             raise HTTPException(400, "subscription_id mancante")
@@ -305,7 +316,7 @@ class SubscriptionService:
         return {"ok": True}
 
     async def cancel_subscription(self, user: dict) -> dict:
-        u = await self.repo.find_by_id(user["id"])
+        u = await self._forbid_if_demo(user["id"])
         # Cancella su Stripe se presente
         if u.get("stripe_subscription_id") and STRIPE_SECRET_KEY:
             try:

@@ -25,10 +25,17 @@ ALERT_COOLDOWN_SECONDS = 60 * 60
 ALERT_ERROR_RATE_THRESHOLD_PCT = 20
 ALERT_MIN_SAMPLE_SIZE = 5
 
+# Ogni quanto ripulire e riseminare i dati dell'account demo condiviso
+# (is_demo=True): abbastanza raro da non interrompere una sessione di prova
+# in corso (una demo dura tipicamente pochi minuti), abbastanza frequente da
+# non lasciare accumulare a lungo le modifiche dei visitatori.
+DEMO_RESET_INTERVAL_SECONDS = 6 * 60 * 60
+
 _gcal_sync_task = None
 _stuck_ai_action_task = None
 _health_alert_task = None
 _automation_engine_task = None
+_demo_reset_task = None
 _last_alert_sent_at = None
 
 
@@ -64,6 +71,20 @@ async def _stuck_ai_action_cleanup_loop() -> None:
             raise
         except Exception as e:
             logger.error(f"Ciclo di recupero azioni AI bloccate fallito: {e}")
+
+
+async def _demo_reset_loop() -> None:
+    from services.demo_reset_service import demo_reset_service
+    while True:
+        try:
+            await asyncio.sleep(DEMO_RESET_INTERVAL_SECONDS)
+            count = await demo_reset_service.reset_all_demo_accounts()
+            if count:
+                logger.info(f"Reset periodico demo: {count} account ripuliti e riseminati")
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.error(f"Ciclo di reset periodico account demo fallito: {e}")
 
 
 # Endpoint le cui risposte d'errore sono l'esito ATTESO di un controllo, non
@@ -238,11 +259,12 @@ async def run_startup() -> None:
     await db.automation_runs.create_index([("automation_id", 1), ("target_id", 1)], unique=True)
     await db.automation_notifications.create_index([("user_id", 1), ("created_at", -1)])
 
-    global _gcal_sync_task, _stuck_ai_action_task, _health_alert_task, _automation_engine_task
+    global _gcal_sync_task, _stuck_ai_action_task, _health_alert_task, _automation_engine_task, _demo_reset_task
     _gcal_sync_task = asyncio.create_task(_google_calendar_sync_loop())
     _stuck_ai_action_task = asyncio.create_task(_stuck_ai_action_cleanup_loop())
     _health_alert_task = asyncio.create_task(_health_alert_loop())
     _automation_engine_task = asyncio.create_task(_automation_engine_loop())
+    _demo_reset_task = asyncio.create_task(_demo_reset_loop())
 
 
 async def run_shutdown() -> None:
@@ -254,4 +276,6 @@ async def run_shutdown() -> None:
         _health_alert_task.cancel()
     if _automation_engine_task:
         _automation_engine_task.cancel()
+    if _demo_reset_task:
+        _demo_reset_task.cancel()
     close_db()

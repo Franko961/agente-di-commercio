@@ -221,7 +221,16 @@ class GoogleCalendarService:
             "extendedProperties": {"private": {"salesfly_appointment_id": appointment["id"]}},
         }
 
+    async def _is_demo_user(self, user_id: str) -> bool:
+        user = await self.user_repo.find_by_id(user_id)
+        return bool(user and user.get("is_demo"))
+
     async def push_create(self, user_id: str, appointment: dict) -> None:
+        # Nessuna sincronizzazione reale verso Google per l'account demo
+        # condiviso: anche se collegasse un account Google vero, non deve
+        # scrivere/modificare eventi reali per conto di visitatori anonimi.
+        if await self._is_demo_user(user_id):
+            return
         conn = await self.repo.find_by_user(user_id)
         if not conn:
             return
@@ -245,6 +254,8 @@ class GoogleCalendarService:
             logger.error(f"Push create evento Google fallito per user {user_id}: {e}")
 
     async def push_update(self, user_id: str, appointment: dict) -> None:
+        if await self._is_demo_user(user_id):
+            return
         google_event_id = appointment.get("google_event_id")
         if not google_event_id:
             await self.push_create(user_id, appointment)
@@ -274,6 +285,8 @@ class GoogleCalendarService:
             logger.error(f"Push update evento Google fallito per user {user_id}: {e}")
 
     async def push_delete(self, user_id: str, google_event_id: Optional[str]) -> None:
+        if await self._is_demo_user(user_id):
+            return
         if not google_event_id:
             return
         conn = await self.repo.find_by_user(user_id)
