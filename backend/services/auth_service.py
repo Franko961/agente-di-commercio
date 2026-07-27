@@ -170,6 +170,14 @@ class AuthService:
         user = await self.repo.find_by_email(email)
         if not user:
             return generic
+        if user.get("is_demo"):
+            # L'account demo condiviso ha credenziali pubbliche: emettere un
+            # token di reset valido permetterebbe a chiunque di prendere il
+            # controllo dell'account (o bloccarne l'accesso ad altri
+            # visitatori che lo usano in quel momento). Stessa risposta
+            # generica delle altre uscite anticipate, per non rivelarne
+            # l'esistenza.
+            return generic
 
         token, token_hash, expires_at = generate_reset_token()
         await self.repo.update_by_id(user["id"], {
@@ -221,7 +229,11 @@ class AuthService:
 
         token_hash = hash_reset_token(payload.token)
         user = await self.repo.find_by_reset_token_hash(token_hash)
-        if not user:
+        if not user or user.get("is_demo"):
+            # Difesa in profondità: forgot_password non emette mai un token
+            # per l'account demo (vedi sopra), ma se uno fosse comunque
+            # presente (es. impostato manualmente) il reset resta comunque
+            # bloccato qui.
             raise HTTPException(status_code=400, detail="Link non valido o già utilizzato")
 
         expires_raw = user.get("reset_token_expires")
