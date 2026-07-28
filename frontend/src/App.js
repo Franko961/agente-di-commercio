@@ -31,6 +31,7 @@ import RichiediDemo from "./pages/RichiediDemo";
 import BlogIndex from "./pages/BlogIndex";
 import BlogPost from "./pages/BlogPost";
 import GuidedTour from "./pages/GuidedTour";
+import HelpCenter from "./pages/HelpCenter";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Privacy from "./pages/Privacy";
@@ -76,6 +77,7 @@ function App() {
                 <Route path="/app/ai" element={<AIAssistant />} />
                 <Route path="/app/abbonamento" element={<Subscription />} />
                 <Route path="/app/impostazioni" element={<Settings />} />
+                <Route path="/app/aiuto" element={<HelpCenter />} />
                 <Route path="/app/admin" element={<AdminRoute><Admin /></AdminRoute>} />
               </Route>
             </Routes>

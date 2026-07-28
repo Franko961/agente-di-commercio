@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet, useLocation, NavLink, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, NavLink, useNavigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
@@ -10,7 +10,8 @@ import { useAuth } from "../contexts/AuthContext";
 import { useMandante } from "../contexts/MandanteContext";
 import {
   LayoutDashboard, Users, KanbanSquare, CalendarDays, Map, FileText, ShoppingCart,
-  Coins, Building2, Package, Folder, Sparkles, Zap, LogOut, CreditCard, ShieldCheck, Receipt
+  Coins, Building2, Package, Folder, Sparkles, Zap, LogOut, CreditCard, ShieldCheck, Receipt,
+  HelpCircle,
 } from "lucide-react";
 
 const fullNav = [
@@ -48,6 +49,7 @@ export default function Layout() {
     "/app/spese": "Spese",
     "/app/prodotti": "Prodotti & Listini", "/app/documenti": "Documenti",
     "/app/automazioni": "Automazioni", "/app/ai": "Assistente AI",
+    "/app/aiuto": "Centro assistenza",
   };
   const baseTitle = Object.entries(titles).find(([k]) => location.pathname === k || (k !== "/app" && location.pathname.startsWith(k)))?.[1] || "";
 
@@ -80,6 +82,13 @@ export default function Layout() {
             >
               cambia
             </button>
+            <Link
+              to="/app/aiuto"
+              data-testid="mobile-help-center-link"
+              className="w-8 h-8 flex items-center justify-center rounded-md text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] transition-colors"
+            >
+              <HelpCircle className="w-4 h-4" strokeWidth={1.75} />
+            </Link>
             <NotificationBell />
           </div>
         </header>

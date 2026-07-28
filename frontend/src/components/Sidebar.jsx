@@ -1,7 +1,8 @@
 import { NavLink, Link, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, KanbanSquare, CalendarDays, Map, FileText, ShoppingCart,
-  Coins, Building2, Package, Folder, Sparkles, Zap, LogOut, ArrowLeftRight, ShieldCheck, CreditCard, Settings as SettingsIcon, Receipt
+  Coins, Building2, Package, Folder, Sparkles, Zap, LogOut, ArrowLeftRight, ShieldCheck, CreditCard, Settings as SettingsIcon, Receipt,
+  HelpCircle,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useMandante } from "../contexts/MandanteContext";
@@ -50,7 +51,17 @@ export default function Sidebar({ collapsed, onToggle }) {
             <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-0.5">gestionale</div>
           </div>
         </div>
-        <NotificationBell />
+        <div className="flex items-center gap-1 shrink-0">
+          <Link
+            to="/app/aiuto"
+            data-testid="help-center-link"
+            title="Centro assistenza"
+            className="w-8 h-8 flex items-center justify-center rounded-md text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] transition-colors"
+          >
+            <HelpCircle className="w-4 h-4" strokeWidth={1.75} />
+          </Link>
+          <NotificationBell />
+        </div>
       </div>
 
       {/* Mandante switcher */}
