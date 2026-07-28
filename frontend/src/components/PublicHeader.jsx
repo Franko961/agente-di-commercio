@@ -1,33 +1,66 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Menu, X } from "lucide-react";
+
+const NAV_LINKS = [
+  { to: "/blog", label: "Guide" },
+  { to: "/tour", label: "Tour guidato" },
+  { to: "/perche-salesfly", label: "Perché SalesFly" },
+  { to: "/prezzi", label: "Prezzi" },
+];
 
 export default function PublicHeader() {
   const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
 
   return (
-    <header className="border-b border-[#E4E4E1] bg-white px-6 py-4 flex items-center justify-between">
-      <Link to="/" className="flex items-center gap-2">
-        <div className="w-9 h-9 flex items-center justify-center shrink-0">
-          <img src="/logo-mark.png" alt="SALESFLY" className="w-full h-full object-contain" />
+    <header className="border-b border-[#E4E4E1] bg-white">
+      <div className="px-6 py-4 flex items-center justify-between">
+        <Link to="/" className="flex items-center gap-2" onClick={() => setOpen(false)}>
+          <div className="w-9 h-9 flex items-center justify-center shrink-0">
+            <img src="/logo-mark.png" alt="SALESFLY" className="w-full h-full object-contain" />
+          </div>
+          <span className="font-cabinet font-black text-lg">SALESFLY.</span>
+        </Link>
+        <nav className="hidden md:flex items-center gap-6 text-[14px] font-medium text-[#3F3F46]">
+          {NAV_LINKS.map((l) => (
+            <Link key={l.to} to={l.to} className="hover:text-[#0A192F] transition-colors">{l.label}</Link>
+          ))}
+        </nav>
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate("/login")} className="text-[13px] text-[#52525B] hover:text-[#0A192F]">
+            Accedi
+          </button>
+          <button
+            onClick={() => navigate("/richiedi-demo")}
+            className="px-4 py-2 bg-[#0A192F] text-white rounded-md text-[13px] font-medium hover:bg-[#172A45] transition-colors"
+          >
+            Inizia gratis
+          </button>
+          <button
+            onClick={() => setOpen((v) => !v)}
+            data-testid="mobile-nav-toggle"
+            aria-label="Menu"
+            className="md:hidden p-1.5 text-[#0A192F]"
+          >
+            {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
-        <span className="font-cabinet font-black text-lg">SALESFLY.</span>
-      </Link>
-      <nav className="hidden md:flex items-center gap-6 text-[14px] font-medium text-[#3F3F46]">
-        <Link to="/blog" className="hover:text-[#0A192F] transition-colors">Guide</Link>
-        <Link to="/tour" className="hover:text-[#0A192F] transition-colors">Tour guidato</Link>
-        <Link to="/perche-salesfly" className="hover:text-[#0A192F] transition-colors">Perché SalesFly</Link>
-        <Link to="/prezzi" className="hover:text-[#0A192F] transition-colors">Prezzi</Link>
-      </nav>
-      <div className="flex items-center gap-3">
-        <button onClick={() => navigate("/login")} className="text-[13px] text-[#52525B] hover:text-[#0A192F]">
-          Accedi
-        </button>
-        <button
-          onClick={() => navigate("/richiedi-demo")}
-          className="px-4 py-2 bg-[#0A192F] text-white rounded-md text-[13px] font-medium hover:bg-[#172A45] transition-colors"
-        >
-          Inizia gratis
-        </button>
       </div>
+      {open && (
+        <nav className="md:hidden border-t border-[#E4E4E1] px-6 py-2 flex flex-col bg-white">
+          {NAV_LINKS.map((l) => (
+            <Link
+              key={l.to}
+              to={l.to}
+              onClick={() => setOpen(false)}
+              className="py-3 text-[14px] font-medium text-[#3F3F46] border-b border-[#F3F3F1] last:border-b-0"
+            >
+              {l.label}
+            </Link>
+          ))}
+        </nav>
+      )}
     </header>
   );
 }

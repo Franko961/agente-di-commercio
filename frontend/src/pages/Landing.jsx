@@ -1,11 +1,20 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import {
   Users, KanbanSquare, CalendarDays, Map, FileText, Coins,
   Building2, Package, Sparkles, Zap, Check, ArrowRight, ShieldCheck,
   Calendar, PhoneCall, AlertTriangle, Banknote, Navigation, Target,
-  LayoutDashboard,
+  LayoutDashboard, Menu, X,
 } from "lucide-react";
+
+const LANDING_NAV_LINKS = [
+  { href: "#funzionalita", label: "Funzionalità" },
+  { to: "/prezzi", label: "Prezzi" },
+  { to: "/blog", label: "Guide" },
+  { to: "/tour", label: "Tour guidato" },
+  { to: "/perche-salesfly", label: "Perché SalesFly" },
+];
 import usePlans from "../hooks/usePlans";
 
 const FEATURES = [
@@ -141,6 +150,7 @@ function PhoneMockup() {
 export default function Landing() {
   const navigate = useNavigate();
   const { plansById, trialDays } = usePlans();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#F9F9F8]">
@@ -183,31 +193,66 @@ export default function Landing() {
       </Helmet>
 
       {/* Header */}
-      <header className="border-b border-[#E4E4E1] bg-white px-6 py-4 flex items-center justify-between sticky top-0 z-30">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="w-9 h-9 flex items-center justify-center shrink-0">
-            <img src="/logo-mark.png" alt="SALESFLY" className="w-full h-full object-contain" />
+      <header className="border-b border-[#E4E4E1] bg-white sticky top-0 z-30">
+        <div className="px-6 py-4 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2" onClick={() => setMobileNavOpen(false)}>
+            <div className="w-9 h-9 flex items-center justify-center shrink-0">
+              <img src="/logo-mark.png" alt="SALESFLY" className="w-full h-full object-contain" />
+            </div>
+            <span className="font-cabinet font-black text-lg">SALESFLY.</span>
+          </Link>
+          <nav className="hidden md:flex items-center gap-6 text-[14px] font-medium text-[#3F3F46]">
+            {LANDING_NAV_LINKS.map((l) =>
+              l.href
+                ? <a key={l.href} href={l.href} className="hover:text-[#0A192F] transition-colors">{l.label}</a>
+                : <Link key={l.to} to={l.to} className="hover:text-[#0A192F] transition-colors">{l.label}</Link>
+            )}
+          </nav>
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate("/login")} className="text-[13px] text-[#52525B] hover:text-[#0A192F]">
+              Accedi
+            </button>
+            <button
+              onClick={() => navigate("/richiedi-demo")}
+              className="px-4 py-2 bg-[#0A192F] text-white rounded-md text-[13px] font-medium hover:bg-[#172A45] transition-colors"
+            >
+              Inizia gratis
+            </button>
+            <button
+              onClick={() => setMobileNavOpen((v) => !v)}
+              data-testid="mobile-nav-toggle"
+              aria-label="Menu"
+              className="md:hidden p-1.5 text-[#0A192F]"
+            >
+              {mobileNavOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
-          <span className="font-cabinet font-black text-lg">SALESFLY.</span>
-        </Link>
-        <nav className="hidden md:flex items-center gap-6 text-[14px] font-medium text-[#3F3F46]">
-          <a href="#funzionalita" className="hover:text-[#0A192F] transition-colors">Funzionalità</a>
-          <Link to="/prezzi" className="hover:text-[#0A192F] transition-colors">Prezzi</Link>
-          <Link to="/blog" className="hover:text-[#0A192F] transition-colors">Guide</Link>
-          <Link to="/tour" className="hover:text-[#0A192F] transition-colors">Tour guidato</Link>
-          <Link to="/perche-salesfly" className="hover:text-[#0A192F] transition-colors">Perché SalesFly</Link>
-        </nav>
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/login")} className="text-[13px] text-[#52525B] hover:text-[#0A192F]">
-            Accedi
-          </button>
-          <button
-            onClick={() => navigate("/richiedi-demo")}
-            className="px-4 py-2 bg-[#0A192F] text-white rounded-md text-[13px] font-medium hover:bg-[#172A45] transition-colors"
-          >
-            Inizia gratis
-          </button>
         </div>
+        {mobileNavOpen && (
+          <nav className="md:hidden border-t border-[#E4E4E1] px-6 py-2 flex flex-col bg-white">
+            {LANDING_NAV_LINKS.map((l) =>
+              l.href ? (
+                <a
+                  key={l.href}
+                  href={l.href}
+                  onClick={() => setMobileNavOpen(false)}
+                  className="py-3 text-[14px] font-medium text-[#3F3F46] border-b border-[#F3F3F1] last:border-b-0"
+                >
+                  {l.label}
+                </a>
+              ) : (
+                <Link
+                  key={l.to}
+                  to={l.to}
+                  onClick={() => setMobileNavOpen(false)}
+                  className="py-3 text-[14px] font-medium text-[#3F3F46] border-b border-[#F3F3F1] last:border-b-0"
+                >
+                  {l.label}
+                </Link>
+              )
+            )}
+          </nav>
+        )}
       </header>
 
       {/* Hero */}
