@@ -211,12 +211,12 @@ export default function Landing() {
       {/* Hero */}
       <main>
         <section className="px-6 pt-16 pb-16 max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-8 items-center">
+          <div className="grid grid-cols-1 md:grid-cols-[340px_1fr] gap-10 md:gap-6 items-center">
             <div className="order-1">
               <PhoneMockup />
             </div>
-            <div className="order-2 text-center md:text-left">
-              <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-4">
+            <div className="order-2 text-center">
+              <div className="inline-block font-mono text-[12px] font-bold uppercase tracking-[0.15em] text-[#FF5A00] bg-[#FF5A00]/10 border border-[#FF5A00]/20 rounded-full px-4 py-1.5 mb-5">
                 Il CRM per agenti plurimandatari
               </div>
               <h1 className="font-cabinet font-black text-4xl md:text-5xl tracking-tight mb-6">
@@ -227,7 +227,7 @@ export default function Landing() {
                 Clienti, pipeline lead, agenda, offerte e calcolo provvigioni automatico, con
                 un assistente AI che aggiorna il CRM per te.
               </p>
-              <div className="flex flex-col sm:flex-row items-center md:items-start justify-center md:justify-start gap-3">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button
                   onClick={() => navigate("/richiedi-demo")}
                   className="w-full sm:w-auto px-6 py-3.5 bg-[#FF5A00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors flex items-center justify-center gap-2"
