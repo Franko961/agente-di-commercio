@@ -13,6 +13,7 @@ export default function PublicHeader() {
       </Link>
       <nav className="hidden md:flex items-center gap-6 text-[14px] font-medium text-[#3F3F46]">
         <Link to="/blog" className="hover:text-[#0A192F] transition-colors">Guide</Link>
+        <Link to="/tour" className="hover:text-[#0A192F] transition-colors">Tour guidato</Link>
         <Link to="/prezzi" className="hover:text-[#0A192F] transition-colors">Prezzi</Link>
       </nav>
       <div className="flex items-center gap-3">

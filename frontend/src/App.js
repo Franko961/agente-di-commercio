@@ -30,6 +30,7 @@ import Pricing from "./pages/Pricing";
 import RichiediDemo from "./pages/RichiediDemo";
 import BlogIndex from "./pages/BlogIndex";
 import BlogPost from "./pages/BlogPost";
+import GuidedTour from "./pages/GuidedTour";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Privacy from "./pages/Privacy";
@@ -51,6 +52,7 @@ function App() {
               <Route path="/richiedi-demo" element={<RichiediDemo />} />
               <Route path="/blog" element={<BlogIndex />} />
               <Route path="/blog/:slug" element={<BlogPost />} />
+              <Route path="/tour" element={<GuidedTour />} />
               <Route path="/password-dimenticata" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/privacy" element={<Privacy />} />
