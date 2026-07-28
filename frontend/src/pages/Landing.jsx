@@ -195,6 +195,7 @@ export default function Landing() {
           <Link to="/prezzi" className="hover:text-[#0A192F] transition-colors">Prezzi</Link>
           <Link to="/blog" className="hover:text-[#0A192F] transition-colors">Guide</Link>
           <Link to="/tour" className="hover:text-[#0A192F] transition-colors">Tour guidato</Link>
+          <Link to="/perche-salesfly" className="hover:text-[#0A192F] transition-colors">Perché SalesFly</Link>
         </nav>
         <div className="flex items-center gap-3">
           <button onClick={() => navigate("/login")} className="text-[13px] text-[#52525B] hover:text-[#0A192F]">
