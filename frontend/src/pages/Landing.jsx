@@ -208,13 +208,13 @@ export default function Landing() {
                 : <Link key={l.to} to={l.to} className="hover:text-[#0A192F] transition-colors">{l.label}</Link>
             )}
           </nav>
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate("/login")} className="text-[13px] text-[#52525B] hover:text-[#0A192F]">
+          <div className="flex items-center gap-1.5 sm:gap-3">
+            <button onClick={() => navigate("/login")} className="hidden sm:inline-block text-[13px] text-[#52525B] hover:text-[#0A192F]">
               Accedi
             </button>
             <button
               onClick={() => navigate("/richiedi-demo")}
-              className="px-4 py-2 bg-[#0A192F] text-white rounded-md text-[13px] font-medium hover:bg-[#172A45] transition-colors"
+              className="px-3 py-1.5 sm:px-4 sm:py-2 bg-[#0A192F] text-white rounded-md text-[12px] sm:text-[13px] font-medium hover:bg-[#172A45] transition-colors whitespace-nowrap"
             >
               Inizia gratis
             </button>
@@ -222,7 +222,7 @@ export default function Landing() {
               onClick={() => setMobileNavOpen((v) => !v)}
               data-testid="mobile-nav-toggle"
               aria-label="Menu"
-              className="md:hidden p-1.5 text-[#0A192F]"
+              className="md:hidden p-1.5 text-[#0A192F] shrink-0"
             >
               {mobileNavOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -251,6 +251,13 @@ export default function Landing() {
                 </Link>
               )
             )}
+            <Link
+              to="/login"
+              onClick={() => setMobileNavOpen(false)}
+              className="py-3 text-[14px] font-medium text-[#3F3F46]"
+            >
+              Accedi
+            </Link>
           </nav>
         )}
       </header>
