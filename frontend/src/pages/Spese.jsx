@@ -35,13 +35,53 @@ const CATEGORIES = [
 ];
 const catMeta = (value) => CATEGORIES.find((c) => c.value === value) || CATEGORIES[CATEGORIES.length - 1];
 
-const EMPTY = { date: todayIso(), category: "carburante", description: "", amount: 0, notes: "", receipt_document_id: null, receipt_filename: null };
+const emptyExpense = () => ({ date: todayIso(), category: "carburante", description: "", amount: 0, notes: "", receipt_document_id: null, receipt_filename: null });
+
+// Aprire la fotocamera nativa da mobile manda l'app in background: su molti
+// telefoni il sistema operativo libera memoria "uccidendo" la scheda del
+// browser, così al ritorno dalla fotocamera la pagina si ricarica da zero e
+// il form "Nuova spesa" aperto (con l'eventuale scontrino già allegato) va
+// perso. Salviamo quindi una bozza in sessionStorage ad ogni modifica del
+// form, e la ripristiniamo automaticamente se la pagina si ricarica mentre
+// un dialog è aperto.
+const DRAFT_KEY = "salesfly:expense-draft";
+function loadDraft() {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+function saveDraft(draft) {
+  try {
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  } catch {}
+}
+function clearDraft() {
+  try {
+    sessionStorage.removeItem(DRAFT_KEY);
+  } catch {}
+}
 
 export default function Spese() {
   const [expenses, setExpenses] = useState([]);
   const [open, setOpen] = useState(false);
+  const [newExpenseInitial, setNewExpenseInitial] = useState(emptyExpense());
   const [editTarget, setEditTarget] = useState(null);
   const [filter, setFilter] = useState("");
+
+  useEffect(() => {
+    const draft = loadDraft();
+    if (!draft) return;
+    if (draft.type === "new") {
+      setNewExpenseInitial(draft.form);
+      setOpen(true);
+    } else if (draft.type === "edit") {
+      setEditTarget(draft.form);
+    }
+    toast.info("Bozza della spesa ripristinata");
+  }, []);
 
   const load = async () => {
     const { data } = await api.get("/expenses", { params: filter ? { category: filter } : {} });
@@ -65,28 +105,38 @@ export default function Spese() {
           <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Note spese</div>
           <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Spese</h1>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) clearDraft(); }}>
           <DialogTrigger asChild>
-            <button data-testid="new-expense-button" className="flex items-center gap-2 px-4 py-2.5 bg-[#0A192F] text-white rounded-md text-[13px] font-medium">
+            <button data-testid="new-expense-button" onClick={() => setNewExpenseInitial(emptyExpense())} className="flex items-center gap-2 px-4 py-2.5 bg-[#0A192F] text-white rounded-md text-[13px] font-medium">
               <Plus className="w-4 h-4" /> Nuova spesa
             </button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Nuova spesa</DialogTitle></DialogHeader>
-            <ExpenseForm initial={EMPTY} onSave={async (f) => { await api.post("/expenses", f); load(); toast.success("Spesa registrata"); setOpen(false); }} />
+            <ExpenseForm
+              initial={newExpenseInitial}
+              onDraftChange={(f) => saveDraft({ type: "new", form: f })}
+              onSave={async (f) => { await api.post("/expenses", f); clearDraft(); load(); toast.success("Spesa registrata"); setOpen(false); }}
+            />
           </DialogContent>
         </Dialog>
       </div>
 
       {/* Dialog modifica */}
-      <Dialog open={!!editTarget} onOpenChange={(v) => !v && setEditTarget(null)}>
+      <Dialog open={!!editTarget} onOpenChange={(v) => { if (!v) { setEditTarget(null); clearDraft(); } }}>
         <DialogContent>
           <DialogHeader><DialogTitle>Modifica spesa</DialogTitle></DialogHeader>
           {editTarget && (
-            <ExpenseForm initial={editTarget} submitLabel="Aggiorna" onSave={async (f) => {
-              await api.put(`/expenses/${editTarget.id}`, f);
-              load(); toast.success("Spesa aggiornata"); setEditTarget(null);
-            }} />
+            <ExpenseForm
+              initial={editTarget}
+              submitLabel="Aggiorna"
+              onDraftChange={(f) => saveDraft({ type: "edit", form: f })}
+              onSave={async (f) => {
+                await api.put(`/expenses/${editTarget.id}`, f);
+                clearDraft();
+                load(); toast.success("Spesa aggiornata"); setEditTarget(null);
+              }}
+            />
           )}
         </DialogContent>
       </Dialog>
@@ -144,11 +194,12 @@ export default function Spese() {
   );
 }
 
-function ExpenseForm({ initial, onSave, submitLabel = "Salva" }) {
+function ExpenseForm({ initial, onSave, onDraftChange, submitLabel = "Salva" }) {
   const [f, setF] = useState(initial);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
   useEffect(() => { setF(initial); }, [initial]);
+  useEffect(() => { onDraftChange?.(f); }, [f]);
 
   const handleFile = async (e) => {
     const file = e.target.files?.[0];
