@@ -210,10 +210,10 @@ export default function Landing() {
       >
         <div className="px-6 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2" onClick={() => setMobileNavOpen(false)}>
-            <div className={`w-9 h-9 flex items-center justify-center shrink-0 ${scrolled ? "animate-logo-pop" : ""}`}>
+            <div className={`w-11 h-11 flex items-center justify-center shrink-0 ${scrolled ? "animate-logo-pop" : ""}`}>
               <img src="/logo-mark.png" alt="SALESFLY" className="w-full h-full object-contain" />
             </div>
-            <span className={`font-cabinet font-black text-lg transition-colors duration-200 ${scrolled ? "text-white" : "text-[#0A0A0A]"}`}>
+            <span className={`font-cabinet font-black text-xl transition-colors duration-200 ${scrolled ? "text-white" : "text-[#0A0A0A]"}`}>
               SALESFLY.
             </span>
           </Link>

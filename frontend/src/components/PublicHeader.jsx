@@ -18,10 +18,10 @@ export default function PublicHeader() {
     <header className="border-b border-[#E4E4E1] bg-white">
       <div className="px-6 py-4 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2" onClick={() => setOpen(false)}>
-          <div className="w-9 h-9 flex items-center justify-center shrink-0">
+          <div className="w-11 h-11 flex items-center justify-center shrink-0">
             <img src="/logo-mark.png" alt="SALESFLY" className="w-full h-full object-contain" />
           </div>
-          <span className="font-cabinet font-black text-lg">SALESFLY.</span>
+          <span className="font-cabinet font-black text-xl">SALESFLY.</span>
         </Link>
         <nav className="hidden md:flex items-center gap-6 text-[14px] font-medium text-[#3F3F46]">
           {NAV_LINKS.map((l) => (
