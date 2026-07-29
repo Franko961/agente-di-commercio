@@ -31,8 +31,15 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const markOnboardingSeen = async () => {
+    // Ottimista: nasconde subito la guida anche se la chiamata al backend
+    // fallisse o fosse lenta, così l'utente non resta bloccato a guardarla.
+    setUser((prev) => (prev ? { ...prev, onboarding_seen: true } : prev));
+    try { await api.post("/auth/onboarding-seen"); } catch (e) {}
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, markOnboardingSeen }}>
       {children}
     </AuthContext.Provider>
   );

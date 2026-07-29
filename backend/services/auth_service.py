@@ -248,5 +248,11 @@ class AuthService:
         })
         return {"ok": True, "message": "Password aggiornata con successo. Ora puoi accedere."}
 
+    async def mark_onboarding_seen(self, user: dict) -> dict:
+        """Segna come vista la mini-guida mostrata al primo accesso in app
+        (Layout.jsx), così non ricompare alle sessioni successive."""
+        await self.repo.update_by_id(user["id"], {"onboarding_seen": True})
+        return {"ok": True}
+
 
 auth_service = AuthService()

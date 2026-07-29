@@ -35,6 +35,11 @@ async def me(user=Depends(get_current_user)):
     return user
 
 
+@router.post("/onboarding-seen")
+async def onboarding_seen(user=Depends(get_current_user)):
+    return await auth_service.mark_onboarding_seen(user)
+
+
 @router.post("/forgot-password")
 async def forgot_password(payload: ForgotPasswordIn, request: Request):
     ip_address = request.client.host if request.client else None

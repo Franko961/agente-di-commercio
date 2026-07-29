@@ -4,6 +4,7 @@ import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
 import VoiceAssistant from "./VoiceAssistant";
 import NotificationBell from "./NotificationBell";
+import OnboardingTour from "./OnboardingTour";
 import { Sheet, SheetContent } from "./ui/sheet";
 import { useAuth } from "../contexts/AuthContext";
 import { useMandante } from "../contexts/MandanteContext";
@@ -56,6 +57,7 @@ export default function Layout() {
     <div className="flex min-h-screen bg-[#F9F9F8]">
       {/* Le pagine dell'app sono private: non devono essere indicizzate da Google */}
       <meta name="robots" content="noindex, nofollow" />
+      {user && !user.onboarding_seen && <OnboardingTour />}
       <Sidebar />
       <main className="flex-1 min-w-0 pb-20 md:pb-0">
         {/* Mobile top header */}
