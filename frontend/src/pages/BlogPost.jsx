@@ -50,6 +50,7 @@ export default function BlogPost() {
         <meta property="og:title" content={article.title} />
         <meta property="og:description" content={article.description} />
         <meta property="og:url" content={url} />
+        {article.coverImage && <meta property="og:image" content={`https://salesfly.it${article.coverImage}`} />}
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",
@@ -85,6 +86,14 @@ export default function BlogPost() {
         <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight mb-8">
           {article.title}
         </h1>
+
+        {article.coverImage && (
+          <img
+            src={article.coverImage}
+            alt={article.imageAlt || article.title}
+            className="w-full aspect-video object-cover rounded-xl border border-[#E4E4E1] mb-10"
+          />
+        )}
 
         <article>{article.blocks.map(renderBlock)}</article>
       </main>
