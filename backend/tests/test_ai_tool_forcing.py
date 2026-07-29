@@ -136,6 +136,12 @@ class FakeMandanteRepo(FakeSimpleRepo):
 
 
 class FakeAiRepo:
+    def __init__(self, message_count_this_month=0):
+        # Configurabile dai test sulla quota (vedi test_ai_message_quota.py):
+        # di default 0, così la quota mensile non blocca mai gli scenari
+        # testati altrove in questo file.
+        self.message_count_this_month = message_count_this_month
+
     async def find_history(self, user_id, limit=30):
         return []
 
@@ -147,6 +153,9 @@ class FakeAiRepo:
 
     async def insert_log(self, log):
         return None
+
+    async def count_since(self, user_id, since_iso):
+        return self.message_count_this_month
 
 
 class FakeActionLogRepo:

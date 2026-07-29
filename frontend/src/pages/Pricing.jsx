@@ -54,10 +54,11 @@ export default function Pricing() {
 
           {/* Base */}
           <div className="bg-white border border-[#E4E4E1] rounded-xl p-8">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-2">
               <Zap className="w-5 h-5 text-[#52525B]" />
               <span className="font-cabinet font-bold text-lg">{base.name}</span>
             </div>
+            {base.tagline && <p className="text-[13px] text-[#52525B] mb-4">{base.tagline}</p>}
             <div className="mb-6">
               <span className="font-cabinet font-black text-4xl">€{base.price_eur}</span>
               <span className="text-[#52525B] text-[14px]">/mese</span>
@@ -82,10 +83,11 @@ export default function Pricing() {
             <div className="absolute top-4 right-4 bg-[#FF5A00] text-white font-mono text-[9px] uppercase tracking-widest px-2 py-1 rounded">
               Più popolare
             </div>
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-2">
               <Star className="w-5 h-5 text-[#FF5A00]" />
               <span className="font-cabinet font-bold text-lg">{pro.name}</span>
             </div>
+            {pro.tagline && <p className="text-[13px] text-white/70 mb-4">{pro.tagline}</p>}
             <div className="mb-6">
               <span className="font-cabinet font-black text-4xl">€{pro.price_eur}</span>
               <span className="text-white/60 text-[14px]">/mese</span>

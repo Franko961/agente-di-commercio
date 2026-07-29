@@ -51,6 +51,15 @@ def local_month_str(iso_ts: Optional[str]) -> str:
     return local_date_str(iso_ts)[:7]
 
 
+def local_month_start_utc_iso() -> str:
+    """Istante UTC (ISO) della mezzanotte del primo giorno del mese corrente
+    in ora italiana — da usare in una query '>= created_at' (sempre salvato
+    in UTC puro tramite now_iso()) per contare/filtrare eventi 'di questo
+    mese' direttamente nel database, senza scaricare tutta la cronologia."""
+    start_local = now_local().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    return start_local.astimezone(timezone.utc).isoformat()
+
+
 def local_wallclock_to_utc_iso(local_str: str) -> str:
     """Converte una data/ora 'a muro' in ora italiana, senza fuso orario
     esplicito (es. "2026-07-25T10:00:00", il formato che il tool

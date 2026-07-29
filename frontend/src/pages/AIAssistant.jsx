@@ -116,8 +116,9 @@ export default function AIAssistant() {
       if (actions.length > 0) fullText = actions.join("\n") + (data.response ? "\n\n" + data.response : "");
       setMessages(m => [...m, { role: "assistant", text: fullText, actions, pendingActions: data.pending_actions || [] }]);
       speak(data.response);
-    } catch {
-      const errMsg = "Errore di comunicazione con l\'AI.";
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+      const errMsg = typeof detail === "string" ? detail : "Errore di comunicazione con l'AI.";
       setMessages(m => [...m, { role: "assistant", text: errMsg }]);
     } finally {
       setBusy(false);
@@ -201,7 +202,9 @@ export default function AIAssistant() {
       setMessages(m => [...m, { role: "assistant", text: fullText, actions, pendingActions: data.pending_actions || [] }]);
       speak(data.response);
     } catch (err) {
-      setMessages(m => [...m, { role: "assistant", text: "Errore di comunicazione con l'AI. Riprova tra poco." }]);
+      const detail = err?.response?.data?.detail;
+      const text = typeof detail === "string" ? detail : "Errore di comunicazione con l'AI. Riprova tra poco.";
+      setMessages(m => [...m, { role: "assistant", text }]);
     } finally {
       setBusy(false);
     }

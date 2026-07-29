@@ -8,8 +8,9 @@ from typing import Dict, Optional
 
 from fastapi import HTTPException
 
-from core.utils import gen_id, now_iso, now_local, local_month_str, local_wallclock_to_utc_iso
+from core.utils import gen_id, now_iso, now_local, local_month_str, local_wallclock_to_utc_iso, local_month_start_utc_iso
 from core.observability import record_event
+from core.config import PLANS
 from repositories.ai_repository import ai_repository
 from repositories.client_repository import client_repository
 from repositories.appointment_repository import appointment_repository
@@ -1086,11 +1087,33 @@ class AiService:
 
         return {"message": message}
 
+    async def _enforce_ai_message_quota(self, user: dict) -> None:
+        """Blocca la chat AI se l'utente ha esaurito il limite mensile di
+        messaggi del proprio piano (vedi PLANS['ai_monthly_message_limit'] in
+        core/config.py — None significa nessun limite, es. piano Pro).
+        Gli admin non sono mai soggetti al limite, coerentemente con l'esenzione
+        già applicata al gate del trial in core/security.get_current_user."""
+        if user.get("role") == "admin":
+            return
+        plan = PLANS.get(user.get("plan", "base"), PLANS["base"])
+        limit = plan.get("ai_monthly_message_limit")
+        if limit is None:
+            return
+        used = await self.repo.count_since(user["id"], local_month_start_utc_iso())
+        if used >= limit:
+            raise HTTPException(
+                402,
+                f"Hai raggiunto il limite di {limit} messaggi AI del piano {plan['name']} per questo mese. "
+                "Passa al piano Pro per messaggi illimitati.",
+            )
+
     async def chat(self, user: dict, payload) -> dict:
         import anthropic as anthropic_sdk
         api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not api_key:
             raise HTTPException(500, "ANTHROPIC_API_KEY mancante")
+
+        await self._enforce_ai_message_quota(user)
 
         context = await self.gather_context(user["id"])
         system = (

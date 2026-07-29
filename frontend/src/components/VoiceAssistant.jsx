@@ -90,7 +90,8 @@ export default function VoiceAssistant() {
       setStatus("result");
       speak(data.response);
     } catch (e) {
-      setErrorMsg("Errore di comunicazione con l'AI. Riprova tra poco.");
+      const detail = e?.response?.data?.detail;
+      setErrorMsg(typeof detail === "string" ? detail : "Errore di comunicazione con l'AI. Riprova tra poco.");
       setStatus("error");
     }
   };

@@ -58,6 +58,7 @@ def test_demo_user_cannot_write_via_chat_tool_loop(monkeypatch):
     service.repo = MagicMock()
     service.repo.find_recent_for_context = AsyncMock(return_value=[])
     service.repo.insert_log = AsyncMock(return_value=None)
+    service.repo.count_since = AsyncMock(return_value=0)
 
     monkeypatch.setattr(service, "gather_context", AsyncMock(return_value="(contesto vuoto)"))
     monkeypatch.setattr(service, "requires_confirmation", lambda name, inp, channel="chat": False)

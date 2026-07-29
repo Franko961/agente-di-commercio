@@ -17,6 +17,14 @@ class AiRepository:
         logs.reverse()
         return logs
 
+    async def count_since(self, user_id: str, since_iso: str) -> int:
+        """Conta i messaggi di user_id con created_at >= since_iso (UTC), usato
+        per applicare il limite mensile di messaggi AI del piano."""
+        return await self.collection.count_documents({
+            "user_id": user_id,
+            "created_at": {"$gte": since_iso},
+        })
+
     async def insert_log(self, doc: dict) -> dict:
         await self.collection.insert_one(doc)
         doc.pop("_id", None)
