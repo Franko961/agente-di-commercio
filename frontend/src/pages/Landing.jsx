@@ -14,6 +14,7 @@ const LANDING_NAV_LINKS = [
   { to: "/blog", label: "Guide" },
   { to: "/tour", label: "Tour guidato" },
   { to: "/perche-salesfly", label: "Perché SalesFly" },
+  { to: "/contatti", label: "Contatti" },
 ];
 import usePlans from "../hooks/usePlans";
 

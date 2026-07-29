@@ -98,6 +98,8 @@ AUTOMATION_MAX_ATTEMPTS = int(os.environ.get("AUTOMATION_MAX_ATTEMPTS", "5"))
 
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 ADMIN_NOTIFY_EMAIL = os.environ.get("ADMIN_NOTIFY_EMAIL", "franco.bruni.art@gmail.com")
+# Casella di posta pubblica (Zoho Mail) dove arrivano i messaggi del form contatti.
+CONTACT_NOTIFY_EMAIL = os.environ.get("CONTACT_NOTIFY_EMAIL", "info@salesfly.it")
 # Vuoto di default: Sentry resta disattivato finché non si imposta questa
 # variabile con il DSN di un account Sentry (anche gratuito).
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")

@@ -33,6 +33,7 @@ import BlogPost from "./pages/BlogPost";
 import GuidedTour from "./pages/GuidedTour";
 import HelpCenter from "./pages/HelpCenter";
 import WhySalesFly from "./pages/WhySalesFly";
+import Contatti from "./pages/Contatti";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Privacy from "./pages/Privacy";
@@ -56,6 +57,7 @@ function App() {
               <Route path="/blog/:slug" element={<BlogPost />} />
               <Route path="/tour" element={<GuidedTour />} />
               <Route path="/perche-salesfly" element={<WhySalesFly />} />
+              <Route path="/contatti" element={<Contatti />} />
               <Route path="/password-dimenticata" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/privacy" element={<Privacy />} />

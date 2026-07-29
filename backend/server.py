@@ -28,6 +28,7 @@ from routers.admin import router as admin_router
 from routers.subscription import router as subscription_router
 from routers.integrations import router as integrations_router
 from routers.demo_requests import router as demo_requests_router
+from routers.contact import router as contact_router
 from routers.orders import router as orders_router
 from routers.expenses import router as expenses_router
 from routers.settings import router as settings_router
@@ -135,6 +136,7 @@ app.include_router(admin_router)
 app.include_router(subscription_router)
 app.include_router(integrations_router)
 app.include_router(demo_requests_router)
+app.include_router(contact_router)
 app.include_router(orders_router)
 app.include_router(expenses_router)
 app.include_router(settings_router)
