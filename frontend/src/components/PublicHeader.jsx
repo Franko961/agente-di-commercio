@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 
 const NAV_LINKS = [
-  { to: "/blog", label: "Guide" },
+  { to: "/blog", label: "Blog" },
   { to: "/tour", label: "Tour guidato" },
   { to: "/perche-salesfly", label: "Perché SalesFly" },
   { to: "/contatti", label: "Contatti" },

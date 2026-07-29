@@ -10,7 +10,7 @@ import {
 const LANDING_NAV_LINKS = [
   { href: "#funzionalita", label: "Funzionalità" },
   { to: "/prezzi", label: "Prezzi" },
-  { to: "/blog", label: "Guide" },
+  { to: "/blog", label: "Blog" },
   { to: "/tour", label: "Tour guidato" },
   { to: "/perche-salesfly", label: "Perché SalesFly" },
   { to: "/contatti", label: "Contatti" },
@@ -395,7 +395,7 @@ export default function Landing() {
           </div>
           <nav className="flex items-center gap-6 text-[12px] text-[#52525B]">
             <Link to="/prezzi" className="hover:text-[#0A192F]">Prezzi</Link>
-            <Link to="/blog" className="hover:text-[#0A192F]">Guide</Link>
+            <Link to="/blog" className="hover:text-[#0A192F]">Blog</Link>
             <Link to="/privacy" className="hover:text-[#0A192F]">Privacy</Link>
             <Link to="/termini" className="hover:text-[#0A192F]">Termini</Link>
             <Link to="/login" className="hover:text-[#0A192F]">Accedi</Link>

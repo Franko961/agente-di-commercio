@@ -9,7 +9,7 @@ export default function BlogIndex() {
 
   return (
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
-      <title>Guide per Agenti di Commercio — SALESFLY</title>
+      <title>Blog per Agenti di Commercio — SALESFLY</title>
       <meta
         name="description"
         content="Guide pratiche su provvigioni, ENASARCO, contratti di agenzia e tutto ciò che serve a un agente di commercio plurimandatario."
@@ -20,9 +20,9 @@ export default function BlogIndex() {
 
       <main className="flex-1 px-6 py-16 max-w-3xl mx-auto w-full">
         <div className="text-center mb-12">
-          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-3">Guide</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-3">Blog</div>
           <h1 className="font-cabinet font-black text-4xl tracking-tight mb-4">
-            Guide per agenti di commercio
+            Blog per agenti di commercio
           </h1>
           <p className="text-[16px] text-[#52525B] max-w-xl mx-auto">
             Provvigioni, ENASARCO, contratti di agenzia: le risposte alle domande che contano davvero.
