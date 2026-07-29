@@ -1,5 +1,4 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { ArrowRight } from "lucide-react";
 import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
@@ -121,7 +120,7 @@ const BENEFITS = [
   {
     emoji: "🤖",
     title: "Ricevi suggerimenti dall'AI sui clienti da contattare.",
-    support: "Non rincorri più i clienti a caso: sai sempre chi contattare oggi e perché.",
+    support: "Non rincorri più i clienti a caso: l'AI ti dice chi contattare e, se vuoi, aggiorna lei stessa il CRM al posto tuo.",
     Illustration: AIIllustration,
   },
   {
@@ -155,14 +154,12 @@ export default function WhySalesFly() {
 
   return (
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
-      <Helmet>
-        <title>Perché SalesFly — Il CRM per Agenti di Commercio</title>
-        <meta
-          name="description"
-          content="Non solo funzionalità: scopri i vantaggi concreti che SalesFly porta nella giornata di un agente di commercio plurimandatario."
-        />
-        <link rel="canonical" href="https://salesfly.it/perche-salesfly" />
-      </Helmet>
+      <title>Perché SalesFly — Il CRM per Agenti di Commercio</title>
+      <meta
+        name="description"
+        content="L'unico CRM con un assistente che il lavoro non lo spiega: lo fa. Scopri i vantaggi concreti che SalesFly porta nella giornata di un agente di commercio plurimandatario."
+      />
+      <link rel="canonical" href="https://salesfly.it/perche-salesfly" />
 
       <PublicHeader />
 

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Helmet } from "react-helmet-async";
 import {
   Rocket, Users, KanbanSquare, CalendarDays, ShoppingCart, Coins,
   Sparkles, Zap, Navigation, ShieldCheck, ChevronDown, HelpCircle,
@@ -72,9 +71,7 @@ export default function HelpCenter() {
 
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto">
-      <Helmet>
-        <meta name="robots" content="noindex, nofollow" />
-      </Helmet>
+      <meta name="robots" content="noindex, nofollow" />
 
       <div className="mb-8">
         <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Aiuto</div>

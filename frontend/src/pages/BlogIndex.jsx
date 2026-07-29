@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { ArrowRight } from "lucide-react";
 import { getPublishedArticles } from "@/content/blog";
 import PublicHeader from "@/components/PublicHeader";
@@ -10,14 +9,12 @@ export default function BlogIndex() {
 
   return (
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
-      <Helmet>
-        <title>Guide per Agenti di Commercio — SALESFLY</title>
-        <meta
-          name="description"
-          content="Guide pratiche su provvigioni, ENASARCO, contratti di agenzia e tutto ciò che serve a un agente di commercio plurimandatario."
-        />
-        <link rel="canonical" href="https://salesfly.it/blog" />
-      </Helmet>
+      <title>Guide per Agenti di Commercio — SALESFLY</title>
+      <meta
+        name="description"
+        content="Guide pratiche su provvigioni, ENASARCO, contratti di agenzia e tutto ciò che serve a un agente di commercio plurimandatario."
+      />
+      <link rel="canonical" href="https://salesfly.it/blog" />
 
       <PublicHeader />
 

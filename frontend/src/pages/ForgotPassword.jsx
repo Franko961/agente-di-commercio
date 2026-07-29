@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { CheckCircle2 } from "lucide-react";
 import api from "../api";
 import { toast } from "sonner";
@@ -32,10 +31,8 @@ export default function ForgotPassword() {
 
   return (
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
-      <Helmet>
-        <title>Password dimenticata — SALESFLY</title>
-        <meta name="robots" content="noindex, nofollow" />
-      </Helmet>
+      <title>Password dimenticata — SALESFLY</title>
+      <meta name="robots" content="noindex, nofollow" />
 
       <header className="border-b border-[#E4E4E1] bg-white px-6 py-4 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2">

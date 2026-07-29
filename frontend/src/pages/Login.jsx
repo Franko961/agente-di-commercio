@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Navigate, useSearchParams, Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import { Eye, EyeOff, CreditCard } from "lucide-react";
@@ -118,10 +117,8 @@ export default function Login() {
 
   return (
     <div className="min-h-screen grid lg:grid-cols-[1fr_1.2fr] bg-[#F9F9F8]">
-      <Helmet>
-        <title>Accedi — SALESFLY</title>
-        <meta name="robots" content="noindex, nofollow" />
-      </Helmet>
+      <title>Accedi — SALESFLY</title>
+      <meta name="robots" content="noindex, nofollow" />
       {/* Left: form */}
       <div className="flex flex-col justify-between p-6 sm:p-10 lg:p-14">
         <header className="flex items-center justify-between">

@@ -1,13 +1,10 @@
 import { Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 
 export default function Privacy() {
   return (
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
-      <Helmet>
-        <title>Informativa Privacy — SALESFLY</title>
-        <meta name="robots" content="noindex" />
-      </Helmet>
+      <title>Informativa Privacy — SALESFLY</title>
+      <meta name="robots" content="noindex" />
 
       <header className="border-b border-[#E4E4E1] bg-white px-6 py-4 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2">

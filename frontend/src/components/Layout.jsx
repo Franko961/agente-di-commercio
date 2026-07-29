@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Outlet, useLocation, NavLink, useNavigate, Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
 import VoiceAssistant from "./VoiceAssistant";
@@ -55,10 +54,8 @@ export default function Layout() {
 
   return (
     <div className="flex min-h-screen bg-[#F9F9F8]">
-      <Helmet>
-        {/* Le pagine dell'app sono private: non devono essere indicizzate da Google */}
-        <meta name="robots" content="noindex, nofollow" />
-      </Helmet>
+      {/* Le pagine dell'app sono private: non devono essere indicizzate da Google */}
+      <meta name="robots" content="noindex, nofollow" />
       <Sidebar />
       <main className="flex-1 min-w-0 pb-20 md:pb-0">
         {/* Mobile top header */}

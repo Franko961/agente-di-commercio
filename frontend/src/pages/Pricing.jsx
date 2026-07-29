@@ -1,5 +1,4 @@
 import { useNavigate, Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { Check, Zap, Star } from "lucide-react";
 import usePlans from "../hooks/usePlans";
 
@@ -15,14 +14,12 @@ export default function Pricing() {
 
   return (
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
-      <Helmet>
-        <title>Prezzi — SALESFLY, il CRM per Agenti di Commercio</title>
-        <meta
-          name="description"
-          content={`Piani ${base.name} (€${base.price_eur}/mese) e ${pro.name} (€${pro.price_eur}/mese) per il CRM SALESFLY. ${trialDays} giorni di prova gratuita, nessuna carta di credito richiesta.`}
-        />
-        <link rel="canonical" href="https://salesfly.it/prezzi" />
-      </Helmet>
+      <title>Prezzi — SALESFLY, il CRM per Agenti di Commercio</title>
+      <meta
+        name="description"
+        content={`Piani ${base.name} (€${base.price_eur}/mese) e ${pro.name} (€${pro.price_eur}/mese) per il CRM SALESFLY. ${trialDays} giorni di prova gratuita, nessuna carta di credito richiesta.`}
+      />
+      <link rel="canonical" href="https://salesfly.it/prezzi" />
       {/* Header */}
       <header className="border-b border-[#E4E4E1] bg-white px-6 py-4 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2">

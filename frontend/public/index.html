@@ -7,22 +7,29 @@
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/icon-192.png" type="image/png" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <meta name="description" content="SALESFLY è il gestionale CRM per agenti di commercio plurimandatari: clienti, agenda, provvigioni, offerte e assistente AI in un'unica piattaforma. Prova gratis 14 giorni." />
-        <link rel="canonical" href="https://salesfly.it/" />
+        <!--
+        Niente meta "description" o link "canonical" statici qui: ogni pagina
+        React li renderizza per conto proprio (title/meta/link vengono
+        "sollevati" nell'head automaticamente da React 19, senza bisogno di
+        react-helmet-async, che non supporta React 19 e non aggiornava mai
+        nulla). Tenerli anche qui creerebbe un duplicato "statico" che vince
+        sempre su quello corretto della pagina, perché React non rimuove tag
+        che non ha renderizzato lui stesso.
+        -->
         <link rel="manifest" href="/manifest.json" />
 
         <!-- Open Graph -->
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="SALESFLY" />
         <meta property="og:title" content="SALESFLY — Il CRM per Agenti di Commercio Plurimandatari" />
-        <meta property="og:description" content="Clienti, agenda, provvigioni, offerte e assistente AI in un'unica piattaforma pensata per chi vive di visite e provvigioni." />
+        <meta property="og:description" content="L'unico CRM con un assistente che il lavoro non lo spiega: lo fa. Clienti, agenda, provvigioni e offerte per chi vive di visite e mandanti." />
         <meta property="og:url" content="https://salesfly.it/" />
         <meta property="og:locale" content="it_IT" />
 
         <!-- Twitter -->
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="SALESFLY — Il CRM per Agenti di Commercio Plurimandatari" />
-        <meta name="twitter:description" content="Clienti, agenda, provvigioni, offerte e assistente AI in un'unica piattaforma pensata per chi vive di visite e provvigioni." />
+        <meta name="twitter:description" content="L'unico CRM con un assistente che il lavoro non lo spiega: lo fa. Clienti, agenda, provvigioni e offerte per chi vive di visite e mandanti." />
 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

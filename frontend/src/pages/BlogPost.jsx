@@ -1,5 +1,4 @@
 import { useParams, Navigate, Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { ArrowLeft, Calendar } from "lucide-react";
 import { getArticleBySlug } from "@/content/blog";
 import PublicHeader from "@/components/PublicHeader";
@@ -41,8 +40,8 @@ export default function BlogPost() {
 
   return (
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
-      <Helmet>
-        <title>{article.title} — SALESFLY</title>
+      <>
+        <title>{`${article.title} — SALESFLY`}</title>
         <meta name="description" content={article.description} />
         <link rel="canonical" href={url} />
         {article.draft && <meta name="robots" content="noindex" />}
@@ -63,7 +62,7 @@ export default function BlogPost() {
             mainEntityOfPage: url,
           })}
         </script>
-      </Helmet>
+      </>
 
       <PublicHeader />
 

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import {
   Users, KanbanSquare, CalendarDays, Map, FileText, Coins,
   Building2, Package, Sparkles, Zap, Check, ArrowRight, ShieldCheck,
@@ -155,18 +154,18 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-[#F9F9F8]">
-      <Helmet>
+      <>
         <title>SALESFLY — Il CRM per Agenti di Commercio Plurimandatari</title>
         <meta
           name="description"
-          content={`SALESFLY è il gestionale pensato per agenti di commercio plurimandatari: clienti, agenda, provvigioni, offerte e assistente AI in un'unica piattaforma. Prova gratis ${trialDays} giorni.`}
+          content={`SALESFLY è il CRM per agenti di commercio plurimandatari con un assistente AI che aggiorna davvero il CRM al posto tuo: clienti, agenda, provvigioni e offerte, non solo consigli. Prova gratis ${trialDays} giorni.`}
         />
         <link rel="canonical" href="https://salesfly.it/" />
         <meta property="og:type" content="website" />
         <meta property="og:title" content="SALESFLY — Il CRM per Agenti di Commercio Plurimandatari" />
         <meta
           property="og:description"
-          content="Clienti, agenda, provvigioni, offerte e assistente AI in un'unica piattaforma pensata per chi vive di visite e provvigioni."
+          content="L'unico CRM con un assistente che il lavoro non lo spiega: lo fa. Clienti, agenda, provvigioni e offerte per chi vive di visite e mandanti."
         />
         <meta property="og:url" content="https://salesfly.it/" />
         <meta property="og:locale" content="it_IT" />
@@ -174,7 +173,7 @@ export default function Landing() {
         <meta name="twitter:title" content="SALESFLY — Il CRM per Agenti di Commercio Plurimandatari" />
         <meta
           name="twitter:description"
-          content="Clienti, agenda, provvigioni, offerte e assistente AI in un'unica piattaforma pensata per chi vive di visite e provvigioni."
+          content="L'unico CRM con un assistente che il lavoro non lo spiega: lo fa. Clienti, agenda, provvigioni e offerte per chi vive di visite e mandanti."
         />
         <script type="application/ld+json">
           {JSON.stringify({
@@ -184,14 +183,14 @@ export default function Landing() {
             applicationCategory: "BusinessApplication",
             operatingSystem: "Web",
             description:
-              "Gestionale CRM per agenti di commercio plurimandatari: clienti, agenda, provvigioni, offerte e assistente AI.",
+              "CRM per agenti di commercio plurimandatari con un assistente AI che aggiorna clienti, agenda, provvigioni e offerte al posto dell'utente, non solo con consigli.",
             offers: Object.values(plansById).map(p => ({
               "@type": "Offer", name: p.name, price: p.price_eur?.toFixed(2), priceCurrency: "EUR",
             })),
             url: "https://salesfly.it/",
           })}
         </script>
-      </Helmet>
+      </>
 
       {/* Header */}
       <header className="border-b border-[#E4E4E1] bg-white sticky top-0 z-30">
@@ -275,12 +274,12 @@ export default function Landing() {
                 Il CRM per agenti plurimandatari
               </div>
               <h1 className="font-cabinet font-black text-4xl md:text-5xl tracking-tight mb-6">
-                Gestisci clienti, agenda e provvigioni. Tutto in un posto solo.
+                L'unico CRM con un assistente che il lavoro non lo spiega: lo fa.
               </h1>
               <p className="text-[16px] md:text-[18px] text-[#52525B] mb-10">
-                SALESFLY è il gestionale pensato per chi vive di visite, mandanti e provvigioni.
-                Clienti, pipeline lead, agenda, offerte e calcolo provvigioni automatico, con
-                un assistente AI che aggiorna il CRM per te.
+                Aggiungi un cliente, fissa un appuntamento, registra una vendita — a voce o in chat.
+                SALESFLY aggiorna davvero il CRM per te, con calcolo provvigioni automatico e
+                giro visite geolocalizzato per chi lavora con più mandanti.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button

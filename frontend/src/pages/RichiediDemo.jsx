@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { CheckCircle2 } from "lucide-react";
 import api from "../api";
 import { toast } from "sonner";
@@ -44,11 +43,9 @@ export default function RichiediDemo() {
 
   return (
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
-      <Helmet>
-        <title>Richiedi la Demo — SALESFLY</title>
-        <meta name="description" content="Richiedi l'accesso alla demo di SALESFLY, il CRM per Agenti di Commercio. Riceverai subito il link di accesso via email." />
-        <link rel="canonical" href="https://salesfly.it/richiedi-demo" />
-      </Helmet>
+      <title>Richiedi la Demo — SALESFLY</title>
+      <meta name="description" content="Richiedi l'accesso alla demo di SALESFLY, il CRM per Agenti di Commercio. Riceverai subito il link di accesso via email." />
+      <link rel="canonical" href="https://salesfly.it/richiedi-demo" />
 
       <header className="border-b border-[#E4E4E1] bg-white px-6 py-4 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2">

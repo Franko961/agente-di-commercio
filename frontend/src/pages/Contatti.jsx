@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { CheckCircle2, Mail } from "lucide-react";
 import api from "../api";
 import { toast } from "sonner";
@@ -41,14 +40,12 @@ export default function Contatti() {
 
   return (
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
-      <Helmet>
-        <title>Contatti — SALESFLY</title>
-        <meta
-          name="description"
-          content="Hai domande su SALESFLY, il CRM per Agenti di Commercio Plurimandatari? Scrivici, ti risponderemo il prima possibile."
-        />
-        <link rel="canonical" href="https://salesfly.it/contatti" />
-      </Helmet>
+      <title>Contatti — SALESFLY</title>
+      <meta
+        name="description"
+        content="Hai domande su SALESFLY, il CRM per Agenti di Commercio Plurimandatari? Scrivici, ti risponderemo il prima possibile."
+      />
+      <link rel="canonical" href="https://salesfly.it/contatti" />
 
       <PublicHeader />
 
