@@ -274,13 +274,28 @@ export default function Landing() {
                 Il CRM per agenti plurimandatari
               </div>
               <h1 className="font-cabinet font-black text-4xl md:text-5xl tracking-tight mb-6">
-                L'unico CRM con un assistente che il lavoro non lo spiega: lo fa.
+                Il CRM che aggiorna clienti, appuntamenti e provvigioni al posto tuo.
               </h1>
-              <p className="text-[16px] md:text-[18px] text-[#52525B] mb-10">
-                Aggiungi un cliente, fissa un appuntamento, registra una vendita — a voce o in chat.
-                SALESFLY aggiorna davvero il CRM per te, con calcolo provvigioni automatico e
-                giro visite geolocalizzato per chi lavora con più mandanti.
+              <p className="text-[16px] md:text-[18px] text-[#52525B] mb-6">
+                Parla con SALESFLY: l'AI aggiorna clienti, appuntamenti, ordini e provvigioni
+                mentre tu sei dai clienti.
               </p>
+              <div className="flex flex-wrap items-center justify-center gap-2.5 mb-8">
+                {[
+                  { icon: Sparkles, label: "Assistente AI" },
+                  { icon: Coins, label: "Provvigioni automatiche" },
+                  { icon: Navigation, label: "Giro visite intelligente" },
+                  { icon: FileText, label: "Ordini e clienti in un unico posto" },
+                ].map(({ icon: Icon, label }) => (
+                  <div
+                    key={label}
+                    className="flex items-center gap-1.5 bg-white border border-[#E4E4E1] rounded-full px-3.5 py-1.5 text-[13px] font-medium text-[#3F3F46]"
+                  >
+                    <Icon className="w-3.5 h-3.5 text-[#FF5A00]" />
+                    {label}
+                  </div>
+                ))}
+              </div>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button
                   onClick={() => navigate("/richiedi-demo")}
