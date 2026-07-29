@@ -297,6 +297,10 @@ export default function Landing() {
             alt=""
             aria-hidden="true"
             className="pointer-events-none select-none absolute inset-x-0 top-0 w-full h-[480px] object-cover object-top"
+            style={{
+              maskImage: "linear-gradient(to bottom, black 0%, black 78%, transparent 100%)",
+              WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 78%, transparent 100%)",
+            }}
           />
           <div className="relative z-10 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-[340px_1fr] gap-10 md:gap-6 items-center">
             <div className="order-1">
