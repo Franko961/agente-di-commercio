@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Users, KanbanSquare, CalendarDays, Map, FileText, Coins,
@@ -151,6 +151,14 @@ export default function Landing() {
   const navigate = useNavigate();
   const { plansById, trialDays } = usePlans();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#F9F9F8]">
@@ -193,28 +201,47 @@ export default function Landing() {
       </>
 
       {/* Header */}
-      <header className="border-b border-[#E4E4E1] bg-white sticky top-0 z-30">
+      <header
+        className={`sticky top-0 z-30 transition-all duration-200 border-b ${
+          scrolled
+            ? "bg-[rgba(10,25,47,0.92)] backdrop-blur-md border-transparent shadow-[0_8px_30px_rgba(0,0,0,0.08)]"
+            : "bg-white border-[#E4E4E1]"
+        }`}
+      >
         <div className="px-6 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2" onClick={() => setMobileNavOpen(false)}>
-            <div className="w-9 h-9 flex items-center justify-center shrink-0">
+            <div className={`w-9 h-9 flex items-center justify-center shrink-0 ${scrolled ? "animate-logo-pop" : ""}`}>
               <img src="/logo-mark.png" alt="SALESFLY" className="w-full h-full object-contain" />
             </div>
-            <span className="font-cabinet font-black text-lg">SALESFLY.</span>
+            <span className={`font-cabinet font-black text-lg transition-colors duration-200 ${scrolled ? "text-white" : "text-[#0A0A0A]"}`}>
+              SALESFLY.
+            </span>
           </Link>
-          <nav className="hidden md:flex items-center gap-6 text-[14px] font-medium text-[#3F3F46]">
+          <nav
+            className={`hidden md:flex items-center gap-6 text-[14px] font-medium transition-colors duration-200 ${
+              scrolled ? "text-white/80" : "text-[#3F3F46]"
+            }`}
+          >
             {LANDING_NAV_LINKS.map((l) =>
               l.href
-                ? <a key={l.href} href={l.href} className="hover:text-[#0A192F] transition-colors">{l.label}</a>
-                : <Link key={l.to} to={l.to} className="hover:text-[#0A192F] transition-colors">{l.label}</Link>
+                ? <a key={l.href} href={l.href} className={`transition-colors ${scrolled ? "hover:text-white" : "hover:text-[#0A192F]"}`}>{l.label}</a>
+                : <Link key={l.to} to={l.to} className={`transition-colors ${scrolled ? "hover:text-white" : "hover:text-[#0A192F]"}`}>{l.label}</Link>
             )}
           </nav>
           <div className="flex items-center gap-1.5 sm:gap-3">
-            <button onClick={() => navigate("/login")} className="hidden sm:inline-block text-[13px] text-[#52525B] hover:text-[#0A192F]">
+            <button
+              onClick={() => navigate("/login")}
+              className={`hidden sm:inline-block text-[13px] transition-colors duration-200 ${
+                scrolled ? "text-white/70 hover:text-white" : "text-[#52525B] hover:text-[#0A192F]"
+              }`}
+            >
               Accedi
             </button>
             <button
               onClick={() => navigate("/richiedi-demo")}
-              className="px-3 py-1.5 sm:px-4 sm:py-2 bg-[#0A192F] text-white rounded-md text-[12px] sm:text-[13px] font-medium hover:bg-[#172A45] transition-colors whitespace-nowrap"
+              className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-md text-[12px] sm:text-[13px] font-medium whitespace-nowrap transition-colors duration-200 ${
+                scrolled ? "bg-white text-[#0A192F] hover:bg-white/90" : "bg-[#0A192F] text-white hover:bg-[#172A45]"
+              }`}
             >
               Inizia gratis
             </button>
@@ -222,7 +249,7 @@ export default function Landing() {
               onClick={() => setMobileNavOpen((v) => !v)}
               data-testid="mobile-nav-toggle"
               aria-label="Menu"
-              className="md:hidden p-1.5 text-[#0A192F] shrink-0"
+              className={`md:hidden p-1.5 shrink-0 transition-colors duration-200 ${scrolled ? "text-white" : "text-[#0A192F]"}`}
             >
               {mobileNavOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -264,8 +291,14 @@ export default function Landing() {
 
       {/* Hero */}
       <main>
-        <section className="px-6 pt-16 pb-16 max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-[340px_1fr] gap-10 md:gap-6 items-center">
+        <section className="relative overflow-hidden px-6 pt-16 pb-16">
+          <img
+            src="/hero-skyline.png"
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none select-none absolute inset-x-0 top-0 w-full h-[480px] object-cover object-top"
+          />
+          <div className="relative z-10 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-[340px_1fr] gap-10 md:gap-6 items-center">
             <div className="order-1">
               <PhoneMockup />
             </div>
