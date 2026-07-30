@@ -444,7 +444,7 @@ export default function Landing() {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="SalesFly su Facebook"
-              className="text-[#A1A1AA] hover:text-[#0A192F] transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-[#0A192F] text-white hover:bg-[#FF5A00] transition-colors shrink-0"
             >
               <Facebook className="w-4 h-4" />
             </a>
