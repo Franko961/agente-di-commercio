@@ -5,8 +5,9 @@
 // Non serve toccare App.js: le rotte /blog e /blog/:slug sono generiche.
 import { article as calcoloProvvigioni } from "./articles/calcolo-provvigioni-agente-di-commercio";
 import { article as aiCrmAutomazione } from "./articles/ai-crm-automatizzano-vendite";
+import { article as enasarco } from "./articles/enasarco-cos-e-come-funziona";
 
-const allArticles = [calcoloProvvigioni, aiCrmAutomazione];
+const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco];
 
 export const articles = [...allArticles].sort(
   (a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)
