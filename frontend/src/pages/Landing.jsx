@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 
 const LANDING_NAV_LINKS = [
-  { href: "#funzionalita", label: "Funzionalità" },
   { to: "/prezzi", label: "Prezzi" },
   { to: "/blog", label: "Blog" },
   { to: "/tour", label: "Tour guidato" },
@@ -222,11 +221,9 @@ export default function Landing() {
               scrolled ? "text-white/80" : "text-[#3F3F46]"
             }`}
           >
-            {LANDING_NAV_LINKS.map((l) =>
-              l.href
-                ? <a key={l.href} href={l.href} className={`transition-colors ${scrolled ? "hover:text-white" : "hover:text-[#0A192F]"}`}>{l.label}</a>
-                : <Link key={l.to} to={l.to} className={`transition-colors ${scrolled ? "hover:text-white" : "hover:text-[#0A192F]"}`}>{l.label}</Link>
-            )}
+            {LANDING_NAV_LINKS.map((l) => (
+              <Link key={l.to} to={l.to} className={`transition-colors ${scrolled ? "hover:text-white" : "hover:text-[#0A192F]"}`}>{l.label}</Link>
+            ))}
           </nav>
           <div className="flex items-center gap-1.5 sm:gap-3">
             <button
@@ -257,27 +254,16 @@ export default function Landing() {
         </div>
         {mobileNavOpen && (
           <nav className="md:hidden border-t border-[#E4E4E1] px-6 py-2 flex flex-col bg-white">
-            {LANDING_NAV_LINKS.map((l) =>
-              l.href ? (
-                <a
-                  key={l.href}
-                  href={l.href}
-                  onClick={() => setMobileNavOpen(false)}
-                  className="py-3 text-[14px] font-medium text-[#3F3F46] border-b border-[#F3F3F1] last:border-b-0"
-                >
-                  {l.label}
-                </a>
-              ) : (
-                <Link
-                  key={l.to}
-                  to={l.to}
-                  onClick={() => setMobileNavOpen(false)}
-                  className="py-3 text-[14px] font-medium text-[#3F3F46] border-b border-[#F3F3F1] last:border-b-0"
-                >
-                  {l.label}
-                </Link>
-              )
-            )}
+            {LANDING_NAV_LINKS.map((l) => (
+              <Link
+                key={l.to}
+                to={l.to}
+                onClick={() => setMobileNavOpen(false)}
+                className="py-3 text-[14px] font-medium text-[#3F3F46] border-b border-[#F3F3F1] last:border-b-0"
+              >
+                {l.label}
+              </Link>
+            ))}
             <Link
               to="/login"
               onClick={() => setMobileNavOpen(false)}
