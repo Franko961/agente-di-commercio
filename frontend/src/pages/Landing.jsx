@@ -4,7 +4,7 @@ import {
   Users, KanbanSquare, CalendarDays, Map, FileText, Coins,
   Building2, Package, Sparkles, Zap, Check, ArrowRight, ShieldCheck,
   Calendar, PhoneCall, AlertTriangle, Banknote, Navigation, Target,
-  LayoutDashboard, Menu, X,
+  LayoutDashboard, Menu, X, Facebook,
 } from "lucide-react";
 
 const LANDING_NAV_LINKS = [
@@ -437,7 +437,18 @@ export default function Landing() {
             <Link to="/termini" className="hover:text-[#0A192F]">Termini</Link>
             <Link to="/login" className="hover:text-[#0A192F]">Accedi</Link>
           </nav>
-          <div className="text-[12px] text-[#A1A1AA]">© 2026 SALESFLY. · Gestionale per agenti di commercio</div>
+          <div className="flex items-center gap-3 text-[12px] text-[#A1A1AA]">
+            <span>© 2026 SALESFLY. · Gestionale per agenti di commercio</span>
+            <a
+              href="https://www.facebook.com/salesflycrm"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="SalesFly su Facebook"
+              className="text-[#A1A1AA] hover:text-[#0A192F] transition-colors"
+            >
+              <Facebook className="w-4 h-4" />
+            </a>
+          </div>
         </div>
       </footer>
     </div>
