@@ -1,6 +1,8 @@
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Check, Zap, Star } from "lucide-react";
 import usePlans from "../hooks/usePlans";
+import PublicHeader from "@/components/PublicHeader";
+import PublicFooter from "@/components/PublicFooter";
 
 export default function Pricing() {
   const navigate = useNavigate();
@@ -20,19 +22,7 @@ export default function Pricing() {
         content={`Piani ${base.name} (€${base.price_eur}/mese) e ${pro.name} (€${pro.price_eur}/mese) per il CRM SALESFLY. ${trialDays} giorni di prova gratuita, nessuna carta di credito richiesta.`}
       />
       <link rel="canonical" href="https://salesfly.it/prezzi" />
-      {/* Header */}
-      <header className="border-b border-[#E4E4E1] bg-white px-6 py-4 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="w-9 h-9 flex items-center justify-center shrink-0">
-            <img src="/logo-mark.png" alt="SALESFLY" className="w-full h-full object-contain" />
-          </div>
-          <span className="font-cabinet font-black text-lg">SALESFLY.</span>
-        </Link>
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate("/login")} className="text-[13px] text-[#52525B] hover:text-[#0A192F]">Accedi</button>
-          <button onClick={() => navigate("/login?register")} className="px-4 py-2 bg-[#0A192F] text-white rounded-md text-[13px] font-medium">Inizia gratis</button>
-        </div>
-      </header>
+      <PublicHeader />
 
       <main className="flex-1 px-6 py-16 max-w-5xl mx-auto w-full">
         {/* Hero */}
@@ -124,9 +114,7 @@ export default function Pricing() {
         </div>
       </main>
 
-      <footer className="border-t border-[#E4E4E1] py-6 text-center text-[12px] text-[#A1A1AA]">
-        © 2026 SALESFLY. · Gestionale per agenti di commercio
-      </footer>
+      <PublicFooter />
     </div>
   );
 }
