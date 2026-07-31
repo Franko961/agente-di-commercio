@@ -12,12 +12,12 @@ async def list_automations(user=Depends(get_current_user)):
 
 
 @router.post("")
-async def create_automation(payload: AutomationIn, user=Depends(get_current_user)):
+async def create_automation(payload: AutomationIn, user=Depends(forbid_demo_write)):
     return await automation_service.create_automation(user, payload)
 
 
 @router.put("/{aid}")
-async def update_automation(aid: str, payload: AutomationIn, user=Depends(get_current_user)):
+async def update_automation(aid: str, payload: AutomationIn, user=Depends(forbid_demo_write)):
     await automation_service.update_automation(user, aid, payload)
     return {"ok": True}
 

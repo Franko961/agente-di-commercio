@@ -21,7 +21,7 @@ async def list_documents(user=Depends(get_current_user)):
 
 
 @router.post("")
-async def create_document(payload: DocumentIn, user=Depends(get_current_user)):
+async def create_document(payload: DocumentIn, user=Depends(forbid_demo_write)):
     return await document_service.create_document(user, payload)
 
 
@@ -33,13 +33,13 @@ async def upload_document(
     client_id: Optional[str] = Form(None),
     notes: str = Form(""),
     tags: str = Form(""),
-    user=Depends(get_current_user),
+    user=Depends(forbid_demo_write),
 ):
     return await document_service.upload_document(user, file, name, category, client_id, notes, tags)
 
 
 @router.patch("/{did}")
-async def update_document_meta(did: str, payload: dict = Body(...), user=Depends(get_current_user)):
+async def update_document_meta(did: str, payload: dict = Body(...), user=Depends(forbid_demo_write)):
     """Update metadata (tags, name, category, notes, client_id) without re-uploading the file."""
     await document_service.update_document_meta(user, did, payload)
     return {"ok": True}

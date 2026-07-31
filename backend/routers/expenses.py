@@ -18,12 +18,12 @@ async def list_expenses(
 
 
 @router.post("")
-async def create_expense(payload: ExpenseIn, user=Depends(get_current_user)):
+async def create_expense(payload: ExpenseIn, user=Depends(forbid_demo_write)):
     return await expense_service.create_expense(user, payload)
 
 
 @router.put("/{eid}")
-async def update_expense(eid: str, payload: ExpenseIn, user=Depends(get_current_user)):
+async def update_expense(eid: str, payload: ExpenseIn, user=Depends(forbid_demo_write)):
     await expense_service.update_expense(user, eid, payload)
     return {"ok": True}
 

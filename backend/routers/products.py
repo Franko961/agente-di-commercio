@@ -13,7 +13,7 @@ async def list_products(mandante_id: Optional[str] = None, user=Depends(get_curr
 
 
 @router.post("")
-async def create_product(payload: ProductIn, user=Depends(get_current_user)):
+async def create_product(payload: ProductIn, user=Depends(forbid_demo_write)):
     return await product_service.create_product(user, payload)
 
 
@@ -26,7 +26,7 @@ async def bulk_import_products(payload: ProductBulkIn, user=Depends(forbid_demo_
 
 
 @router.put("/{pid}")
-async def update_product(pid: str, payload: ProductIn, user=Depends(get_current_user)):
+async def update_product(pid: str, payload: ProductIn, user=Depends(forbid_demo_write)):
     await product_service.update_product(user, pid, payload)
     return {"ok": True}
 

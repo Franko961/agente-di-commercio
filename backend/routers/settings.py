@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from core.security import get_current_user
+from core.security import get_current_user, forbid_demo_write
 from services.settings_service import settings_service
 from models.goals import GoalsIn
 from models.addresses import AddressesIn
@@ -13,7 +13,7 @@ async def get_goals(user=Depends(get_current_user)):
 
 
 @router.put("/goals")
-async def update_goals(payload: GoalsIn, user=Depends(get_current_user)):
+async def update_goals(payload: GoalsIn, user=Depends(forbid_demo_write)):
     return await settings_service.update_goals(user, payload)
 
 
@@ -23,5 +23,5 @@ async def get_addresses(user=Depends(get_current_user)):
 
 
 @router.put("/addresses")
-async def update_addresses(payload: AddressesIn, user=Depends(get_current_user)):
+async def update_addresses(payload: AddressesIn, user=Depends(forbid_demo_write)):
     return await settings_service.update_addresses(user, payload)

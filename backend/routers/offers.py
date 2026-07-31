@@ -13,18 +13,18 @@ async def list_offers(mandante_id: Optional[str] = None, user=Depends(get_curren
 
 
 @router.post("")
-async def create_offer(payload: OfferIn, user=Depends(get_current_user)):
+async def create_offer(payload: OfferIn, user=Depends(forbid_demo_write)):
     return await offer_service.create_offer(user, payload)
 
 
 @router.put("/{oid}")
-async def update_offer(oid: str, payload: OfferIn, user=Depends(get_current_user)):
+async def update_offer(oid: str, payload: OfferIn, user=Depends(forbid_demo_write)):
     await offer_service.update_offer(user, oid, payload)
     return {"ok": True}
 
 
 @router.patch("/{oid}/status")
-async def update_offer_status(oid: str, payload: dict = Body(...), user=Depends(get_current_user)):
+async def update_offer_status(oid: str, payload: dict = Body(...), user=Depends(forbid_demo_write)):
     await offer_service.update_offer_status(user, oid, payload.get("status"))
     return {"ok": True}
 
@@ -36,6 +36,6 @@ async def delete_offer(oid: str, user=Depends(forbid_demo_write)):
 
 
 @router.post("/{oid}/sign")
-async def sign_offer(oid: str, payload: SignatureIn, user=Depends(get_current_user)):
+async def sign_offer(oid: str, payload: SignatureIn, user=Depends(forbid_demo_write)):
     await offer_service.sign_offer(user, oid, payload.signature, payload.signer_name)
     return {"ok": True}

@@ -14,7 +14,7 @@ async def list_clients(zone: Optional[str] = None, sector: Optional[str] = None,
     return await client_service.list_clients(user, zone, sector, potential, q, mandante_id)
 
 @router.post("")
-async def create_client(payload: ClientIn, user=Depends(get_current_user)):
+async def create_client(payload: ClientIn, user=Depends(forbid_demo_write)):
     return await client_service.create_client(user, payload)
 
 @router.post("/bulk")
@@ -29,7 +29,7 @@ async def get_client(cid: str, user=Depends(get_current_user)):
     return await client_service.get_client(user, cid)
 
 @router.put("/{cid}")
-async def update_client(cid: str, payload: ClientIn, user=Depends(get_current_user)):
+async def update_client(cid: str, payload: ClientIn, user=Depends(forbid_demo_write)):
     await client_service.update_client(user, cid, payload)
     return {"ok": True}
 

@@ -12,12 +12,12 @@ async def list_mandanti(user=Depends(get_current_user)):
 
 
 @router.post("")
-async def create_mandante(payload: MandanteIn, user=Depends(get_current_user)):
+async def create_mandante(payload: MandanteIn, user=Depends(forbid_demo_write)):
     return await mandante_service.create_mandante(user, payload)
 
 
 @router.put("/{mid}")
-async def update_mandante(mid: str, payload: MandanteIn, user=Depends(get_current_user)):
+async def update_mandante(mid: str, payload: MandanteIn, user=Depends(forbid_demo_write)):
     await mandante_service.update_mandante(user, mid, payload)
     return {"ok": True}
 

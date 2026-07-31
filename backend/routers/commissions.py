@@ -17,7 +17,7 @@ async def bonus_summary(user=Depends(get_current_user)):
 
 
 @router.patch("/{cid}/status")
-async def update_commission_status(cid: str, payload: dict = Body(...), user=Depends(get_current_user)):
+async def update_commission_status(cid: str, payload: dict = Body(...), user=Depends(forbid_demo_write)):
     await commission_service.update_status(user, cid, payload.get("status"))
     return {"ok": True}
 

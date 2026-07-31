@@ -10,21 +10,21 @@ async def list_leads(user=Depends(get_current_user)):
     return await lead_service.list_leads(user)
 
 @router.post("")
-async def create_lead(payload: LeadIn, user=Depends(get_current_user)):
+async def create_lead(payload: LeadIn, user=Depends(forbid_demo_write)):
     return await lead_service.create_lead(user, payload)
 
 @router.put("/{lid}")
-async def update_lead(lid: str, payload: LeadIn, user=Depends(get_current_user)):
+async def update_lead(lid: str, payload: LeadIn, user=Depends(forbid_demo_write)):
     await lead_service.update_lead(user, lid, payload)
     return {"ok": True}
 
 @router.patch("/{lid}/status")
-async def update_lead_status(lid: str, payload: dict = Body(...), user=Depends(get_current_user)):
+async def update_lead_status(lid: str, payload: dict = Body(...), user=Depends(forbid_demo_write)):
     await lead_service.update_status(user, lid, payload.get("status"))
     return {"ok": True}
 
 @router.post("/{lid}/log-contact")
-async def log_contact(lid: str, payload: LeadContactIn, user=Depends(get_current_user)):
+async def log_contact(lid: str, payload: LeadContactIn, user=Depends(forbid_demo_write)):
     """Registra esplicitamente un contatto avvenuto col lead (chiamata,
     email, incontro), aggiornando last_contact_at/last_interaction_at senza
     dover passare da una modifica completa del lead."""

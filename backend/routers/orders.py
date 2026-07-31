@@ -23,18 +23,18 @@ async def get_order(oid: str, user=Depends(get_current_user)):
 
 
 @router.post("")
-async def create_order(payload: OrderIn, user=Depends(get_current_user)):
+async def create_order(payload: OrderIn, user=Depends(forbid_demo_write)):
     return await order_service.create_order(user, payload)
 
 
 @router.put("/{oid}")
-async def update_order(oid: str, payload: OrderIn, user=Depends(get_current_user)):
+async def update_order(oid: str, payload: OrderIn, user=Depends(forbid_demo_write)):
     await order_service.update_order(user, oid, payload)
     return {"ok": True}
 
 
 @router.patch("/{oid}/status")
-async def update_order_status(oid: str, payload: OrderStatusIn, user=Depends(get_current_user)):
+async def update_order_status(oid: str, payload: OrderStatusIn, user=Depends(forbid_demo_write)):
     await order_service.update_order_status(user, oid, payload)
     return {"ok": True}
 
