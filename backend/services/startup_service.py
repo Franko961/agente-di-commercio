@@ -64,6 +64,23 @@ DEMO_REQUEST_CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60
 CONTACT_REQUEST_RETENTION_DAYS = 730
 CONTACT_REQUEST_CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60
 
+# Retention della voce di audit "self_delete_account" (vedi
+# gdpr_service.delete_account): NON è coperta dall'assenza di TTL applicata
+# al resto dell'audit amministrativo qui sotto — quella riguarda azioni di
+# uno STAFF admin su un altro utente (interesse legittimo di
+# responsabilità/sicurezza su terzi, senza scadenza), mentre qui l'"attore"
+# e il "bersaglio" sono la STESSA persona che sta esercitando il proprio
+# diritto all'oblio (art. 17 GDPR): conservare a tempo indeterminato
+# l'email di chi ha appena chiesto la cancellazione dei propri dati non è
+# minimizzazione. La motivazione per conservarla comunque un periodo
+# limitato è di sicurezza (poter verificare, in caso di contestazione "non
+# sono stato io a cancellare il mio account", che la richiesta risultava
+# autenticata con la password corretta) — 12 mesi è una finestra
+# ragionevole per questo tipo di contestazione, oltre la quale il dato non
+# serve più allo scopo. L'email stessa viene salvata solo come hash (vedi
+# gdpr_service.py), mai in chiaro.
+SELF_DELETE_AUDIT_RETENTION_DAYS = 365
+
 _gcal_sync_task = None
 _stuck_ai_action_task = None
 _health_alert_task = None
@@ -342,9 +359,17 @@ async def run_startup() -> None:
     await db.system_events.create_index([("category", 1), ("created_at", -1)])
     await db.system_events.create_index("created_at", expireAfterSeconds=30 * 24 * 3600)
     await db.api_metrics_minute.create_index("created_at", expireAfterSeconds=7 * 24 * 3600)
-    # Audit amministrativo: nessun TTL, va conservato (è un log di
-    # responsabilità, non solo di salute operativa).
+    # Audit amministrativo: nessun TTL di default, va conservato (è un log
+    # di responsabilità, non solo di salute operativa) — vale per le azioni
+    # di uno staff admin su un altro utente. Le voci "self_delete_account"
+    # sono un caso diverso (vedi SELF_DELETE_AUDIT_RETENTION_DAYS sopra) e
+    # hanno un TTL parziale dedicato, solo su quel tipo di voce.
     await db.admin_audit_log.create_index([("created_at", -1)])
+    await db.admin_audit_log.create_index(
+        "created_at",
+        expireAfterSeconds=SELF_DELETE_AUDIT_RETENTION_DAYS * 24 * 3600,
+        partialFilterExpression={"action": "self_delete_account"},
+    )
 
     # Indici usati dal motore automazioni: dedup/retry per (automation_id,
     # target_id) e lettura notifiche per utente ordinate per data.

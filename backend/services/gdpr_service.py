@@ -1,3 +1,4 @@
+import hashlib
 import io
 import json
 import logging
@@ -206,17 +207,37 @@ class GdprService:
         # parte, altrimenti resterebbe orfano nel DB indefinitamente.
         await db.counters.delete_one({"_id": f"order_number:{user_id}"})
 
-        # Traccia amministrativa dell'eliminazione: si conserva DOPO la
-        # cancellazione dell'account (a differenza dei dati sopra) perché è
-        # un log di responsabilità/sicurezza su un evento avvenuto, non un
-        # dato personale nel senso previsto dal diritto all'oblio — lo
-        # stesso principio già applicato all'audit amministrativo esistente.
+        # Traccia di sicurezza dell'eliminazione: si conserva DOPO la
+        # cancellazione dell'account (a differenza dei dati sopra), ma
+        # email e user_id restano dati riconducibili a una persona — non lo
+        # si può considerare "non personale" solo perché vive nel log di
+        # audit. La sua conservazione è comunque giustificata da un
+        # interesse legittimo di sicurezza specifico (poter verificare, in
+        # caso di contestazione "non sono stato io a cancellare il mio
+        # account", che la richiesta di cancellazione era autenticata con
+        # la password corretta — vedi verify_password sopra), non da
+        # un'esenzione generica dal diritto alla protezione dei dati.
+        # Applicati di conseguenza tutti gli accorgimenti richiesti in
+        # questi casi:
+        # - retention definita, non indefinita: TTL parziale dedicato solo
+        #   a questo tipo di voce (SELF_DELETE_AUDIT_RETENTION_DAYS in
+        #   startup_service.py, 12 mesi), diverso dall'audit amministrativo
+        #   "normale" (azioni di uno staff admin su un altro utente), che
+        #   resta senza scadenza per un motivo diverso (responsabilità
+        #   verso terzi, non verso l'interessato stesso);
+        # - minimizzazione: un solo campo con l'email (non più duplicata
+        #   sia in "actor" sia in "detail" come prima di questa modifica);
+        # - pseudonimizzazione: quel campo contiene l'hash SHA-256
+        #   dell'email, non l'email in chiaro — sufficiente per confermare
+        #   una email indicata da chi contesta la cancellazione, senza
+        #   conservare il dato leggibile.
         try:
+            email_hash = hashlib.sha256((full_user.get("email") or "").encode("utf-8")).hexdigest()
             await db.admin_audit_log.insert_one({
-                "actor": full_user.get("email", user_id),
+                "actor": "self",
                 "action": "self_delete_account",
                 "target_user_id": user_id,
-                "detail": {"email": full_user.get("email")},
+                "detail": {"email_hash": email_hash},
                 "created_at": datetime.now(timezone.utc),
             })
         except Exception:

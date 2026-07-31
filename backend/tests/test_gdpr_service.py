@@ -365,6 +365,32 @@ def test_cancellazione_traccia_levento_nellaudit_log(monkeypatch):
     assert entry["target_user_id"] == "u1"
 
 
+def test_audit_log_non_conserva_lemail_in_chiaro(monkeypatch):
+    """L'email non deve mai comparire in chiaro nella voce di audit della
+    cancellazione (né come 'actor' né altrove): solo il suo hash SHA-256,
+    sufficiente a verificare una email indicata da chi in futuro contestasse
+    la cancellazione, senza conservare il dato leggibile."""
+    import hashlib
+    fake_db = build_fake_db_with_data()
+    monkeypatch.setattr(gdpr_mod, "db", fake_db)
+    monkeypatch.setattr(gdpr_mod, "check_and_record", _allow_always)
+    monkeypatch.setattr(gdpr_mod, "verify_password", lambda plain, hashed: True)
+    monkeypatch.setattr(gdpr_mod, "storage_delete", lambda path: None)
+
+    class FakeSubscriptionService:
+        async def cancel_subscription(self, user):
+            return {"ok": True}
+    monkeypatch.setattr(gdpr_mod, "subscription_service", FakeSubscriptionService())
+
+    service = GdprService()
+    run(service.delete_account(USER, "qualunque"))
+
+    entry = fake_db.admin_audit_log.inserted[0]
+    assert entry["actor"] == "self"
+    assert "franco@test.it" not in str(entry)
+    assert entry["detail"]["email_hash"] == hashlib.sha256(b"franco@test.it").hexdigest()
+
+
 def test_export_bloccato_da_troppe_richieste(monkeypatch):
     fake_db = build_fake_db_with_data()
     monkeypatch.setattr(gdpr_mod, "db", fake_db)
