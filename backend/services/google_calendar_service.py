@@ -15,6 +15,8 @@ from core.config import (
 )
 from core.crypto import encrypt_str, decrypt_str
 from core.utils import gen_id, now_iso
+from core.rate_limit import check_and_record
+from fastapi import HTTPException
 from repositories.google_calendar_repository import google_calendar_repository
 from repositories.appointment_repository import appointment_repository
 from repositories.automation_notification_repository import automation_notification_repository
@@ -411,6 +413,15 @@ class GoogleCalendarService:
             await self.appt_repo.insert(doc)
 
     async def sync_now(self, user_id: str) -> None:
+        """Trigger manuale (oltre al polling periodico già in background):
+        senza un limite, un utente potrebbe richiamarlo ripetutamente
+        generando traffico eccessivo verso le API Google Calendar o forzando
+        refresh di token non necessari — stessa protezione già applicata
+        alle altre integrazioni esterne a consumo (geocoding, route
+        planning)."""
+        ok = await check_and_record("gcal_sync_now", user_id, max_attempts=10, window_minutes=10)
+        if not ok:
+            raise HTTPException(429, "Troppe sincronizzazioni richieste, riprova tra qualche minuto")
         conn = await self.repo.find_by_user(user_id)
         if conn:
             await self._pull_for_connection(conn)
