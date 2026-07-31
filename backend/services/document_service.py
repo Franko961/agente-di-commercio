@@ -3,6 +3,7 @@ from fastapi import HTTPException
 from typing import Optional
 from core.utils import gen_id, now_iso
 from repositories.document_repository import document_repository
+from repositories.client_repository import client_repository
 from services.storage_service import storage_put_stream, ALLOWED_EXT, APP_NAME, sanitize_filename, _sniff_matches_extension
 from core.config import MAX_FILE_BYTES
 
@@ -22,13 +23,25 @@ SPOOL_MAX_MEMORY_BYTES = 8 * 1024 * 1024
 
 
 class DocumentService:
-    def __init__(self, repo=document_repository):
+    def __init__(self, repo=document_repository, client_repo=client_repository):
         self.repo = repo
+        self.client_repo = client_repo
+
+    async def _validate_client_ownership(self, user_id: str, client_id: Optional[str]) -> None:
+        """client_id arriva dal payload dell'utente ed è sempre facoltativo
+        (un documento non deve necessariamente essere collegato a un
+        cliente): quando presente, verifica che appartenga a chi carica il
+        documento — altrimenti un id di un altro utente (indovinato o
+        enumerato) verrebbe comunque accettato e salvato, collegando
+        silenziosamente il documento a un cliente che non è il suo."""
+        if client_id and not await self.client_repo.find_one(client_id, user_id):
+            raise HTTPException(404, "Cliente non trovato")
 
     async def list_documents(self, user: dict) -> list:
         return await self.repo.find_many(user["id"])
 
     async def create_document(self, user: dict, payload) -> dict:
+        await self._validate_client_ownership(user["id"], payload.client_id)
         doc = {
             "id": gen_id(), "user_id": user["id"], **payload.model_dump(),
             "is_deleted": False, "created_at": now_iso(),
@@ -37,6 +50,7 @@ class DocumentService:
 
     async def upload_document(self, user: dict, file, name: str, category: str,
                                client_id: Optional[str], notes: str, tags: str) -> dict:
+        await self._validate_client_ownership(user["id"], client_id)
         if not file.filename:
             raise HTTPException(400, "File mancante")
         ext = (file.filename.rsplit(".", 1)[-1] if "." in file.filename else "bin").lower()
@@ -122,6 +136,8 @@ class DocumentService:
 
     async def update_document_meta(self, user: dict, did: str, payload: dict) -> None:
         allowed = {k: v for k, v in payload.items() if k in {"name", "category", "notes", "client_id", "tags"}}
+        if "client_id" in allowed:
+            await self._validate_client_ownership(user["id"], allowed["client_id"])
         if "tags" in allowed and isinstance(allowed["tags"], list):
             allowed["tags"] = [str(t).strip() for t in allowed["tags"] if str(t).strip()]
         if "name" in allowed:
