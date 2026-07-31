@@ -100,7 +100,7 @@ export default function Pricing() {
           <h2 className="font-cabinet font-black text-2xl mb-6 text-center">Domande frequenti</h2>
           <div className="space-y-4">
             {[
-              ["Posso cambiare piano in qualsiasi momento?", "Sì, puoi passare da Base a Pro o viceversa in qualsiasi momento. Il cambio è immediato."],
+              ["Posso cambiare piano in qualsiasi momento?", "Sì, puoi passare da Base a Pro o viceversa: disdici il piano attuale dall'area abbonamento (resti attivo fino a fine periodo) e, una volta terminato, potrai attivare il nuovo piano. Per un cambio prima di allora, contattaci e ti aiutiamo noi."],
               ["Come funziona la prova gratuita?", `Hai ${trialDays} giorni per testare tutte le funzionalità senza inserire dati di pagamento. Al termine scegli il piano che preferisci.`],
               ["Posso cancellare quando voglio?", "Sì, nessun vincolo contrattuale. Puoi cancellare in qualsiasi momento dall'area abbonamento."],
               ["Quali metodi di pagamento accettate?", "Accettiamo carte di credito/debito tramite Stripe (Visa, Mastercard, Amex) e PayPal."],
