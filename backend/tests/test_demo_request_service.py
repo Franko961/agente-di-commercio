@@ -1,14 +1,18 @@
 """
 Verifica demo_request_service.create(): l'endpoint pubblico e non
-autenticato che crea un account VERO (con dati demo seminati) e invia una
-password reale via email. Senza limite di frequenza per IP, chiunque
-potrebbe scriptare la creazione di account fasulli in massa e/o far
-ricevere a indirizzi altrui email di "credenziali" non richieste.
+autenticato che crea un account VERO (con dati demo seminati), senza però
+una password realmente utilizzabile — l'utente la sceglie lui stesso
+tramite un link monouso inviato via email (stesso meccanismo di
+generate_reset_token/reset_password già usato per "password dimenticata"),
+invece di ricevere una password generata da noi in chiaro. Senza limite di
+frequenza per IP, chiunque potrebbe scriptare la creazione di account
+fasulli in massa e/o far ricevere a indirizzi altrui email non richieste.
 
 Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_demo_request_service.py -v
 """
+import re
 import sys
 import asyncio
 
@@ -21,6 +25,7 @@ from models.demo_request import DemoRequestIn
 import services.demo_request_service as demo_request_mod
 from services.demo_request_service import DemoRequestService
 from core.exceptions import ValidationAppError
+from core.security import hash_reset_token
 
 
 def run(coro):
@@ -39,7 +44,7 @@ sent_emails = []
 
 
 async def _fake_send_email(to, subject, html):
-    sent_emails.append({"to": to, "subject": subject})
+    sent_emails.append({"to": to, "subject": subject, "html": html})
     return True
 
 
@@ -96,20 +101,33 @@ def test_richiesta_valida_crea_account_e_invia_email(monkeypatch):
 
     result = run(service.create(_payload(), ip_address="1.2.3.4", user_agent="pytest"))
 
-    assert result == {"ok": True, "credentials_email_sent": True}
+    assert result == {"ok": True, "setup_email_sent": True}
     assert len(users.inserted) == 1
     assert users.inserted[0]["subscription_status"] == "trial"
-    # Un'email all'utente con le credenziali, una all'admin di notifica.
+    # L'account nasce con un link di impostazione password, non una
+    # password generata da noi: deve avere un token di reset valido pronto
+    # all'uso, esattamente come dopo una richiesta "password dimenticata".
+    assert users.inserted[0]["reset_token_hash"]
+    assert users.inserted[0]["reset_token_expires"]
+    # Un'email all'utente col link di impostazione, una all'admin di notifica.
     assert len(sent_emails) == 2
     assert sent_emails[0]["to"] == "mario.rossi@example.com"
 
+    # Il link nell'email deve contenere ESATTAMENTE il token il cui hash è
+    # stato salvato sull'utente — non un token diverso o disallineato, che
+    # renderebbe il link inutilizzabile pur sembrando valido.
+    match = re.search(r"token=([\w-]+)", sent_emails[0]["html"])
+    assert match, "nessun link di impostazione trovato nell'email"
+    assert hash_reset_token(match.group(1)) == users.inserted[0]["reset_token_hash"]
+
 
 def test_fallimento_invio_email_credenziali_viene_segnalato_ma_account_resta_creato(monkeypatch):
-    """Se l'invio dell'email con la password fallisce, l'utente non ha
-    ALCUN modo di conoscerla: il fallimento deve essere propagato nella
-    risposta (per far mostrare al frontend un messaggio diverso, che
-    indirizzi a 'password dimenticata'), ma l'account va comunque creato —
-    non ha senso bloccare la creazione per un problema di consegna email."""
+    """Se l'invio dell'email col link di impostazione fallisce, l'utente non
+    ha ALCUN modo di impostare una password e accedere: il fallimento deve
+    essere propagato nella risposta (per far mostrare al frontend un
+    messaggio diverso, che indirizzi a 'password dimenticata'), ma
+    l'account va comunque creato — non ha senso bloccare la creazione per
+    un problema di consegna email."""
     monkeypatch.setattr(demo_request_mod, "check_and_record", _allow_always)
     monkeypatch.setattr(demo_request_mod.seed_service, "seed_demo", _fake_seed_demo)
 
@@ -126,7 +144,7 @@ def test_fallimento_invio_email_credenziali_viene_segnalato_ma_account_resta_cre
 
     result = run(service.create(_payload(), ip_address="1.2.3.4", user_agent="pytest"))
 
-    assert result == {"ok": True, "credentials_email_sent": False}
+    assert result == {"ok": True, "setup_email_sent": False}
     assert len(users.inserted) == 1
 
 

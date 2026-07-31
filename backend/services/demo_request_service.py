@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 from fastapi import HTTPException
 
 from core.utils import gen_id, now_iso
-from core.security import hash_password
+from core.security import hash_password, generate_reset_token
 from core.exceptions import ValidationAppError
 from core.config import FRONTEND_URL, ADMIN_NOTIFY_EMAIL, TRIAL_DAYS
 from core.rate_limit import check_and_record
@@ -24,10 +24,14 @@ PRIVACY_POLICY_VERSION = "1.0-2026-07-14"
 TRIAL_PLAN = "base"  # piano assegnato di default all'account di prova creato dal form demo
 
 
-def _generate_password(length: int = 10) -> str:
-    """Genera una password casuale leggibile (senza caratteri ambigui come 0/O/1/l)."""
-    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"
-    return "".join(secrets.choice(alphabet) for _ in range(length))
+def _generate_placeholder_secret(length: int = 32) -> str:
+    """Genera un segreto casuale usato SOLO per produrre l'hash iniziale
+    dell'account, mai condiviso con nessuno (né mostrato né inviato via
+    email): l'account nasce così senza una password realmente utilizzabile,
+    finché l'utente non ne sceglie una propria tramite il link monouso di
+    impostazione (stesso meccanismo di generate_reset_token/reset_password
+    già usato per "password dimenticata")."""
+    return secrets.token_urlsafe(length)
 
 
 class DemoRequestService:
@@ -69,15 +73,22 @@ class DemoRequestService:
                 "oppure, se le hai dimenticate, contattaci."
             )
 
-        # Crea subito un account reale e a tempo (TRIAL_DAYS giorni di prova), con
-        # credenziali proprie inviate via email — non più un accesso condiviso.
-        password = _generate_password()
+        # Crea subito un account reale e a tempo (TRIAL_DAYS giorni di prova),
+        # senza però una password realmente utilizzabile: l'utente la sceglie
+        # lui stesso tramite un link monouso, con lo stesso meccanismo già
+        # usato da "password dimenticata" — niente password generata da noi
+        # che finisce in chiaro in una casella email (dove può restare per
+        # anni, essere inoltrata, letta da un dispositivo condiviso, o
+        # esposta se quell'account email viene compromesso).
         user_id = gen_id()
+        setup_token, setup_token_hash, setup_token_expires = generate_reset_token()
         user_doc = {
             "id": user_id,
             "email": email,
             "name": f"{nome} {cognome}",
-            "password_hash": hash_password(password),
+            "password_hash": hash_password(_generate_placeholder_secret()),
+            "reset_token_hash": setup_token_hash,
+            "reset_token_expires": setup_token_expires,
             "role": "agent",
             "created_at": now_iso(),
             "plan": TRIAL_PLAN,
@@ -112,23 +123,24 @@ class DemoRequestService:
         }
         await self.repo.insert(demo_request_doc)
 
-        login_link = f"{FRONTEND_URL}/login"
+        setup_link = f"{FRONTEND_URL}/reset-password?token={setup_token}"
 
-        # L'account è già creato con una password casuale che l'utente non
-        # ha mai visto: se questa email non arriva, non ha ALCUN modo di
-        # accedere finché non usa "password dimenticata". Per questo il
-        # risultato dell'invio viene propagato al chiamante (e da lì al
-        # frontend), che deve mostrare un messaggio diverso — non lo stesso
-        # "controlla la tua email" che sarebbe fuorviante in caso di fallimento.
-        credentials_email_sent = await send_email(
+        # L'account è già creato ma senza una password utilizzabile: se
+        # questa email non arriva, l'utente non ha ALCUN modo di accedere
+        # finché non usa "password dimenticata" (che genera un nuovo link
+        # con lo stesso meccanismo). Per questo il risultato dell'invio
+        # viene propagato al chiamante (e da lì al frontend), che deve
+        # mostrare un messaggio diverso — non lo stesso "controlla la tua
+        # email" che sarebbe fuorviante in caso di fallimento.
+        setup_email_sent = await send_email(
             to=email,
-            subject=f"Le tue credenziali di accesso a SALESFLY — {TRIAL_DAYS} giorni di prova",
-            html=self._user_email_html(nome, email, password, login_link),
+            subject=f"Imposta la tua password su SALESFLY — {TRIAL_DAYS} giorni di prova",
+            html=self._user_email_html(nome, email, setup_link),
         )
-        if not credentials_email_sent:
+        if not setup_email_sent:
             logger.error(
-                f"Invio email credenziali fallito per richiesta demo di {email}: "
-                "l'account è stato creato ma l'utente non ha ricevuto la password."
+                f"Invio email di impostazione password fallito per richiesta demo di {email}: "
+                "l'account è stato creato ma l'utente non ha ricevuto il link."
             )
 
         # La notifica interna non è critica per l'utente: un suo fallimento
@@ -142,36 +154,33 @@ class DemoRequestService:
         if not admin_email_sent:
             logger.warning(f"Invio email notifica admin fallito per richiesta demo di {email}")
 
-        return {"ok": True, "credentials_email_sent": credentials_email_sent}
+        return {"ok": True, "setup_email_sent": setup_email_sent}
 
     async def list_all(self) -> list:
         return await self.repo.find_many()
 
     @staticmethod
-    def _user_email_html(nome: str, email: str, password: str, login_link: str) -> str:
+    def _user_email_html(nome: str, email: str, setup_link: str) -> str:
         return f"""
         <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
           <h2 style="color:#0A192F;">Ciao {nome},</h2>
           <p>Grazie per aver richiesto l'accesso a <strong>SALESFLY</strong>,
           il CRM pensato per gli agenti di commercio. Abbiamo creato il tuo account
           con <strong>{TRIAL_DAYS} giorni di prova gratuita</strong>, nessuna carta richiesta.</p>
-          <div style="background:#F9F9F8; border:1px solid #E4E4E1; border-radius:8px; padding:16px 20px; margin:24px 0;">
-            <div style="font-size:12px; color:#52525B; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">Le tue credenziali</div>
-            <div style="font-size:14px; margin-bottom:6px;"><strong>Email:</strong> {email}</div>
-            <div style="font-size:14px;"><strong>Password:</strong> {password}</div>
-          </div>
-          <p style="font-size:13px; color:#52525B;">Ti consigliamo di cambiare la password dopo il primo accesso, dalle impostazioni del tuo profilo.</p>
+          <p>Per iniziare, scegli la password del tuo account:</p>
           <p style="text-align:center; margin: 32px 0;">
-            <a href="{login_link}"
+            <a href="{setup_link}"
                style="background:#0A192F; color:#ffffff; text-decoration:none;
                       padding: 12px 24px; border-radius: 6px; font-weight: bold;
                       display:inline-block;">
-              Accedi a SALESFLY
+              Imposta la password e accedi
             </a>
           </p>
+          <p style="font-size:13px; color:#52525B;">Il link è valido per un'ora. Se nel frattempo scade,
+          potrai richiederne uno nuovo dalla pagina "Password dimenticata" con l'indirizzo {email}.</p>
           <p style="font-size: 13px; color: #52525B;">
             Se il pulsante non funziona, copia e incolla questo link nel browser:<br/>
-            <a href="{login_link}">{login_link}</a>
+            <a href="{setup_link}">{setup_link}</a>
           </p>
           <hr style="border:none; border-top:1px solid #E4E4E1; margin: 24px 0;" />
           <p style="font-size: 12px; color: #999;">

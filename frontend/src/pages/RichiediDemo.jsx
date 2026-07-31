@@ -32,7 +32,7 @@ export default function RichiediDemo() {
     setBusy(true);
     try {
       const { data } = await api.post("/demo-requests", form);
-      setEmailFailed(data?.credentials_email_sent === false);
+      setEmailFailed(data?.setup_email_sent === false);
       setSent(true);
     } catch (err) {
       const detail = err?.response?.data?.detail;
@@ -67,8 +67,8 @@ export default function RichiediDemo() {
               <h1 className="font-cabinet font-black text-2xl mb-2">Account creato</h1>
               <p className="text-[#52525B] text-sm mb-4">
                 Il tuo account con {trialDays} giorni di prova gratuita è pronto, ma non siamo
-                riusciti a inviarti l'email con la password. Usa "Password dimenticata" nella
-                pagina di accesso per impostarne una nuova.
+                riusciti a inviarti l'email con il link per impostare la password. Usa
+                "Password dimenticata" nella pagina di accesso per impostarne una.
               </p>
               <Link to="/login" className="text-sm font-medium text-[#0A192F] underline">
                 Vai alla pagina di accesso
@@ -79,8 +79,8 @@ export default function RichiediDemo() {
               <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
               <h1 className="font-cabinet font-black text-2xl mb-2">Controlla la tua email</h1>
               <p className="text-[#52525B] text-sm">
-                Abbiamo creato il tuo account e ti abbiamo inviato email e password per accedere
-                subito a SALESFLY, con {trialDays} giorni di prova gratuita. Se non la trovi, controlla anche nello spam.
+                Abbiamo creato il tuo account con {trialDays} giorni di prova gratuita e ti abbiamo
+                inviato un link per impostare la tua password e accedere. Se non lo trovi, controlla anche nello spam.
               </p>
             </div>
           )
@@ -89,7 +89,7 @@ export default function RichiediDemo() {
             <div className="text-center mb-8">
               <h1 className="font-cabinet font-black text-3xl mb-2">Richiedi la Demo</h1>
               <p className="text-[#52525B] text-sm">
-                Compila il form: riceverai subito via email le tue credenziali di accesso e potrai
+                Compila il form: riceverai subito via email un link per impostare la tua password e potrai
                 usare SALESFLY gratis per {trialDays} giorni.
               </p>
             </div>
