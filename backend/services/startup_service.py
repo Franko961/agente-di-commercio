@@ -31,11 +31,23 @@ ALERT_MIN_SAMPLE_SIZE = 5
 # non lasciare accumulare a lungo le modifiche dei visitatori.
 DEMO_RESET_INTERVAL_SECONDS = 6 * 60 * 60
 
+# Ogni quanto finalizzare le disdette di abbonamento il cui periodo già
+# pagato (cancel_at) è terminato: per Stripe è solo una rete di sicurezza
+# (il webhook customer.subscription.deleted lo fa già alla scadenza reale),
+# per PayPal è l'UNICO meccanismo che porta subscription_status a
+# "cancelled" (PayPal non ha un evento equivalente a fine periodo, la
+# cancellazione lato loro è già immediata alla richiesta — vedi
+# subscription_service.cancel_subscription). Un'ora di ritardo massimo
+# sull'aggiornamento del campo status è accettabile: l'accesso stesso è già
+# bloccato da is_subscription_active() indipendentemente da questo ciclo.
+CANCEL_FINALIZE_INTERVAL_SECONDS = 60 * 60
+
 _gcal_sync_task = None
 _stuck_ai_action_task = None
 _health_alert_task = None
 _automation_engine_task = None
 _demo_reset_task = None
+_cancel_finalize_task = None
 _last_alert_sent_at = None
 
 
@@ -85,6 +97,26 @@ async def _demo_reset_loop() -> None:
             raise
         except Exception as e:
             logger.error(f"Ciclo di reset periodico account demo fallito: {e}")
+
+
+async def _cancel_finalize_loop() -> None:
+    """Porta a 'cancelled' gli abbonamenti il cui periodo già pagato
+    (cancel_at) è terminato. Vedi CANCEL_FINALIZE_INTERVAL_SECONDS per il
+    perché serve soprattutto per PayPal."""
+    while True:
+        try:
+            await asyncio.sleep(CANCEL_FINALIZE_INTERVAL_SECONDS)
+            now_iso = datetime.now(timezone.utc).isoformat()
+            result = await db.users.update_many(
+                {"subscription_status": "active", "cancel_at": {"$ne": None, "$lte": now_iso}},
+                {"$set": {"subscription_status": "cancelled"}, "$unset": {"cancel_at": ""}},
+            )
+            if result.modified_count:
+                logger.info(f"Finalizzate {result.modified_count} disdette di abbonamento con periodo pagato scaduto")
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.error(f"Ciclo di finalizzazione disdette fallito: {e}")
 
 
 # Endpoint le cui risposte d'errore sono l'esito ATTESO di un controllo, non
@@ -259,12 +291,13 @@ async def run_startup() -> None:
     await db.automation_runs.create_index([("automation_id", 1), ("target_id", 1)], unique=True)
     await db.automation_notifications.create_index([("user_id", 1), ("created_at", -1)])
 
-    global _gcal_sync_task, _stuck_ai_action_task, _health_alert_task, _automation_engine_task, _demo_reset_task
+    global _gcal_sync_task, _stuck_ai_action_task, _health_alert_task, _automation_engine_task, _demo_reset_task, _cancel_finalize_task
     _gcal_sync_task = asyncio.create_task(_google_calendar_sync_loop())
     _stuck_ai_action_task = asyncio.create_task(_stuck_ai_action_cleanup_loop())
     _health_alert_task = asyncio.create_task(_health_alert_loop())
     _automation_engine_task = asyncio.create_task(_automation_engine_loop())
     _demo_reset_task = asyncio.create_task(_demo_reset_loop())
+    _cancel_finalize_task = asyncio.create_task(_cancel_finalize_loop())
 
 
 async def run_shutdown() -> None:
@@ -278,4 +311,6 @@ async def run_shutdown() -> None:
         _automation_engine_task.cancel()
     if _demo_reset_task:
         _demo_reset_task.cancel()
+    if _cancel_finalize_task:
+        _cancel_finalize_task.cancel()
     close_db()

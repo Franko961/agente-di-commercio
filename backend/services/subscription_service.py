@@ -1,5 +1,6 @@
 import logging
 import requests
+from datetime import datetime, timezone
 from fastapi import HTTPException, Request
 
 from core.config import (
@@ -53,6 +54,7 @@ class SubscriptionService:
             "plan": u.get("plan", "base"),
             "status": u.get("subscription_status", "trial"),
             "trial_ends_at": u.get("trial_ends_at"),
+            "cancel_at": u.get("cancel_at"),
             "active": subscription_active(u),
         }
 
@@ -144,8 +146,14 @@ class SubscriptionService:
                     "stripe_subscription_id": sub_id,
                 })
         elif event["type"] in ("customer.subscription.deleted", "customer.subscription.paused"):
+            # Con cancel_at_period_end=True (vedi cancel_subscription), questo
+            # evento arriva solo alla vera data di fine periodo, non subito
+            # alla richiesta di disdetta: è il momento corretto per tagliare
+            # davvero l'accesso e ripulire cancel_at.
             sub = event["data"]["object"]
-            await self.repo.update_by_stripe_subscription_id(sub["id"], {"subscription_status": "cancelled"})
+            await self.repo.update_by_stripe_subscription_id(
+                sub["id"], {"subscription_status": "cancelled", "cancel_at": None}
+            )
         return {"ok": True}
 
     # ---- Helper PayPal ---------------------------------------------------
@@ -303,7 +311,18 @@ class SubscriptionService:
         if event_type == "BILLING.SUBSCRIPTION.ACTIVATED":
             await self.repo.update_by_paypal_subscription_id(subscription_id, {"subscription_status": "active"})
         elif event_type == "BILLING.SUBSCRIPTION.CANCELLED":
-            await self.repo.update_by_paypal_subscription_id(subscription_id, {"subscription_status": "cancelled"})
+            # PayPal non supporta una cancellazione differita a fine periodo:
+            # quando cancel_subscription() cancella lato PayPal, questo evento
+            # arriva quasi subito. Se cancel_at è già impostato (disdetta
+            # avviata dalla nostra app, con la data di fine periodo già
+            # pagato salvata), NON tagliamo subito l'accesso: ci pensa il
+            # ciclo periodico di pulizia quando cancel_at sarà passato.
+            # Solo se manca cancel_at (disdetta fatta direttamente su PayPal,
+            # fuori dalla nostra app) tagliamo subito, perché in quel caso
+            # nessuna promessa di accesso fino a fine periodo è stata fatta.
+            existing_user = await self.repo.find_by_paypal_subscription_id(subscription_id)
+            if not (existing_user and existing_user.get("cancel_at")):
+                await self.repo.update_by_paypal_subscription_id(subscription_id, {"subscription_status": "cancelled"})
         elif event_type == "BILLING.SUBSCRIPTION.SUSPENDED":
             await self.repo.update_by_paypal_subscription_id(subscription_id, {"subscription_status": "suspended"})
         elif event_type == "BILLING.SUBSCRIPTION.EXPIRED":
@@ -316,20 +335,43 @@ class SubscriptionService:
         return {"ok": True}
 
     async def cancel_subscription(self, user: dict) -> dict:
+        """Disdice l'abbonamento SENZA tagliare subito l'accesso: l'utente
+        ha già pagato il periodo in corso, quindi deve poterlo usare fino
+        alla fine (coerente col testo mostrato in Subscription.jsx). Invece
+        di cancellare subito, calcoliamo la data di fine periodo già pagato
+        e la salviamo in cancel_at: subscription_status resta 'active' fino
+        a quella data (vedi is_subscription_active), poi passa a 'cancelled'
+        tramite il webhook Stripe (alla vera scadenza) o il ciclo periodico
+        di pulizia (per PayPal, che non ha un evento equivalente)."""
         u = await self._forbid_if_demo(user["id"])
-        # Cancella su Stripe se presente
+        cancel_at = None
+
+        # Stripe: cancel_at_period_end invece di cancellare subito — è Stripe
+        # stesso a tenere traccia della data di fine periodo e a mandare il
+        # webhook customer.subscription.deleted solo quando arriva, non ora.
         if u.get("stripe_subscription_id") and STRIPE_SECRET_KEY:
             try:
                 import stripe
                 stripe.api_key = STRIPE_SECRET_KEY
-                stripe.Subscription.cancel(u["stripe_subscription_id"])
+                sub = stripe.Subscription.modify(u["stripe_subscription_id"], cancel_at_period_end=True)
+                period_end = sub.get("current_period_end")
+                if period_end:
+                    cancel_at = datetime.fromtimestamp(period_end, tz=timezone.utc).isoformat()
             except Exception as e:
                 logger.warning(f"Stripe cancel error: {e}")
-        # Cancella su PayPal se presente — prima d'ora questo ramo non
-        # esisteva: la cancellazione lato PayPal avveniva solo se l'utente la
-        # faceva direttamente sul proprio account PayPal (il nostro webhook
-        # se ne accorgeva a cose fatte, ma non la richiedevamo mai noi).
+
+        # PayPal non offre una cancellazione differita: l'unica API disponibile
+        # ferma subito i rinnovi futuri. Per onorare comunque "accesso fino a
+        # fine periodo pagato", leggiamo prima la prossima data di rinnovo
+        # (il periodo già pagato termina lì) come cancel_at, poi cancelliamo.
         if u.get("paypal_subscription_id") and PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET:
+            try:
+                subscription = self._paypal_get_subscription(u["paypal_subscription_id"])
+                next_billing = subscription.get("billing_info", {}).get("next_billing_time")
+                if next_billing and not cancel_at:
+                    cancel_at = next_billing
+            except Exception as e:
+                logger.warning(f"PayPal get subscription error: {e}")
             try:
                 token = self._paypal_token()
                 requests.post(
@@ -340,7 +382,14 @@ class SubscriptionService:
                 )
             except Exception as e:
                 logger.warning(f"PayPal cancel error: {e}")
-        await self.repo.update_by_id(user["id"], {"subscription_status": "cancelled"})
+
+        if cancel_at:
+            await self.repo.update_by_id(user["id"], {"cancel_at": cancel_at})
+        else:
+            # Nessuna data di fine periodo determinabile (nessun provider
+            # configurato, o entrambe le chiamate fallite): meglio cancellare
+            # subito che lasciare un abbonamento attivo a tempo indeterminato.
+            await self.repo.update_by_id(user["id"], {"subscription_status": "cancelled"})
         return {"ok": True}
 
 

@@ -28,5 +28,8 @@ class UserRepository:
     async def update_by_paypal_subscription_id(self, sub_id: str, data: dict) -> None:
         await self.collection.update_one({"paypal_subscription_id": sub_id}, {"$set": data})
 
+    async def find_by_paypal_subscription_id(self, sub_id: str) -> Optional[dict]:
+        return await self.collection.find_one({"paypal_subscription_id": sub_id}, {"_id": 0, "password_hash": 0})
+
 
 user_repository = UserRepository()

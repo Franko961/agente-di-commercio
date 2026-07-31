@@ -98,6 +98,13 @@ export default function Subscription() {
   const isActive = status?.active;
   const isTrial = status?.status === "trial";
   const isCancelled = status?.status === "cancelled";
+  // Disdetta già richiesta ma periodo pagato non ancora terminato: lo stato
+  // resta "active" fino a quella data (vedi is_subscription_active nel
+  // backend), quindi va distinto dall'abbonamento attivo "normale".
+  const cancelAt = status?.cancel_at;
+  const cancelAtLabel = cancelAt
+    ? new Date(cancelAt).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" })
+    : null;
 
   const trialDaysLeft = status?.trial_ends_at
     ? Math.max(0, Math.ceil((new Date(status.trial_ends_at) - new Date()) / 86400000))
@@ -119,12 +126,12 @@ export default function Subscription() {
             <div className="text-[14px] text-[#52525B] mt-1">€{plan.price_eur}/mese</div>
           </div>
           <div className="flex items-center gap-2">
-            {isActive && !isTrial && <CheckCircle className="w-5 h-5 text-[#059669]" />}
+            {isActive && !isTrial && !cancelAt && <CheckCircle className="w-5 h-5 text-[#059669]" />}
             {isTrial && <AlertTriangle className="w-5 h-5 text-[#FF5A00]" />}
-            {isCancelled && <XCircle className="w-5 h-5 text-red-500" />}
+            {(isCancelled || cancelAt) && <XCircle className="w-5 h-5 text-red-500" />}
             <span className="font-mono text-[11px] uppercase tracking-widest"
-              style={{ color: isTrial ? "#FF5A00" : isCancelled ? "#DC2626" : "#059669" }}>
-              {isTrial ? `Prova (${trialDaysLeft}gg rimasti)` : isCancelled ? "Cancellato" : "Attivo"}
+              style={{ color: isTrial ? "#FF5A00" : (isCancelled || cancelAt) ? "#DC2626" : "#059669" }}>
+              {isTrial ? `Prova (${trialDaysLeft}gg rimasti)` : cancelAt ? "In scadenza" : isCancelled ? "Cancellato" : "Attivo"}
             </span>
           </div>
         </div>
@@ -132,6 +139,12 @@ export default function Subscription() {
         {isTrial && (
           <div className="bg-[#FF5A0010] border border-[#FF5A0030] rounded-md p-4 text-[13px] text-[#FF5A00]">
             La tua prova gratuita scade tra <strong>{trialDaysLeft} giorni</strong>. Attiva un abbonamento per continuare ad usare SALESFLY.
+          </div>
+        )}
+
+        {isActive && !isTrial && cancelAt && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4 text-[13px] text-red-600">
+            Hai disdetto l'abbonamento: resterà attivo fino al <strong>{cancelAtLabel}</strong>, poi non verrà rinnovato.
           </div>
         )}
 
@@ -171,7 +184,15 @@ export default function Subscription() {
       )}
 
       {/* Cancella abbonamento */}
-      {isActive && !isTrial && (
+      {isActive && !isTrial && cancelAt && (
+        <div className="bg-white border border-[#E4E4E1] rounded-md p-5">
+          <div className="font-cabinet font-bold mb-2">Abbonamento in scadenza</div>
+          <div className="text-[13px] text-[#52525B]">
+            Hai già disdetto il rinnovo: potrai continuare a usare SALESFLY fino al <strong>{cancelAtLabel}</strong>.
+          </div>
+        </div>
+      )}
+      {isActive && !isTrial && !cancelAt && (
         <div className="bg-white border border-[#E4E4E1] rounded-md p-5">
           <div className="font-cabinet font-bold mb-2">Cancella abbonamento</div>
           <div className="text-[13px] text-[#52525B] mb-4">Puoi cancellare in qualsiasi momento. L'accesso rimane attivo fino alla fine del periodo pagato.</div>
