@@ -30,6 +30,7 @@ from tests.test_ai_tool_forcing import (
     Payload,
 )
 from core.config import PLANS
+import services.ai_service as ai_service_mod
 
 
 def run(coro):
@@ -83,6 +84,23 @@ def test_admin_non_soggetto_al_limite():
 
     result = run(service.chat({"id": "admin-1", "plan": "base", "role": "admin"}, Payload("ciao")))
     assert result["response"] == "Fatto."
+
+
+def test_troppe_richieste_ravvicinate_vengono_bloccate(monkeypatch):
+    """Limite di burst su /api/ai/chat, distinto dalla quota mensile per
+    piano testata sopra: anche un utente ben dentro la propria quota non
+    deve poter scriptare richieste ravvicinate, ognuna delle quali chiama
+    davvero l'API Anthropic a pagamento."""
+    service, _ = build_service()
+
+    async def _deny_always(*a, **k):
+        return False
+    monkeypatch.setattr(ai_service_mod, "check_and_record", _deny_always)
+
+    with pytest.raises(HTTPException) as exc_info:
+        run(service.chat({"id": "user-1", "plan": "pro"}, Payload("ciao")))
+
+    assert exc_info.value.status_code == 429
 
 
 if __name__ == "__main__":

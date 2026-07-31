@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from core.utils import gen_id, now_iso, now_local, local_month_str, local_wallclock_to_utc_iso, local_month_start_utc_iso
 from core.observability import record_event
 from core.config import PLANS
+from core.rate_limit import check_and_record
 from repositories.ai_repository import ai_repository
 from repositories.client_repository import client_repository
 from repositories.appointment_repository import appointment_repository
@@ -1112,6 +1113,16 @@ class AiService:
         api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not api_key:
             raise HTTPException(500, "ANTHROPIC_API_KEY mancante")
+
+        # Limite di burst distinto dalla quota mensile per piano qui sotto:
+        # anche un utente ben dentro la propria quota potrebbe scriptare
+        # richieste ravvicinate, ognuna delle quali chiama davvero l'API
+        # Anthropic a pagamento (incluso il tool di ricerca web, fatturato a
+        # parte) — stessa protezione già applicata a geocoding/route
+        # planning per le altre API esterne a consumo.
+        ok = await check_and_record("ai_chat", user["id"], max_attempts=20, window_minutes=10)
+        if not ok:
+            raise HTTPException(429, "Troppe richieste all'assistente AI in poco tempo, riprova tra qualche minuto")
 
         await self._enforce_ai_message_quota(user)
 
