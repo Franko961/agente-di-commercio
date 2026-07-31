@@ -12,8 +12,11 @@ Esegui con:
 import sys
 import asyncio
 
+import pytest
+
 sys.path.insert(0, ".")
 
+from core.exceptions import NotFoundError
 from models.order import OrderIn, OrderStatusIn
 import services.order_service as order_service_mod
 from services.order_service import OrderService
@@ -94,6 +97,14 @@ class FakeMandanteRepo:
         return self.mandanti_by_id.get(mid)
 
 
+class FakeClientRepo:
+    def __init__(self, clients_by_id):
+        self.clients_by_id = clients_by_id
+
+    async def find_one(self, cid, user_id):
+        return self.clients_by_id.get(cid)
+
+
 class FakeCommissionService:
     """Sostituisce il modulo commission_service usato internamente da
     order_service: espone repo (FakeCommissionRepo) e traccia le chiamate a
@@ -112,16 +123,20 @@ MANDANTI = {
     "m1": {"id": "m1", "user_id": "u1", "name": "Mandante Uno", "commission_rate": 10.0},
     "m2": {"id": "m2", "user_id": "u1", "name": "Mandante Due", "commission_rate": 20.0},
 }
+CLIENTI = {
+    "c1": {"id": "c1", "user_id": "u1", "company_name": "Cliente Uno"},
+}
 
 
 def build_service(monkeypatch):
     order_repo = FakeOrderRepo()
     mandante_repo = FakeMandanteRepo(MANDANTI)
+    client_repo = FakeClientRepo(CLIENTI)
     fake_commission_service = FakeCommissionService(MANDANTI)
     # commission_service è importato per nome dentro order_service: va
     # sostituito lì, non nel modulo commission_service originale.
     monkeypatch.setattr(order_service_mod, "commission_service", fake_commission_service)
-    service = OrderService(repo=order_repo, mandante_repo=mandante_repo)
+    service = OrderService(repo=order_repo, mandante_repo=mandante_repo, client_repo=client_repo)
     return service, order_repo, fake_commission_service
 
 
@@ -227,3 +242,27 @@ def test_get_order_include_provvigione_collegata(monkeypatch):
 
     assert fetched["commission"] is not None
     assert fetched["commission"]["order_id"] == order["id"]
+
+
+# ---------- Validazione ownership di client_id/mandante_id ----------
+
+def test_create_order_rifiuta_client_id_di_un_altro_utente(monkeypatch):
+    service, order_repo, _ = build_service(monkeypatch)
+    with pytest.raises(NotFoundError):
+        run(service.create_order(USER, _order_payload(client_id="c-di-un-altro-utente")))
+    assert order_repo.docs == {}
+
+
+def test_create_order_rifiuta_mandante_id_di_un_altro_utente(monkeypatch):
+    service, order_repo, _ = build_service(monkeypatch)
+    with pytest.raises(NotFoundError):
+        run(service.create_order(USER, _order_payload(mandante_id="m-di-un-altro-utente")))
+    assert order_repo.docs == {}
+
+
+def test_update_order_rifiuta_client_id_di_un_altro_utente(monkeypatch):
+    service, order_repo, _ = build_service(monkeypatch)
+    order = run(service.create_order(USER, _order_payload()))
+
+    with pytest.raises(NotFoundError):
+        run(service.update_order(USER, order["id"], _order_payload(client_id="c-di-un-altro-utente")))

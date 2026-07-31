@@ -2,6 +2,7 @@ from core.utils import gen_id, now_iso, now_local
 from core.exceptions import NotFoundError, ConflictError
 from repositories.order_repository import order_repository
 from repositories.mandante_repository import mandante_repository
+from repositories.client_repository import client_repository
 from services.commission_service import calc_offer_total, get_commission_rate, commission_service
 
 # Stati che comportano la rimozione della provvigione collegata: un ordine
@@ -21,9 +22,23 @@ _MAX_AUTO_NUMBER_RETRIES = 5
 
 
 class OrderService:
-    def __init__(self, repo=order_repository, mandante_repo=mandante_repository):
+    def __init__(self, repo=order_repository, mandante_repo=mandante_repository, client_repo=client_repository):
         self.repo = repo
         self.mandante_repo = mandante_repo
+        self.client_repo = client_repo
+
+    async def _validate_ownership(self, user_id: str, client_id: str, mandante_id: str) -> None:
+        """client_id/mandante_id arrivano dal payload dell'utente: senza
+        verificarne l'appartenenza, un id di un altro utente (indovinato o
+        enumerato) verrebbe comunque accettato — nessuna lettura successiva
+        ne sarebbe compromessa (tutto resta filtrato per user_id), ma
+        l'ordine referenzierebbe silenziosamente un cliente/mandante che non
+        è il suo (es. la provvigione calcolata ricadrebbe sull'aliquota di
+        default invece di dare un errore chiaro)."""
+        if not await self.client_repo.find_one(client_id, user_id):
+            raise NotFoundError("Cliente non trovato")
+        if not await self.mandante_repo.find_one(mandante_id, user_id):
+            raise NotFoundError("Mandante non trovato")
 
     async def _attach_commissions(self, user_id: str, orders: list) -> list:
         """Arricchisce ogni ordine con la provvigione collegata (se presente),
@@ -122,6 +137,7 @@ class OrderService:
 
     async def create_order(self, user: dict, payload) -> dict:
         data = payload.model_dump()
+        await self._validate_ownership(user["id"], data["client_id"], data["mandante_id"])
         return await self._create_order_doc(
             user, data["client_id"], data["mandante_id"], data["items"],
             data.get("sale_type", "nuovo"), data.get("notes", ""),
@@ -177,6 +193,7 @@ class OrderService:
         old_mandante_id = existing["mandante_id"]
 
         data = payload.model_dump()
+        await self._validate_ownership(user["id"], data["client_id"], data["mandante_id"])
         data["total"] = calc_offer_total(data["items"])
         if not data.get("numero_ordine"):
             data["numero_ordine"] = existing.get("numero_ordine") or await self.repo.next_order_number(user["id"])
