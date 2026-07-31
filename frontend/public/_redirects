@@ -1,2 +1,7 @@
 /api/*  https://agente-di-commercio-production.up.railway.app/api/:splat  200
-/* /index.html   200
+# app-shell.html (non index.html) apposta: index.html ora contiene i tag
+# specifici della homepage (vedi frontend/scripts/prerender.js), che
+# sarebbero sbagliati come fallback per una rotta qualunque (es. /login,
+# /app/*) — app-shell.html è la stessa pagina ma con i tag generici,
+# creata dallo stesso script prima di scrivere quelli della home.
+/* /app-shell.html   200
