@@ -30,6 +30,7 @@ assenza si comporta esattamente come prima):
 Tutto avvolto in try/except a grana fine: un'automazione o un'entità che
 falliscono non devono mai interrompere il ciclo delle altre.
 """
+import html
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -515,10 +516,13 @@ class AutomationEngine:
         if user.get("is_demo"):
             return  # niente invii reali per l'account demo condiviso
 
+        # Stessa ragione di _action_send_email: message può contenere dati
+        # del CRM o il template configurato dall'utente, va HTML-escaped
+        # prima di finire nel corpo dell'email.
         await self.send_email_fn(
             user.get("email", ""),
             f"🔔 SALESFLY — {title}",
-            f"<p>{message}</p>",
+            f"<p>{html.escape(message)}</p>",
         )
 
     async def _action_create_task(self, automation: dict, target_type: str, target_id: str, context: dict) -> None:
@@ -562,7 +566,15 @@ class AutomationEngine:
         label = _describe_target(target_type, context)
         subject = _render_template(custom_subject, target_type, context) if custom_subject else (automation.get("name") or "Follow-up")
         body_text = _render_template(custom_message, target_type, context) if custom_message else label
-        sent = await self.send_email_fn(to, subject, f"<p>{body_text}</p>")
+        # body_text può contenere dati del CRM (nome cliente, titolo offerta,
+        # ecc.) o il testo del template configurato dall'utente: va sempre
+        # HTML-escaped prima di finire nel corpo dell'email, altrimenti un
+        # valore con markup HTML/script verrebbe interpretato dal client di
+        # posta del destinatario (che può essere anche un cliente reale,
+        # non solo l'agente stesso) invece che mostrato come testo semplice
+        # — stessa protezione già applicata in contact_request_service.py,
+        # demo_request_service.py e auth_service.py.
+        sent = await self.send_email_fn(to, subject, f"<p>{html.escape(body_text)}</p>")
         if not sent:
             raise RuntimeError("Invio email fallito (vedi log email_service)")
 

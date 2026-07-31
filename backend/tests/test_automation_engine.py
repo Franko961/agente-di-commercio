@@ -697,6 +697,57 @@ def test_placeholder_sconosciuto_non_fa_fallire_linvio():
     assert "{nom}" in engine._sent_emails[0]["html"]  # lasciato letterale, non un crash
 
 
+# ---------- HTML escaping nel corpo email ----------
+
+def test_send_email_html_escape_dati_crm_malevoli():
+    """company_name arriva da un campo del CRM (compilabile dall'utente, o
+    da chi ha accesso a quel lead): un valore con markup HTML/script non
+    deve mai finire crudo nel corpo dell'email, che qui può essere inviata
+    anche a un cliente reale, non solo all'agente stesso."""
+    automations = [{
+        "id": "auto-11", "user_id": "user-1", "name": "Lead inattivo",
+        "trigger": "lead_inactive", "action": "send_email", "enabled": True,
+        "config": {"days": 7},
+    }]
+    leads = [{
+        "id": "l-1", "user_id": "user-1",
+        "company_name": "<img src=x onerror=alert(1)><script>alert(2)</script>",
+        "email": "bianchi@example.com", "status": "nuovo", "created_at": _days_ago(10),
+    }]
+    engine = build_engine(automations=automations, leads=leads)
+
+    run(engine.run_cycle())
+
+    html_body = engine._sent_emails[0]["html"]
+    assert "<img" not in html_body
+    assert "<script" not in html_body
+    assert "&lt;img src=x onerror=alert(1)&gt;" in html_body
+
+
+def test_send_reminder_html_escape_dati_crm_malevoli():
+    automations = [{
+        "id": "auto-12", "user_id": "user-1", "name": "Promemoria scadenza",
+        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
+        "config": {"days_before": 3},
+    }]
+    offers = [{
+        "id": "offer-1", "user_id": "user-1", "client_id": "c-1",
+        "title": "<img src=x onerror=alert(1)><script>alert(2)</script>",
+        "status": "inviata", "expires_at": _days_from_now(2),
+    }]
+    engine = build_engine(automations=automations, offers=offers)
+
+    run(engine.run_cycle())
+
+    html_body = engine._sent_emails[0]["html"]
+    assert "<img" not in html_body
+    assert "<script" not in html_body
+    assert "&lt;img src=x onerror=alert(1)&gt;" in html_body
+    # La notifica in-app (mostrata via React, che esegue già l'escaping in
+    # automatico) resta invece testo grezzo: nessuna doppia escape qui.
+    assert engine.notification_repo.docs[0]["message"].count("<img") == 1
+
+
 # ---------- Orario di esecuzione per regola (config['run_at']) ----------
 
 def test_regola_senza_run_at_viene_valutata_sempre():
