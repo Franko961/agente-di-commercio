@@ -34,7 +34,7 @@ async def list_notifications(unread_only: bool = False, user=Depends(get_current
 
 
 @router.put("/notifications/{nid}/read")
-async def mark_notification_read(nid: str, user=Depends(get_current_user)):
+async def mark_notification_read(nid: str, user=Depends(forbid_demo_write)):
     await automation_service.mark_notification_read(user, nid)
     return {"ok": True}
 

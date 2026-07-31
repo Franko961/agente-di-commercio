@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Response, Request
-from core.security import get_current_user
+from core.security import get_current_user, forbid_demo_write
 from services.auth_service import auth_service
 from models.auth import LoginIn, RegisterIn, ForgotPasswordIn, ResetPasswordIn
 
@@ -36,7 +36,13 @@ async def me(user=Depends(get_current_user)):
 
 
 @router.post("/onboarding-seen")
-async def onboarding_seen(user=Depends(get_current_user)):
+async def onboarding_seen(user=Depends(forbid_demo_write)):
+    # Bloccato per l'account demo: scrive sul documento utente condiviso
+    # (non ripulito dal reset periodico, a differenza delle collection
+    # USER_SCOPED_COLLECTIONS), quindi senza questa protezione un solo
+    # visitatore che la dismette la nasconderebbe per sempre a tutti i
+    # visitatori successivi. Il frontend (AuthContext.jsx) ignora già
+    # silenziosamente un eventuale errore qui.
     return await auth_service.mark_onboarding_seen(user)
 
 
