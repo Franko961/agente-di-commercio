@@ -15,6 +15,7 @@ import time
 import asyncio
 from datetime import datetime, timedelta, timezone
 
+import jwt
 import requests
 import pytest
 
@@ -23,7 +24,7 @@ sys.path.insert(0, ".")
 import services.google_calendar_service as gcal_mod
 from services.google_calendar_service import GoogleCalendarService
 from core.crypto import encrypt_str
-from core.config import GOOGLE_REAUTH_NOTIFY_COOLDOWN_HOURS
+from core.config import GOOGLE_REAUTH_NOTIFY_COOLDOWN_HOURS, JWT_SECRET, JWT_ALG
 
 
 def run(coro):
@@ -257,6 +258,61 @@ def test_push_create_funziona_normalmente_per_utente_non_demo(monkeypatch):
     run(service.push_create("user-1", {"id": "appt-1", "title": "Visita", "start": "2026-01-01T09:00:00"}))
 
     assert appt_repo.updates == [("appt-1", "user-1", {"google_event_id": "evt-nuovo"})]
+
+
+# ---------- handle_oauth_callback: connessione rifiutata per l'account demo ----------
+
+def _gcal_connect_state(user_id: str) -> str:
+    return jwt.encode(
+        {"uid": user_id, "purpose": "gcal_connect", "exp": datetime.utcnow() + timedelta(minutes=10)},
+        JWT_SECRET, algorithm=JWT_ALG,
+    )
+
+
+def test_callback_rifiuta_la_connessione_per_account_demo(monkeypatch):
+    """Anche se lo state firmato è valido (es. generato prima di questa
+    protezione, o per altra via), il callback non deve mai completare una
+    connessione Google reale per l'account demo condiviso: i suoi eventi
+    finirebbero sincronizzati e visibili a chiunque altro visiti la demo."""
+    monkeypatch.setattr(gcal_mod, "OAuth2Session", lambda *a, **k: (_ for _ in ()).throw(
+        AssertionError("nessuno scambio OAuth reale doveva partire per l'account demo")
+    ))
+    service = build_push_service(None, {"id": "demo-user", "is_demo": True})
+
+    state = _gcal_connect_state("demo-user")
+    with pytest.raises(ValueError, match="demo"):
+        run(service.handle_oauth_callback("fake-code", state))
+
+
+def test_callback_funziona_normalmente_per_utente_non_demo(monkeypatch):
+    class FakeOAuthSession:
+        def __init__(self, *a, **k):
+            pass
+
+        def fetch_token(self, *a, **k):
+            return {"access_token": "tok", "refresh_token": "refresh", "expires_at": time.time() + 3600}
+
+        def get(self, *a, **k):
+            return FakeResponse(200, {"email": "agente@example.com"})
+
+    monkeypatch.setattr(gcal_mod, "OAuth2Session", FakeOAuthSession)
+    service = build_push_service(None, {"id": "user-1", "is_demo": False})
+
+    state = _gcal_connect_state("user-1")
+    user_id = run(service.handle_oauth_callback("fake-code", state))
+
+    assert user_id == "user-1"
+    assert service.repo.conn["google_email"] == "agente@example.com"
+
+
+# ---------- _pull_for_connection: nessuna sincronizzazione in pull per il demo ----------
+
+def test_pull_non_chiama_google_per_account_demo(monkeypatch):
+    monkeypatch.setattr(gcal_mod.requests, "get", _fail_if_called)
+    service = build_push_service(_connected_valid_conn(), {"id": "user-1", "is_demo": True})
+
+    run(service._pull_for_connection(service.repo.conn))
+    # Nessuna eccezione = nessuna chiamata HTTP tentata (il fake alza AssertionError se chiamato).
 
 
 if __name__ == "__main__":

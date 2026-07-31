@@ -71,6 +71,17 @@ class GoogleCalendarService:
         except jwt.InvalidTokenError:
             raise ValueError("Stato OAuth non valido o scaduto, riprova la connessione")
 
+        # Difesa in profondità: /connect (routers/integrations.py) blocca già
+        # l'account demo prima di generare l'URL di consenso, ma questo
+        # endpoint pubblico si fida solo dello state firmato — un token
+        # generato prima di quella protezione (o emesso per altra via)
+        # sarebbe comunque ancora valido finché non scade. Qui si rifiuta
+        # comunque, non solo per coerenza: senza, gli eventi reali
+        # dell'account Google collegato finirebbero sincronizzati
+        # nell'account demo condiviso, visibili a chiunque altro lo visiti.
+        if await self._is_demo_user(user_id):
+            raise ValueError("Connessione Google Calendar non disponibile per l'account demo")
+
         def _exchange():
             oauth = OAuth2Session(GOOGLE_CLIENT_ID, redirect_uri=GOOGLE_REDIRECT_URI)
             token = oauth.fetch_token(
@@ -330,6 +341,14 @@ class GoogleCalendarService:
 
     async def _pull_for_connection(self, conn: dict) -> None:
         user_id = conn["user_id"]
+        # Rete di sicurezza (vedi handle_oauth_callback): una connessione non
+        # dovrebbe mai esistere per l'account demo, ma se una fosse comunque
+        # presente (es. residuo di prima di questa protezione, non ancora
+        # ripulito dal reset periodico) non va comunque mai sincronizzata —
+        # sia in pull da Google (qui) sia in push verso Google (già bloccato
+        # in push_create/update/delete).
+        if await self._is_demo_user(user_id):
+            return
         token = await self._valid_access_token(conn)
         if not token:
             return

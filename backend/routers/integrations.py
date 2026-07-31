@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, Depends
 from fastapi.responses import RedirectResponse
 
-from core.security import get_current_user
+from core.security import get_current_user, forbid_demo_write
 from core.config import FRONTEND_URL
 from services.google_calendar_service import google_calendar_service
 
@@ -12,8 +12,14 @@ router = APIRouter(prefix="/api/integrations/google", tags=["integrations"])
 
 
 @router.get("/connect")
-async def connect(user=Depends(get_current_user)):
-    """Ritorna l'URL a cui reindirizzare il browser per avviare il consenso OAuth Google."""
+async def connect(user=Depends(forbid_demo_write)):
+    """Ritorna l'URL a cui reindirizzare il browser per avviare il consenso OAuth Google.
+
+    Bloccato per l'account demo condiviso: un visitatore potrebbe altrimenti
+    collegare il proprio account Google REALE, e i suoi eventi reali
+    finirebbero sincronizzati nell'account demo condiviso, visibili a
+    chiunque altro lo visiti dopo — un leak di dati di terzi, non solo un
+    problema di dati demo modificati."""
     return {"auth_url": google_calendar_service.get_auth_url(user["id"])}
 
 
