@@ -114,18 +114,35 @@ class DemoRequestService:
 
         login_link = f"{FRONTEND_URL}/login"
 
-        await send_email(
+        # L'account è già creato con una password casuale che l'utente non
+        # ha mai visto: se questa email non arriva, non ha ALCUN modo di
+        # accedere finché non usa "password dimenticata". Per questo il
+        # risultato dell'invio viene propagato al chiamante (e da lì al
+        # frontend), che deve mostrare un messaggio diverso — non lo stesso
+        # "controlla la tua email" che sarebbe fuorviante in caso di fallimento.
+        credentials_email_sent = await send_email(
             to=email,
             subject=f"Le tue credenziali di accesso a SALESFLY — {TRIAL_DAYS} giorni di prova",
             html=self._user_email_html(nome, email, password, login_link),
         )
-        await send_email(
+        if not credentials_email_sent:
+            logger.error(
+                f"Invio email credenziali fallito per richiesta demo di {email}: "
+                "l'account è stato creato ma l'utente non ha ricevuto la password."
+            )
+
+        # La notifica interna non è critica per l'utente: un suo fallimento
+        # non deve impedire la creazione dell'account né essere segnalato
+        # nella risposta, solo tracciato nei log.
+        admin_email_sent = await send_email(
             to=ADMIN_NOTIFY_EMAIL,
             subject=f"Nuova richiesta demo — {nome} {cognome}",
             html=self._admin_email_html(demo_request_doc),
         )
+        if not admin_email_sent:
+            logger.warning(f"Invio email notifica admin fallito per richiesta demo di {email}")
 
-        return {"ok": True}
+        return {"ok": True, "credentials_email_sent": credentials_email_sent}
 
     async def list_all(self) -> list:
         return await self.repo.find_many()

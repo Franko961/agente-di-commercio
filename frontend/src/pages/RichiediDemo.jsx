@@ -13,6 +13,7 @@ export default function RichiediDemo() {
   });
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
+  const [emailFailed, setEmailFailed] = useState(false);
   const [error, setError] = useState("");
 
   const update = (field, value) => setForm((f) => ({ ...f, [field]: value }));
@@ -30,7 +31,8 @@ export default function RichiediDemo() {
     }
     setBusy(true);
     try {
-      await api.post("/demo-requests", form);
+      const { data } = await api.post("/demo-requests", form);
+      setEmailFailed(data?.credentials_email_sent === false);
       setSent(true);
     } catch (err) {
       const detail = err?.response?.data?.detail;
@@ -59,14 +61,29 @@ export default function RichiediDemo() {
 
       <main className="flex-1 px-6 py-16 max-w-lg mx-auto w-full">
         {sent ? (
-          <div className="bg-white border border-[#E4E4E1] rounded-xl p-8 text-center">
-            <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
-            <h1 className="font-cabinet font-black text-2xl mb-2">Controlla la tua email</h1>
-            <p className="text-[#52525B] text-sm">
-              Abbiamo creato il tuo account e ti abbiamo inviato email e password per accedere
-              subito a SALESFLY, con {trialDays} giorni di prova gratuita. Se non la trovi, controlla anche nello spam.
-            </p>
-          </div>
+          emailFailed ? (
+            <div className="bg-white border border-[#E4E4E1] rounded-xl p-8 text-center">
+              <CheckCircle2 className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+              <h1 className="font-cabinet font-black text-2xl mb-2">Account creato</h1>
+              <p className="text-[#52525B] text-sm mb-4">
+                Il tuo account con {trialDays} giorni di prova gratuita è pronto, ma non siamo
+                riusciti a inviarti l'email con la password. Usa "Password dimenticata" nella
+                pagina di accesso per impostarne una nuova.
+              </p>
+              <Link to="/login" className="text-sm font-medium text-[#0A192F] underline">
+                Vai alla pagina di accesso
+              </Link>
+            </div>
+          ) : (
+            <div className="bg-white border border-[#E4E4E1] rounded-xl p-8 text-center">
+              <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
+              <h1 className="font-cabinet font-black text-2xl mb-2">Controlla la tua email</h1>
+              <p className="text-[#52525B] text-sm">
+                Abbiamo creato il tuo account e ti abbiamo inviato email e password per accedere
+                subito a SALESFLY, con {trialDays} giorni di prova gratuita. Se non la trovi, controlla anche nello spam.
+              </p>
+            </div>
+          )
         ) : (
           <>
             <div className="text-center mb-8">

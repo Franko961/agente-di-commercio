@@ -96,12 +96,38 @@ def test_richiesta_valida_crea_account_e_invia_email(monkeypatch):
 
     result = run(service.create(_payload(), ip_address="1.2.3.4", user_agent="pytest"))
 
-    assert result == {"ok": True}
+    assert result == {"ok": True, "credentials_email_sent": True}
     assert len(users.inserted) == 1
     assert users.inserted[0]["subscription_status"] == "trial"
     # Un'email all'utente con le credenziali, una all'admin di notifica.
     assert len(sent_emails) == 2
     assert sent_emails[0]["to"] == "mario.rossi@example.com"
+
+
+def test_fallimento_invio_email_credenziali_viene_segnalato_ma_account_resta_creato(monkeypatch):
+    """Se l'invio dell'email con la password fallisce, l'utente non ha
+    ALCUN modo di conoscerla: il fallimento deve essere propagato nella
+    risposta (per far mostrare al frontend un messaggio diverso, che
+    indirizzi a 'password dimenticata'), ma l'account va comunque creato —
+    non ha senso bloccare la creazione per un problema di consegna email."""
+    monkeypatch.setattr(demo_request_mod, "check_and_record", _allow_always)
+    monkeypatch.setattr(demo_request_mod.seed_service, "seed_demo", _fake_seed_demo)
+
+    calls = []
+
+    async def _fail_user_email_only(to, subject, html):
+        calls.append(to)
+        return to != "mario.rossi@example.com"
+
+    monkeypatch.setattr(demo_request_mod, "send_email", _fail_user_email_only)
+    users = FakeUserRepo()
+    repo = FakeDemoRequestRepo()
+    service = DemoRequestService(repo=repo, users=users)
+
+    result = run(service.create(_payload(), ip_address="1.2.3.4", user_agent="pytest"))
+
+    assert result == {"ok": True, "credentials_email_sent": False}
+    assert len(users.inserted) == 1
 
 
 def test_email_gia_esistente_viene_rifiutata(monkeypatch):
