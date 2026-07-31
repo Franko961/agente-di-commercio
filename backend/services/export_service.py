@@ -1,8 +1,10 @@
 import csv
 import io
 from typing import List
+from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 from core.database import db
+from core.rate_limit import check_and_record
 
 # Caratteri che Excel/Google Sheets interpretano come inizio di una formula
 # quando aprono un file CSV: un valore testuale come '=HYPERLINK(...)' o
@@ -42,13 +44,25 @@ def csv_response(rows: List[dict], headers: List[str], filename: str) -> Streami
 
 
 class ExportService:
+    async def _enforce_rate_limit(self, user: dict) -> None:
+        """Ogni export legge fino a 5000 documenti su una o più collection
+        (offerte/provvigioni uniscono anche clienti e mandanti): senza un
+        limite, richiamarlo di continuo è un modo economico per generare
+        carico pesante sul database — stessa protezione già applicata
+        all'export equivalente lato GDPR (services/gdpr_service.py)."""
+        ok = await check_and_record("csv_export", user["id"], max_attempts=20, window_minutes=10)
+        if not ok:
+            raise HTTPException(429, "Troppe esportazioni richieste, riprova tra qualche minuto")
+
     async def export_clients(self, user: dict) -> StreamingResponse:
+        await self._enforce_rate_limit(user)
         clients = await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
         headers = ["company_name", "contact_name", "email", "phone", "vat_number",
                    "address", "city", "province", "zone", "sector", "potential", "notes"]
         return csv_response(clients, headers, "clienti.csv")
 
     async def export_offers(self, user: dict) -> StreamingResponse:
+        await self._enforce_rate_limit(user)
         offers = await db.offers.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
         clients = {c["id"]: c for c in await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)}
         mandanti = {m["id"]: m for m in await db.mandanti.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)}
@@ -68,6 +82,7 @@ class ExportService:
         return csv_response(rows, headers, "offerte.csv")
 
     async def export_commissions(self, user: dict) -> StreamingResponse:
+        await self._enforce_rate_limit(user)
         commissions = await db.commissions.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
         clients = {c["id"]: c for c in await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)}
         mandanti = {m["id"]: m for m in await db.mandanti.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)}
@@ -85,6 +100,7 @@ class ExportService:
         return csv_response(rows, headers, "provvigioni.csv")
 
     async def export_leads(self, user: dict) -> StreamingResponse:
+        await self._enforce_rate_limit(user)
         leads = await db.leads.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
         headers = ["company_name", "contact_name", "email", "phone", "source",
                    "estimated_value", "status", "notes", "created_at"]
