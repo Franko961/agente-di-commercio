@@ -2,9 +2,12 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import "@/App.css";
 import { AuthProvider } from "./contexts/AuthContext";
 import { MandanteProvider } from "./contexts/MandanteContext";
+import { CookieConsentProvider } from "./contexts/CookieConsentContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import Layout from "./components/Layout";
+import AnalyticsRouteGuard from "./components/AnalyticsRouteGuard";
+import CookieConsentBanner from "./components/CookieConsentBanner";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -45,10 +48,13 @@ function App() {
   return (
     <div className="App">
       <OfflineBanner />
-      <BrowserRouter>
-        <AuthProvider>
-          <MandanteProvider>
-            <Routes>
+      <CookieConsentProvider>
+        <BrowserRouter>
+          <AnalyticsRouteGuard />
+          <CookieConsentBanner />
+          <AuthProvider>
+            <MandanteProvider>
+              <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/login" element={<Login />} />
               <Route path="/prezzi" element={<Pricing />} />
@@ -84,10 +90,11 @@ function App() {
                 <Route path="/app/aiuto" element={<HelpCenter />} />
                 <Route path="/app/admin" element={<AdminRoute><Admin /></AdminRoute>} />
               </Route>
-            </Routes>
-          </MandanteProvider>
-        </AuthProvider>
-      </BrowserRouter>
+              </Routes>
+            </MandanteProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </CookieConsentProvider>
       <Toaster richColors position="top-right" />
     </div>
   );
