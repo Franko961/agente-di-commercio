@@ -15,6 +15,7 @@ const LANDING_NAV_LINKS = [
   { to: "/contatti", label: "Contatti" },
 ];
 import usePlans from "../hooks/usePlans";
+import { useCookieConsent } from "../contexts/CookieConsentContext";
 
 const FEATURES = [
   { icon: Users, title: "Clienti & anagrafiche", desc: "Tutti i tuoi clienti, contatti e storico visite in un unico posto, sempre a portata di mano." },
@@ -148,6 +149,7 @@ function PhoneMockup() {
 
 export default function Landing() {
   const navigate = useNavigate();
+  const { openPreferences } = useCookieConsent();
   const { plansById, trialDays } = usePlans();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -421,6 +423,7 @@ export default function Landing() {
             <Link to="/blog" className="hover:text-[#0A192F]">Blog</Link>
             <Link to="/privacy" className="hover:text-[#0A192F]">Privacy</Link>
             <Link to="/termini" className="hover:text-[#0A192F]">Termini</Link>
+            <button onClick={openPreferences} className="hover:text-[#0A192F]">Cookie</button>
             <Link to="/login" className="hover:text-[#0A192F]">Accedi</Link>
           </nav>
           <div className="flex items-center gap-3 text-[12px] text-[#A1A1AA]">

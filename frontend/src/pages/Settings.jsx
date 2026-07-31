@@ -2,17 +2,19 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   CalendarDays, CheckCircle2, Loader2, RefreshCw, Unplug, Plug, History, Target, Save,
-  ShieldCheck, Download, Trash2, AlertTriangle, Eye, EyeOff, Home, Building2,
+  ShieldCheck, Download, Trash2, AlertTriangle, Eye, EyeOff, Home, Building2, Cookie,
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "../api";
 import AiActionsLog from "../components/AiActionsLog";
 import LocationPicker from "../components/LocationPicker";
 import { useAuth } from "../contexts/AuthContext";
+import { useCookieConsent } from "../contexts/CookieConsentContext";
 
 export default function Settings() {
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const { consent, openPreferences } = useCookieConsent();
   const [searchParams, setSearchParams] = useSearchParams();
   const [status, setStatus] = useState(null); // null = caricamento
   const [busy, setBusy] = useState(false);
@@ -320,6 +322,28 @@ export default function Settings() {
                 >
                   {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
                   {exporting ? "Preparazione in corso…" : "Scarica i miei dati"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="border border-[#E4E4E1] rounded-lg p-5 mb-5">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-md bg-[#F3F3F1] flex items-center justify-center shrink-0">
+                <Cookie className="w-5 h-5 text-[#0A192F]" />
+              </div>
+              <div className="flex-1">
+                <div className="font-semibold text-[15px]">Preferenze cookie</div>
+                <div className="text-[13px] text-[#52525B] mt-0.5">
+                  {consent?.analytics
+                    ? "Hai acconsentito ai cookie di analisi (Google Analytics, PostHog). Non vengono comunque mai usati per registrare le sessioni qui nel gestionale."
+                    : "Al momento sono attivi solo i cookie tecnici necessari: hai rifiutato (o non ancora scelto) i cookie di analisi."}
+                </div>
+                <button
+                  onClick={openPreferences}
+                  className="mt-3 flex items-center gap-1.5 px-4 py-2 border border-[#E4E4E1] hover:bg-[#F9F9F8] rounded-md text-[13px] font-medium transition-colors"
+                >
+                  <Cookie className="w-3.5 h-3.5" /> Cambia preferenze
                 </button>
               </div>
             </div>
