@@ -107,6 +107,18 @@ def _route_path(request: Request) -> str:
     return route.path if route else request.url.path
 
 
+# Pubblico e senza autenticazione apposta: usato da Railway, reverse proxy,
+# uptime monitor e sistemi di riavvio automatico per sapere se il processo è
+# vivo, prima ancora che un utente faccia login — /api/admin/health (sopra,
+# nel router admin) resta il cruscotto con i dettagli tecnici, protetto da
+# require_admin. Risposta minimale apposta: nessun dato su database,
+# metriche o configurazione deve trapelare da un endpoint non autenticato.
+@app.get("/health")
+@app.get("/api/health")
+async def health():
+    return {"status": "ok"}
+
+
 @app.on_event("startup")
 async def startup():
     await run_startup()
