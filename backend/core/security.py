@@ -25,6 +25,11 @@ TRIAL_GATE_EXEMPT_PREFIXES = (
     "/api/auth",
     "/api/subscription",
     "/api/admin",
+    # Diritti GDPR (esportazione/cancellazione dati, vedi routers/gdpr.py):
+    # un utente deve poterli esercitare sempre, anche a prova/abbonamento
+    # scaduto — altrimenti sarebbe bloccato dal far valere un proprio
+    # diritto di legge finché non paga di nuovo.
+    "/api/privacy",
 )
 
 
