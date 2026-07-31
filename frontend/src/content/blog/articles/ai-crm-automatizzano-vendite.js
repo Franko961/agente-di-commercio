@@ -2,7 +2,7 @@ export const article = {
   slug: "come-ai-e-crm-automatizzano-attivita-vendita",
   title: "Come l'AI e il CRM automatizzano le attività di vendita",
   description:
-    "Come l'intelligenza artificiale integrata in un CRM automatizza report di visita, email di follow-up, pianificazione dei giri visita e consultazione dati cliente, facendo risparmiare fino a 10 ore a settimana a un agente di commercio.",
+    "Come l'intelligenza artificiale integrata in un CRM velocizza report di visita, registrazione di vendite e appuntamenti, pianificazione dei giri visita e consultazione dati cliente, facendo risparmiare fino a 10 ore a settimana a un agente di commercio.",
   publishedAt: "2026-07-29",
   draft: false,
   coverImage: "/blog/ai-crm-automazione-vendite.jpg",
@@ -12,15 +12,15 @@ export const article = {
       type: "p",
       text: "Ridurre il tempo speso in attività amministrative è una delle leve più concrete per un agente di commercio plurimandatario. Ecco quattro attività che l'intelligenza artificiale integrata in un CRM automatizza per restituire tempo alla vendita vera e propria.",
     },
-    { type: "h2", text: "1. Trascrizione automatica dei report di visita (risparmio: ~3 ore)" },
+    { type: "h2", text: "1. Aggiornamento vocale della scheda cliente (risparmio: ~3 ore)" },
     {
       type: "p",
-      text: "Nel modello tradizionale, la redazione dei report di vendita richiede tempo al computer a fine giornata. Con il CRM SalesFly, basta registrare una nota vocale tramite smartphone al termine dell'incontro: l'algoritmo di riconoscimento vocale con AI trascrive il testo, estrae le informazioni rilevanti e aggiorna automaticamente la scheda cliente.",
+      text: "Nel modello tradizionale, la redazione dei report di vendita richiede tempo al computer a fine giornata. Con il CRM SalesFly, basta dettare un comando vocale o testuale all'assistente AI al termine dell'incontro (ad esempio \"aggiungi una nota al cliente Rossi: interessato al nuovo listino\") per aggiornare subito la scheda cliente, senza aprire manualmente il modulo e digitare a mano.",
     },
-    { type: "h2", text: "2. Generazione automatica di email di follow-up (risparmio: ~2,5 ore)" },
+    { type: "h2", text: "2. Registrazione rapida di vendite e appuntamenti (risparmio: ~2,5 ore)" },
     {
       type: "p",
-      text: "Inviare un follow-up commerciale tempestivo è fondamentale per chiudere una trattativa. L'integrazione AI del CRM analizza le note della visita e lo storico delle interazioni per generare una bozza di email personalizzata pronta per la revisione e l'invio.",
+      text: "Anziché compilare un modulo campo per campo, puoi chiedere all'assistente AI di registrare una vendita, un'offerta o un appuntamento con una richiesta in linguaggio naturale: l'assistente prepara i dati e, dopo una tua conferma, li registra direttamente nel CRM.",
     },
     { type: "h2", text: "3. Mappatura e geolocalizzazione dei giri visita (risparmio: ~2,5 ore)" },
     {
