@@ -56,6 +56,14 @@ CANCEL_FINALIZE_INTERVAL_SECONDS = 60 * 60
 DEMO_REQUEST_RETENTION_DAYS = 730
 DEMO_REQUEST_CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60
 
+# Stesso principio di DEMO_REQUEST_RETENTION_DAYS sopra: i messaggi dal form
+# contatti pubblico (nome, email, telefono, messaggio) sono dati personali
+# raccolti senza un rapporto contrattuale in corso — a differenza delle
+# richieste demo, qui non viene nemmeno creato un account (nessun user_id da
+# collegare), quindi questa è la SOLA rete di minimizzazione per questi dati.
+CONTACT_REQUEST_RETENTION_DAYS = 730
+CONTACT_REQUEST_CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60
+
 _gcal_sync_task = None
 _stuck_ai_action_task = None
 _health_alert_task = None
@@ -63,6 +71,7 @@ _automation_engine_task = None
 _demo_reset_task = None
 _cancel_finalize_task = None
 _demo_request_cleanup_task = None
+_contact_request_cleanup_task = None
 _last_alert_sent_at = None
 
 
@@ -150,6 +159,24 @@ async def _demo_request_cleanup_loop() -> None:
             raise
         except Exception as e:
             logger.error(f"Ciclo di pulizia richieste demo fallito: {e}")
+
+
+async def _contact_request_cleanup_loop() -> None:
+    """Elimina periodicamente i messaggi dal form contatti più vecchi di
+    CONTACT_REQUEST_RETENTION_DAYS (vedi commento lì sopra sul perché)."""
+    from datetime import timedelta
+    from repositories.contact_request_repository import contact_request_repository
+    while True:
+        try:
+            await asyncio.sleep(CONTACT_REQUEST_CLEANUP_INTERVAL_SECONDS)
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=CONTACT_REQUEST_RETENTION_DAYS)).isoformat()
+            deleted = await contact_request_repository.delete_older_than(cutoff)
+            if deleted:
+                logger.info(f"Pulizia messaggi contatti: eliminati {deleted} messaggi più vecchi di {CONTACT_REQUEST_RETENTION_DAYS} giorni")
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.error(f"Ciclo di pulizia messaggi contatti fallito: {e}")
 
 
 # Endpoint le cui risposte d'errore sono l'esito ATTESO di un controllo, non
@@ -324,7 +351,7 @@ async def run_startup() -> None:
     await db.automation_runs.create_index([("automation_id", 1), ("target_id", 1)], unique=True)
     await db.automation_notifications.create_index([("user_id", 1), ("created_at", -1)])
 
-    global _gcal_sync_task, _stuck_ai_action_task, _health_alert_task, _automation_engine_task, _demo_reset_task, _cancel_finalize_task, _demo_request_cleanup_task
+    global _gcal_sync_task, _stuck_ai_action_task, _health_alert_task, _automation_engine_task, _demo_reset_task, _cancel_finalize_task, _demo_request_cleanup_task, _contact_request_cleanup_task
     _gcal_sync_task = asyncio.create_task(_google_calendar_sync_loop())
     _stuck_ai_action_task = asyncio.create_task(_stuck_ai_action_cleanup_loop())
     _health_alert_task = asyncio.create_task(_health_alert_loop())
@@ -332,6 +359,7 @@ async def run_startup() -> None:
     _demo_reset_task = asyncio.create_task(_demo_reset_loop())
     _cancel_finalize_task = asyncio.create_task(_cancel_finalize_loop())
     _demo_request_cleanup_task = asyncio.create_task(_demo_request_cleanup_loop())
+    _contact_request_cleanup_task = asyncio.create_task(_contact_request_cleanup_loop())
 
 
 async def run_shutdown() -> None:
@@ -349,4 +377,6 @@ async def run_shutdown() -> None:
         _cancel_finalize_task.cancel()
     if _demo_request_cleanup_task:
         _demo_request_cleanup_task.cancel()
+    if _contact_request_cleanup_task:
+        _contact_request_cleanup_task.cancel()
     close_db()

@@ -12,5 +12,14 @@ class ContactRequestRepository:
     async def find_many(self, limit: int = 500) -> list:
         return await self.collection.find({}, {"_id": 0}).sort("created_at", -1).to_list(limit)
 
+    async def delete_older_than(self, cutoff_iso: str) -> int:
+        """created_at è salvato come stringa ISO (now_iso()), non una data
+        BSON nativa: un indice TTL nativo non è applicabile qui, va ripulito
+        con un confronto testuale (che per il formato ISO 8601 UTC ordina
+        correttamente come farebbe un confronto di date) — stesso schema
+        già usato per demo_request_repository.delete_older_than."""
+        result = await self.collection.delete_many({"created_at": {"$lt": cutoff_iso}})
+        return result.deleted_count
+
 
 contact_request_repository = ContactRequestRepository()

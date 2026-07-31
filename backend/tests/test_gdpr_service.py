@@ -17,7 +17,7 @@ import zipfile
 sys.path.insert(0, ".")
 
 import services.gdpr_service as gdpr_mod
-from services.gdpr_service import GdprService, USER_SCOPED_COLLECTIONS
+from services.gdpr_service import GdprService, USER_SCOPED_COLLECTIONS, EXCLUDED_FROM_USER_SCOPED_COLLECTIONS
 from fastapi import HTTPException
 
 
@@ -68,7 +68,9 @@ class FakeCollection:
 
     async def delete_one(self, query):
         self.deleted_one_calls.append(query)
-        self.docs = [d for d in self.docs if d.get("id") != query.get("id")]
+        # Match generico su tutte le chiavi della query (non solo "id"): la
+        # pulizia dei contatori usa "_id", non "id".
+        self.docs = [d for d in self.docs if not all(d.get(k) == v for k, v in query.items())]
 
     async def insert_one(self, doc):
         self.inserted.append(doc)
@@ -109,6 +111,14 @@ def build_fake_db_with_data():
         "id": "d1", "user_id": "u1", "original_filename": "contratto.pdf",
         "storage_path": "path/to/contratto.pdf",
     })
+    fake_db.automation_notifications.docs.append({"id": "n1", "user_id": "u1", "title": "Promemoria"})
+    fake_db.automation_notifications.docs.append({"id": "n2", "user_id": "u2", "title": "Notifica di un altro utente"})
+    fake_db.automation_runs.docs.append({"automation_id": "auto-1", "user_id": "u1", "target_id": "t1", "status": "ok"})
+    fake_db.automation_runs.docs.append({"automation_id": "auto-2", "user_id": "u2", "target_id": "t2", "status": "ok"})
+    fake_db.demo_requests.docs.append({"id": "dr1", "user_id": "u1", "nome": "Franco", "email": "franco@test.it"})
+    fake_db.demo_requests.docs.append({"id": "dr2", "user_id": "u2", "nome": "Altro", "email": "altro@test.it"})
+    fake_db.counters.docs.append({"_id": "order_number:u1", "seq": 7})
+    fake_db.counters.docs.append({"_id": "order_number:u2", "seq": 3})
     return fake_db
 
 
@@ -147,6 +157,26 @@ def test_export_non_include_dati_di_altri_utenti(monkeypatch):
 
     company_names = [c["company_name"] for c in data["clienti"]]
     assert "Cliente di un altro utente" not in company_names
+
+
+def test_export_include_richiesta_demo_e_notifiche_automazioni(monkeypatch):
+    """demo_requests e automation_notifications sono dati riconducibili
+    all'utente (user_id, e per demo_requests anche nome/email) quindi
+    vanno inclusi nell'export (art. 20 GDPR), non solo nella cancellazione."""
+    fake_db = build_fake_db_with_data()
+    monkeypatch.setattr(gdpr_mod, "db", fake_db)
+    monkeypatch.setattr(gdpr_mod, "check_and_record", _allow_always)
+    monkeypatch.setattr(gdpr_mod, "storage_get", lambda path: (b"x", "application/pdf"))
+    service = GdprService()
+
+    zip_bytes = run(service.export_user_data(USER))
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        data = json.loads(zf.read("dati.json"))
+
+    assert len(data["richiesta_demo"]) == 1
+    assert data["richiesta_demo"][0]["nome"] == "Franco"
+    assert len(data["notifiche_automazioni"]) == 1
+    assert data["notifiche_automazioni"][0]["title"] == "Promemoria"
 
 
 def test_export_prosegue_se_un_documento_non_si_trova(monkeypatch):
@@ -241,6 +271,59 @@ def test_cancellazione_svuota_tutte_le_collection_dellutente(monkeypatch):
     assert fake_db.users.deleted_one_calls == [{"id": "u1"}]
 
 
+def test_cancellazione_svuota_anche_notifiche_esecuzioni_automazioni_e_richiesta_demo(monkeypatch):
+    """Regressione: automation_notifications, automation_runs e
+    demo_requests contengono dati riconducibili all'utente (user_id, e per
+    demo_requests anche nome/email/telefono) ma non erano coperte da
+    USER_SCOPED_COLLECTIONS — sarebbero sopravvissute alla cancellazione
+    dell'account."""
+    fake_db = build_fake_db_with_data()
+    monkeypatch.setattr(gdpr_mod, "db", fake_db)
+    monkeypatch.setattr(gdpr_mod, "check_and_record", _allow_always)
+    monkeypatch.setattr(gdpr_mod, "verify_password", lambda plain, hashed: True)
+    monkeypatch.setattr(gdpr_mod, "storage_delete", lambda path: None)
+
+    class FakeSubscriptionService:
+        async def cancel_subscription(self, user):
+            return {"ok": True}
+    monkeypatch.setattr(gdpr_mod, "subscription_service", FakeSubscriptionService())
+
+    service = GdprService()
+    run(service.delete_account(USER, "qualunque"))
+
+    assert all(d.get("user_id") != "u1" for d in fake_db.automation_notifications.docs)
+    assert all(d.get("user_id") != "u1" for d in fake_db.automation_runs.docs)
+    assert all(d.get("user_id") != "u1" for d in fake_db.demo_requests.docs)
+    # I dati di un altro utente restano intatti in tutte e tre
+    assert any(d.get("user_id") == "u2" for d in fake_db.automation_notifications.docs)
+    assert any(d.get("user_id") == "u2" for d in fake_db.automation_runs.docs)
+    assert any(d.get("user_id") == "u2" for d in fake_db.demo_requests.docs)
+
+
+def test_cancellazione_rimuove_il_contatore_ordini_dellutente(monkeypatch):
+    """Il contatore progressivo (order_repository.next_order_number) è
+    indicizzato per "_id": "order_number:{user_id}", non da un campo
+    user_id filtrabile con la query generica usata per le altre collection
+    — va ripulito a parte, altrimenti resterebbe orfano nel DB."""
+    fake_db = build_fake_db_with_data()
+    monkeypatch.setattr(gdpr_mod, "db", fake_db)
+    monkeypatch.setattr(gdpr_mod, "check_and_record", _allow_always)
+    monkeypatch.setattr(gdpr_mod, "verify_password", lambda plain, hashed: True)
+    monkeypatch.setattr(gdpr_mod, "storage_delete", lambda path: None)
+
+    class FakeSubscriptionService:
+        async def cancel_subscription(self, user):
+            return {"ok": True}
+    monkeypatch.setattr(gdpr_mod, "subscription_service", FakeSubscriptionService())
+
+    service = GdprService()
+    run(service.delete_account(USER, "qualunque"))
+
+    remaining_ids = [d["_id"] for d in fake_db.counters.docs]
+    assert "order_number:u1" not in remaining_ids
+    assert "order_number:u2" in remaining_ids
+
+
 def test_cancellazione_rimuove_i_file_da_s3_non_solo_il_record(monkeypatch):
     fake_db = build_fake_db_with_data()
     monkeypatch.setattr(gdpr_mod, "db", fake_db)
@@ -326,3 +409,46 @@ def test_tutte_le_collection_dichiarate_esistono_davvero_nel_progetto():
     real_collections = set(result.stdout.strip().split("\n"))
     for collection_name in USER_SCOPED_COLLECTIONS.values():
         assert collection_name in real_collections, f"'{collection_name}' non trovata in nessun repository"
+
+
+def test_ogni_collection_reale_e_classificata():
+    """Controllo nella direzione OPPOSTA al test sopra: ogni collection
+    MongoDB REALMENTE usata nel codice (repositories/, services/, core/)
+    deve comparire o in USER_SCOPED_COLLECTIONS o in
+    EXCLUDED_FROM_USER_SCOPED_COLLECTIONS (con una motivazione scritta lì
+    accanto per l'esclusione) — mai in nessuno dei due.
+
+    Senza questo controllo, chi introduce una nuova collection con dati
+    riconducibili a un utente può dimenticare di collegarla a
+    export/cancellazione GDPR senza che nulla lo segnali: è esattamente
+    così che automation_notifications, automation_runs e demo_requests sono
+    rimaste scoperte finché qualcuno non se n'è accorto a mano. Da qui in
+    avanti una collection nuova, non classificata, fa fallire questo test
+    finché non viene deliberatamente collocata in uno dei due elenchi.
+
+    Scansione fatta in Python puro (glob + regex), non con un grep esterno
+    via subprocess come il test sopra: il pattern qui deve coprire anche
+    services/ e core/ (non solo repositories/), e affidarsi al grep di
+    sistema qui si è rivelato fragile — un binario diverso trovato nel PATH
+    di pytest produceva risultati diversi da quelli della stessa identica
+    chiamata da shell."""
+    import re
+    from pathlib import Path
+
+    pattern = re.compile(r"\bdb\.([a-z_]+)")
+    real_collections = set()
+    for folder in ("repositories", "services", "core"):
+        for path in Path(folder).rglob("*.py"):
+            if "__pycache__" in path.parts:
+                continue
+            real_collections.update(pattern.findall(path.read_text(encoding="utf-8")))
+    assert real_collections, "la scansione non ha trovato nessuna collection: controlla il pattern regex"
+
+    classified = set(USER_SCOPED_COLLECTIONS.values()) | EXCLUDED_FROM_USER_SCOPED_COLLECTIONS
+    unclassified = real_collections - classified
+    assert not unclassified, (
+        f"Collection non classificate in services/gdpr_service.py: {sorted(unclassified)}. "
+        "Aggiungile a USER_SCOPED_COLLECTIONS se contengono dati riconducibili a un utente "
+        "(export + cancellazione account), o a EXCLUDED_FROM_USER_SCOPED_COLLECTIONS con una "
+        "motivazione scritta se non lo sono."
+    )

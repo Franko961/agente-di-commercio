@@ -36,6 +36,54 @@ USER_SCOPED_COLLECTIONS = {
     "log_email": "email_logs",
     "automazioni": "automations",
     "connessione_google_calendar": "google_calendar_connections",
+    "notifiche_automazioni": "automation_notifications",
+    "esecuzioni_automazioni": "automation_runs",
+    "richiesta_demo": "demo_requests",
+}
+
+# Ogni altra collection MongoDB realmente usata nel progetto (vedi
+# tests/test_gdpr_service.py::test_ogni_collection_reale_e_classificata, che
+# scansiona il codice e pretende che qualunque collection nuova sia elencata
+# qui SOPRA o qui SOTTO — altrimenti chi la aggiunge deve fermarsi a
+# decidere consapevolmente dove va, invece di dimenticarla per omissione),
+# con la motivazione per cui NON è scoped per utente in export/cancellazione:
+EXCLUDED_FROM_USER_SCOPED_COLLECTIONS = {
+    # Il documento utente stesso: gestito direttamente (non "dati collegati
+    # all'utente", è l'account stesso), vedi profilo/db.users.delete_one.
+    "users",
+    # Log di responsabilità amministrativa: si conserva deliberatamente
+    # DOPO la cancellazione dell'account (vedi commento su delete_account
+    # più sotto), non è un dato personale nel senso del diritto all'oblio.
+    "admin_audit_log",
+    # Telemetria operativa a breve termine, già con TTL nativo che la
+    # elimina automaticamente indipendentemente da qualunque account
+    # (rate_limit_events: 2 ore; system_events: 30 giorni; api_metrics_minute:
+    # 7 giorni — vedi startup_service.py/core/observability.py) — non è
+    # "il dato dell'utente" nel senso della portabilità, è un cruscotto di
+    # salute del servizio.
+    "rate_limit_events",
+    "system_events",
+    "api_metrics_minute",
+    # Dedup tecnico dei webhook di pagamento, indicizzato per id evento
+    # esterno (Stripe/PayPal), non per utente: non è dato "dell'utente" da
+    # esportare, e la sua utilità (evitare doppie elaborazioni dello stesso
+    # evento) non dipende dall'esistenza dell'account.
+    "paypal_webhook_events",
+    "stripe_webhook_events",
+    # Contatori tecnici (es. numero ordine progressivo per utente): non
+    # sono dati personali in sé (solo un intero), ma vanno comunque ripuliti
+    # alla cancellazione account per igiene — gestito con una delete_one
+    # mirata in delete_account() (la chiave è "order_number:{user_id}", non
+    # un campo user_id filtrale con la stessa query generica delle altre
+    # collection qui sopra).
+    "counters",
+    # Richieste dal form contatti pubblico: NON collegate a uno user_id (chi
+    # scrive potrebbe non avere nemmeno un account SalesFly), quindi non
+    # raggiungibili da un export/cancellazione account — non c'è uno user_id
+    # da seguire. La loro retention è comunque limitata: pulizia periodica a
+    # 24 mesi, stesso principio di demo_requests (vedi
+    # CONTACT_REQUEST_RETENTION_DAYS in startup_service.py).
+    "contact_requests",
 }
 
 # Campi da rimuovere sempre dall'export e mai includere: segreti tecnici che
@@ -151,6 +199,12 @@ class GdprService:
 
         for collection_name in USER_SCOPED_COLLECTIONS.values():
             await db[collection_name].delete_many({"user_id": user_id})
+
+        # Contatore ordini: chiave "order_number:{user_id}" (vedi
+        # order_repository.next_order_number), non un campo user_id
+        # filtrabile con la query generica del loop sopra — va ripulito a
+        # parte, altrimenti resterebbe orfano nel DB indefinitamente.
+        await db.counters.delete_one({"_id": f"order_number:{user_id}"})
 
         # Traccia amministrativa dell'eliminazione: si conserva DOPO la
         # cancellazione dell'account (a differenza dei dati sopra) perché è
