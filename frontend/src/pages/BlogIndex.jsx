@@ -3,18 +3,14 @@ import { ArrowRight } from "lucide-react";
 import { getPublishedArticles } from "@/content/blog";
 import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
+import PageMeta from "@/components/PageMeta";
 
 export default function BlogIndex() {
   const articles = getPublishedArticles();
 
   return (
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
-      <title>Blog per Agenti di Commercio — SALESFLY</title>
-      <meta
-        name="description"
-        content="Guide pratiche su provvigioni, ENASARCO, contratti di agenzia e tutto ciò che serve a un agente di commercio plurimandatario."
-      />
-      <link rel="canonical" href="https://salesfly.it/blog" />
+      <PageMeta path="/blog" />
 
       <PublicHeader />
 

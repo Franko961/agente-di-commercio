@@ -3,6 +3,7 @@ import { ArrowLeft, Calendar } from "lucide-react";
 import { getArticleBySlug } from "@/content/blog";
 import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
+import PageMeta from "@/components/PageMeta";
 
 function renderBlock(block, i) {
   switch (block.type) {
@@ -36,20 +37,16 @@ export default function BlogPost() {
 
   if (!article) return <Navigate to="/blog" replace />;
 
-  const url = `https://salesfly.it/blog/${article.slug}`;
-
   return (
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
-      <>
-        <title>{`${article.title} — SALESFLY`}</title>
-        <meta name="description" content={article.description} />
-        <link rel="canonical" href={url} />
-        {article.draft && <meta name="robots" content="noindex" />}
-        <meta property="og:type" content="article" />
-        <meta property="og:title" content={article.title} />
-        <meta property="og:description" content={article.description} />
-        <meta property="og:url" content={url} />
-        {article.coverImage && <meta property="og:image" content={`https://salesfly.it${article.coverImage}`} />}
+      <PageMeta
+        path={`/blog/${article.slug}`}
+        title={`${article.title} — SALESFLY`}
+        description={article.description}
+        image={article.coverImage ? `https://salesfly.it${article.coverImage}` : undefined}
+        type="article"
+        noindex={article.draft}
+      >
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",
@@ -59,10 +56,10 @@ export default function BlogPost() {
             datePublished: article.publishedAt,
             author: { "@type": "Organization", name: "SALESFLY" },
             publisher: { "@type": "Organization", name: "SALESFLY" },
-            mainEntityOfPage: url,
+            mainEntityOfPage: `https://salesfly.it/blog/${article.slug}`,
           })}
         </script>
-      </>
+      </PageMeta>
 
       <PublicHeader />
 

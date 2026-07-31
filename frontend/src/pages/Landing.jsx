@@ -16,6 +16,7 @@ const LANDING_NAV_LINKS = [
 ];
 import usePlans from "../hooks/usePlans";
 import { useCookieConsent } from "../contexts/CookieConsentContext";
+import PageMeta from "../components/PageMeta";
 
 const FEATURES = [
   { icon: Users, title: "Clienti & anagrafiche", desc: "Tutti i tuoi clienti, contatti e storico visite in un unico posto, sempre a portata di mano." },
@@ -163,27 +164,7 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-[#F9F9F8]">
-      <>
-        <title>SALESFLY — Il CRM per Agenti di Commercio Plurimandatari</title>
-        <meta
-          name="description"
-          content={`SALESFLY è il CRM per agenti di commercio plurimandatari con un assistente AI che aggiorna davvero il CRM al posto tuo: clienti, agenda, provvigioni e offerte, non solo consigli. Prova gratis ${trialDays} giorni.`}
-        />
-        <link rel="canonical" href="https://salesfly.it/" />
-        <meta property="og:type" content="website" />
-        <meta property="og:title" content="SALESFLY — Il CRM per Agenti di Commercio Plurimandatari" />
-        <meta
-          property="og:description"
-          content="L'unico CRM con un assistente che il lavoro non lo spiega: lo fa. Clienti, agenda, provvigioni e offerte per chi vive di visite e mandanti."
-        />
-        <meta property="og:url" content="https://salesfly.it/" />
-        <meta property="og:locale" content="it_IT" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="SALESFLY — Il CRM per Agenti di Commercio Plurimandatari" />
-        <meta
-          name="twitter:description"
-          content="L'unico CRM con un assistente che il lavoro non lo spiega: lo fa. Clienti, agenda, provvigioni e offerte per chi vive di visite e mandanti."
-        />
+      <PageMeta path="/">
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",
@@ -199,7 +180,7 @@ export default function Landing() {
             url: "https://salesfly.it/",
           })}
         </script>
-      </>
+      </PageMeta>
 
       {/* Header */}
       <header

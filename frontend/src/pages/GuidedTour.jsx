@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react";
 import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
 import { TOUR_STEPS as STEPS } from "@/content/tourSteps";
+import PageMeta from "@/components/PageMeta";
 
 function WelcomeScreen({ onStart }) {
   return (
@@ -83,9 +84,7 @@ export default function GuidedTour() {
 
   return (
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
-      <title>Tour guidato — SALESFLY</title>
-      <meta name="description" content="Scopri in 3 minuti le funzioni principali di SALESFLY: dashboard, clienti, lead, agenda, automazioni, assistente AI e pianificatore giro visite." />
-      <link rel="canonical" href="https://salesfly.it/tour" />
+      <PageMeta path="/tour" />
 
       <PublicHeader />
 

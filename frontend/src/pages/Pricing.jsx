@@ -3,6 +3,7 @@ import { Check, Zap, Star } from "lucide-react";
 import usePlans from "../hooks/usePlans";
 import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
+import PageMeta from "@/components/PageMeta";
 
 export default function Pricing() {
   const navigate = useNavigate();
@@ -16,12 +17,10 @@ export default function Pricing() {
 
   return (
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
-      <title>Prezzi — SALESFLY, il CRM per Agenti di Commercio</title>
-      <meta
-        name="description"
-        content={`Piani ${base.name} (€${base.price_eur}/mese) e ${pro.name} (€${pro.price_eur}/mese) per il CRM SALESFLY. ${trialDays} giorni di prova gratuita, nessuna carta di credito richiesta.`}
+      <PageMeta
+        path="/prezzi"
+        description={`Piani ${base.name} (€${base.price_eur}/mese) e ${pro.name} (€${pro.price_eur}/mese) per il CRM SALESFLY. ${trialDays} giorni di prova gratuita, nessuna carta di credito richiesta.`}
       />
-      <link rel="canonical" href="https://salesfly.it/prezzi" />
       <PublicHeader />
 
       <main className="flex-1 px-6 py-16 max-w-5xl mx-auto w-full">

@@ -18,18 +18,21 @@
         -->
         <link rel="manifest" href="/manifest.json" />
 
-        <!-- Open Graph -->
-        <meta property="og:type" content="website" />
+        <!--
+        Open Graph/Twitter: qui resta SOLO il nome del sito (davvero
+        identico su ogni pagina) e il tipo di anteprima Twitter. NIENT'ALTRO
+        di og:*/twitter:* — nemmeno og:type, che varia tra "website" e
+        "article": React 19 aggiunge i propri tag per la pagina corrente ma
+        non rimuove quelli statici già presenti qui (non li ha renderizzati
+        lui, non ha modo di saperlo) — un valore statico qui finirebbe
+        duplicato accanto a quello corretto, e query come
+        document.querySelector('meta[property="og:type"]') troverebbero
+        ancora il PRIMO (quello statico, sbagliato) invece del secondo.
+        Questi tag per-pagina li genera PageMeta.jsx (client) o
+        scripts/prerender.js (per i crawler che non eseguono JS).
+        -->
         <meta property="og:site_name" content="SALESFLY" />
-        <meta property="og:title" content="SALESFLY — Il CRM per Agenti di Commercio Plurimandatari" />
-        <meta property="og:description" content="L'unico CRM con un assistente che il lavoro non lo spiega: lo fa. Clienti, agenda, provvigioni e offerte per chi vive di visite e mandanti." />
-        <meta property="og:url" content="https://salesfly.it/" />
-        <meta property="og:locale" content="it_IT" />
-
-        <!-- Twitter -->
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="SALESFLY — Il CRM per Agenti di Commercio Plurimandatari" />
-        <meta name="twitter:description" content="L'unico CRM con un assistente che il lavoro non lo spiega: lo fa. Clienti, agenda, provvigioni e offerte per chi vive di visite e mandanti." />
 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

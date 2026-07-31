@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
+import PageMeta from "@/components/PageMeta";
 
 // Illustrazioni originali (non screenshot dell'app): una scena semplice per
 // beneficio, stesso linguaggio visivo (blob di sfondo tenue + forme piatte
@@ -154,12 +155,7 @@ export default function WhySalesFly() {
 
   return (
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
-      <title>Perché SalesFly — Il CRM per Agenti di Commercio</title>
-      <meta
-        name="description"
-        content="L'unico CRM con un assistente che il lavoro non lo spiega: lo fa. Scopri i vantaggi concreti che SalesFly porta nella giornata di un agente di commercio plurimandatario."
-      />
-      <link rel="canonical" href="https://salesfly.it/perche-salesfly" />
+      <PageMeta path="/perche-salesfly" />
 
       <PublicHeader />
 

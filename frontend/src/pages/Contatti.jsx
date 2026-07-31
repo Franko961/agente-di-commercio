@@ -5,6 +5,7 @@ import api from "../api";
 import { toast } from "sonner";
 import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
+import PageMeta from "@/components/PageMeta";
 
 export default function Contatti() {
   const [form, setForm] = useState({ nome: "", email: "", telefono: "", messaggio: "", privacy_consent: false });
@@ -40,12 +41,7 @@ export default function Contatti() {
 
   return (
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
-      <title>Contatti — SALESFLY</title>
-      <meta
-        name="description"
-        content="Hai domande su SALESFLY, il CRM per Agenti di Commercio Plurimandatari? Scrivici, ti risponderemo il prima possibile."
-      />
-      <link rel="canonical" href="https://salesfly.it/contatti" />
+      <PageMeta path="/contatti" />
 
       <PublicHeader />
 
