@@ -106,7 +106,11 @@ AUTOMATION_ENGINE_INTERVAL_SECONDS = int(os.environ.get("AUTOMATION_ENGINE_INTER
 AUTOMATION_MAX_ATTEMPTS = int(os.environ.get("AUTOMATION_MAX_ATTEMPTS", "5"))
 
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
-ADMIN_NOTIFY_EMAIL = os.environ.get("ADMIN_NOTIFY_EMAIL", "franco.bruni.art@gmail.com")
+# Notifiche operative interne (nuova registrazione, nuova richiesta demo,
+# alert di sistema): stessa casella del form contatti, per avere un solo
+# punto di arrivo invece di disperderle tra un indirizzo aziendale e uno
+# personale.
+ADMIN_NOTIFY_EMAIL = os.environ.get("ADMIN_NOTIFY_EMAIL", "info@salesfly.it")
 # Casella di posta pubblica (Zoho Mail) dove arrivano i messaggi del form contatti.
 CONTACT_NOTIFY_EMAIL = os.environ.get("CONTACT_NOTIFY_EMAIL", "info@salesfly.it")
 # Vuoto di default: Sentry resta disattivato finché non si imposta questa
