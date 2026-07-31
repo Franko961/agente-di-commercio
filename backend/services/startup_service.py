@@ -26,9 +26,14 @@ ALERT_ERROR_RATE_THRESHOLD_PCT = 20
 ALERT_MIN_SAMPLE_SIZE = 5
 
 # Ogni quanto ripulire e riseminare i dati dell'account demo condiviso
-# (is_demo=True): abbastanza raro da non interrompere una sessione di prova
-# in corso (una demo dura tipicamente pochi minuti), abbastanza frequente da
-# non lasciare accumulare a lungo le modifiche dei visitatori.
+# (is_demo=True). L'account è sola lettura sui dati CRM (ogni scrittura è
+# già bloccata a monte da forbid_demo_write — vedi demo_reset_service.py per
+# il dettaglio), quindi questo ciclo non serve più a "pulire le modifiche
+# dei visitatori" come strategia primaria: è una rete di sicurezza residua
+# e riporta comunque i dati seminati a uno stato pulito nel tempo.
+# Abbastanza raro da non interrompere una sessione di prova in corso (una
+# demo dura tipicamente pochi minuti), abbastanza frequente da non lasciare
+# a lungo un eventuale dato residuo.
 DEMO_RESET_INTERVAL_SECONDS = 6 * 60 * 60
 
 # Ogni quanto finalizzare le disdette di abbonamento il cui periodo già

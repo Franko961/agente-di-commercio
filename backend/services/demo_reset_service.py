@@ -10,13 +10,23 @@ logger = logging.getLogger(__name__)
 
 class DemoResetService:
     """Ripulisce e riseminata periodicamente i dati di ogni account demo
-    condiviso (is_demo=True) — la parte "reset periodico" della strategia
-    'demo modificabile': i visitatori possono creare/modificare dati
-    normalmente, ma nulla di quello che inseriscono sopravvive oltre il
-    prossimo ciclo di reset. Il documento utente stesso (login, is_demo,
-    email) NON viene toccato, solo tutti i dati collegati — a differenza
-    della cancellazione account GDPR, di cui riusa la stessa lista di
-    collection e la stessa pulizia S3."""
+    condiviso (is_demo=True).
+
+    Strategia: l'account demo è sola lettura sui dati del CRM — chi lo
+    visita può esplorare i dati seminati, ma create/update/delete su
+    clienti, offerte, ordini, documenti, automazioni, ecc. sono bloccati a
+    monte da forbid_demo_write (core/security.py) su ogni rotta scrivente, e
+    la connessione Google Calendar è bloccata allo stesso modo (vedi
+    google_calendar_service.get_auth_url/handle_oauth_callback), non solo i
+    dati CRM interni. Questo reset periodico NON è quindi la difesa
+    principale contro le modifiche dei visitatori (quella è
+    forbid_demo_write): è una rete di sicurezza residua — copre eventuali
+    scritture sfuggite a una protezione futura non ancora applicata a una
+    nuova rotta, e riporta comunque i dati seminati a uno stato pulito nel
+    tempo. Il documento utente stesso (login, is_demo, email) NON viene
+    toccato, solo tutti i dati collegati — a differenza della cancellazione
+    account GDPR, di cui riusa la stessa lista di collection e la stessa
+    pulizia S3."""
 
     async def reset_all_demo_accounts(self) -> int:
         demo_users = await db.users.find({"is_demo": True}, {"_id": 0, "id": 1}).to_list(50)

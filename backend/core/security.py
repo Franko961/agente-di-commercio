@@ -133,7 +133,12 @@ async def require_admin(user: dict = Depends(get_current_user)) -> dict:
 
 
 async def forbid_demo_write(user: dict = Depends(get_current_user)) -> dict:
-    """Blocca operazioni distruttive (es. cancellazioni) per l'account demo condiviso."""
+    """Blocca qualunque scrittura (creazione, modifica, cancellazione) per
+    l'account demo condiviso: è la dependency da usare su OGNI rotta
+    POST/PUT/PATCH/DELETE che modifica dati appartenenti all'utente, non
+    solo su quelle distruttive — l'account demo è pensato per essere
+    esplorabile in sola lettura, non modificabile dai visitatori (vedi
+    services/demo_reset_service.py per la strategia completa)."""
     if user.get("is_demo"):
         raise HTTPException(status_code=403, detail="Questa azione non è disponibile nell'account demo")
     return user
