@@ -47,12 +47,13 @@ PLANS = {
             'Clienti e anagrafiche illimitati',
             'Agenda, appuntamenti e giro visite',
             'Offerte e preventivi',
-            'Calcolo provvigioni e scala premi',
+            'Calcolo provvigioni e scala premi, con soglie personalizzabili',
             'Pipeline lead (Kanban)',
             'Mappa clienti geolocalizzata',
+            'Statistiche di vendita per settore/mandante',
             'Archivio documenti',
             'Esportazione dati in CSV',
-            'Assistente AI fino a 100 messaggi al mese',
+            "Assistente AI con memoria delle conversazioni e capacità di agire nel CRM, fino a 100 messaggi al mese",
         ],
     },
     'pro': {
@@ -60,15 +61,18 @@ PLANS = {
         'price_eur': 11.00,
         'stripe_price_id': os.environ.get('STRIPE_PRICE_PRO', ''),
         'paypal_plan_id': os.environ.get('PAYPAL_PLAN_PRO', ''),
-        'tagline': 'Tutto il piano Base, più AI senza limiti e strumenti avanzati.',
+        'tagline': "Tutto il piano Base, con messaggi AI illimitati e accesso anticipato alle novità.",
         'ai_monthly_message_limit': None,
+        # Le altre voci elencate qui in precedenza (memoria conversazioni,
+        # scrittura CRM via AI, scala premi personalizzata, statistiche per
+        # settore/mandante, supporto prioritario) sono state rimosse perché
+        # nel codice erano già disponibili a TUTTI i piani (nessun controllo
+        # su 'plan' se non qui e nel limite messaggi AI) — restavano solo
+        # promesse di marketing senza corrispondenza reale. Se in futuro si
+        # decide di renderle davvero esclusive Pro, vanno prima implementati
+        # i controlli di piano nel codice, non solo aggiornato questo testo.
         'features': [
-            'Assistente AI senza limite di messaggi',
-            "L'AI ricorda le conversazioni precedenti (memoria persistente)",
-            "L'AI può aggiungere/modificare dati nel CRM per te, non solo rispondere",
-            'Scala premi avanzata (soglie personalizzate)',
-            'Statistiche di vendita per settore/mandante',
-            'Supporto prioritario',
+            'Assistente AI senza limite di messaggi mensile',
             'Accesso anticipato alle novità',
         ],
     },
