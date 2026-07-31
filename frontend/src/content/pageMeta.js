@@ -14,6 +14,11 @@
 // questi testi servono solo per title/description/anteprime social.
 const DEFAULT_OG_IMAGE = "https://salesfly.it/hero-skyline.png";
 
+// changefreq/priority: usati SOLO da scripts/prerender.js per generare
+// build/sitemap.xml — tenuti qui, non in un file a parte, per lo stesso
+// motivo di title/description sopra: prima sitemap.xml era scritta a mano
+// in public/, con il rischio concreto (e già successo) di dimenticare di
+// aggiornarla quando si aggiunge o si toglie una pagina.
 const PAGES = {
   "/": {
     title: "SALESFLY — Il CRM per Agenti di Commercio Plurimandatari",
@@ -21,37 +26,56 @@ const PAGES = {
       "SALESFLY è il CRM per agenti di commercio plurimandatari con un assistente AI che aggiorna davvero il CRM al posto tuo: clienti, agenda, provvigioni e offerte, non solo consigli. Prova gratis 14 giorni.",
     ogDescription:
       "L'unico CRM con un assistente che il lavoro non lo spiega: lo fa. Clienti, agenda, provvigioni e offerte per chi vive di visite e mandanti.",
-  },
-  "/richiedi-demo": {
-    title: "Richiedi la Demo — SALESFLY",
-    description:
-      "Richiedi l'accesso alla demo di SALESFLY, il CRM per Agenti di Commercio. Riceverai subito il link di accesso via email.",
+    changefreq: "weekly",
+    priority: "1.0",
   },
   "/prezzi": {
     title: "Prezzi — SALESFLY, il CRM per Agenti di Commercio",
     description:
       "Piani Base e Pro per il CRM SALESFLY, con giorni di prova gratuita e nessuna carta di credito richiesta.",
+    changefreq: "monthly",
+    priority: "0.8",
+  },
+  "/richiedi-demo": {
+    title: "Richiedi la Demo — SALESFLY",
+    description:
+      "Richiedi l'accesso alla demo di SALESFLY, il CRM per Agenti di Commercio. Riceverai subito il link di accesso via email.",
+    changefreq: "monthly",
+    priority: "0.8",
   },
   "/perche-salesfly": {
     title: "Perché SalesFly — Il CRM per Agenti di Commercio",
     description:
       "L'unico CRM con un assistente che il lavoro non lo spiega: lo fa. Scopri i vantaggi concreti che SalesFly porta nella giornata di un agente di commercio plurimandatario.",
+    changefreq: "monthly",
+    priority: "0.8",
   },
   "/tour": {
     title: "Tour guidato — SALESFLY",
     description:
       "Scopri in 3 minuti le funzioni principali di SALESFLY: dashboard, clienti, lead, agenda, automazioni, assistente AI e pianificatore giro visite.",
+    changefreq: "monthly",
+    priority: "0.7",
   },
   "/contatti": {
     title: "Contatti — SALESFLY",
     description:
       "Hai domande su SALESFLY, il CRM per Agenti di Commercio Plurimandatari? Scrivici, ti risponderemo il prima possibile.",
+    changefreq: "monthly",
+    priority: "0.5",
   },
   "/blog": {
     title: "Blog per Agenti di Commercio — SALESFLY",
     description:
       "Guide pratiche su provvigioni, ENASARCO, contratti di agenzia e tutto ciò che serve a un agente di commercio plurimandatario.",
+    changefreq: "weekly",
+    priority: "0.7",
   },
 };
 
-module.exports = { PAGES, DEFAULT_OG_IMAGE };
+// Stessi valori per ogni articolo blog (a differenza di slug/title/ecc.,
+// non c'è nulla da leggere dal singolo articolo: ogni articolo li vuole
+// identici, quindi una costante sola invece di un campo per file).
+const BLOG_ARTICLE_SITEMAP_DEFAULTS = { changefreq: "monthly", priority: "0.6" };
+
+module.exports = { PAGES, DEFAULT_OG_IMAGE, BLOG_ARTICLE_SITEMAP_DEFAULTS };

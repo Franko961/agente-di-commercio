@@ -26,10 +26,16 @@
  * problema concreto delle anteprime social sbagliate. Il contenuto pieno
  * della pagina resta disponibile ai motori di ricerca che eseguono
  * JavaScript (Google lo fa già), solo con un piccolo ritardo.
+ *
+ * Genera anche sitemap.xml (build/sitemap.xml, sovrascrivendo l'eventuale
+ * copia statica in public/) dagli stessi dati, invece di tenerla scritta a
+ * mano: ogni URL nella sitemap corrisponde 1:1 a una pagina qui sopra o a un
+ * articolo blog reale, quindi non può più capitare di dimenticare di
+ * aggiungerne uno (era già successo).
  */
 const fs = require("fs");
 const path = require("path");
-const { PAGES, DEFAULT_OG_IMAGE } = require("../src/content/pageMeta");
+const { PAGES, DEFAULT_OG_IMAGE, BLOG_ARTICLE_SITEMAP_DEFAULTS } = require("../src/content/pageMeta");
 
 const SITE_URL = "https://salesfly.it";
 const BUILD_DIR = path.join(__dirname, "..", "build");
@@ -72,6 +78,7 @@ function loadBlogArticles() {
         title: extractStringField(source, "title"),
         description: extractStringField(source, "description"),
         coverImage: extractStringField(source, "coverImage"),
+        publishedAt: extractStringField(source, "publishedAt"),
         draft: extractBooleanField(source, "draft", false),
       };
     })
@@ -86,6 +93,8 @@ function buildRoutes() {
     ogDescription: meta.ogDescription || meta.description,
     image: meta.ogImage || DEFAULT_OG_IMAGE,
     type: "website",
+    changefreq: meta.changefreq,
+    priority: meta.priority,
   }));
 
   for (const article of loadBlogArticles()) {
@@ -96,6 +105,11 @@ function buildRoutes() {
       ogDescription: article.description,
       image: article.coverImage ? `${SITE_URL}${article.coverImage}` : DEFAULT_OG_IMAGE,
       type: "article",
+      changefreq: BLOG_ARTICLE_SITEMAP_DEFAULTS.changefreq,
+      priority: BLOG_ARTICLE_SITEMAP_DEFAULTS.priority,
+      publishedAt: article.publishedAt,
+      slug: article.slug,
+      articleTitle: article.title,
     });
   }
 
@@ -108,6 +122,28 @@ function escapeHtmlAttr(value) {
     .replace(/"/g, "&quot;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+// Stessa struttura del JSON-LD Article renderizzato lato client in
+// BlogPost.jsx — duplicata qui apposta (non importata da lì, che è JSX
+// pensato per React) così i crawler che non eseguono JavaScript vedono lo
+// stesso markup strutturato dei client che lo fanno.
+function buildArticleJsonLd(route) {
+  const json = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: route.articleTitle,
+    description: route.description,
+    datePublished: route.publishedAt,
+    author: { "@type": "Organization", name: "SALESFLY" },
+    publisher: { "@type": "Organization", name: "SALESFLY" },
+    mainEntityOfPage: `${SITE_URL}/blog/${route.slug}`,
+  });
+  // "<\/script" non "</script": il parser HTML cerca la sequenza di
+  // chiusura anche dentro il contenuto testuale di <script>, prima che
+  // qualsiasi JS venga eseguito — senza questo escape, una description con
+  // "</script" al suo interno troncherebbe il tag a metà.
+  return `<script type="application/ld+json">${json.replace(/<\//g, "<\\/")}</script>`;
 }
 
 function renderPage(template, route) {
@@ -138,6 +174,7 @@ function renderPage(template, route) {
     // vedi il commento analogo in PageMeta.jsx.
     `<meta name="twitter:title" content="${title}" />`,
     `<meta name="twitter:description" content="${ogDescription}" />`,
+    ...(route.type === "article" ? [buildArticleJsonLd(route)] : []),
   ].join("\n        ");
   // \s*\/?> (non " />" letterale): la build di produzione minifica
   // public/index.html, che arriva qui senza lo spazio prima di "/>" — un
@@ -150,6 +187,31 @@ function renderPage(template, route) {
   );
 
   return html;
+}
+
+// Genera sitemap.xml dagli stessi route usati per il prerendering, invece
+// di tenerla scritta a mano in public/ — era il problema concreto segnalato
+// (un articolo nuovo richiedeva una modifica manuale facile da dimenticare).
+// lastmod solo per gli articoli (hanno un publishedAt reale); le pagine
+// statiche non lo avevano nemmeno nella sitemap scritta a mano che questa
+// sostituisce, quindi lo stesso comportamento è mantenuto qui.
+function generateSitemapXml(routes) {
+  const urls = routes
+    .map((route) => {
+      const lastmod = route.publishedAt ? `\n    <lastmod>${route.publishedAt}</lastmod>` : "";
+      return `  <url>
+    <loc>${SITE_URL}${route.path}</loc>${lastmod}
+    <changefreq>${route.changefreq}</changefreq>
+    <priority>${route.priority}</priority>
+  </url>`;
+    })
+    .join("\n");
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls}
+</urlset>
+`;
 }
 
 function main() {
@@ -177,7 +239,10 @@ function main() {
     fs.writeFileSync(path.join(outDir, "index.html"), html);
   }
 
+  fs.writeFileSync(path.join(BUILD_DIR, "sitemap.xml"), generateSitemapXml(routes));
+
   console.log(`[prerender] Generate ${routes.length} pagine: ${routes.map((r) => r.path).join(", ")}`);
+  console.log(`[prerender] sitemap.xml rigenerata (${routes.length} URL).`);
 }
 
 main();
