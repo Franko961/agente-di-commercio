@@ -20,6 +20,14 @@ logger = logging.getLogger(__name__)
 # evento più volte, quindi teniamo traccia degli id già processati.
 paypal_webhook_events = db.paypal_webhook_events
 
+# Stesso principio per Stripe: anche Stripe può reinviare lo stesso evento
+# più volte (retry su timeout/errore nostro, o solo per garanzia di
+# consegna) — nessun handler qui sotto ha oggi un effetto collaterale non
+# idempotente, ma tracciare gli id già processati evita che lo diventi in
+# futuro senza che ce ne accorgiamo (difesa preventiva, stesso schema già
+# in uso per PayPal).
+stripe_webhook_events = db.stripe_webhook_events
+
 # Stati PayPal che consideriamo "abbonamento attivo": la sola creazione (APPROVAL_PENDING)
 # non basta, va confermato ACTIVE prima di sbloccare qualunque funzionalità a pagamento.
 PAYPAL_ACTIVE_STATUSES = {"ACTIVE"}
@@ -133,6 +141,13 @@ class SubscriptionService:
             event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
         except Exception as e:
             raise HTTPException(400, str(e))
+
+        event_id = event.get("id")
+        if event_id:
+            existing = await stripe_webhook_events.find_one({"event_id": event_id})
+            if existing:
+                return {"ok": True, "duplicate": True}
+            await stripe_webhook_events.insert_one({"event_id": event_id, "event_type": event.get("type")})
 
         if event["type"] == "checkout.session.completed":
             meta = event["data"]["object"].get("metadata", {})

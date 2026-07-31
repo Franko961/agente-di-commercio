@@ -281,5 +281,45 @@ def test_webhook_paypal_cancelled_taglia_subito_se_cancellata_fuori_dalla_nostra
     assert repo.users_by_id["user-6"]["subscription_status"] == "cancelled"
 
 
+# ---------- Webhook Stripe: idempotenza ----------
+
+def test_webhook_stripe_evento_duplicato_non_viene_riprocessato(monkeypatch):
+    """Mirror dell'idempotenza già presente per PayPal: Stripe può reinviare
+    lo stesso evento più volte (retry), un secondo invio con lo stesso id
+    non deve rieseguire l'handler."""
+    monkeypatch.setattr(subscription_mod, "STRIPE_SECRET_KEY", "sk_test_fake")
+    monkeypatch.setattr(subscription_mod, "stripe_webhook_events", FakeWebhookEventsCollection())
+
+    fake_event = {
+        "id": "evt-stripe-1",
+        "type": "checkout.session.completed",
+        "data": {"object": {"metadata": {"user_id": "user-7", "plan": "pro"}, "subscription": "sub_789"}},
+    }
+
+    class FakeWebhook:
+        @staticmethod
+        def construct_event(payload, sig, secret):
+            return fake_event
+
+    fake_stripe_module = type("FakeStripe", (), {"api_key": None, "Webhook": FakeWebhook})
+    monkeypatch.setitem(sys.modules, "stripe", fake_stripe_module)
+
+    repo = FakeUserRepo({"user-7": {"id": "user-7", "subscription_status": "trial"}})
+    service = SubscriptionService(repo=repo)
+    request = FakeRequest(headers={"stripe-signature": "sig"})
+
+    prima = run(service.handle_stripe_webhook(request))
+    assert prima == {"ok": True}
+    assert repo.users_by_id["user-7"]["subscription_status"] == "active"
+
+    # Secondo invio dello stesso evento: non deve rieseguire l'handler (qui
+    # verificabile perché, se lo rieseguisse, aggiungerebbe un altro
+    # aggiornamento di stato — invece deve fermarsi subito come "duplicate").
+    updates_before = len(repo.updates)
+    seconda = run(service.handle_stripe_webhook(request))
+    assert seconda == {"ok": True, "duplicate": True}
+    assert len(repo.updates) == updates_before
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))
