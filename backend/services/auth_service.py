@@ -1,3 +1,4 @@
+import html
 import logging
 from datetime import datetime, timezone, timedelta
 from fastapi import HTTPException
@@ -55,6 +56,15 @@ class AuthService:
 
         token = create_access_token(user_id, email)
 
+        # name arriva da un form pubblico non autenticato: va sempre
+        # HTML-escaped prima di finire nel corpo delle email qui sotto,
+        # altrimenti un valore con markup HTML/script verrebbe interpretato
+        # dal client di posta di chi legge invece che mostrato come testo
+        # semplice (stessa protezione già applicata in
+        # contact_request_service.py e demo_request_service.py).
+        safe_name = html.escape(doc.get("name", ""))
+        safe_email = html.escape(email)
+
         # Email benvenuto all'utente (non bloccante)
         try:
             await send_email(
@@ -65,7 +75,7 @@ class AuthService:
                   <div style="background:#0A192F;padding:20px 24px;border-radius:8px;margin-bottom:24px;">
                     <span style="color:#FF5A00;font-weight:900;font-size:22px;letter-spacing:2px;">SALESFLY.</span>
                   </div>
-                  <h2 style="color:#0A192F;margin:0 0 12px;">Benvenuto, {doc.get('name', '')}!</h2>
+                  <h2 style="color:#0A192F;margin:0 0 12px;">Benvenuto, {safe_name}!</h2>
                   <p style="color:#52525B;font-size:15px;line-height:1.6;">
                     Il tuo account è stato creato con successo. Hai <strong>{TRIAL_DAYS} giorni di prova gratuita</strong> 
                     per esplorare tutte le funzionalità di SALESFLY.
@@ -93,13 +103,13 @@ class AuthService:
         try:
             await send_email(
                 to=ADMIN_NOTIFY_EMAIL,
-                subject=f"🆕 Nuovo utente registrato: {email}",
+                subject=f"🆕 Nuovo utente registrato: {safe_email}",
                 html=f"""
                 <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px 24px;">
                   <h2 style="color:#0A192F;">Nuovo utente registrato</h2>
                   <table style="width:100%;border-collapse:collapse;font-size:14px;">
-                    <tr><td style="padding:8px;color:#52525B;width:120px;">Nome</td><td style="padding:8px;font-weight:600;">{doc.get('name','')}</td></tr>
-                    <tr style="background:#F9F9F8;"><td style="padding:8px;color:#52525B;">Email</td><td style="padding:8px;font-weight:600;">{email}</td></tr>
+                    <tr><td style="padding:8px;color:#52525B;width:120px;">Nome</td><td style="padding:8px;font-weight:600;">{safe_name}</td></tr>
+                    <tr style="background:#F9F9F8;"><td style="padding:8px;color:#52525B;">Email</td><td style="padding:8px;font-weight:600;">{safe_email}</td></tr>
                     <tr><td style="padding:8px;color:#52525B;">Piano</td><td style="padding:8px;font-weight:600;color:#FF5A00;">{PLANS[plan]['name']}</td></tr>
                     <tr style="background:#F9F9F8;"><td style="padding:8px;color:#52525B;">Data</td><td style="padding:8px;">{now_iso()[:16].replace('T',' ')}</td></tr>
                   </table>
