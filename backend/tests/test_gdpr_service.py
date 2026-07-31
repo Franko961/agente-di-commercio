@@ -25,6 +25,14 @@ def run(coro):
     return asyncio.run(coro)
 
 
+async def _allow_always(*a, **k):
+    return True
+
+
+async def _deny_always(*a, **k):
+    return False
+
+
 class FakeCursor:
     def __init__(self, docs):
         self._docs = docs
@@ -107,6 +115,7 @@ def build_fake_db_with_data():
 def test_export_include_profilo_e_dati_utente(monkeypatch):
     fake_db = build_fake_db_with_data()
     monkeypatch.setattr(gdpr_mod, "db", fake_db)
+    monkeypatch.setattr(gdpr_mod, "check_and_record", _allow_always)
     monkeypatch.setattr(gdpr_mod, "storage_get", lambda path: (b"contenuto pdf finto", "application/pdf"))
     service = GdprService()
 
@@ -128,6 +137,7 @@ def test_export_include_profilo_e_dati_utente(monkeypatch):
 def test_export_non_include_dati_di_altri_utenti(monkeypatch):
     fake_db = build_fake_db_with_data()
     monkeypatch.setattr(gdpr_mod, "db", fake_db)
+    monkeypatch.setattr(gdpr_mod, "check_and_record", _allow_always)
     monkeypatch.setattr(gdpr_mod, "storage_get", lambda path: (b"x", "application/pdf"))
     service = GdprService()
 
@@ -142,6 +152,7 @@ def test_export_non_include_dati_di_altri_utenti(monkeypatch):
 def test_export_prosegue_se_un_documento_non_si_trova(monkeypatch):
     fake_db = build_fake_db_with_data()
     monkeypatch.setattr(gdpr_mod, "db", fake_db)
+    monkeypatch.setattr(gdpr_mod, "check_and_record", _allow_always)
 
     def _raise(path):
         raise Exception("file non trovato su S3")
@@ -171,6 +182,7 @@ def test_export_neutralizza_un_nome_documento_con_percorso_malevolo(monkeypatch)
         # motivo, che ricade sul campo 'name' modificabile dall'utente.
     })
     monkeypatch.setattr(gdpr_mod, "db", fake_db)
+    monkeypatch.setattr(gdpr_mod, "check_and_record", _allow_always)
     monkeypatch.setattr(gdpr_mod, "storage_get", lambda path: (b"contenuto", "application/octet-stream"))
     service = GdprService()
 
@@ -191,6 +203,7 @@ def test_export_neutralizza_un_nome_documento_con_percorso_malevolo(monkeypatch)
 def test_cancellazione_richiede_password_corretta(monkeypatch):
     fake_db = build_fake_db_with_data()
     monkeypatch.setattr(gdpr_mod, "db", fake_db)
+    monkeypatch.setattr(gdpr_mod, "check_and_record", _allow_always)
     monkeypatch.setattr(gdpr_mod, "verify_password", lambda plain, hashed: plain == "password-giusta")
     service = GdprService()
 
@@ -206,6 +219,7 @@ def test_cancellazione_richiede_password_corretta(monkeypatch):
 def test_cancellazione_svuota_tutte_le_collection_dellutente(monkeypatch):
     fake_db = build_fake_db_with_data()
     monkeypatch.setattr(gdpr_mod, "db", fake_db)
+    monkeypatch.setattr(gdpr_mod, "check_and_record", _allow_always)
     monkeypatch.setattr(gdpr_mod, "verify_password", lambda plain, hashed: True)
     monkeypatch.setattr(gdpr_mod, "storage_delete", lambda path: None)
 
@@ -230,6 +244,7 @@ def test_cancellazione_svuota_tutte_le_collection_dellutente(monkeypatch):
 def test_cancellazione_rimuove_i_file_da_s3_non_solo_il_record(monkeypatch):
     fake_db = build_fake_db_with_data()
     monkeypatch.setattr(gdpr_mod, "db", fake_db)
+    monkeypatch.setattr(gdpr_mod, "check_and_record", _allow_always)
     monkeypatch.setattr(gdpr_mod, "verify_password", lambda plain, hashed: True)
 
     deleted_paths = []
@@ -249,6 +264,7 @@ def test_cancellazione_rimuove_i_file_da_s3_non_solo_il_record(monkeypatch):
 def test_cancellazione_traccia_levento_nellaudit_log(monkeypatch):
     fake_db = build_fake_db_with_data()
     monkeypatch.setattr(gdpr_mod, "db", fake_db)
+    monkeypatch.setattr(gdpr_mod, "check_and_record", _allow_always)
     monkeypatch.setattr(gdpr_mod, "verify_password", lambda plain, hashed: True)
     monkeypatch.setattr(gdpr_mod, "storage_delete", lambda path: None)
 
@@ -264,6 +280,37 @@ def test_cancellazione_traccia_levento_nellaudit_log(monkeypatch):
     entry = fake_db.admin_audit_log.inserted[0]
     assert entry["action"] == "self_delete_account"
     assert entry["target_user_id"] == "u1"
+
+
+def test_export_bloccato_da_troppe_richieste(monkeypatch):
+    fake_db = build_fake_db_with_data()
+    monkeypatch.setattr(gdpr_mod, "db", fake_db)
+    monkeypatch.setattr(gdpr_mod, "check_and_record", _deny_always)
+
+    service = GdprService()
+    try:
+        run(service.export_user_data(USER))
+        assert False, "doveva sollevare HTTPException 429"
+    except HTTPException as e:
+        assert e.status_code == 429
+
+
+def test_cancellazione_bloccata_da_troppi_tentativi(monkeypatch):
+    fake_db = build_fake_db_with_data()
+    monkeypatch.setattr(gdpr_mod, "db", fake_db)
+    monkeypatch.setattr(gdpr_mod, "check_and_record", _deny_always)
+    monkeypatch.setattr(gdpr_mod, "verify_password", lambda plain, hashed: True)
+
+    service = GdprService()
+    try:
+        run(service.delete_account(USER, "qualunque"))
+        assert False, "doveva sollevare HTTPException 429"
+    except HTTPException as e:
+        assert e.status_code == 429
+
+    # L'account non deve essere stato toccato: il blocco avviene prima di
+    # qualunque effetto collaterale distruttivo.
+    assert len(fake_db.users.docs) == 1
 
 
 def test_tutte_le_collection_dichiarate_esistono_davvero_nel_progetto():

@@ -8,6 +8,7 @@ from fastapi import HTTPException
 
 from core.database import db
 from core.security import verify_password
+from core.rate_limit import check_and_record
 from services.storage_service import storage_get, storage_delete, sanitize_filename
 from services.subscription_service import subscription_service
 
@@ -56,6 +57,14 @@ class GdprService:
         contenuto reale, altrimenti l'export sarebbe incompleto per la parte
         più sensibile, contratti/firme)."""
         user_id = user["id"]
+
+        # Limite di frequenza: è un'operazione pesante (zip con tutti i
+        # documenti, letti singolarmente da S3), non pensata per essere
+        # richiamata di continuo — né per errore né per un uso malevolo di
+        # una sessione compromessa.
+        ok = await check_and_record("gdpr_export", user_id, max_attempts=5, window_minutes=60)
+        if not ok:
+            raise HTTPException(429, "Troppe richieste di esportazione, riprova più tardi")
         bundle = {
             "esportato_il": datetime.now(timezone.utc).isoformat(),
             "profilo": _strip(await db.users.find_one({"id": user_id}, {"_id": 0}) or {}),
@@ -107,12 +116,19 @@ class GdprService:
 
         Richiede la password corrente come conferma: un'azione distruttiva e
         irreversibile non deve poter essere innescata da una sessione rubata
-        senza che chi la esegue dimostri di conoscere la password."""
+        senza che chi la esegue dimostri di conoscere la password — per
+        questo, come per il login, i tentativi sono anche limitati nel
+        tempo: senza, chi avesse solo il cookie di sessione (non la
+        password, es. rubato via XSS o da un dispositivo condiviso) potrebbe
+        provarne un numero illimitato per cancellare un account altrui."""
+        user_id = user["id"]
+        ok = await check_and_record("gdpr_delete_account", user_id, max_attempts=5, window_minutes=15)
+        if not ok:
+            raise HTTPException(429, "Troppi tentativi, riprova più tardi")
+
         full_user = await db.users.find_one({"id": user["id"]})
         if not full_user or not verify_password(password, full_user.get("password_hash", "")):
             raise HTTPException(403, "Password non corretta")
-
-        user_id = user["id"]
 
         # Ferma prima gli addebiti ricorrenti: cancellare l'account senza
         # disdire l'abbonamento lascerebbe l'utente a pagare per un servizio
