@@ -121,6 +121,40 @@ def test_richiesta_valida_crea_account_e_invia_email(monkeypatch):
     assert hash_reset_token(match.group(1)) == users.inserted[0]["reset_token_hash"]
 
 
+def test_campi_del_form_vengono_html_escaped_nelle_due_email(monkeypatch):
+    """I campi del form (nome, cognome, azienda, telefono) arrivano da un
+    endpoint pubblico non autenticato: un valore come
+    '<img src=x onerror=...>' non deve mai finire crudo nel corpo HTML delle
+    email (né quella all'utente né quella di notifica admin), altrimenti
+    verrebbe interpretato dal client di posta di chi legge invece che
+    mostrato come testo semplice — stessa protezione già applicata in
+    contact_request_service.py."""
+    service, users, repo = build_service(monkeypatch)
+    payload = _payload(
+        nome="<img src=x onerror=alert(1)>",
+        cognome="</b><script>alert(2)</script>",
+        azienda="<svg onload=alert(3)>",
+        telefono="<b>000</b>",
+    )
+
+    run(service.create(payload, ip_address="1.2.3.4", user_agent="pytest"))
+
+    assert len(sent_emails) == 2
+    for sent in sent_emails:
+        # I tag restano come TESTO innocuo (es. "&lt;img ... &gt;"): quello
+        # che non deve mai comparire è il tag vero e proprio, che un client
+        # di posta interpreterebbe come markup invece che come testo.
+        assert "<img" not in sent["html"]
+        assert "<script" not in sent["html"]
+        assert "<svg" not in sent["html"]
+    # L'email di notifica admin mostra nome/cognome/azienda/telefono: la
+    # versione escaped deve comunque comparire come testo (prova che non è
+    # stato semplicemente rimosso, ma reso innocuo mantenendo il contenuto).
+    admin_html = sent_emails[1]["html"]
+    assert "&lt;img src=x onerror=alert(1)&gt;" in admin_html
+    assert "&lt;svg onload=alert(3)&gt;" in admin_html
+
+
 def test_fallimento_invio_email_credenziali_viene_segnalato_ma_account_resta_creato(monkeypatch):
     """Se l'invio dell'email col link di impostazione fallisce, l'utente non
     ha ALCUN modo di impostare una password e accedere: il fallimento deve

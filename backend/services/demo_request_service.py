@@ -1,3 +1,4 @@
+import html
 import logging
 import secrets
 from datetime import datetime, timezone, timedelta
@@ -161,6 +162,16 @@ class DemoRequestService:
 
     @staticmethod
     def _user_email_html(nome: str, email: str, setup_link: str) -> str:
+        # nome ed email arrivano da un form pubblico non autenticato: vanno
+        # sempre HTML-escaped prima di finire nel corpo dell'email, altrimenti
+        # un valore con markup HTML/script verrebbe interpretato dal client
+        # di posta di chi legge invece che mostrato come testo semplice
+        # (stessa protezione già applicata in contact_request_service.py).
+        # setup_link non serve escaparlo: è costruito qui internamente da
+        # FRONTEND_URL e da un token urlsafe (secrets.token_urlsafe), mai da
+        # un valore inserito dall'utente nel form.
+        nome = html.escape(nome)
+        email = html.escape(email)
         return f"""
         <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
           <h2 style="color:#0A192F;">Ciao {nome},</h2>
@@ -194,16 +205,26 @@ class DemoRequestService:
 
     @staticmethod
     def _admin_email_html(doc: dict) -> str:
+        # Stessi campi da un form pubblico non autenticato di
+        # _user_email_html sopra: HTML-escaped per lo stesso motivo (vedi
+        # anche contact_request_service.py, da cui questa protezione è
+        # ripresa).
+        nome = html.escape(doc["nome"])
+        cognome = html.escape(doc["cognome"])
+        email = html.escape(doc["email"])
+        azienda = html.escape(doc.get("azienda") or "—")
+        telefono = html.escape(doc.get("telefono") or "—")
+        created_at = html.escape(doc["created_at"])
         return f"""
         <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
           <h3 style="color:#0A192F;">Nuova richiesta di accesso demo</h3>
           <table style="width:100%; border-collapse: collapse; font-size: 14px;">
-            <tr><td style="padding:4px 0; color:#52525B;">Nome</td><td><strong>{doc['nome']} {doc['cognome']}</strong></td></tr>
-            <tr><td style="padding:4px 0; color:#52525B;">Email</td><td>{doc['email']}</td></tr>
-            <tr><td style="padding:4px 0; color:#52525B;">Azienda</td><td>{doc.get('azienda') or '—'}</td></tr>
-            <tr><td style="padding:4px 0; color:#52525B;">Telefono</td><td>{doc.get('telefono') or '—'}</td></tr>
+            <tr><td style="padding:4px 0; color:#52525B;">Nome</td><td><strong>{nome} {cognome}</strong></td></tr>
+            <tr><td style="padding:4px 0; color:#52525B;">Email</td><td>{email}</td></tr>
+            <tr><td style="padding:4px 0; color:#52525B;">Azienda</td><td>{azienda}</td></tr>
+            <tr><td style="padding:4px 0; color:#52525B;">Telefono</td><td>{telefono}</td></tr>
             <tr><td style="padding:4px 0; color:#52525B;">Consenso marketing</td><td>{'Sì' if doc.get('marketing_consent') else 'No'}</td></tr>
-            <tr><td style="padding:4px 0; color:#52525B;">Data</td><td>{doc['created_at']}</td></tr>
+            <tr><td style="padding:4px 0; color:#52525B;">Data</td><td>{created_at}</td></tr>
           </table>
           <p style="font-size:13px; color:#52525B; margin-top:16px;">
             È stato creato automaticamente un account di prova ({TRIAL_DAYS} giorni) per questo utente.
