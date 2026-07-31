@@ -20,7 +20,7 @@ export default function Privacy() {
         <div>
           <h1 className="font-cabinet font-black text-3xl mb-2">Informativa sulla Privacy</h1>
           <p className="text-[#52525B] text-xs">
-            Bozza — versione 1.1 del 26/07/2026. Documento da far verificare da un professionista
+            Bozza — versione 1.2 del 01/08/2026. Documento da far verificare da un professionista
             legale/DPO prima della pubblicazione definitiva, in base ai trattamenti realmente
             effettuati e alla struttura societaria.
           </p>
@@ -112,9 +112,12 @@ export default function Privacy() {
             </li>
             <li>
               I log tecnici di sicurezza e monitoraggio dell'infrastruttura sono conservati per
-              un massimo di 30 giorni; i log di audit amministrativo (tracciamento delle azioni
-              con privilegi elevati) sono conservati senza scadenza predefinita, per finalità di
-              responsabilità e sicurezza.
+              un massimo di 30 giorni. I log di audit amministrativo relativi ad azioni compiute
+              da personale con privilegi amministrativi su un account di un utente sono conservati
+              senza scadenza predefinita, per finalità di responsabilità e sicurezza verso terzi;
+              la sola voce registrata quando un utente cancella autonomamente il proprio account
+              (a conferma che la richiesta fosse autenticata) è invece conservata per un massimo
+              di 12 mesi e riporta l'indirizzo email solo in forma di hash, non in chiaro.
             </li>
           </ul>
         </section>
@@ -128,9 +131,10 @@ export default function Privacy() {
             dell'infrastruttura cloud (Railway/MongoDB), il fornitore di hosting del sito
             (Netlify), il fornitore di archiviazione documenti (storage compatibile S3), e —
             solo per gli utenti che attivano volontariamente l'integrazione — Google LLC, per la
-            sincronizzazione con Google Calendar (vedi punto 6-bis). Tali soggetti trattano i
-            dati esclusivamente per le finalità sopra indicate e nel rispetto della normativa
-            applicabile.
+            sincronizzazione con Google Calendar (vedi punto 6-bis). Solo se viene prestato
+            l'apposito consenso (vedi punto 6-ter), anche Google Ireland Limited (Google
+            Analytics) e PostHog Inc. (PostHog). Tali soggetti trattano i dati esclusivamente per
+            le finalità sopra indicate e nel rispetto della normativa applicabile.
           </p>
         </section>
 
@@ -155,6 +159,45 @@ export default function Privacy() {
             </a>
             . L'uso da parte di SALESFLY delle informazioni ricevute dalle API di Google rispetta
             la Google API Services User Data Policy, inclusi i requisiti di Limited Use.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="font-bold text-base mb-1">6-ter. Cookie e strumenti di analisi</h2>
+          <p>
+            Il sito utilizza esclusivamente cookie tecnici strettamente necessari al
+            funzionamento (es. il cookie di sessione che mantiene l'accesso effettuato), per i
+            quali non è richiesto consenso (art. 122 Codice Privacy). Nessun cookie di analisi
+            viene installato finché l'utente non esprime un consenso esplicito tramite il banner
+            mostrato alla prima visita, revocabile in qualsiasi momento dal link "Preferenze
+            cookie" nel piè di pagina del sito pubblico, o dalla sezione "Privacy e dati" delle
+            Impostazioni per gli utenti registrati.
+          </p>
+          <p className="mt-2">
+            Se il consenso viene prestato, vengono attivati:
+          </p>
+          <ul className="list-disc pl-5 mt-1 space-y-0.5">
+            <li>
+              <strong>Google Analytics</strong> (Google Ireland Limited) — statistiche aggregate
+              di traffico e utilizzo del sito;
+            </li>
+            <li>
+              <strong>PostHog</strong> (PostHog Inc., Stati Uniti) — statistiche di prodotto e,
+              solo sulle pagine pubbliche del sito (landing, prezzi, blog, form contatti e
+              richiesta demo), registrazione anonimizzata delle sessioni di navigazione, con i
+              campi dei moduli sempre mascherati. La registrazione delle sessioni è
+              tecnicamente disattivata nell'area riservata dell'applicazione (le pagine sotto
+              "/app"), dove sono presenti anagrafiche clienti, importi, documenti e conversazioni
+              con l'assistente AI, indipendentemente dal consenso prestato.
+            </li>
+          </ul>
+          <p className="mt-2">
+            Base giuridica: consenso dell'interessato (art. 6.1.a GDPR), revocabile in ogni
+            momento senza pregiudicare la liceità del trattamento svolto prima della revoca. La
+            conservazione dei dati raccolti da Google Analytics e PostHog è determinata dalle
+            impostazioni di conservazione configurate direttamente in tali strumenti dal
+            Titolare, periodicamente verificate per restare al minimo necessario alle finalità
+            statistiche sopra indicate.
           </p>
         </section>
 
