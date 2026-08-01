@@ -1,9 +1,10 @@
 // Bozza di esempio per validare la struttura della sezione blog.
 // draft: true => pagina raggiungibile via URL diretto ma con <meta name="robots" content="noindex">
 // e nascosta dalla lista su /blog. Passa a draft: false quando il testo è
-// stato rivisto ed è pronto per essere indicizzato (e ricordati di
-// aggiungere l'URL a frontend/public/sitemap.xml).
-export const article = {
+// stato rivisto ed è pronto per essere indicizzato — sitemap.xml e le
+// pagine prerenderizzate si aggiornano da sole al build successivo
+// (scripts/prerender.js), non serve più toccarli a mano.
+const article = {
   slug: "come-calcolare-provvigioni-agente-di-commercio",
   title: "Come si calcolano le provvigioni di un agente di commercio",
   description:
@@ -45,3 +46,12 @@ export const article = {
     },
   ],
 };
+
+// CommonJS apposta (non "export const"): deve essere leggibile sia da
+// webpack/Babel (import { article } from "./articles/...") sia
+// direttamente da Node in scripts/prerender.js (require(...)), senza
+// bisogno di transpilazione — stesso motivo/pattern di content/pageMeta.js.
+// Prima prerender.js leggeva questo file con delle regex invece che con un
+// require() reale, fragile verso template literal, stringhe multilinea,
+// apostrofi al posto delle virgolette doppie o valori non letterali.
+module.exports = { article };

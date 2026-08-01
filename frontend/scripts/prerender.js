@@ -41,48 +41,23 @@ const SITE_URL = "https://salesfly.it";
 const BUILD_DIR = path.join(__dirname, "..", "build");
 const ARTICLES_DIR = path.join(__dirname, "..", "src", "content", "blog", "articles");
 
-function extractStringField(source, field) {
-  const re = new RegExp(field + '\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"');
-  const m = source.match(re);
-  return m ? m[1].replace(/\\"/g, '"') : null;
-}
-
-function extractBooleanField(source, field, fallback = false) {
-  const re = new RegExp(field + "\\s*:\\s*(true|false)");
-  const m = source.match(re);
-  return m ? m[1] === "true" : fallback;
-}
-
-// Rimuove le righe che sono INTERAMENTE un commento "//" (non quelle con
-// codice reale seguito da un commento in coda): un file articolo può avere
-// note esplicative in testa che citano campo/valore come esempio (es. "//
-// draft: true => pagina raggiungibile..."), e senza questo la regex sotto
-// troverebbe quella riga invece del vero campo "draft: false," più in
-// basso — è esattamente il bug che ha fatto sparire un articolo reale dal
-// prerendering la prima volta che questo script è stato provato.
-// L'ancoraggio a inizio riga (^\s*\/\/) evita di toccare righe di codice
-// che contengono "//" dentro una stringa (es. un URL in una description).
-function stripFullLineComments(source) {
-  return source.replace(/^\s*\/\/.*$/gm, "");
-}
-
+// require() reale (non regex sul testo del file): ogni file articolo ora
+// esporta in CommonJS (vedi il commento in un file articolo qualunque, es.
+// calcolo-provvigioni-agente-di-commercio.js), quindi Node può caricarlo
+// come modulo vero — qualunque forma JS valida funziona (template literal,
+// stringhe multilinea, apostrofi, valori importati o costruiti a runtime),
+// non solo lo schema testuale che una regex sapeva riconoscere. Prima
+// versione: leggeva il file come testo e ne estraeva slug/title/ecc. con
+// espressioni regolari — fragile per costruzione, si era già rotta una
+// volta (un articolo scomparso dal prerendering per una riga di commento
+// che citava "draft: true" come esempio).
 function loadBlogArticles() {
   if (!fs.existsSync(ARTICLES_DIR)) return [];
   return fs
     .readdirSync(ARTICLES_DIR)
     .filter((f) => f.endsWith(".js"))
-    .map((f) => {
-      const source = stripFullLineComments(fs.readFileSync(path.join(ARTICLES_DIR, f), "utf8"));
-      return {
-        slug: extractStringField(source, "slug"),
-        title: extractStringField(source, "title"),
-        description: extractStringField(source, "description"),
-        coverImage: extractStringField(source, "coverImage"),
-        publishedAt: extractStringField(source, "publishedAt"),
-        draft: extractBooleanField(source, "draft", false),
-      };
-    })
-    .filter((a) => a.slug && a.title && !a.draft);
+    .map((f) => require(path.join(ARTICLES_DIR, f)).article)
+    .filter((a) => a && a.slug && a.title && !a.draft);
 }
 
 function buildRoutes() {

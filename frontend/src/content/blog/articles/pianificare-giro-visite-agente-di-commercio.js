@@ -1,4 +1,4 @@
-export const article = {
+const article = {
   slug: "pianificare-giro-visite-agente-di-commercio",
   title: "Come pianificare il giro visite di un agente di commercio",
   description:
@@ -41,3 +41,8 @@ export const article = {
     },
   ],
 };
+
+// CommonJS apposta: leggibile sia da webpack/Babel che da Node in
+// scripts/prerender.js senza transpilazione — vedi il commento in
+// calcolo-provvigioni-agente-di-commercio.js per il perché.
+module.exports = { article };

@@ -1,4 +1,4 @@
-export const article = {
+const article = {
   slug: "come-ai-e-crm-automatizzano-attivita-vendita",
   title: "Come l'AI e il CRM automatizzano le attività di vendita",
   description:
@@ -43,3 +43,8 @@ export const article = {
     },
   ],
 };
+
+// CommonJS apposta: leggibile sia da webpack/Babel che da Node in
+// scripts/prerender.js senza transpilazione — vedi il commento in
+// calcolo-provvigioni-agente-di-commercio.js per il perché.
+module.exports = { article };

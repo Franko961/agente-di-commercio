@@ -1,4 +1,4 @@
-export const article = {
+const article = {
   slug: "enasarco-cos-e-come-funziona",
   title: "ENASARCO: cos'è e come funziona per l'agente di commercio",
   description:
@@ -49,3 +49,8 @@ export const article = {
     },
   ],
 };
+
+// CommonJS apposta: leggibile sia da webpack/Babel che da Node in
+// scripts/prerender.js senza transpilazione — vedi il commento in
+// calcolo-provvigioni-agente-di-commercio.js per il perché.
+module.exports = { article };
