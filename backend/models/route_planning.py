@@ -18,7 +18,11 @@ START_MODES = {"first_client", "current_location", "home", "office", "custom"}
 class RoutePlanIn(BaseModel):
     client_ids: List[str] = Field(..., min_length=1, max_length=MAX_ROUTE_CLIENTS)
     start_time: str = "09:00"  # formato HH:MM, ora locale dell'agente
-    visit_minutes: int = 30  # durata assunta per ogni visita, usata per calcolare gli orari proposti
+    # Prima senza alcun limite, nemmeno inferiore: un valore <= 0 avrebbe
+    # reso insensato il calcolo degli orari proposti (visite sovrapposte o
+    # a ritroso), uno enorme (o negativo con moltiplicatore MAX_ROUTE_CLIENTS)
+    # avrebbe prodotto orari assurdi per l'intero giro.
+    visit_minutes: int = Field(30, ge=1, le=480)  # durata assunta per ogni visita (max 8 ore), usata per calcolare gli orari proposti
     start_mode: str = "first_client"  # first_client | current_location | home | office | custom
     start_lat: Optional[float] = None  # richiesto per current_location/custom
     start_lng: Optional[float] = None  # richiesto per current_location/custom

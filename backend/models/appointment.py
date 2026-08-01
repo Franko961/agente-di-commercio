@@ -1,16 +1,17 @@
 from pydantic import BaseModel, Field
 from typing import List, Literal, Optional
+from core.validation_limits import SHORT_TEXT_MAX_LENGTH, LONG_TEXT_MAX_LENGTH
 
 APPOINTMENT_STATUSES = ["pianificato", "completato", "annullato"]
 
 
 class AppointmentIn(BaseModel):
     client_id: Optional[str] = None
-    title: str
-    description: Optional[str] = ""
+    title: str = Field(max_length=SHORT_TEXT_MAX_LENGTH)
+    description: Optional[str] = Field("", max_length=LONG_TEXT_MAX_LENGTH)
     start: str
     end: Optional[str] = None
-    location: Optional[str] = ""
+    location: Optional[str] = Field("", max_length=SHORT_TEXT_MAX_LENGTH)
     status: Literal[*APPOINTMENT_STATUSES] = "pianificato"
 
 

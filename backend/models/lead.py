@@ -1,18 +1,21 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Literal, Optional
+from core.validation_limits import SHORT_TEXT_MAX_LENGTH, LONG_TEXT_MAX_LENGTH, MAX_MONETARY_TARGET
 
 LEAD_STATUSES = ["nuovo", "contattato", "qualificato", "trattativa", "vinto", "perso"]
 
 
 class LeadIn(BaseModel):
-    company_name: str
-    contact_name: Optional[str] = ""
-    email: Optional[str] = ""
-    phone: Optional[str] = ""
-    source: Optional[str] = ""
-    estimated_value: Optional[float] = 0.0
+    company_name: str = Field(max_length=SHORT_TEXT_MAX_LENGTH)
+    contact_name: Optional[str] = Field("", max_length=SHORT_TEXT_MAX_LENGTH)
+    email: Optional[str] = Field("", max_length=SHORT_TEXT_MAX_LENGTH)
+    phone: Optional[str] = Field("", max_length=SHORT_TEXT_MAX_LENGTH)
+    source: Optional[str] = Field("", max_length=SHORT_TEXT_MAX_LENGTH)
+    # Prima senza alcun limite, nemmeno inferiore: un valore negativo o
+    # assurdo restava salvato così com'è (mostrato in lista/export CSV).
+    estimated_value: Optional[float] = Field(0.0, ge=0, le=MAX_MONETARY_TARGET)
     status: Literal[*LEAD_STATUSES] = "nuovo"
-    notes: Optional[str] = ""
+    notes: Optional[str] = Field("", max_length=LONG_TEXT_MAX_LENGTH)
     # Data (YYYY-MM-DD) del prossimo contatto pianificato, impostata
     # dall'agente — puramente informativa per ora, non letta da nessuna
     # automazione. updated_at/last_interaction_at/last_contact_at NON sono

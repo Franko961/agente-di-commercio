@@ -1,12 +1,13 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
+from core.validation_limits import SHORT_TEXT_MAX_LENGTH
 
 
 class DemoRequestIn(BaseModel):
-    nome: str
-    cognome: str
+    nome: str = Field(max_length=SHORT_TEXT_MAX_LENGTH)
+    cognome: str = Field(max_length=SHORT_TEXT_MAX_LENGTH)
     email: EmailStr
-    azienda: Optional[str] = ""
-    telefono: Optional[str] = ""
+    azienda: Optional[str] = Field("", max_length=SHORT_TEXT_MAX_LENGTH)
+    telefono: Optional[str] = Field("", max_length=SHORT_TEXT_MAX_LENGTH)
     privacy_consent: bool = False
     marketing_consent: bool = False

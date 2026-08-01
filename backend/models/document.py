@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import List, Literal, Optional
+from core.validation_limits import SHORT_TEXT_MAX_LENGTH, MEDIUM_TEXT_MAX_LENGTH, LONG_TEXT_MAX_LENGTH, MAX_TAGS
 
 # Allineata alle opzioni reali del menu a tendina nel frontend
 # (frontend/src/pages/Documents.jsx) — il vecchio commento qui elencava solo
@@ -10,19 +11,19 @@ DOCUMENT_CATEGORIES = ["contratto", "offerta", "fattura", "listino", "scontrino"
 
 class DocumentIn(BaseModel):
     client_id: Optional[str] = None
-    name: str
+    name: str = Field(max_length=SHORT_TEXT_MAX_LENGTH)
     category: Literal[*DOCUMENT_CATEGORIES] = "contratto"
-    url: Optional[str] = ""
-    notes: Optional[str] = ""
-    tags: List[str] = Field(default_factory=list)
+    url: Optional[str] = Field("", max_length=MEDIUM_TEXT_MAX_LENGTH)
+    notes: Optional[str] = Field("", max_length=LONG_TEXT_MAX_LENGTH)
+    tags: List[str] = Field(default_factory=list, max_length=MAX_TAGS)
 
 
 class DocumentMetaUpdate(BaseModel):
     """Aggiornamento mirato dei metadati (senza ricaricare il file). Tutti i
     campi opzionali: solo quelli presenti nella richiesta vengono
     aggiornati (semantica "patch", vedi document_service.update_document_meta)."""
-    name: Optional[str] = None
+    name: Optional[str] = Field(None, max_length=SHORT_TEXT_MAX_LENGTH)
     category: Optional[Literal[*DOCUMENT_CATEGORIES]] = None
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=LONG_TEXT_MAX_LENGTH)
     client_id: Optional[str] = None
-    tags: Optional[List[str]] = None
+    tags: Optional[List[str]] = Field(None, max_length=MAX_TAGS)

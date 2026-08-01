@@ -1,5 +1,9 @@
 from pydantic import BaseModel, Field
 from typing import List, Literal, Optional
+from core.validation_limits import (
+    SHORT_TEXT_MAX_LENGTH, MEDIUM_TEXT_MAX_LENGTH, LONG_TEXT_MAX_LENGTH,
+    MAX_QUANTITY, MAX_UNIT_PRICE, MAX_LINE_ITEMS,
+)
 
 # Stato del ciclo di vita dell'ordine. "annullato"/"reso" sono gli unici due
 # stati che comportano la rimozione della provvigione collegata (vedi
@@ -16,22 +20,22 @@ SALE_TYPES = ["nuovo", "rinnovo"]
 
 class OrderLineItem(BaseModel):
     product_id: Optional[str] = None
-    description: str
+    description: str = Field(max_length=MEDIUM_TEXT_MAX_LENGTH)
     # Stessi limiti di OfferLineItem (models/offer.py): evitano un
     # sub-totale riga negativo che si propagherebbe al totale ordine e da
     # lì alla provvigione calcolata su di esso.
-    quantity: float = Field(1, gt=0)
-    unit_price: float = Field(0.0, ge=0)
+    quantity: float = Field(1, gt=0, le=MAX_QUANTITY)
+    unit_price: float = Field(0.0, ge=0, le=MAX_UNIT_PRICE)
     discount: float = Field(0.0, ge=0, le=100)
 
 
 class OrderIn(BaseModel):
     client_id: str
     mandante_id: str
-    items: List[OrderLineItem] = Field(default_factory=list)
+    items: List[OrderLineItem] = Field(default_factory=list, max_length=MAX_LINE_ITEMS)
     sale_type: Literal[*SALE_TYPES] = "nuovo"
-    notes: Optional[str] = ""
-    numero_ordine: Optional[str] = None  # se omesso, generato automaticamente alla creazione
+    notes: Optional[str] = Field("", max_length=LONG_TEXT_MAX_LENGTH)
+    numero_ordine: Optional[str] = Field(None, max_length=SHORT_TEXT_MAX_LENGTH)  # se omesso, generato automaticamente alla creazione
     status: Literal[*ORDER_STATUSES] = "confermato"
     payment_status: Literal[*PAYMENT_STATUSES] = "non_pagato"
     expected_delivery_date: Optional[str] = None  # data prevista di consegna (YYYY-MM-DD)
@@ -45,6 +49,6 @@ class OrderStatusIn(BaseModel):
     aggiornati (semantica "patch", non "replace")."""
     status: Optional[Literal[*ORDER_STATUSES]] = None
     payment_status: Optional[Literal[*PAYMENT_STATUSES]] = None
-    numero_ordine: Optional[str] = None
+    numero_ordine: Optional[str] = Field(None, max_length=SHORT_TEXT_MAX_LENGTH)
     expected_delivery_date: Optional[str] = None
     delivery_date: Optional[str] = None
