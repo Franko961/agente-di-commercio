@@ -4,16 +4,47 @@
 // alcuna scelta dell'utente.
 //
 // La registrazione di sessione di PostHog parte comunque SEMPRE disattivata
-// all'init: viene riattivata solo sulle pagine pubbliche (AnalyticsRouteGuard
-// in App.js), mai dentro /app dove passano dati clienti reali (nomi,
-// importi, contenuto documenti, conversazioni con l'assistente AI). Anche
-// l'autocapture (che registrerebbe testo/interazioni cliccate ovunque) resta
-// disattivato ovunque, non solo in /app: il valore che aggiungerebbe non
-// giustifica il rischio di catturare per sbaglio un dato sensibile.
+// all'init: viene riattivata solo sui percorsi della whitelist isPublicPath
+// qui sotto (stessa regola usata da AnalyticsRouteGuard in App.js per i
+// cambi di rotta successivi), mai su un'area autenticata dove passano dati
+// clienti reali (nomi, importi, contenuto documenti, conversazioni con
+// l'assistente AI). Anche l'autocapture (che registrerebbe testo/interazioni
+// cliccate ovunque) resta disattivato ovunque, non solo nelle aree
+// autenticate: il valore che aggiungerebbe non giustifica il rischio di
+// catturare per sbaglio un dato sensibile.
+
+import { PAGES } from "../content/pageMeta";
 
 const GA_MEASUREMENT_ID = "G-19R9YNHMSP";
 const POSTHOG_KEY = "phc_xAvL2Iq4tFmANRE7kzbKwaSqp1HJjN7x48s3vr0CMjs";
 const POSTHOG_HOST = "https://us.i.posthog.com";
+
+// Whitelist, non blacklist: la registrazione di sessione va riattivata SOLO
+// sui percorsi esplicitamente pubblici, invece di escludere solo "/app". Un
+// controllo tipo "!pathname.startsWith('/app')" fallirebbe in modo
+// pericoloso (non visibile finché non capita davvero) se in futuro nascesse
+// un'area riservata fuori da /app (es. /admin, /dashboard): resterebbe
+// registrata per default invece di essere esclusa. Con una whitelist un
+// percorso nuovo, autenticato o no, semplicemente non viene registrato
+// finché non lo si aggiunge esplicitamente qui — fallisce in modo sicuro.
+//
+// PAGES (frontend/src/content/pageMeta.js) è già la fonte unica dei
+// percorsi pubblici reali, usata anche da PageMeta.jsx e da
+// scripts/prerender.js per SEO/social: riusarla qui evita di mantenere a
+// mano una seconda lista che potrebbe disallinearsi. Login,
+// password-dimenticata, reset-password, privacy e termini restano
+// deliberatamente FUORI dalla whitelist pur essendo pagine pubbliche: non
+// fanno parte del funnel marketing che la registrazione di sessione serve
+// ad analizzare, e alcune (reset-password) hanno un token nell'URL.
+//
+// Esportata (non solo usata internamente): sia questo modulo (stato
+// iniziale all'init di PostHog) sia AnalyticsRouteGuard (cambi di rotta
+// successivi) devono valutare la stessa identica regola — una copia
+// duplicata in due punti è esattamente il tipo di disallineamento che ha
+// reso fragile il controllo originale.
+export function isPublicPath(pathname) {
+  return Object.prototype.hasOwnProperty.call(PAGES, pathname) || pathname.startsWith("/blog/");
+}
 
 let googleAnalyticsLoaded = false;
 let postHogLoaded = false;
@@ -108,7 +139,7 @@ export function loadPostHog() {
   // prima che window.posthog esista ancora, a seconda dell'ordine di
   // commit degli effect React — che resta comunque responsabile di
   // mantenerlo corretto sui cambi di rotta successivi.
-  setSessionRecordingEnabled(!window.location.pathname.startsWith("/app"));
+  setSessionRecordingEnabled(isPublicPath(window.location.pathname));
 }
 
 export function setSessionRecordingEnabled(enabled) {

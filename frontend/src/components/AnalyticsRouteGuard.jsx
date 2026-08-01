@@ -1,14 +1,16 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { setSessionRecordingEnabled } from "../lib/analytics";
+import { setSessionRecordingEnabled, isPublicPath } from "../lib/analytics";
 import { useCookieConsent } from "../contexts/CookieConsentContext";
 
-// Attiva la registrazione di sessione PostHog SOLO sulle pagine pubbliche,
-// mai dentro /app: essendo una SPA con un unico index.html, senza questo
-// componente lo stesso script girerebbe identico anche nell'area
-// autenticata del CRM (nomi clienti, importi, documenti, conversazioni AI).
-// Non fa nulla se l'utente non ha ancora dato consenso analytics (PostHog
-// non è nemmeno caricato in quel caso, vedi lib/analytics.js).
+// Attiva la registrazione di sessione PostHog SOLO sui percorsi della
+// whitelist isPublicPath (vedi lib/analytics.js — condivisa con lo stato
+// iniziale impostato lì all'init di PostHog, per non mantenere la stessa
+// regola duplicata in due punti): essendo una SPA con un unico index.html,
+// senza questo componente lo stesso script girerebbe identico anche
+// nell'area autenticata del CRM (nomi clienti, importi, documenti,
+// conversazioni AI). Non fa nulla se l'utente non ha ancora dato consenso
+// analytics (PostHog non è nemmeno caricato in quel caso).
 //
 // Dipende anche da "consent", non solo dal path: PostHog viene caricato in
 // modo asincrono DOPO che l'utente accetta (vedi CookieConsentContext), in
@@ -21,7 +23,7 @@ export default function AnalyticsRouteGuard() {
   const { consent } = useCookieConsent();
 
   useEffect(() => {
-    setSessionRecordingEnabled(!location.pathname.startsWith("/app"));
+    setSessionRecordingEnabled(isPublicPath(location.pathname));
   }, [location.pathname, consent]);
 
   return null;
