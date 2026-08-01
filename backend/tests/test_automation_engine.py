@@ -798,7 +798,15 @@ def test_regola_dentro_la_finestra_oraria_viene_valutata(monkeypatch):
     import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
 
-    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 7, 26, 18, 3))
+    # expires_at DEVE essere calcolato a partire dallo stesso "adesso" finto
+    # usato da now_local (non da _days_from_now, che usa l'orologio reale di
+    # sistema): _eval_offer_expiring confronta expires_at con now_local().date(),
+    # quindi ancorare le due date a orologi diversi fa scadere il test da solo
+    # col passare dei giorni, indipendentemente da eventuali regressioni reali
+    # nel motore automazioni — è esattamente il bug che ha reso questo test
+    # troppo fragile la prima volta.
+    mocked_now = real_datetime(2026, 7, 26, 18, 3)
+    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
 
     automations = [{
         "id": "auto-13", "user_id": "user-1", "name": "Promemoria scadenza",
@@ -807,7 +815,7 @@ def test_regola_dentro_la_finestra_oraria_viene_valutata(monkeypatch):
     }]
     offers = [{
         "id": "offer-1", "user_id": "user-1", "client_id": "c-1", "title": "Offerta A",
-        "status": "inviata", "expires_at": _days_from_now(2),
+        "status": "inviata", "expires_at": _iso(mocked_now + timedelta(days=2)),
     }]
     engine = build_engine(automations=automations, offers=offers)
 
