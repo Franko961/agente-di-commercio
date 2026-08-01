@@ -13,10 +13,11 @@ export default function CookieConsentBanner() {
     <div className="fixed bottom-0 inset-x-0 z-[100] bg-white border-t border-[#E4E4E1] shadow-[0_-4px_16px_rgba(0,0,0,0.08)] px-6 py-4">
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-start md:items-center gap-4">
         <p className="text-[13px] text-[#52525B] flex-1">
-          Usiamo solo i cookie tecnici necessari al funzionamento del sito e, se acconsenti, cookie di
-          analisi (Google Analytics, PostHog) per capire come viene usato — mai la registrazione delle
-          sessioni nell'area gestionale autenticata, dove passano dati reali dei tuoi clienti. Puoi
-          cambiare scelta in qualsiasi momento dalla pagina{" "}
+          Usiamo i cookie tecnici necessari al funzionamento del sito, sempre attivi. Con il tuo
+          consenso, usiamo anche cookie di analisi (Google Analytics, PostHog) per capire come viene
+          usato il sito. Nell'area gestionale autenticata — dove vedi i dati reali dei tuoi clienti —
+          non registriamo mai le sessioni. Puoi cambiare la tua scelta in qualsiasi momento dalla
+          pagina{" "}
           <Link to="/privacy" className="underline text-[#0A192F]">Privacy</Link>.
         </p>
         <div className="flex gap-2 shrink-0">
