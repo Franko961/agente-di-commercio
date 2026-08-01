@@ -268,7 +268,8 @@ async def _health_alert_loop() -> None:
     while True:
         try:
             await asyncio.sleep(ALERT_CHECK_INTERVAL_SECONDS)
-            if not await job_lock_repository.try_acquire("health_alert", ttl_seconds=ALERT_CHECK_INTERVAL_SECONDS - 60):
+            lock_owner = await job_lock_repository.try_acquire("health_alert", ttl_seconds=ALERT_CHECK_INTERVAL_SECONDS - 60)
+            if not lock_owner:
                 continue
             health = await health_service.get_health(hours=ALERT_CHECK_INTERVAL_SECONDS / 3600)
 
@@ -289,7 +290,7 @@ async def _health_alert_loop() -> None:
                 f"<p>Rilevate le seguenti anomalie negli ultimi {ALERT_CHECK_INTERVAL_SECONDS // 60} minuti:</p><ul>{body}</ul>",
             )
             if sent:
-                await job_lock_repository.extend("health_alert", ttl_seconds=ALERT_COOLDOWN_SECONDS)
+                await job_lock_repository.extend("health_alert", lock_owner, ttl_seconds=ALERT_COOLDOWN_SECONDS)
         except asyncio.CancelledError:
             raise
         except Exception as e:

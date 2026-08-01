@@ -1,4 +1,6 @@
+import uuid
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from pymongo.errors import DuplicateKeyError
 
@@ -29,36 +31,51 @@ class JobLockRepository:
 
     collection = db.job_locks
 
-    async def try_acquire(self, job_name: str, ttl_seconds: int) -> bool:
+    async def try_acquire(self, job_name: str, ttl_seconds: int) -> Optional[str]:
+        """Ritorna l'owner_id della prenotazione vinta (da passare a
+        extend() per estenderla in sicurezza — vedi sotto), o None se il
+        lock è già detenuto da un'altra istanza. Un owner_id nuovo (non
+        legato al processo) per ogni chiamata vinta: rappresenta QUESTA
+        specifica prenotazione, non "questa istanza" in generale — anche
+        la stessa istanza che riconquista lo stesso job_name in un giro
+        successivo ottiene un owner_id diverso, così un'estensione tardiva
+        legata alla prenotazione precedente non può essere confusa con
+        quella nuova."""
         now_iso = datetime.now(timezone.utc).isoformat()
+        owner_id = str(uuid.uuid4())
         locked_until_iso = (datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)).isoformat()
 
         try:
-            await self.collection.insert_one({"_id": job_name, "locked_until": locked_until_iso})
-            return True
+            await self.collection.insert_one({"_id": job_name, "owner_id": owner_id, "locked_until": locked_until_iso})
+            return owner_id
         except DuplicateKeyError:
             pass  # un lock esiste già: proviamo comunque a "rubarlo" sotto, se scaduto
 
         result = await self.collection.update_one(
             {"_id": job_name, "locked_until": {"$lt": now_iso}},
+            {"$set": {"owner_id": owner_id, "locked_until": locked_until_iso}},
+        )
+        return owner_id if result.matched_count == 1 else None
+
+    async def extend(self, job_name: str, owner_id: str, ttl_seconds: int) -> bool:
+        """Allunga la scadenza di un lock, ma SOLO se ancora posseduto da
+        owner_id (quello ritornato dalla chiamata a try_acquire che lo ha
+        vinto) — il filtro su owner_id, non solo su job_name, è quello che
+        rende sicura l'operazione: senza, un'istanza la cui esecuzione (tra
+        il proprio try_acquire e la propria extend) dura più del ttl_seconds
+        con cui aveva acquisito il lock potrebbe "rubare" indietro il lock
+        nel frattempo legittimamente riconquistato da un'altra istanza.
+
+        Ritorna False se l'estensione non si applica più (lock scaduto e
+        riassegnato altrove nel frattempo): il chiamante non deve
+        considerare l'effetto ottenuto (es. il cooldown anti-spam
+        dell'alert anomalie) come impostato con successo."""
+        locked_until_iso = (datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)).isoformat()
+        result = await self.collection.update_one(
+            {"_id": job_name, "owner_id": owner_id},
             {"$set": {"locked_until": locked_until_iso}},
         )
         return result.matched_count == 1
-
-    async def extend(self, job_name: str, ttl_seconds: int) -> None:
-        """Allunga la scadenza di un lock già acquisito da questa stessa
-        istanza, senza ri-validare nulla (va chiamato solo subito dopo un
-        try_acquire vinto). Usato dal ciclo di alert anomalie per
-        trasformare il lock in un cooldown condiviso fra repliche dopo
-        l'invio effettivo di un'email: senza questo, il cooldown
-        anti-spam viveva solo in una variabile di processo
-        (_last_alert_sent_at), invisibile alle altre repliche, che
-        avrebbero potuto rimandare lo stesso alert al giro successivo."""
-        locked_until_iso = (datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)).isoformat()
-        await self.collection.update_one(
-            {"_id": job_name},
-            {"$set": {"locked_until": locked_until_iso}},
-        )
 
 
 job_lock_repository = JobLockRepository()
