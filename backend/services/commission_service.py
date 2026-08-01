@@ -2,6 +2,7 @@ from typing import List
 from core.utils import gen_id, now_iso, now_local
 from repositories.commission_repository import commission_repository
 from repositories.mandante_repository import mandante_repository
+from repositories.manual_commission_repository import manual_commission_repository
 
 
 def calc_offer_total(items: List[dict]) -> float:
@@ -49,9 +50,10 @@ def tiers_to_pay(tiers: List[dict], fatturato: float) -> List[dict]:
 
 
 class CommissionService:
-    def __init__(self, repo=commission_repository, mandante_repo=mandante_repository):
+    def __init__(self, repo=commission_repository, mandante_repo=mandante_repository, manual_repo=manual_commission_repository):
         self.repo = repo
         self.mandante_repo = mandante_repo
+        self.manual_repo = manual_repo
 
     async def check_and_award_bonus(self, user_id: str, mandante_id: str):
         """Mantiene le provvigioni bonus corrette secondo la regola della scala premi:
@@ -157,6 +159,15 @@ class CommissionService:
 
     async def delete_commission(self, user: dict, cid: str) -> None:
         await self.repo.delete(cid, user["id"])
+
+    async def list_manual_commissions(self, user: dict) -> list:
+        return await self.manual_repo.find_many(user["id"])
+
+    async def set_manual_commission(self, user: dict, period: str, amount: float) -> dict:
+        return await self.manual_repo.upsert(user["id"], period, amount)
+
+    async def delete_manual_commission(self, user: dict, period: str) -> None:
+        await self.manual_repo.delete(user["id"], period)
 
 
 commission_service = CommissionService()

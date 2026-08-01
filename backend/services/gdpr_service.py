@@ -40,6 +40,7 @@ USER_SCOPED_COLLECTIONS = {
     "notifiche_automazioni": "automation_notifications",
     "esecuzioni_automazioni": "automation_runs",
     "richiesta_demo": "demo_requests",
+    "provvigioni_manuali": "manual_commissions",
 }
 
 # Ogni altra collection MongoDB realmente usata nel progetto (vedi

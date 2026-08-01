@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "../api";
 import { Coins, Download, Trash2, Trophy, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
@@ -6,6 +6,7 @@ import { exportCommissions } from "../utils/export";
 import { useMandante } from "../contexts/MandanteContext";
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
+const currentPeriod = () => new Date().toISOString().slice(0, 7); // "YYYY-MM"
 
 export default function Commissions() {
   const { activeMandante } = useMandante();
@@ -16,30 +17,73 @@ export default function Commissions() {
   const [bonusSummary, setBonusSummary] = useState([]);
   const [filter, setFilter] = useState("all");
   const [clientFilter, setClientFilter] = useState("all");
+  const [manualCommissions, setManualCommissions] = useState([]);
+  const [manualPeriod, setManualPeriod] = useState(currentPeriod());
+  const [manualAmount, setManualAmount] = useState("");
+  const [savingManual, setSavingManual] = useState(false);
 
   const load = async () => {
-    const [c, cl, m, bs] = await Promise.all([
+    const [c, cl, m, bs, mc] = await Promise.all([
       api.get("/commissions", { params: { mandante_id: mandanteParam } }),
       api.get("/clients"),
       api.get("/mandanti"),
       api.get("/commissions/bonus-summary").catch(() => ({ data: [] })),
+      api.get("/commissions/manual").catch(() => ({ data: [] })),
     ]);
     setCommissions(c.data);
     setClients(cl.data);
     setMandanti(m.data);
     setBonusSummary(bs.data);
+    setManualCommissions(mc.data);
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [mandanteParam]);
-  
+
+  // L'importo nel campo segue il mese selezionato: se per quel mese esiste
+  // già un valore manuale salvato, lo mostra; altrimenti il campo resta
+  // vuoto (non 0, per non far pensare che 0 sia già stato salvato).
+  useEffect(() => {
+    const existing = manualCommissions.find((m) => m.period === manualPeriod);
+    setManualAmount(existing ? String(existing.amount) : "");
+  }, [manualPeriod, manualCommissions]);
+
 const byClient = clientFilter === "all" ? commissions : commissions.filter(c => c.client_id === clientFilter);
 const filtered = filter === "all" ? byClient : byClient.filter(c => c.status === filter);
 const accrued = byClient.filter(c => c.status === "maturato").reduce((s, c) => s + c.amount, 0);
 const collected = byClient.filter(c => c.status === "incassato").reduce((s, c) => s + c.amount, 0);
 const fatturatoClienteSelezionato = clientFilter === "all" ? null : byClient.reduce((s, c) => s + (c.base_amount ?? (c.rate ? c.amount / (c.rate / 100) : 0)), 0);
+// Somma di TUTTI i mesi inseriti manualmente (non solo il mese selezionato
+// nel box): si aggiunge al totale calcolato dagli ordini, per provvigioni
+// concluse fuori dal flusso ordini del CRM.
+const manualTotal = useMemo(() => manualCommissions.reduce((s, m) => s + (m.amount || 0), 0), [manualCommissions]);
 
   const setStatus = async (id, status) => {
     await api.patch(`/commissions/${id}/status`, { status });
     toast.success("Stato aggiornato");
+    load();
+  };
+
+  const saveManualCommission = async () => {
+    const amount = parseFloat(manualAmount);
+    if (Number.isNaN(amount) || amount < 0) {
+      toast.error("Inserisci un importo valido");
+      return;
+    }
+    setSavingManual(true);
+    try {
+      await api.put("/commissions/manual", { period: manualPeriod, amount });
+      toast.success("Provvigione manuale salvata");
+      load();
+    } catch {
+      toast.error("Errore salvataggio provvigione manuale");
+    } finally {
+      setSavingManual(false);
+    }
+  };
+
+  const removeManualCommission = async () => {
+    if (!window.confirm(`Rimuovere la provvigione manuale di ${manualPeriod}?`)) return;
+    await api.delete(`/commissions/manual/${manualPeriod}`);
+    toast.success("Provvigione manuale rimossa");
     load();
   };
 
@@ -80,8 +124,59 @@ const fatturatoClienteSelezionato = clientFilter === "all" ? null : byClient.red
         </div>
         <div className="bg-[#0A192F] text-white rounded-md p-5 col-span-2 lg:col-span-1">
           <div className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00] mb-2">Totale generato</div>
-          <div className="font-cabinet font-black text-3xl">{fmt(accrued + collected)}</div>
-          <div className="text-[11px] text-white/60 mt-2">{commissions.length} provvigioni totali</div>
+          <div className="font-cabinet font-black text-3xl">{fmt(accrued + collected + manualTotal)}</div>
+          <div className="text-[11px] text-white/60 mt-2">
+            {commissions.length} provvigioni totali
+            {manualTotal > 0 && <> · di cui {fmt(manualTotal)} inserite manualmente</>}
+          </div>
+        </div>
+      </div>
+
+      {/* Provvigioni inserite manualmente: si sommano al totale calcolato
+      dagli ordini, un valore per mese — per provvigioni concluse fuori dal
+      flusso ordini del CRM. */}
+      <div className="bg-white border border-[#E4E4E1] rounded-md p-5 mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Coins className="w-4 h-4 text-[#FF5A00]" />
+          <span className="font-mono text-[11px] uppercase tracking-widest text-[#52525B]">Provvigioni inserite manualmente</span>
+        </div>
+        <p className="text-[12px] text-[#52525B] mb-3">
+          Per provvigioni non tracciate tramite gli ordini del CRM. Si sommano al totale generato, un importo per mese.
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Mese</label>
+            <input
+              type="month"
+              value={manualPeriod}
+              onChange={(e) => setManualPeriod(e.target.value)}
+              className="bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+            />
+          </div>
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Importo (€)</label>
+            <input
+              type="number" step="0.01" min="0" value={manualAmount}
+              onChange={(e) => setManualAmount(e.target.value)}
+              placeholder="0,00"
+              className="bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px] w-32"
+            />
+          </div>
+          <button
+            onClick={saveManualCommission}
+            disabled={savingManual}
+            className="px-4 py-2 bg-[#0A192F] text-white rounded-md text-[13px] font-medium disabled:opacity-50"
+          >
+            Salva
+          </button>
+          {manualCommissions.some((m) => m.period === manualPeriod) && (
+            <button
+              onClick={removeManualCommission}
+              className="flex items-center gap-1.5 px-3 py-2 text-[13px] text-[#A1A1AA] hover:text-red-500"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Rimuovi
+            </button>
+          )}
         </div>
       </div>
 

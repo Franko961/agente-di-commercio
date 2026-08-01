@@ -403,6 +403,11 @@ async def run_startup() -> None:
     await db.automation_runs.create_index([("automation_id", 1), ("target_id", 1)], unique=True)
     await db.automation_notifications.create_index([("user_id", 1), ("created_at", -1)])
 
+    # Un solo documento per (utente, mese): l'upsert in
+    # manual_commission_repository.py si affida a questo indice per restare
+    # coerente anche con due richieste quasi simultanee sullo stesso mese.
+    await db.manual_commissions.create_index([("user_id", 1), ("period", 1)], unique=True)
+
     global _gcal_sync_task, _stuck_ai_action_task, _health_alert_task, _automation_engine_task, _demo_reset_task, _cancel_finalize_task, _demo_request_cleanup_task, _contact_request_cleanup_task
     _gcal_sync_task = asyncio.create_task(_google_calendar_sync_loop())
     _stuck_ai_action_task = asyncio.create_task(_stuck_ai_action_cleanup_loop())
