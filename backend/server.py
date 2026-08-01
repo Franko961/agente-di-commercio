@@ -37,8 +37,9 @@ from routers.route_planning import router as route_planning_router
 from routers.gdpr import router as gdpr_router
 from services.startup_service import run_startup, run_shutdown
 from core.exceptions import AppError
-from core.config import CORS_ORIGINS, SENTRY_DSN
+from core.config import CORS_ORIGINS, SENTRY_DSN, TRUSTED_PROXY_HOPS
 from core.observability import configure_logging, new_request_id, set_request_id, record_api_call, init_opentelemetry
+from core.security import get_client_ip
 
 app = FastAPI(title="Gestionale Agenti di Commercio")
 
@@ -117,6 +118,26 @@ def _route_path(request: Request) -> str:
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+# Diagnostica pubblica per verificare in produzione cosa vede DAVVERO il
+# server dietro il reverse proxy di Railway (e di Netlify per il traffico
+# via salesfly.it/api/*): apri questo URL da due reti diverse (es. wifi di
+# casa e dati mobili) e confronta resolved_ip — deve essere DIVERSO tra le
+# due, e coincidere con l'IP reale del dispositivo usato, non con un IP
+# fisso di Railway. Se resolved_ip risultasse identico da reti diverse,
+# TRUSTED_PROXY_HOPS (core/config.py) andrebbe rivisto. Nessun dato
+# sensibile esposto: solo l'IP/gli header della richiesta stessa, stesso
+# principio di un servizio pubblico "whatismyip" — chi chiama vede solo
+# informazioni sulla propria connessione.
+@app.get("/api/debug/my-ip")
+async def debug_my_ip(request: Request):
+    return {
+        "resolved_ip": get_client_ip(request),
+        "x_forwarded_for": request.headers.get("x-forwarded-for"),
+        "direct_peer": request.client.host if request.client else None,
+        "trusted_proxy_hops": TRUSTED_PROXY_HOPS,
+    }
 
 
 @app.on_event("startup")
