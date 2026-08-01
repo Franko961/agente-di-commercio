@@ -1,12 +1,47 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../api";
-import { Coins, Download, Trash2, Trophy, ChevronRight } from "lucide-react";
+import { Coins, Download, Trash2, Trophy, ChevronRight, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { exportCommissions } from "../utils/export";
 import { useMandante } from "../contexts/MandanteContext";
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
 const currentPeriod = () => new Date().toISOString().slice(0, 7); // "YYYY-MM"
+
+function periodLabel(key) {
+  const [y, m] = (key || "").split("-").map(Number);
+  if (!y || !m) return key;
+  const label = new Intl.DateTimeFormat("it-IT", { month: "long", year: "numeric" }).format(new Date(y, m - 1, 1));
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+// Raggruppa le provvigioni (già filtrate per cliente/stato) per periodo,
+// stesso principio del raggruppamento mensile in Spese.jsx: il periodo
+// corrente resta aperto di default, i periodi passati partono chiusi
+// mostrando solo il totale. La provvigione manuale del mese (se presente)
+// entra nel totale del gruppo, ma solo quando non è attivo un filtro per
+// cliente specifico: un valore manuale non è collegato a nessun cliente,
+// quindi non "appartiene" a un sottoinsieme filtrato per un cliente.
+function groupByPeriod(list, manualByPeriod, includeManual) {
+  const byKey = new Map();
+  for (const c of list) {
+    const key = c.period || "—";
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(c);
+  }
+  if (includeManual) {
+    for (const period of Object.keys(manualByPeriod)) {
+      if (!byKey.has(period)) byKey.set(period, []);
+    }
+  }
+  return [...byKey.entries()]
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .map(([key, items]) => {
+      const manualAmount = includeManual ? manualByPeriod[key] : undefined;
+      const calculatedTotal = items.reduce((s, c) => s + c.amount, 0);
+      return { key, label: periodLabel(key), items, manualAmount, total: calculatedTotal + (manualAmount || 0) };
+    });
+}
 
 export default function Commissions() {
   const { activeMandante } = useMandante();
@@ -21,6 +56,12 @@ export default function Commissions() {
   const [manualPeriod, setManualPeriod] = useState(currentPeriod());
   const [manualAmount, setManualAmount] = useState("");
   const [savingManual, setSavingManual] = useState(false);
+  const [expandedPeriods, setExpandedPeriods] = useState(() => new Set([currentPeriod()]));
+  const togglePeriod = (key) => setExpandedPeriods((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
 
   const load = async () => {
     const [c, cl, m, bs, mc] = await Promise.all([
@@ -55,6 +96,14 @@ const fatturatoClienteSelezionato = clientFilter === "all" ? null : byClient.red
 // nel box): si aggiunge al totale calcolato dagli ordini, per provvigioni
 // concluse fuori dal flusso ordini del CRM.
 const manualTotal = useMemo(() => manualCommissions.reduce((s, m) => s + (m.amount || 0), 0), [manualCommissions]);
+const manualByPeriod = useMemo(
+  () => Object.fromEntries(manualCommissions.map((m) => [m.period, m.amount])),
+  [manualCommissions]
+);
+const periodGroups = useMemo(
+  () => groupByPeriod(filtered, manualByPeriod, clientFilter === "all"),
+  [filtered, manualByPeriod, clientFilter]
+);
 
   const setStatus = async (id, status) => {
     await api.patch(`/commissions/${id}/status`, { status });
@@ -72,6 +121,8 @@ const manualTotal = useMemo(() => manualCommissions.reduce((s, m) => s + (m.amou
     try {
       await api.put("/commissions/manual", { period: manualPeriod, amount });
       toast.success("Provvigione manuale salvata");
+      setExpandedPeriods((prev) => new Set(prev).add(manualPeriod));
+      setManualPeriod(currentPeriod());
       load();
     } catch {
       toast.error("Errore salvataggio provvigione manuale");
@@ -80,9 +131,9 @@ const manualTotal = useMemo(() => manualCommissions.reduce((s, m) => s + (m.amou
     }
   };
 
-  const removeManualCommission = async () => {
-    if (!window.confirm(`Rimuovere la provvigione manuale di ${manualPeriod}?`)) return;
-    await api.delete(`/commissions/manual/${manualPeriod}`);
+  const removeManualCommission = async (period) => {
+    if (!window.confirm(`Rimuovere la provvigione manuale di ${periodLabel(period)}?`)) return;
+    await api.delete(`/commissions/manual/${period}`);
     toast.success("Provvigione manuale rimossa");
     load();
   };
@@ -171,7 +222,7 @@ const manualTotal = useMemo(() => manualCommissions.reduce((s, m) => s + (m.amou
           </button>
           {manualCommissions.some((m) => m.period === manualPeriod) && (
             <button
-              onClick={removeManualCommission}
+              onClick={() => removeManualCommission(manualPeriod)}
               className="flex items-center gap-1.5 px-3 py-2 text-[13px] text-[#A1A1AA] hover:text-red-500"
             >
               <Trash2 className="w-3.5 h-3.5" /> Rimuovi
@@ -284,42 +335,92 @@ const manualTotal = useMemo(() => manualCommissions.reduce((s, m) => s + (m.amou
     </span>
   )}
 </div>
-      {/* Tabella provvigioni */}
-      <div className="bg-white border border-[#E4E4E1] rounded-md overflow-hidden">
-        <div className="hidden md:grid grid-cols-7 gap-2 px-4 py-3 bg-[#F3F3F1] border-b border-[#E4E4E1] font-mono text-[10px] uppercase tracking-widest text-[#52525B]">
-          <div>Periodo</div><div className="col-span-2">Cliente</div><div>Mandante</div><div>Aliquota</div><div className="text-right">Importo</div><div></div>
-        </div>
-        {filtered.map(c => {
-          const cli = clients.find(x => x.id === c.client_id);
-          const m = mandanti.find(x => x.id === c.mandante_id);
+      {/* Tabella provvigioni, raggruppata per periodo — stesso principio del
+      raggruppamento mensile in Spese.jsx: il periodo corrente resta aperto,
+      i periodi passati partono chiusi mostrando solo il totale. */}
+      <div className="space-y-3">
+        {periodGroups.map((group) => {
+          const isExpanded = expandedPeriods.has(group.key);
           return (
-            <div key={c.id} data-testid={`commission-${c.id}`} className="grid grid-cols-2 md:grid-cols-7 gap-2 px-4 py-3 border-b border-[#E4E4E1] items-center text-[13px]">
-              <div className="font-mono">{c.period}</div>
-              <div className="col-span-2 font-medium">{cli?.company_name || "—"}</div>
-              <div className="text-[#52525B]">{m?.name || "—"}</div>
-              <div className="font-mono">
-                {c.rate}%
-                {c.sale_type && <span className="text-[#A1A1AA] ml-1">({c.sale_type})</span>}
-              </div>
-              <div className="text-right">
-                <div className="font-cabinet font-bold">{fmt(c.amount)}</div>
-                <button onClick={() => setStatus(c.id, c.status === "maturato" ? "incassato" : "maturato")}
-                  className="font-mono text-[10px] uppercase tracking-widest mt-1"
-                  style={{ color: c.status === "incassato" ? "#059669" : "#FF5A00" }}>
-                  {c.status} ↻
-                </button>
-              </div>
-              <div className="flex justify-end">
-                <button onClick={() => deleteCommission(c.id)}
-                  className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                  title="Elimina provvigione">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+            <div key={group.key} className="bg-white border border-[#E4E4E1] rounded-md overflow-hidden">
+              <button
+                onClick={() => togglePeriod(group.key)}
+                data-testid={`commission-period-${group.key}`}
+                className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-[#F3F3F1] hover:bg-[#EDEDEA] transition-colors text-left"
+              >
+                <span className="flex items-center gap-2 font-cabinet font-bold text-[14px]">
+                  <ChevronDown className={`w-4 h-4 text-[#A1A1AA] shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                  {group.label}
+                </span>
+                <span className="font-mono text-[11px] uppercase tracking-widest text-[#52525B]">
+                  Totale: <span className="font-cabinet font-black text-[14px] text-[#0A0A0A]">{fmt(group.total)}</span>
+                </span>
+              </button>
+              {isExpanded && (
+                <div>
+                  <div className="hidden md:grid grid-cols-7 gap-2 px-4 py-3 border-b border-[#E4E4E1] font-mono text-[10px] uppercase tracking-widest text-[#52525B]">
+                    <div>Periodo</div><div className="col-span-2">Cliente</div><div>Mandante</div><div>Aliquota</div><div className="text-right">Importo</div><div></div>
+                  </div>
+                  {group.items.map((c) => (
+                    <CommissionRow key={c.id} c={c} clients={clients} mandanti={mandanti} onToggleStatus={setStatus} onDelete={deleteCommission} />
+                  ))}
+                  {group.manualAmount !== undefined && (
+                    <div className="grid grid-cols-2 md:grid-cols-7 gap-2 px-4 py-3 border-b border-[#E4E4E1] items-center text-[13px] bg-[#FFF9F5]">
+                      <div className="font-mono">{group.key}</div>
+                      <div className="col-span-2 font-medium text-[#52525B] flex items-center gap-1.5">
+                        <Coins className="w-3.5 h-3.5 text-[#FF5A00]" /> Inserita manualmente
+                      </div>
+                      <div className="text-[#A1A1AA]">—</div>
+                      <div className="font-mono text-[#A1A1AA]">—</div>
+                      <div className="text-right font-cabinet font-bold">{fmt(group.manualAmount)}</div>
+                      <div className="flex justify-end">
+                        <button onClick={() => removeManualCommission(group.key)}
+                          className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                          title="Rimuovi provvigione manuale">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
-        {filtered.length === 0 && <div className="p-8 text-center text-[#A1A1AA] text-[13px]">Nessuna provvigione.</div>}
+        {periodGroups.length === 0 && (
+          <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#A1A1AA] text-[13px]">Nessuna provvigione.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CommissionRow({ c, clients, mandanti, onToggleStatus, onDelete }) {
+  const cli = clients.find((x) => x.id === c.client_id);
+  const m = mandanti.find((x) => x.id === c.mandante_id);
+  return (
+    <div data-testid={`commission-${c.id}`} className="grid grid-cols-2 md:grid-cols-7 gap-2 px-4 py-3 border-b border-[#E4E4E1] items-center text-[13px]">
+      <div className="font-mono">{c.period}</div>
+      <div className="col-span-2 font-medium">{cli?.company_name || "—"}</div>
+      <div className="text-[#52525B]">{m?.name || "—"}</div>
+      <div className="font-mono">
+        {c.rate}%
+        {c.sale_type && <span className="text-[#A1A1AA] ml-1">({c.sale_type})</span>}
+      </div>
+      <div className="text-right">
+        <div className="font-cabinet font-bold">{fmt(c.amount)}</div>
+        <button onClick={() => onToggleStatus(c.id, c.status === "maturato" ? "incassato" : "maturato")}
+          className="font-mono text-[10px] uppercase tracking-widest mt-1"
+          style={{ color: c.status === "incassato" ? "#059669" : "#FF5A00" }}>
+          {c.status} ↻
+        </button>
+      </div>
+      <div className="flex justify-end">
+        <button onClick={() => onDelete(c.id)}
+          className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+          title="Elimina provvigione">
+          <Trash2 className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );
