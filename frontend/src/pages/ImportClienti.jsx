@@ -5,6 +5,19 @@ import { Upload, FileSpreadsheet, ArrowLeft, CheckCircle2, AlertTriangle, Loader
 import { toast } from "sonner";
 import api from "../api";
 
+// Limiti applicati PRIMA di passare il file alla libreria xlsx: il parsing
+// avviene interamente nel browser di chi importa (mai sul server), quindi
+// un file enorme o con troppe righe non mette a rischio nessun altro
+// utente — ma può comunque bloccare per diversi secondi/minuti (o far
+// esaurire la memoria) la scheda di CHI lo sta importando. 10 MB è
+// generoso per un elenco clienti in CSV/Excel; MAX_ROWS è lo stesso limite
+// già applicato lato server su POST /api/clients/bulk (vedi
+// backend/core/validation_limits.py MAX_BULK_IMPORT_ITEMS) — fermarsi qui
+// evita di far leggere/mappare all'utente migliaia di righe che verrebbero
+// comunque rifiutate in blocco all'invio.
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+const MAX_ROWS = 2000;
+
 // Campi del cliente che l'import può popolare, con etichetta per la UI di mappatura.
 const FIELDS = [
   { key: "", label: "— ignora colonna —" },
@@ -60,15 +73,28 @@ export default function ImportClienti() {
   const handleFile = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      toast.error(`Il file supera i ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB consentiti`);
+      e.target.value = "";
+      return;
+    }
     setResult(null);
     setFileName(file.name);
     try {
       const buf = await file.arrayBuffer();
+      // cellFormula NON richiesto (default): le formule non vengono mai
+      // valutate né lette come codice, solo i valori già calcolati/salvati
+      // nel file — non c'è nulla da eseguire.
       const wb = XLSX.read(buf, { type: "array" });
       const sheet = wb.Sheets[wb.SheetNames[0]];
       const data = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false });
       if (!data.length) {
         toast.error("Il file sembra vuoto o senza righe leggibili");
+        return;
+      }
+      if (data.length > MAX_ROWS) {
+        toast.error(`Il file ha ${data.length} righe, il massimo consentito è ${MAX_ROWS}. Dividilo in più file più piccoli.`);
+        e.target.value = "";
         return;
       }
       const cols = Object.keys(data[0]);
