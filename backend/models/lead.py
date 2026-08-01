@@ -1,5 +1,8 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Literal, Optional
+
+LEAD_STATUSES = ["nuovo", "contattato", "qualificato", "trattativa", "vinto", "perso"]
+
 
 class LeadIn(BaseModel):
     company_name: str
@@ -8,7 +11,7 @@ class LeadIn(BaseModel):
     phone: Optional[str] = ""
     source: Optional[str] = ""
     estimated_value: Optional[float] = 0.0
-    status: str = "nuovo"
+    status: Literal[*LEAD_STATUSES] = "nuovo"
     notes: Optional[str] = ""
     # Data (YYYY-MM-DD) del prossimo contatto pianificato, impostata
     # dall'agente — puramente informativa per ora, non letta da nessuna
@@ -18,6 +21,10 @@ class LeadIn(BaseModel):
     # l'ultima interazione, il dato su cui si basa il trigger 'lead
     # inattivo' delle automazioni).
     next_follow_up_at: Optional[str] = None
+
+
+class LeadStatusIn(BaseModel):
+    status: Literal[*LEAD_STATUSES]
 
 
 class LeadContactIn(BaseModel):

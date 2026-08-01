@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, Body
+from fastapi import APIRouter, Depends
 from typing import Optional
 from core.security import get_current_user, forbid_demo_write
 from services.offer_service import offer_service
-from models.offer import OfferIn, SignatureIn
+from models.offer import OfferIn, OfferStatusIn, SignatureIn
 
 router = APIRouter(prefix="/api/offers", tags=["offers"])
 
@@ -24,8 +24,8 @@ async def update_offer(oid: str, payload: OfferIn, user=Depends(forbid_demo_writ
 
 
 @router.patch("/{oid}/status")
-async def update_offer_status(oid: str, payload: dict = Body(...), user=Depends(forbid_demo_write)):
-    await offer_service.update_offer_status(user, oid, payload.get("status"))
+async def update_offer_status(oid: str, payload: OfferStatusIn, user=Depends(forbid_demo_write)):
+    await offer_service.update_offer_status(user, oid, payload.status)
     return {"ok": True}
 
 

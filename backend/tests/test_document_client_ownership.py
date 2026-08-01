@@ -18,7 +18,7 @@ from fastapi import HTTPException
 
 sys.path.insert(0, ".")
 
-from models.document import DocumentIn
+from models.document import DocumentIn, DocumentMetaUpdate
 from services.document_service import DocumentService
 
 
@@ -105,7 +105,7 @@ def test_update_document_meta_rifiuta_client_id_di_un_altro_utente():
     run(service.repo.insert({"id": "doc-1", "user_id": "user-1", "name": "originale.pdf", "client_id": None}))
 
     with pytest.raises(HTTPException) as exc_info:
-        run(service.update_document_meta(USER, "doc-1", {"client_id": "c-di-un-altro-utente"}))
+        run(service.update_document_meta(USER, "doc-1", DocumentMetaUpdate(client_id="c-di-un-altro-utente")))
     assert exc_info.value.status_code == 404
 
 
@@ -113,7 +113,7 @@ def test_update_document_meta_con_client_id_valido_funziona():
     service = build_service()
     run(service.repo.insert({"id": "doc-1", "user_id": "user-1", "name": "originale.pdf", "client_id": None}))
 
-    run(service.update_document_meta(USER, "doc-1", {"client_id": "c1"}))
+    run(service.update_document_meta(USER, "doc-1", DocumentMetaUpdate(client_id="c1")))
 
     assert service.repo.docs[0]["client_id"] == "c1"
 

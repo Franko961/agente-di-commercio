@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, Body
+from fastapi import APIRouter, Depends
 from core.security import get_current_user, forbid_demo_write
 from services.lead_service import lead_service
-from models.lead import LeadIn, LeadContactIn
+from models.lead import LeadIn, LeadStatusIn, LeadContactIn
 
 router = APIRouter(prefix="/api/leads", tags=["leads"])
 
@@ -19,8 +19,8 @@ async def update_lead(lid: str, payload: LeadIn, user=Depends(forbid_demo_write)
     return {"ok": True}
 
 @router.patch("/{lid}/status")
-async def update_lead_status(lid: str, payload: dict = Body(...), user=Depends(forbid_demo_write)):
-    await lead_service.update_status(user, lid, payload.get("status"))
+async def update_lead_status(lid: str, payload: LeadStatusIn, user=Depends(forbid_demo_write)):
+    await lead_service.update_status(user, lid, payload.status)
     return {"ok": True}
 
 @router.post("/{lid}/log-contact")

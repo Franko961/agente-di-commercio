@@ -6,6 +6,7 @@ from repositories.document_repository import document_repository
 from repositories.client_repository import client_repository
 from services.storage_service import storage_put_stream, ALLOWED_EXT, APP_NAME, sanitize_filename, _sniff_matches_extension
 from core.config import MAX_FILE_BYTES
+from models.document import DocumentMetaUpdate
 
 # Byte sufficienti per riconoscere qualunque firma tra quelle controllate da
 # _sniff_matches_extension (la più esigente è il controllo HTML/script su
@@ -134,8 +135,8 @@ class DocumentService:
         }
         return await self.repo.insert(doc)
 
-    async def update_document_meta(self, user: dict, did: str, payload: dict) -> None:
-        allowed = {k: v for k, v in payload.items() if k in {"name", "category", "notes", "client_id", "tags"}}
+    async def update_document_meta(self, user: dict, did: str, payload: DocumentMetaUpdate) -> None:
+        allowed = payload.model_dump(exclude_unset=True)
         if "client_id" in allowed:
             await self._validate_client_ownership(user["id"], allowed["client_id"])
         if "tags" in allowed and isinstance(allowed["tags"], list):

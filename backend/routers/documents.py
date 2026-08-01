@@ -1,6 +1,6 @@
 import jwt
-from typing import Optional
-from fastapi import APIRouter, Depends, Body, UploadFile, File, Form, Header, Query, HTTPException, Request
+from typing import Literal, Optional
+from fastapi import APIRouter, Depends, UploadFile, File, Form, Header, Query, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from core.security import (
     get_current_user, forbid_demo_write,
@@ -10,7 +10,7 @@ from core.security import (
 from core.config import JWT_SECRET, JWT_ALG
 from services.document_service import document_service
 from services.storage_service import storage_get_stream, sanitize_filename
-from models.document import DocumentIn
+from models.document import DocumentIn, DocumentMetaUpdate, DOCUMENT_CATEGORIES
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -29,7 +29,7 @@ async def create_document(payload: DocumentIn, user=Depends(forbid_demo_write)):
 async def upload_document(
     file: UploadFile = File(...),
     name: str = Form(...),
-    category: str = Form("altro"),
+    category: Literal[*DOCUMENT_CATEGORIES] = Form("altro"),
     client_id: Optional[str] = Form(None),
     notes: str = Form(""),
     tags: str = Form(""),
@@ -39,7 +39,7 @@ async def upload_document(
 
 
 @router.patch("/{did}")
-async def update_document_meta(did: str, payload: dict = Body(...), user=Depends(forbid_demo_write)):
+async def update_document_meta(did: str, payload: DocumentMetaUpdate, user=Depends(forbid_demo_write)):
     """Update metadata (tags, name, category, notes, client_id) without re-uploading the file."""
     await document_service.update_document_meta(user, did, payload)
     return {"ok": True}

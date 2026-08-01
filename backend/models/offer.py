@@ -1,5 +1,8 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Literal, Optional
+from models.order import SALE_TYPES
+
+OFFER_STATUSES = ["bozza", "inviata", "accettata", "rifiutata", "scaduta"]
 
 
 class OfferLineItem(BaseModel):
@@ -21,9 +24,13 @@ class OfferIn(BaseModel):
     title: str
     items: List[OfferLineItem] = []
     expires_at: Optional[str] = None
-    status: str = "bozza"  # bozza, inviata, accettata, rifiutata, scaduta
-    sale_type: str = "nuovo"  # nuovo, rinnovo — determina l'aliquota di provvigione applicata
+    status: Literal[*OFFER_STATUSES] = "bozza"
+    sale_type: Literal[*SALE_TYPES] = "nuovo"
     notes: Optional[str] = ""
+
+
+class OfferStatusIn(BaseModel):
+    status: Literal[*OFFER_STATUSES]
 
 
 class SignatureIn(BaseModel):

@@ -1,5 +1,8 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Literal, Optional
+
+APPOINTMENT_STATUSES = ["pianificato", "completato", "annullato"]
+
 
 class AppointmentIn(BaseModel):
     client_id: Optional[str] = None
@@ -8,7 +11,7 @@ class AppointmentIn(BaseModel):
     start: str
     end: Optional[str] = None
     location: Optional[str] = ""
-    status: str = "pianificato"
+    status: Literal[*APPOINTMENT_STATUSES] = "pianificato"
 
 
 class AppointmentBulkIn(BaseModel):

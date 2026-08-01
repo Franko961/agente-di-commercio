@@ -18,6 +18,7 @@ sys.path.insert(0, ".")
 
 import services.document_service as doc_service_mod
 from services.document_service import DocumentService, HEAD_SNIFF_BYTES
+from models.document import DocumentMetaUpdate
 
 
 def run(coro):
@@ -179,7 +180,7 @@ def test_update_document_meta_sanifica_il_nome():
     service = build_service()
     run(service.repo.insert({"id": "doc-1", "user_id": "user-1", "name": "originale.pdf"}))
 
-    run(service.update_document_meta({"id": "user-1"}, "doc-1", {"name": "../../evil.sh"}))
+    run(service.update_document_meta({"id": "user-1"}, "doc-1", DocumentMetaUpdate(name="../../evil.sh")))
 
     saved = service.repo.docs[0]
     assert "/" not in saved["name"]
