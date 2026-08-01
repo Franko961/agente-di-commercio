@@ -42,10 +42,10 @@ class DemoRequestService:
 
     async def create(self, payload, ip_address: str = None, user_agent: str = None) -> dict:
         # Endpoint pubblico non autenticato che crea un account VERO e
-        # funzionante (con dati demo già seminati) e manda una password reale
-        # via email all'indirizzo indicato: senza un limite di frequenza,
-        # chiunque potrebbe scriptare la creazione di account fasulli in
-        # massa e/o far ricevere a indirizzi altrui email di "credenziali"
+        # funzionante (con dati demo già seminati) e manda un'email con il
+        # link per impostare la password all'indirizzo indicato: senza un
+        # limite di frequenza, chiunque potrebbe scriptare la creazione di
+        # account fasulli in massa e/o far ricevere a indirizzi altrui email
         # non richieste — oltre al costo/rischio reputazionale sull'invio
         # email. Limite per IP (non per email: un attaccante userebbe email
         # sempre diverse, è l'IP a doversi arginare), stesso principio già
