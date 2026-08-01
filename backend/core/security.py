@@ -3,8 +3,9 @@ import jwt
 import hashlib
 import secrets
 from datetime import datetime, timezone, timedelta
+from typing import Optional
 from fastapi import HTTPException, Request, Depends
-from core.config import JWT_SECRET, JWT_ALG
+from core.config import JWT_SECRET, JWT_ALG, TRUSTED_PROXY_HOPS
 from core.database import db
 from core.subscription_utils import is_subscription_active
 
@@ -31,6 +32,31 @@ TRIAL_GATE_EXEMPT_PREFIXES = (
     # diritto di legge finché non paga di nuovo.
     "/api/privacy",
 )
+
+
+def get_client_ip(request: Request) -> Optional[str]:
+    """IP del chiamante da usare per il rate limiting (login, registrazione,
+    richieste demo/contatti — vedi core/rate_limit.py), al netto del reverse
+    proxy davanti all'app: request.client.host da solo è SEMPRE l'IP di
+    Railway stesso, identico per ogni singolo visitatore — con quello come
+    chiave, un limite di "5 richieste" varrebbe per TUTTI gli utenti messi
+    insieme, non per singolo visitatore.
+
+    X-Forwarded-For viene però scritto lungo la catena da chiunque si
+    connetta, incluso un chiamante diretto e malevolo che può impostarlo a
+    piacere: fidarsi ciecamente della prima voce permetterebbe di aggirare
+    il rate limit a piacimento (basta cambiare valore ad ogni richiesta).
+    L'unica voce non falsificabile è quella aggiunta dal proxy con cui
+    l'app comunica DIRETTAMENTE — Railway, l'unico modo in cui una
+    richiesta può fisicamente raggiungere il container — quindi si prende
+    l'N-esima voce da destra, dove N = TRUSTED_PROXY_HOPS (vedi
+    core/config.py), mai la prima della lista."""
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        hops = [h.strip() for h in xff.split(",") if h.strip()]
+        if TRUSTED_PROXY_HOPS >= 1 and len(hops) >= TRUSTED_PROXY_HOPS:
+            return hops[-TRUSTED_PROXY_HOPS]
+    return request.client.host if request.client else None
 
 
 def hash_password(password: str) -> str:

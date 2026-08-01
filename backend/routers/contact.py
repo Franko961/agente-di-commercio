@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, Depends
 from models.contact_request import ContactRequestIn
 from services.contact_request_service import contact_request_service
-from core.security import require_admin
+from core.security import require_admin, get_client_ip
 
 router = APIRouter(prefix="/api/contact-requests", tags=["contact-requests"])
 
@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api/contact-requests", tags=["contact-requests"])
 async def create_contact_request(payload: ContactRequestIn, request: Request):
     """Endpoint pubblico (nessuna autenticazione): riceve il form contatti dal
     sito e invia una notifica alla casella info@salesfly.it."""
-    ip_address = request.client.host if request.client else None
+    ip_address = get_client_ip(request)
     return await contact_request_service.create(payload, ip_address=ip_address)
 
 

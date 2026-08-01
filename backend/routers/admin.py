@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Body, Request
-from core.security import require_admin
+from core.security import require_admin, get_client_ip
 from services.admin_service import admin_service
 from services.health_service import health_service
 
@@ -9,7 +9,7 @@ router = APIRouter(prefix="/api", tags=["admin"])
 @router.post("/auth/make-admin")
 async def make_admin(payload: dict = Body(...), request: Request = None):
     """Route temporanea per promuovere un utente ad admin. Richiede ADMIN_SECRET."""
-    ip_address = request.client.host if request and request.client else None
+    ip_address = get_client_ip(request) if request else None
     return await admin_service.make_admin(payload.get("email", ""), payload.get("secret", ""), ip_address=ip_address)
 
 

@@ -141,3 +141,16 @@ GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "")
 GOOGLE_CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
 # Dove reindirizzare il browser dopo il callback OAuth (pagina impostazioni del frontend)
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://salesfly.it")
+
+# --- Rate limiting dietro reverse proxy ---
+# Quanti hop di reverse proxy fidati ci sono davanti all'app: determina
+# quale valore di X-Forwarded-For usare come IP del chiamante (vedi
+# get_client_ip in core/security.py) invece del solo request.client.host,
+# che su Railway è sempre l'IP del proxy stesso, identico per ogni
+# visitatore. Default 1: Railway è l'unico proxy che può raggiungere
+# davvero il container (nessun altro percorso di rete esiste), quindi è
+# l'unico hop di cui ci si può fidare senza verifica aggiuntiva. Se in
+# futuro si verifica che anche Netlify aggiunge in modo affidabile il
+# proprio hop per il traffico proxato via salesfly.it/api/* (vedi
+# frontend/public/_redirects), si può alzare a 2 senza toccare il codice.
+TRUSTED_PROXY_HOPS = int(os.environ.get("TRUSTED_PROXY_HOPS", "1"))

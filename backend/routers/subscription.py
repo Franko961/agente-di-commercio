@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Body, Request
-from core.security import get_current_user
+from core.security import get_current_user, get_client_ip
 from services.subscription_service import subscription_service
 
 router = APIRouter(prefix="/api/subscription", tags=["subscription"])
@@ -26,7 +26,7 @@ async def checkout_expired(payload: dict = Body(...), request: Request = None):
     trial è scaduto e che quindi non può più autenticarsi. Richiede email+password
     nel body per verificare che sia il titolare dell'account (vedi payload atteso:
     email, password, plan, return_url)."""
-    ip_address = request.client.host if request and request.client else None
+    ip_address = get_client_ip(request) if request else None
     return await subscription_service.create_checkout_for_expired_account(payload, ip_address=ip_address)
 
 

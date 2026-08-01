@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Response, Request
-from core.security import get_current_user, forbid_demo_write
+from core.security import get_current_user, forbid_demo_write, get_client_ip
 from services.auth_service import auth_service
 from models.auth import LoginIn, RegisterIn, ForgotPasswordIn, ResetPasswordIn
 
@@ -8,7 +8,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 @router.post("/register")
 async def register(payload: RegisterIn, response: Response, request: Request):
-    ip_address = request.client.host if request.client else None
+    ip_address = get_client_ip(request)
     token, out = await auth_service.register(payload, ip_address=ip_address)
     response.set_cookie("access_token", token, httponly=True, secure=True,
                          samesite="none", max_age=7 * 24 * 3600, path="/")
@@ -17,7 +17,7 @@ async def register(payload: RegisterIn, response: Response, request: Request):
 
 @router.post("/login")
 async def login(payload: LoginIn, response: Response, request: Request):
-    ip_address = request.client.host if request.client else None
+    ip_address = get_client_ip(request)
     token, out = await auth_service.login(payload, ip_address=ip_address)
     response.set_cookie("access_token", token, httponly=True, secure=True,
                          samesite="none", max_age=7 * 24 * 3600, path="/")
@@ -48,11 +48,11 @@ async def onboarding_seen(user=Depends(forbid_demo_write)):
 
 @router.post("/forgot-password")
 async def forgot_password(payload: ForgotPasswordIn, request: Request):
-    ip_address = request.client.host if request.client else None
+    ip_address = get_client_ip(request)
     return await auth_service.forgot_password(payload, ip_address=ip_address)
 
 
 @router.post("/reset-password")
 async def reset_password(payload: ResetPasswordIn, request: Request):
-    ip_address = request.client.host if request.client else None
+    ip_address = get_client_ip(request)
     return await auth_service.reset_password(payload, ip_address=ip_address)
