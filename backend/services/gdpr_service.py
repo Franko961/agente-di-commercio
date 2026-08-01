@@ -85,6 +85,11 @@ EXCLUDED_FROM_USER_SCOPED_COLLECTIONS = {
     # 24 mesi, stesso principio di demo_requests (vedi
     # CONTACT_REQUEST_RETENTION_DAYS in startup_service.py).
     "contact_requests",
+    # Lock distribuiti per i cicli periodici multi-replica (vedi
+    # repositories/job_lock_repository.py): un documento per NOME DI JOB
+    # tecnico (es. "demo_reset", "health_alert"), non per utente — nessun
+    # dato personale, nessuno user_id da seguire.
+    "job_locks",
 }
 
 # Campi da rimuovere sempre dall'export e mai includere: segreti tecnici che

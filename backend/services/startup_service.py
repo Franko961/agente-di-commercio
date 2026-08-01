@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timezone
 
 from core.database import db, close_db
+from repositories.job_lock_repository import job_lock_repository
 from services.storage_service import init_storage
 
 logger = logging.getLogger(__name__)
@@ -81,6 +82,15 @@ CONTACT_REQUEST_CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60
 # gdpr_service.py), mai in chiaro.
 SELF_DELETE_AUDIT_RETENTION_DAYS = 365
 
+# Ognuno dei cicli sotto è protetto da job_lock_repository (vedi
+# repositories/job_lock_repository.py) con una scadenza volutamente più
+# breve del proprio intervallo: con più repliche Railway, solo l'istanza
+# che vince il lock esegue il ciclo in quel giro; il lock scade comunque
+# prima del giro successivo, così una qualunque replica (non
+# necessariamente la stessa) può vincerlo la volta dopo. automation_engine
+# fa eccezione: ha già una propria dedup più fine, per singola coppia
+# automazione/target (vedi automation_run_repository.try_claim), quindi un
+# lock a livello di intero ciclo non serve.
 _gcal_sync_task = None
 _stuck_ai_action_task = None
 _health_alert_task = None
@@ -89,7 +99,6 @@ _demo_reset_task = None
 _cancel_finalize_task = None
 _demo_request_cleanup_task = None
 _contact_request_cleanup_task = None
-_last_alert_sent_at = None
 
 
 async def _google_calendar_sync_loop() -> None:
@@ -97,6 +106,8 @@ async def _google_calendar_sync_loop() -> None:
     while True:
         try:
             await asyncio.sleep(GOOGLE_CALENDAR_SYNC_INTERVAL_SECONDS)
+            if not await job_lock_repository.try_acquire("google_calendar_sync", ttl_seconds=GOOGLE_CALENDAR_SYNC_INTERVAL_SECONDS - 30):
+                continue
             await google_calendar_service.sync_all_connected_accounts()
         except asyncio.CancelledError:
             raise
@@ -114,6 +125,8 @@ async def _stuck_ai_action_cleanup_loop() -> None:
     while True:
         try:
             await asyncio.sleep(STUCK_AI_ACTION_CHECK_INTERVAL_SECONDS)
+            if not await job_lock_repository.try_acquire("stuck_ai_action_cleanup", ttl_seconds=STUCK_AI_ACTION_CHECK_INTERVAL_SECONDS - 15):
+                continue
             reclaimed = await ai_service.reclaim_stuck_executions()
             if reclaimed:
                 logger.warning(
@@ -131,6 +144,8 @@ async def _demo_reset_loop() -> None:
     while True:
         try:
             await asyncio.sleep(DEMO_RESET_INTERVAL_SECONDS)
+            if not await job_lock_repository.try_acquire("demo_reset", ttl_seconds=DEMO_RESET_INTERVAL_SECONDS - 300):
+                continue
             count = await demo_reset_service.reset_all_demo_accounts()
             if count:
                 logger.info(f"Reset periodico demo: {count} account ripuliti e riseminati")
@@ -147,6 +162,8 @@ async def _cancel_finalize_loop() -> None:
     while True:
         try:
             await asyncio.sleep(CANCEL_FINALIZE_INTERVAL_SECONDS)
+            if not await job_lock_repository.try_acquire("cancel_finalize", ttl_seconds=CANCEL_FINALIZE_INTERVAL_SECONDS - 300):
+                continue
             now_iso = datetime.now(timezone.utc).isoformat()
             result = await db.users.update_many(
                 {"subscription_status": "active", "cancel_at": {"$ne": None, "$lte": now_iso}},
@@ -168,6 +185,8 @@ async def _demo_request_cleanup_loop() -> None:
     while True:
         try:
             await asyncio.sleep(DEMO_REQUEST_CLEANUP_INTERVAL_SECONDS)
+            if not await job_lock_repository.try_acquire("demo_request_cleanup", ttl_seconds=DEMO_REQUEST_CLEANUP_INTERVAL_SECONDS - 300):
+                continue
             cutoff = (datetime.now(timezone.utc) - timedelta(days=DEMO_REQUEST_RETENTION_DAYS)).isoformat()
             deleted = await demo_request_repository.delete_older_than(cutoff)
             if deleted:
@@ -186,6 +205,8 @@ async def _contact_request_cleanup_loop() -> None:
     while True:
         try:
             await asyncio.sleep(CONTACT_REQUEST_CLEANUP_INTERVAL_SECONDS)
+            if not await job_lock_repository.try_acquire("contact_request_cleanup", ttl_seconds=CONTACT_REQUEST_CLEANUP_INTERVAL_SECONDS - 300):
+                continue
             cutoff = (datetime.now(timezone.utc) - timedelta(days=CONTACT_REQUEST_RETENTION_DAYS)).isoformat()
             deleted = await contact_request_repository.delete_older_than(cutoff)
             if deleted:
@@ -231,8 +252,15 @@ async def _health_alert_loop() -> None:
     email, sync Calendar ed endpoint API nella finestra recente, avvisando
     l'admin via email (già configurata tramite ADMIN_NOTIFY_EMAIL, nessun
     servizio nuovo da collegare) se supera una soglia — con un tempo minimo
-    tra un alert e il successivo per non spammare mentre il problema persiste."""
-    global _last_alert_sent_at
+    tra un alert e il successivo per non spammare mentre il problema persiste.
+
+    Il cooldown anti-spam vive nello stesso job_lock_repository usato per
+    evitare il doppio controllo (vedi commento sopra _gcal_sync_task): dopo
+    un invio riuscito, il lock viene esteso fino a ALERT_COOLDOWN_SECONDS
+    invece della sua normale, breve scadenza. Prima era una variabile di
+    processo (_last_alert_sent_at): con più repliche Railway, ognuna aveva
+    il proprio cooldown "privato", quindi un problema persistente poteva
+    generare un alert per replica invece di uno solo condiviso."""
     from services.health_service import health_service
     from services.email_service import send_email
     from core.config import ADMIN_NOTIFY_EMAIL
@@ -240,6 +268,8 @@ async def _health_alert_loop() -> None:
     while True:
         try:
             await asyncio.sleep(ALERT_CHECK_INTERVAL_SECONDS)
+            if not await job_lock_repository.try_acquire("health_alert", ttl_seconds=ALERT_CHECK_INTERVAL_SECONDS - 60):
+                continue
             health = await health_service.get_health(hours=ALERT_CHECK_INTERVAL_SECONDS / 3600)
 
             problems = []
@@ -252,10 +282,6 @@ async def _health_alert_loop() -> None:
             if not problems:
                 continue
 
-            now = datetime.now(timezone.utc)
-            if _last_alert_sent_at and (now - _last_alert_sent_at).total_seconds() < ALERT_COOLDOWN_SECONDS:
-                continue
-
             body = "".join(f"<li>{p}</li>" for p in problems)
             sent = await send_email(
                 ADMIN_NOTIFY_EMAIL,
@@ -263,7 +289,7 @@ async def _health_alert_loop() -> None:
                 f"<p>Rilevate le seguenti anomalie negli ultimi {ALERT_CHECK_INTERVAL_SECONDS // 60} minuti:</p><ul>{body}</ul>",
             )
             if sent:
-                _last_alert_sent_at = now
+                await job_lock_repository.extend("health_alert", ttl_seconds=ALERT_COOLDOWN_SECONDS)
         except asyncio.CancelledError:
             raise
         except Exception as e:
