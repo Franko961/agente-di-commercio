@@ -22,4 +22,4 @@ class MandanteIn(BaseModel):
     target_yearly: Optional[float] = None
     target_clients: Optional[int] = None
     target_notes: Optional[str] = ""
-    bonus_tiers: Optional[List[BonusTier]] = []
+    bonus_tiers: Optional[List[BonusTier]] = Field(default_factory=list)

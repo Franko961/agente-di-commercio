@@ -21,7 +21,7 @@ class ClientIn(BaseModel):
     lat: Optional[float] = Field(None, ge=-90, le=90)
     lng: Optional[float] = Field(None, ge=-180, le=180)
     notes: Optional[str] = ""
-    mandante_ids: List[str] = []
+    mandante_ids: List[str] = Field(default_factory=list)
     birthday: Optional[str] = None  # data di nascita, formato "YYYY-MM-DD" (facoltativa)
 
 

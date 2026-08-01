@@ -28,7 +28,7 @@ class OrderLineItem(BaseModel):
 class OrderIn(BaseModel):
     client_id: str
     mandante_id: str
-    items: List[OrderLineItem] = []
+    items: List[OrderLineItem] = Field(default_factory=list)
     sale_type: Literal[*SALE_TYPES] = "nuovo"
     notes: Optional[str] = ""
     numero_ordine: Optional[str] = None  # se omesso, generato automaticamente alla creazione

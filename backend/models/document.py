@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Literal, Optional
 
 # Allineata alle opzioni reali del menu a tendina nel frontend
@@ -14,7 +14,7 @@ class DocumentIn(BaseModel):
     category: Literal[*DOCUMENT_CATEGORIES] = "contratto"
     url: Optional[str] = ""
     notes: Optional[str] = ""
-    tags: List[str] = []
+    tags: List[str] = Field(default_factory=list)
 
 
 class DocumentMetaUpdate(BaseModel):

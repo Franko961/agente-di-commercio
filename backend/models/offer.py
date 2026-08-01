@@ -22,7 +22,7 @@ class OfferIn(BaseModel):
     client_id: str
     mandante_id: str
     title: str
-    items: List[OfferLineItem] = []
+    items: List[OfferLineItem] = Field(default_factory=list)
     expires_at: Optional[str] = None
     status: Literal[*OFFER_STATUSES] = "bozza"
     sale_type: Literal[*SALE_TYPES] = "nuovo"
