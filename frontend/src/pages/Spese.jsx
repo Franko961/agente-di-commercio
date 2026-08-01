@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import api from "../api";
-import { Plus, Trash2, Pencil, Fuel, UtensilsCrossed, BedDouble, ParkingCircle, Package, Receipt, Landmark, PiggyBank, Car, Calculator, Paperclip, Upload, X, Loader2 } from "lucide-react";
+import { Plus, Trash2, Pencil, Fuel, UtensilsCrossed, BedDouble, ParkingCircle, Package, Receipt, Landmark, PiggyBank, Car, Calculator, Paperclip, Upload, X, Loader2, ChevronDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { toast } from "sonner";
 
@@ -37,6 +37,36 @@ const catMeta = (value) => CATEGORIES.find((c) => c.value === value) || CATEGORI
 
 const emptyExpense = () => ({ date: todayIso(), category: "carburante", description: "", amount: 0, notes: "", receipt_document_id: null, receipt_filename: null });
 
+// Raggruppa le spese per mese ("YYYY-MM" da e.date, già in quel formato):
+// il mese in corso resta aperto di default (si sta ancora costruendo), i
+// mesi passati partono chiusi mostrando solo il totale — l'elenco intero
+// di ogni mese si apre cliccandoci sopra, invece di restare tutto
+// visibile insieme man mano che passano i mesi.
+const monthKey = (dateStr) => (dateStr || "").slice(0, 7);
+
+function monthLabel(key) {
+  const [y, m] = key.split("-").map(Number);
+  const label = new Intl.DateTimeFormat("it-IT", { month: "long", year: "numeric" }).format(new Date(y, m - 1, 1));
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function groupByMonth(list) {
+  const byKey = new Map();
+  for (const e of list) {
+    const key = monthKey(e.date);
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(e);
+  }
+  return [...byKey.entries()]
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .map(([key, items]) => ({
+      key,
+      label: monthLabel(key),
+      items,
+      total: items.reduce((sum, e) => sum + (e.amount || 0), 0),
+    }));
+}
+
 // Aprire la fotocamera nativa da mobile manda l'app in background: su molti
 // telefoni il sistema operativo libera memoria "uccidendo" la scheda del
 // browser, così al ritorno dalla fotocamera la pagina si ricarica da zero e
@@ -70,6 +100,12 @@ export default function Spese() {
   const [newExpenseInitial, setNewExpenseInitial] = useState(emptyExpense());
   const [editTarget, setEditTarget] = useState(null);
   const [filter, setFilter] = useState("");
+  const [expandedMonths, setExpandedMonths] = useState(() => new Set([monthKey(todayIso())]));
+  const toggleMonth = (key) => setExpandedMonths((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
 
   useEffect(() => {
     const draft = loadDraft();
@@ -97,6 +133,7 @@ export default function Spese() {
   };
 
   const total = useMemo(() => expenses.reduce((sum, e) => sum + (e.amount || 0), 0), [expenses]);
+  const monthGroups = useMemo(() => groupByMonth(expenses), [expenses]);
 
   return (
     <div className="p-4 md:p-8">
@@ -155,40 +192,70 @@ export default function Spese() {
         </div>
       </div>
 
-      <div className="bg-white border border-[#E4E4E1] rounded-md overflow-hidden">
-        <div className="hidden md:grid grid-cols-7 gap-2 px-4 py-3 bg-[#F3F3F1] border-b border-[#E4E4E1] font-mono text-[10px] uppercase tracking-widest text-[#52525B]">
-          <div>Data</div><div>Categoria</div><div className="col-span-2">Descrizione</div><div className="text-right">Importo</div><div className="col-span-2"></div>
-        </div>
-        {expenses.map((e) => {
-          const meta = catMeta(e.category);
+      <div className="space-y-3">
+        {monthGroups.map((group) => {
+          const isExpanded = expandedMonths.has(group.key);
           return (
-            <div key={e.id} data-testid={`expense-${e.id}`} className="grid grid-cols-2 md:grid-cols-7 gap-2 px-4 py-3 border-b border-[#E4E4E1] items-center text-[13px]">
-              <div className="font-mono text-[12px]">{e.date}</div>
-              <div className="text-[#52525B] flex items-center gap-1.5">
-                <meta.icon className="w-3.5 h-3.5 text-[#A1A1AA]" />{meta.label}
-              </div>
-              <div className="col-span-2 truncate flex items-center gap-1.5">
-                <span className="truncate">{e.description || "—"}</span>
-                {e.receipt_document_id && (
-                  <button onClick={() => downloadReceipt(e.receipt_document_id, e.description)} title="Vedi scontrino"
-                    className="shrink-0 p-1 text-[#A1A1AA] hover:text-[#FF5A00] hover:bg-[#F3F3F1] rounded transition-colors">
-                    <Paperclip className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-              <div className="text-right font-cabinet font-bold">{fmt(e.amount)}</div>
-              <div className="col-span-2 flex justify-end gap-1">
-                <button onClick={() => setEditTarget(e)} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica">
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button onClick={() => deleteExpense(e.id, e.description)} className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors" title="Elimina">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+            <div key={group.key} className="bg-white border border-[#E4E4E1] rounded-md overflow-hidden">
+              <button
+                onClick={() => toggleMonth(group.key)}
+                data-testid={`expense-month-${group.key}`}
+                className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-[#F3F3F1] hover:bg-[#EDEDEA] transition-colors text-left"
+              >
+                <span className="flex items-center gap-2 font-cabinet font-bold text-[14px]">
+                  <ChevronDown className={`w-4 h-4 text-[#A1A1AA] shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                  {group.label}
+                </span>
+                <span className="font-mono text-[11px] uppercase tracking-widest text-[#52525B]">
+                  Totale: <span className="font-cabinet font-black text-[14px] text-[#0A0A0A]">{fmt(group.total)}</span>
+                </span>
+              </button>
+              {isExpanded && (
+                <div>
+                  <div className="hidden md:grid grid-cols-7 gap-2 px-4 py-3 border-b border-[#E4E4E1] font-mono text-[10px] uppercase tracking-widest text-[#52525B]">
+                    <div>Data</div><div>Categoria</div><div className="col-span-2">Descrizione</div><div className="text-right">Importo</div><div className="col-span-2"></div>
+                  </div>
+                  {group.items.map((e) => (
+                    <ExpenseRow key={e.id} e={e} onEdit={setEditTarget} onDelete={deleteExpense} />
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
-        {expenses.length === 0 && <div className="p-8 text-center text-[#A1A1AA] text-[13px]">Nessuna spesa registrata.</div>}
+        {monthGroups.length === 0 && (
+          <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#A1A1AA] text-[13px]">Nessuna spesa registrata.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ExpenseRow({ e, onEdit, onDelete }) {
+  const meta = catMeta(e.category);
+  return (
+    <div data-testid={`expense-${e.id}`} className="grid grid-cols-2 md:grid-cols-7 gap-2 px-4 py-3 border-b border-[#E4E4E1] items-center text-[13px]">
+      <div className="font-mono text-[12px]">{e.date}</div>
+      <div className="text-[#52525B] flex items-center gap-1.5">
+        <meta.icon className="w-3.5 h-3.5 text-[#A1A1AA]" />{meta.label}
+      </div>
+      <div className="col-span-2 truncate flex items-center gap-1.5">
+        <span className="truncate">{e.description || "—"}</span>
+        {e.receipt_document_id && (
+          <button onClick={() => downloadReceipt(e.receipt_document_id, e.description)} title="Vedi scontrino"
+            className="shrink-0 p-1 text-[#A1A1AA] hover:text-[#FF5A00] hover:bg-[#F3F3F1] rounded transition-colors">
+            <Paperclip className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      <div className="text-right font-cabinet font-bold">{fmt(e.amount)}</div>
+      <div className="col-span-2 flex justify-end gap-1">
+        <button onClick={() => onEdit(e)} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica">
+          <Pencil className="w-4 h-4" />
+        </button>
+        <button onClick={() => onDelete(e.id, e.description)} className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors" title="Elimina">
+          <Trash2 className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );
