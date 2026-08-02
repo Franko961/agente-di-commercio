@@ -87,7 +87,15 @@ function loadStoredRoutePlan() {
   }
 }
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+// Data di calendario locale, non new Date().toISOString().slice(0,10): quel
+// metodo legge anno/mese/giorno in UTC, che nell'ultima/prima ora o due del
+// giorno locale (a seconda del fuso) può differire dalla data dell'utente —
+// usato solo come default della data del giro pianificato, mai per salvare
+// timestamp.
+const todayIso = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+};
 
 function saveStoredRoutePlan(state) {
   try {

@@ -6,7 +6,15 @@ import { exportCommissions } from "../utils/export";
 import { useMandante } from "../contexts/MandanteContext";
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
-const currentPeriod = () => new Date().toISOString().slice(0, 7); // "YYYY-MM"
+// Mese di calendario locale, non new Date().toISOString().slice(0,7): quel
+// metodo legge l'anno/mese in UTC, che nell'ultima/prima ora o due del
+// giorno locale (a seconda del fuso) può differire dal mese di calendario
+// dell'utente — usato solo per determinare "il mese corrente" (default del
+// box e periodo aperto di default), mai per salvare timestamp.
+const currentPeriod = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+};
 
 // Più righe manuali possono coesistere sullo stesso periodo (es. un premio
 // per un mandante e una rettifica per un altro nello stesso mese), quindi
