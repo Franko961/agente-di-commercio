@@ -218,11 +218,14 @@ function MandanteForm({ initial, onSave, submitLabel = "Salva" }) {
             Inserisci gli scaglioni di fatturato e il premio corrispondente. Il premio viene erogato al raggiungimento della soglia.
           </div>
 
-          {/* Header colonne */}
+          {/* Header colonne. Stessa griglia a 3 tracce (2 flessibili + una
+          "auto" per il bottone) usata nelle righe sotto, da sm in su
+          torna a grid-cols-9 come prima — coerente col fix applicato allo
+          stesso pattern in Ordini.jsx/Offers.jsx. */}
           {f.bonus_tiers.length > 0 && (
-            <div className="grid grid-cols-9 gap-2 px-1">
-              <div className="col-span-4 font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">Fatturato minimo (€)</div>
-              <div className="col-span-4 font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">Premio (€)</div>
+            <div className="grid grid-cols-[1fr_1fr_auto] sm:grid-cols-9 gap-2 px-1">
+              <div className="sm:col-span-4 font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">Fatturato minimo (€)</div>
+              <div className="sm:col-span-4 font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">Premio (€)</div>
               <div />
             </div>
           )}
@@ -230,18 +233,18 @@ function MandanteForm({ initial, onSave, submitLabel = "Salva" }) {
           {/* Righe scaglioni */}
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {f.bonus_tiers.map((tier, i) => (
-              <div key={i} className="grid grid-cols-9 gap-2 items-center">
+              <div key={i} className="grid grid-cols-[1fr_1fr_auto] sm:grid-cols-9 gap-2 items-center">
                 <input
                   type="number" value={tier.threshold} placeholder="es. 2000"
                   onChange={(e) => updateTier(i, "threshold", e.target.value)}
-                  className="col-span-4 bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+                  className="sm:col-span-4 w-full min-w-0 bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
                 />
                 <input
                   type="number" value={tier.bonus} placeholder="es. 500"
                   onChange={(e) => updateTier(i, "bonus", e.target.value)}
-                  className="col-span-4 bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+                  className="sm:col-span-4 w-full min-w-0 bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
                 />
-                <button type="button" onClick={() => removeTier(i)} className="text-[#A1A1AA] hover:text-red-500 transition-colors flex justify-center">
+                <button type="button" onClick={() => removeTier(i)} className="sm:col-span-1 text-[#A1A1AA] hover:text-red-500 transition-colors flex justify-center p-1.5">
                   <X className="w-4 h-4" />
                 </button>
               </div>
