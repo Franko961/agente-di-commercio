@@ -103,6 +103,7 @@ def install_fake_db(monkeypatch):
     monkeypatch.setattr(db, "leads", FakeCollection([]))
     monkeypatch.setattr(db, "appointments", FakeCollection(APPTS))
     monkeypatch.setattr(db, "commissions", FakeCollection(COMMISSIONS))
+    monkeypatch.setattr(db, "manual_commissions", FakeCollection([]))
     monkeypatch.setattr(db, "expenses", FakeCollection([]))
     monkeypatch.setattr(db, "orders", FakeCollection(ORDERS))
 
@@ -151,6 +152,44 @@ def test_get_today_brief_pagamenti_da_verificare_filtrati(monkeypatch):
     # Solo la provvigione m1 è "maturato" (da verificare)
     assert brief_m1["payments_to_verify"] == 1
     assert brief_m2["payments_to_verify"] == 0
+
+
+# ---------- dashboard_service: provvigioni manuali contano come vere ----------
+
+MANUAL_COMMISSIONS = [
+    # Senza mandante_id: non attribuibile a un mandante specifico.
+    {"user_id": "u1", "period": "2026-07", "amount": 300, "mandante_id": None, "stato": "maturato"},
+    # Taggata su m1: deve contare SOLO quando il filtro è m1 (o assente).
+    {"user_id": "u1", "period": "2026-07", "amount": 50, "mandante_id": "m1", "stato": "incassato"},
+]
+
+
+def test_get_stats_include_provvigioni_manuali_in_vista_globale(monkeypatch):
+    install_fake_db(monkeypatch)
+    monkeypatch.setattr(db, "manual_commissions", FakeCollection(MANUAL_COMMISSIONS))
+    stats = run(dashboard_service.get_stats(USER))
+    # 100 (cm1 maturato) + 300 (manuale senza mandante) = 400
+    assert stats["kpi"]["commissions_accrued"] == 400
+    # 200 (cm2 incassato) + 50 (manuale m1 incassato) = 250
+    assert stats["kpi"]["commissions_collected"] == 250
+
+
+def test_get_stats_provvigione_manuale_senza_mandante_esclusa_da_filtro_specifico(monkeypatch):
+    install_fake_db(monkeypatch)
+    monkeypatch.setattr(db, "manual_commissions", FakeCollection(MANUAL_COMMISSIONS))
+    stats = run(dashboard_service.get_stats(USER, mandante_id="m1"))
+    # 100 (cm1) — la manuale senza mandante_id NON conta qui
+    assert stats["kpi"]["commissions_accrued"] == 100
+    # 50 (manuale taggata m1) — la reale cm2 è di m2, non conta qui
+    assert stats["kpi"]["commissions_collected"] == 50
+
+
+def test_get_today_brief_pagamenti_da_verificare_include_manuali(monkeypatch):
+    install_fake_db(monkeypatch)
+    monkeypatch.setattr(db, "manual_commissions", FakeCollection(MANUAL_COMMISSIONS))
+    brief_all = run(dashboard_service.get_today_brief(USER))
+    # cm1 (maturato) + la manuale senza mandante (maturato) = 2
+    assert brief_all["payments_to_verify"] == 2
 
 
 # ---------- repository: query costruita correttamente ----------

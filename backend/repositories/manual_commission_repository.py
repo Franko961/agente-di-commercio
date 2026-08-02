@@ -16,9 +16,9 @@ class ManualCommissionRepository:
     async def find_many(self, user_id: str) -> list:
         return await self.collection.find({"user_id": user_id}, {"_id": 0}).to_list(500)
 
-    async def upsert(self, user_id: str, period: str, amount: float) -> dict:
+    async def upsert(self, user_id: str, period: str, fields: dict) -> dict:
         now = now_iso()
-        doc = {"user_id": user_id, "period": period, "amount": amount, "updated_at": now}
+        doc = {"user_id": user_id, "period": period, **fields, "updated_at": now}
         await self.collection.update_one(
             {"user_id": user_id, "period": period},
             {"$set": doc, "$setOnInsert": {"created_at": now}},

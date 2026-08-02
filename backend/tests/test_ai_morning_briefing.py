@@ -363,12 +363,14 @@ class FakeCollection:
 
 
 class FakeDB:
-    def __init__(self, clients=None, appointments=None, offers=None, commissions=None, orders=None):
+    def __init__(self, clients=None, appointments=None, offers=None, commissions=None, orders=None,
+                 manual_commissions=None):
         self.clients = FakeCollection(clients or [])
         self.appointments = FakeCollection(appointments or [])
         self.offers = FakeCollection(offers or [])
         self.commissions = FakeCollection(commissions or [])
         self.orders = FakeCollection(orders or [])
+        self.manual_commissions = FakeCollection(manual_commissions or [])
 
 
 def _iso(dt: datetime) -> str:

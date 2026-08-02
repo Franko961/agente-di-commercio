@@ -64,9 +64,13 @@ def build_repo():
     return repo
 
 
+def upsert(repo, user_id, period, amount, **extra):
+    return repo.upsert(user_id, period, {"amount": amount, **extra})
+
+
 def test_upsert_crea_il_documento_se_non_esiste():
     repo = build_repo()
-    run(repo.upsert("user-1", "2026-08", 450))
+    run(upsert(repo, "user-1", "2026-08", 450))
     docs = run(repo.find_many("user-1"))
     assert len(docs) == 1
     assert docs[0]["period"] == "2026-08"
@@ -76,8 +80,8 @@ def test_upsert_crea_il_documento_se_non_esiste():
 
 def test_upsert_sullo_stesso_mese_aggiorna_invece_di_duplicare():
     repo = build_repo()
-    run(repo.upsert("user-1", "2026-08", 450))
-    run(repo.upsert("user-1", "2026-08", 600))
+    run(upsert(repo, "user-1", "2026-08", 450))
+    run(upsert(repo, "user-1", "2026-08", 600))
     docs = run(repo.find_many("user-1"))
     assert len(docs) == 1
     assert docs[0]["amount"] == 600
@@ -85,25 +89,25 @@ def test_upsert_sullo_stesso_mese_aggiorna_invece_di_duplicare():
 
 def test_upsert_created_at_non_cambia_su_aggiornamento_successivo():
     repo = build_repo()
-    run(repo.upsert("user-1", "2026-08", 450))
+    run(upsert(repo, "user-1", "2026-08", 450))
     created_at_originale = run(repo.find_many("user-1"))[0]["created_at"]
-    run(repo.upsert("user-1", "2026-08", 600))
+    run(upsert(repo, "user-1", "2026-08", 600))
     created_at_dopo = run(repo.find_many("user-1"))[0]["created_at"]
     assert created_at_originale == created_at_dopo
 
 
 def test_mesi_diversi_restano_indipendenti():
     repo = build_repo()
-    run(repo.upsert("user-1", "2026-07", 100))
-    run(repo.upsert("user-1", "2026-08", 200))
+    run(upsert(repo, "user-1", "2026-07", 100))
+    run(upsert(repo, "user-1", "2026-08", 200))
     docs = run(repo.find_many("user-1"))
     assert {d["period"]: d["amount"] for d in docs} == {"2026-07": 100, "2026-08": 200}
 
 
 def test_find_many_non_restituisce_dati_di_un_altro_utente():
     repo = build_repo()
-    run(repo.upsert("user-1", "2026-08", 450))
-    run(repo.upsert("user-2", "2026-08", 999))
+    run(upsert(repo, "user-1", "2026-08", 450))
+    run(upsert(repo, "user-2", "2026-08", 999))
     docs = run(repo.find_many("user-1"))
     assert len(docs) == 1
     assert docs[0]["amount"] == 450
@@ -111,7 +115,7 @@ def test_find_many_non_restituisce_dati_di_un_altro_utente():
 
 def test_delete_rimuove_il_documento():
     repo = build_repo()
-    run(repo.upsert("user-1", "2026-08", 450))
+    run(upsert(repo, "user-1", "2026-08", 450))
     run(repo.delete("user-1", "2026-08"))
     assert run(repo.find_many("user-1")) == []
 
@@ -119,6 +123,35 @@ def test_delete_rimuove_il_documento():
 def test_delete_di_un_mese_mai_creato_non_fallisce():
     repo = build_repo()
     run(repo.delete("user-1", "2026-08"))  # non deve sollevare eccezioni
+
+
+def test_mandante_id_assente_di_default():
+    repo = build_repo()
+    run(upsert(repo, "user-1", "2026-08", 450))
+    docs = run(repo.find_many("user-1"))
+    assert docs[0].get("mandante_id") is None
+
+
+def test_mandante_id_salvato_se_fornito():
+    repo = build_repo()
+    run(upsert(repo, "user-1", "2026-08", 450, mandante_id="mandante-1"))
+    docs = run(repo.find_many("user-1"))
+    assert docs[0]["mandante_id"] == "mandante-1"
+
+
+def test_campi_aggiuntivi_salvati_se_forniti():
+    repo = build_repo()
+    run(upsert(
+        repo, "user-1", "2026-08", 450,
+        client_id="client-1", descrizione="Accordo fuori sistema",
+        stato="incassato", note="Pagato in contanti", tipo="rettifica",
+    ))
+    docs = run(repo.find_many("user-1"))
+    assert docs[0]["client_id"] == "client-1"
+    assert docs[0]["descrizione"] == "Accordo fuori sistema"
+    assert docs[0]["stato"] == "incassato"
+    assert docs[0]["note"] == "Pagato in contanti"
+    assert docs[0]["tipo"] == "rettifica"
 
 
 if __name__ == "__main__":

@@ -164,7 +164,7 @@ class FakeUserRepo:
 
 
 def build_engine(automations=None, offers=None, clients=None, leads=None,
-                  appointments=None, orders=None, commissions=None,
+                  appointments=None, orders=None, commissions=None, manual_commissions=None,
                   users=None, send_email_fn=None):
     sent_emails = []
 
@@ -182,6 +182,7 @@ def build_engine(automations=None, offers=None, clients=None, leads=None,
         appointment_repo=FakeSimpleRepo(appointments or []),
         order_repo=FakeSimpleRepo(orders or []),
         commission_repo=FakeSimpleRepo(commissions or []),
+        manual_commission_repo=FakeSimpleRepo(manual_commissions or []),
         user_repo=FakeUserRepo(users or [{"id": "user-1", "email": "agente@example.com"}]),
         send_email_fn=send_email_fn or default_send_email,
     )
@@ -1151,6 +1152,31 @@ def test_provvigioni_non_valutato_fuori_dal_giorno_di_controllo(monkeypatch):
     users = [{"id": "user-1", "email": "agente@example.com", "goal_commissions": 2000}]
     commissions = [{"id": "com-1", "user_id": "user-1", "amount": 100, "created_at": "2026-03-05T10:00:00Z"}]
     engine = build_engine(automations=automations, users=users, commissions=commissions)
+
+    summary = run(engine.run_cycle())
+
+    assert summary["executed"] == 0
+
+
+def test_provvigioni_manuali_contano_nel_calcolo_obiettivo(monkeypatch):
+    """Una provvigione manuale del mese corrente deve alzare
+    commissions_month tanto quanto una calcolata dagli ordini — vedi
+    normalize_manual_commission/get_effective_commissions."""
+    import services.automation_engine as automation_engine_mod
+    from datetime import datetime as real_datetime
+    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 15, 9, 0))
+
+    automations = [{
+        "id": "auto-24", "user_id": "user-1", "name": "Provvigioni sotto obiettivo",
+        "trigger": "commissions_below_target_mid_month", "action": "send_reminder", "enabled": True,
+        "config": {"check_day": 15, "threshold_pct": 50},
+    }]
+    users = [{"id": "user-1", "email": "agente@example.com", "goal_commissions": 2000}]
+    commissions = [{"id": "com-1", "user_id": "user-1", "amount": 400, "created_at": "2026-03-05T10:00:00Z"}]
+    # 400 (reale) + 800 (manuale) = 1200 = 60% di 2000: sopra soglia 50%, quindi NON deve scattare.
+    manual_commissions = [{"user_id": "user-1", "period": "2026-03", "amount": 800, "stato": "maturato"}]
+    engine = build_engine(automations=automations, users=users, commissions=commissions,
+                           manual_commissions=manual_commissions)
 
     summary = run(engine.run_cycle())
 

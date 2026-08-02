@@ -18,13 +18,14 @@ from repositories.appointment_repository import appointment_repository
 from repositories.lead_repository import lead_repository
 from repositories.offer_repository import offer_repository
 from repositories.commission_repository import commission_repository
+from repositories.manual_commission_repository import manual_commission_repository
 from repositories.mandante_repository import mandante_repository
 from repositories.product_repository import product_repository
 from repositories.expense_repository import expense_repository
 from repositories.order_repository import order_repository
 from repositories.ai_action_log_repository import ai_action_log_repository
 from models.expense import EXPENSE_CATEGORIES
-from services.commission_service import calc_offer_total, get_commission_rate
+from services.commission_service import calc_offer_total, get_commission_rate, normalize_manual_commission
 from services.order_service import order_service
 from services.dashboard_service import dashboard_service
 
@@ -337,6 +338,7 @@ class AiService:
         lead_repo=lead_repository,
         offer_repo=offer_repository,
         commission_repo=commission_repository,
+        manual_commission_repo=manual_commission_repository,
         mandante_repo=mandante_repository,
         product_repo=product_repository,
         expense_repo=expense_repository,
@@ -349,6 +351,7 @@ class AiService:
         self.lead_repo = lead_repo
         self.offer_repo = offer_repo
         self.commission_repo = commission_repo
+        self.manual_commission_repo = manual_commission_repo
         self.mandante_repo = mandante_repo
         self.product_repo = product_repo
         self.expense_repo = expense_repo
@@ -368,6 +371,11 @@ class AiService:
         offers = await self.offer_repo.find_many(user_id)
         appts = await self.appointment_repo.find_many(user_id)
         commissions = await self.commission_repo.find_many(user_id)
+        # Le provvigioni inserite manualmente contano come vere anche nel
+        # briefing AI, non solo nella pagina Provvigioni — vedi
+        # normalize_manual_commission per il perché di created_at sintetico.
+        manual_commissions = await self.manual_commission_repo.find_many(user_id)
+        commissions = commissions + [normalize_manual_commission(user_id, m) for m in manual_commissions]
         expenses = await self.expense_repo.find_many(user_id)
 
         # Clients with no recent visit

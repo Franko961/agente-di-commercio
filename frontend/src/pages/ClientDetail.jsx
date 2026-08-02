@@ -216,7 +216,9 @@ const provvigioniCliente = data.commissions.reduce((s, cm) => s + (cm.amount || 
       <div key={cm.id} className="bg-white border border-[#E4E4E1] rounded-md p-4 flex items-center justify-between">
         <div>
           <div className="font-medium text-[14px]">Periodo {cm.period}</div>
-          <div className="text-[12px] text-[#52525B]">Aliquota {cm.rate}%</div>
+          <div className="text-[12px] text-[#52525B]">
+            {cm.source === "manual" ? "Inserita manualmente" : `Aliquota ${cm.rate}%`}
+          </div>
         </div>
         <div className="text-right">
           <div className="font-cabinet font-bold text-lg">{fmt(cm.amount)}</div>

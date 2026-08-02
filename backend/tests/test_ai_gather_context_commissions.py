@@ -31,7 +31,7 @@ class FakeCommissionRepo(FakeSimpleRepo):
         return list(self.commissions)
 
 
-def build_service(commissions):
+def build_service(commissions, manual_commissions=None):
     return AiService(
         repo=FakeSimpleRepo(),
         client_repo=FakeSimpleRepo(),
@@ -39,6 +39,7 @@ def build_service(commissions):
         lead_repo=FakeSimpleRepo(),
         offer_repo=FakeSimpleRepo(),
         commission_repo=FakeCommissionRepo(commissions),
+        manual_commission_repo=FakeCommissionRepo(manual_commissions or []),
         mandante_repo=FakeSimpleRepo(),
         product_repo=FakeSimpleRepo(),
         expense_repo=FakeSimpleRepo(),
@@ -78,3 +79,14 @@ def test_gather_context_senza_provvigioni_non_rompe():
     service = build_service([])
     context = run(service.gather_context("u1"))
     assert "maturate non incassate: 0" in context
+
+
+def test_gather_context_include_provvigioni_manuali_nel_totale():
+    current_month = now_local().strftime("%Y-%m")
+    manual = [{"period": current_month, "amount": 250.0, "stato": "maturato"}]
+    service = build_service([], manual_commissions=manual)
+
+    context = run(service.gather_context("u1"))
+
+    assert "maturate non incassate: 250.0" in context
+    assert "totale mese corrente: 250.0" in context

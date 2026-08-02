@@ -49,6 +49,7 @@ def build_service_for_search(clients=None, orders=None, appointments=None, offer
         lead_repo=FakeSimpleRepo(),
         offer_repo=FakeListRepo(offers or []),
         commission_repo=FakeSimpleRepo(),
+        manual_commission_repo=FakeSimpleRepo(),
         mandante_repo=FakeSimpleRepo(),
         product_repo=FakeSimpleRepo(),
         expense_repo=FakeSimpleRepo(),

@@ -29,7 +29,8 @@ async def list_manual_commissions(user=Depends(get_current_user)):
 
 @router.put("/manual")
 async def set_manual_commission(payload: ManualCommissionIn, user=Depends(forbid_demo_write)):
-    return await commission_service.set_manual_commission(user, payload.period, payload.amount)
+    fields = payload.model_dump(exclude={"period"})
+    return await commission_service.set_manual_commission(user, payload.period, fields)
 
 
 @router.delete("/manual/{period}")

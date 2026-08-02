@@ -4,6 +4,7 @@ from core.exceptions import NotFoundError
 from core.database import db
 from repositories.client_repository import client_repository
 from repositories.mandante_repository import mandante_repository
+from services.commission_service import normalize_manual_commission
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -38,6 +39,11 @@ class ClientService:
         appts = await db.appointments.find({"client_id": cid, "user_id": user["id"]}, {"_id": 0}).to_list(500)
         docs = await db.documents.find({"client_id": cid, "user_id": user["id"]}, {"_id": 0}).to_list(500)
         commissions = await db.commissions.find({"client_id": cid, "user_id": user["id"]}, {"_id": 0}).to_list(500)
+        # Le provvigioni manuali con questo client_id contano come vere
+        # anche nel dettaglio cliente — vedi normalize_manual_commission.
+        manual_raw = await db.manual_commissions.find({"client_id": cid, "user_id": user["id"]}, {"_id": 0}).to_list(500)
+        manual_commissions = [normalize_manual_commission(user["id"], m) for m in manual_raw]
+        commissions = [{**cm, "source": cm.get("source", "order")} for cm in commissions] + manual_commissions
         return {"client": c, "offers": offers, "appointments": appts, "documents": docs, "commissions": commissions}
 
     async def update_client(self, user: dict, cid: str, payload) -> None:

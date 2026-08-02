@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 from core.database import db
 from core.rate_limit import check_and_record
+from services.commission_service import normalize_manual_commission
 
 # Caratteri che Excel/Google Sheets interpretano come inizio di una formula
 # quando aprono un file CSV: un valore testuale come '=HYPERLINK(...)' o
@@ -84,19 +85,26 @@ class ExportService:
     async def export_commissions(self, user: dict) -> StreamingResponse:
         await self._enforce_rate_limit(user)
         commissions = await db.commissions.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
+        # Le provvigioni inserite manualmente sono provvigioni vere a tutti
+        # gli effetti (vedi commission_service.normalize_manual_commission):
+        # vanno esportate insieme a quelle calcolate dagli ordini, marcate
+        # come tali nella colonna "origine".
+        manual_commissions_raw = await db.manual_commissions.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)
+        manual_commissions = [normalize_manual_commission(user["id"], m) for m in manual_commissions_raw]
         clients = {c["id"]: c for c in await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)}
         mandanti = {m["id"]: m for m in await db.mandanti.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)}
         rows = []
-        for c in commissions:
+        for c in commissions + manual_commissions:
             rows.append({
                 "period": c.get("period"),
                 "client": clients.get(c.get("client_id"), {}).get("company_name", ""),
                 "mandante": mandanti.get(c.get("mandante_id"), {}).get("name", ""),
                 "amount": c.get("amount", 0),
-                "rate": c.get("rate", 0),
+                "rate": c.get("rate") if c.get("rate") is not None else "",
                 "status": c.get("status"),
+                "origine": "manuale" if c.get("source") == "manual" else "ordine",
             })
-        headers = ["period", "client", "mandante", "amount", "rate", "status"]
+        headers = ["period", "client", "mandante", "amount", "rate", "status", "origine"]
         return csv_response(rows, headers, "provvigioni.csv")
 
     async def export_leads(self, user: dict) -> StreamingResponse:

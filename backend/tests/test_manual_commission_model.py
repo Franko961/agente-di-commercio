@@ -26,6 +26,48 @@ def test_valore_valido_accettato():
     assert m.amount == 450.50
 
 
+def test_mandante_id_opzionale_assente_di_default():
+    m = ManualCommissionIn(period="2026-08", amount=450.50)
+    assert m.mandante_id is None
+
+
+def test_mandante_id_valorizzato_se_fornito():
+    m = ManualCommissionIn(period="2026-08", amount=450.50, mandante_id="mandante-1")
+    assert m.mandante_id == "mandante-1"
+
+
+def test_campi_aggiuntivi_hanno_default_sensati():
+    m = ManualCommissionIn(period="2026-08", amount=450.50)
+    assert m.client_id is None
+    assert m.descrizione is None
+    assert m.stato == "maturato"
+    assert m.note is None
+    assert m.tipo == "ordinaria"
+
+
+def test_campi_aggiuntivi_valorizzati_se_forniti():
+    m = ManualCommissionIn(
+        period="2026-08", amount=450.50, client_id="client-1",
+        descrizione="Accordo fuori sistema", stato="incassato",
+        note="Pagato in contanti", tipo="rettifica",
+    )
+    assert m.client_id == "client-1"
+    assert m.descrizione == "Accordo fuori sistema"
+    assert m.stato == "incassato"
+    assert m.note == "Pagato in contanti"
+    assert m.tipo == "rettifica"
+
+
+def test_stato_non_valido_rifiutato():
+    with pytest.raises(ValidationError):
+        ManualCommissionIn(period="2026-08", amount=100, stato="in_lavorazione")
+
+
+def test_tipo_non_valido_rifiutato():
+    with pytest.raises(ValidationError):
+        ManualCommissionIn(period="2026-08", amount=100, tipo="straordinaria")
+
+
 def test_amount_zero_accettato():
     """Zero è un valore legittimo (es. per 'azzerare' il mese senza
     cancellare la riga)."""

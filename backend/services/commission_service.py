@@ -163,11 +163,64 @@ class CommissionService:
     async def list_manual_commissions(self, user: dict) -> list:
         return await self.manual_repo.find_many(user["id"])
 
-    async def set_manual_commission(self, user: dict, period: str, amount: float) -> dict:
-        return await self.manual_repo.upsert(user["id"], period, amount)
+    async def set_manual_commission(self, user: dict, period: str, fields: dict) -> dict:
+        return await self.manual_repo.upsert(user["id"], period, fields)
 
     async def delete_manual_commission(self, user: dict, period: str) -> None:
         await self.manual_repo.delete(user["id"], period)
+
+    async def get_effective_commissions(self, user: dict, mandante_id: str = None, client_id: str = None) -> list:
+        """Provvigioni "vere" per dashboard/obiettivi/briefing AI/export/
+        report: unisce quelle calcolate dagli ordini con quelle inserite
+        manualmente, normalizzate nella stessa forma (vedi
+        normalize_manual_commission). Una manuale senza mandante_id (o senza
+        client_id) non è attribuibile a nessun mandante/cliente specifico:
+        quando è passato un filtro corrispondente va esclusa, altrimenti si
+        sommerebbe a un totale a cui non è riconducibile — stessa regola già
+        applicata lato frontend in Commissions.jsx."""
+        user_id = user["id"]
+        real = await self.repo.find_many(user_id, mandante_id)
+        manual = await self.manual_repo.find_many(user_id)
+        if mandante_id:
+            manual = [m for m in manual if m.get("mandante_id") == mandante_id]
+        if client_id:
+            real = [c for c in real if c.get("client_id") == client_id]
+            manual = [m for m in manual if m.get("client_id") == client_id]
+        normalized_manual = [normalize_manual_commission(user_id, m) for m in manual]
+        return [{**c, "source": c.get("source", "order")} for c in real] + normalized_manual
+
+
+def normalize_manual_commission(user_id: str, m: dict) -> dict:
+    """Adatta una provvigione manuale alla stessa forma di una calcolata
+    dagli ordini, per poterle sommare/filtrare insieme a quelle reali —
+    usata sia da CommissionService.get_effective_commissions sia dai
+    consumer che interrogano manual_commission_repository/db.manual_commissions
+    direttamente (dashboard_service, ai_service, automation_engine): questi
+    ultimi non passano da commission_service, quindi la funzione resta
+    indipendente da un'istanza del service. created_at è sintetico
+    (mezzogiorno UTC del primo giorno di period, non il momento in cui la
+    riga è stata salvata): i consumer confrontano il mese tramite
+    local_month_str(created_at), non tramite period — usare l'orario reale
+    di salvataggio farebbe contare una provvigione manuale di un mese
+    passato nel mese corrente. Mezzogiorno (non mezzanotte) evita qualunque
+    ambiguità di fuso: resta lo stesso giorno di calendario in ora italiana
+    in ogni caso (CET o CEST)."""
+    return {
+        "id": f"manual:{m['period']}",
+        "user_id": user_id,
+        "period": m["period"],
+        "amount": m.get("amount", 0),
+        "mandante_id": m.get("mandante_id"),
+        "client_id": m.get("client_id"),
+        "status": m.get("stato") or "maturato",
+        "sale_type": m.get("tipo") or "ordinaria",
+        "descrizione": m.get("descrizione"),
+        "note": m.get("note"),
+        "rate": None,
+        "base_amount": None,
+        "created_at": f"{m['period']}-01T12:00:00+00:00",
+        "source": "manual",
+    }
 
 
 commission_service = CommissionService()

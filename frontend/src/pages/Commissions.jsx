@@ -8,6 +8,10 @@ import { useMandante } from "../contexts/MandanteContext";
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
 const currentPeriod = () => new Date().toISOString().slice(0, 7); // "YYYY-MM"
 
+const emptyManualForm = {
+  amount: "", mandante_id: "", client_id: "", descrizione: "", stato: "maturato", note: "", tipo: "ordinaria",
+};
+
 function periodLabel(key) {
   const [y, m] = (key || "").split("-").map(Number);
   if (!y || !m) return key;
@@ -18,26 +22,23 @@ function periodLabel(key) {
 // Raggruppa le provvigioni (già filtrate per cliente/stato) per periodo,
 // stesso principio del raggruppamento mensile in Spese.jsx: il periodo
 // corrente resta aperto di default, i periodi passati partono chiusi
-// mostrando solo il totale. La provvigione manuale del mese (se presente)
-// entra nel totale del gruppo, ma solo quando non è attivo un filtro per
-// cliente specifico: un valore manuale non è collegato a nessun cliente,
-// quindi non "appartiene" a un sottoinsieme filtrato per un cliente.
-function groupByPeriod(list, manualByPeriod, includeManual) {
+// mostrando solo il totale. manualByPeriod arriva già filtrato per
+// mandante/cliente attivi (vedi visibleManualCommissions), quindi qui basta
+// sommarlo al totale del gruppo senza altre condizioni.
+function groupByPeriod(list, manualByPeriod) {
   const byKey = new Map();
   for (const c of list) {
     const key = c.period || "—";
     if (!byKey.has(key)) byKey.set(key, []);
     byKey.get(key).push(c);
   }
-  if (includeManual) {
-    for (const period of Object.keys(manualByPeriod)) {
-      if (!byKey.has(period)) byKey.set(period, []);
-    }
+  for (const period of Object.keys(manualByPeriod)) {
+    if (!byKey.has(period)) byKey.set(period, []);
   }
   return [...byKey.entries()]
     .sort((a, b) => (a[0] < b[0] ? 1 : -1))
     .map(([key, items]) => {
-      const manualAmount = includeManual ? manualByPeriod[key] : undefined;
+      const manualAmount = manualByPeriod[key];
       const calculatedTotal = items.reduce((s, c) => s + c.amount, 0);
       return { key, label: periodLabel(key), items, manualAmount, total: calculatedTotal + (manualAmount || 0) };
     });
@@ -54,7 +55,7 @@ export default function Commissions() {
   const [clientFilter, setClientFilter] = useState("all");
   const [manualCommissions, setManualCommissions] = useState([]);
   const [manualPeriod, setManualPeriod] = useState(currentPeriod());
-  const [manualAmount, setManualAmount] = useState("");
+  const [manualForm, setManualForm] = useState(emptyManualForm);
   const [savingManual, setSavingManual] = useState(false);
   const [expandedPeriods, setExpandedPeriods] = useState(() => new Set([currentPeriod()]));
   const togglePeriod = (key) => setExpandedPeriods((prev) => {
@@ -79,12 +80,22 @@ export default function Commissions() {
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [mandanteParam]);
 
-  // L'importo nel campo segue il mese selezionato: se per quel mese esiste
-  // già un valore manuale salvato, lo mostra; altrimenti il campo resta
-  // vuoto (non 0, per non far pensare che 0 sia già stato salvato).
+  // Il box segue il mese selezionato: se per quel mese esiste già un valore
+  // manuale salvato, lo ripropone COMPLETO (non solo importo e mandante) —
+  // altrimenti un salvataggio successivo (che è un upsert completo, non una
+  // patch parziale) cancellerebbe silenziosamente descrizione/note/cliente
+  // già inseriti. Su un mese senza valore salvato, il box torna vuoto.
   useEffect(() => {
     const existing = manualCommissions.find((m) => m.period === manualPeriod);
-    setManualAmount(existing ? String(existing.amount) : "");
+    setManualForm(existing ? {
+      amount: String(existing.amount),
+      mandante_id: existing.mandante_id || "",
+      client_id: existing.client_id || "",
+      descrizione: existing.descrizione || "",
+      stato: existing.stato || "maturato",
+      note: existing.note || "",
+      tipo: existing.tipo || "ordinaria",
+    } : emptyManualForm);
   }, [manualPeriod, manualCommissions]);
 
 const byClient = clientFilter === "all" ? commissions : commissions.filter(c => c.client_id === clientFilter);
@@ -92,17 +103,34 @@ const filtered = filter === "all" ? byClient : byClient.filter(c => c.status ===
 const accrued = byClient.filter(c => c.status === "maturato").reduce((s, c) => s + c.amount, 0);
 const collected = byClient.filter(c => c.status === "incassato").reduce((s, c) => s + c.amount, 0);
 const fatturatoClienteSelezionato = clientFilter === "all" ? null : byClient.reduce((s, c) => s + (c.base_amount ?? (c.rate ? c.amount / (c.rate / 100) : 0)), 0);
-// Somma di TUTTI i mesi inseriti manualmente (non solo il mese selezionato
-// nel box): si aggiunge al totale calcolato dagli ordini, per provvigioni
-// concluse fuori dal flusso ordini del CRM.
-const manualTotal = useMemo(() => manualCommissions.reduce((s, m) => s + (m.amount || 0), 0), [manualCommissions]);
+// Una provvigione manuale senza mandante_id (o senza client_id) non è
+// attribuibile a nessun mandante/cliente specifico: quando è attivo il
+// filtro corrispondente va esclusa dai totali di quel filtro, altrimenti si
+// sommerebbero importi non riconducibili alla selezione corrente. In vista
+// "Tutti i mandanti"/"Tutti i clienti" restano invece tutte visibili,
+// taggate o no — stessa logica applicata sia lato mandante che cliente.
+const visibleManualCommissions = useMemo(() => {
+  let list = mandanteParam ? manualCommissions.filter((m) => m.mandante_id === mandanteParam) : manualCommissions;
+  if (clientFilter !== "all") list = list.filter((m) => m.client_id === clientFilter);
+  return list;
+}, [manualCommissions, mandanteParam, clientFilter]);
+const manualAccrued = useMemo(() => visibleManualCommissions.filter((m) => (m.stato || "maturato") === "maturato").reduce((s, m) => s + (m.amount || 0), 0), [visibleManualCommissions]);
+const manualCollected = useMemo(() => visibleManualCommissions.filter((m) => m.stato === "incassato").reduce((s, m) => s + (m.amount || 0), 0), [visibleManualCommissions]);
+// Somma di TUTTI i mesi inseriti manualmente visibili nel filtro
+// mandante/cliente corrente: si aggiunge al totale calcolato dagli ordini,
+// per provvigioni concluse fuori dal flusso ordini del CRM.
+const manualTotal = manualAccrued + manualCollected;
 const manualByPeriod = useMemo(
-  () => Object.fromEntries(manualCommissions.map((m) => [m.period, m.amount])),
-  [manualCommissions]
+  () => Object.fromEntries(visibleManualCommissions.map((m) => [m.period, m.amount])),
+  [visibleManualCommissions]
+);
+const manualEntryByPeriod = useMemo(
+  () => Object.fromEntries(visibleManualCommissions.map((m) => [m.period, m])),
+  [visibleManualCommissions]
 );
 const periodGroups = useMemo(
-  () => groupByPeriod(filtered, manualByPeriod, clientFilter === "all"),
-  [filtered, manualByPeriod, clientFilter]
+  () => groupByPeriod(filtered, manualByPeriod),
+  [filtered, manualByPeriod]
 );
 
   const setStatus = async (id, status) => {
@@ -112,14 +140,23 @@ const periodGroups = useMemo(
   };
 
   const saveManualCommission = async () => {
-    const amount = parseFloat(manualAmount);
+    const amount = parseFloat(manualForm.amount);
     if (Number.isNaN(amount) || amount < 0) {
       toast.error("Inserisci un importo valido");
       return;
     }
     setSavingManual(true);
     try {
-      await api.put("/commissions/manual", { period: manualPeriod, amount });
+      await api.put("/commissions/manual", {
+        period: manualPeriod,
+        amount,
+        mandante_id: manualForm.mandante_id || null,
+        client_id: manualForm.client_id || null,
+        descrizione: manualForm.descrizione || null,
+        stato: manualForm.stato,
+        note: manualForm.note || null,
+        tipo: manualForm.tipo,
+      });
       toast.success("Provvigione manuale salvata");
       setExpandedPeriods((prev) => new Set(prev).add(manualPeriod));
       setManualPeriod(currentPeriod());
@@ -165,12 +202,12 @@ const periodGroups = useMemo(
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <div className="bg-white border border-[#E4E4E1] rounded-md p-5">
           <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-2">Maturato</div>
-          <div className="font-cabinet font-black text-3xl">{fmt(accrued)}</div>
+          <div className="font-cabinet font-black text-3xl">{fmt(accrued + manualAccrued)}</div>
           <div className="text-[11px] text-[#52525B] mt-2">In attesa di incasso</div>
         </div>
         <div className="bg-white border border-[#E4E4E1] rounded-md p-5">
           <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-2">Incassato</div>
-          <div className="font-cabinet font-black text-3xl text-[#059669]">{fmt(collected)}</div>
+          <div className="font-cabinet font-black text-3xl text-[#059669]">{fmt(collected + manualCollected)}</div>
           <div className="text-[11px] text-[#52525B] mt-2">Già ricevuto</div>
         </div>
         <div className="bg-[#0A192F] text-white rounded-md p-5 col-span-2 lg:col-span-1">
@@ -185,7 +222,9 @@ const periodGroups = useMemo(
 
       {/* Provvigioni inserite manualmente: si sommano al totale calcolato
       dagli ordini, un valore per mese — per provvigioni concluse fuori dal
-      flusso ordini del CRM. */}
+      flusso ordini del CRM. Contano a tutti gli effetti come provvigioni
+      reali (dashboard, obiettivi, briefing AI, export CSV, dettaglio
+      cliente), non solo su questa pagina. */}
       <div className="bg-white border border-[#E4E4E1] rounded-md p-5 mb-6">
         <div className="flex items-center gap-2 mb-3">
           <Coins className="w-4 h-4 text-[#FF5A00]" />
@@ -194,7 +233,7 @@ const periodGroups = useMemo(
         <p className="text-[12px] text-[#52525B] mb-3">
           Per provvigioni non tracciate tramite gli ordini del CRM. Si sommano al totale generato, un importo per mese.
         </p>
-        <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-wrap items-end gap-3 mb-3">
           <div>
             <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Mese</label>
             <input
@@ -207,10 +246,68 @@ const periodGroups = useMemo(
           <div>
             <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Importo (€)</label>
             <input
-              type="number" step="0.01" min="0" value={manualAmount}
-              onChange={(e) => setManualAmount(e.target.value)}
+              type="number" step="0.01" min="0" value={manualForm.amount}
+              onChange={(e) => setManualForm((f) => ({ ...f, amount: e.target.value }))}
               placeholder="0,00"
               className="bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px] w-32"
+            />
+          </div>
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Mandante</label>
+            <select
+              value={manualForm.mandante_id}
+              onChange={(e) => setManualForm((f) => ({ ...f, mandante_id: e.target.value }))}
+              className="bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+            >
+              <option value="">Nessun mandante</option>
+              {[...mandanti].sort((a, b) => a.name.localeCompare(b.name)).map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Cliente</label>
+            <select
+              value={manualForm.client_id}
+              onChange={(e) => setManualForm((f) => ({ ...f, client_id: e.target.value }))}
+              className="bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+            >
+              <option value="">Nessun cliente</option>
+              {[...clients].sort((a, b) => (a.company_name || "").localeCompare(b.company_name || "")).map((cl) => (
+                <option key={cl.id} value={cl.id}>{cl.company_name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Stato</label>
+            <select
+              value={manualForm.stato}
+              onChange={(e) => setManualForm((f) => ({ ...f, stato: e.target.value }))}
+              className="bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+            >
+              <option value="maturato">Maturato</option>
+              <option value="incassato">Incassato</option>
+            </select>
+          </div>
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Tipo</label>
+            <select
+              value={manualForm.tipo}
+              onChange={(e) => setManualForm((f) => ({ ...f, tipo: e.target.value }))}
+              className="bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
+            >
+              <option value="ordinaria">Ordinaria</option>
+              <option value="bonus">Bonus</option>
+              <option value="rettifica">Rettifica</option>
+            </select>
+          </div>
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Descrizione</label>
+            <input
+              type="text" value={manualForm.descrizione}
+              onChange={(e) => setManualForm((f) => ({ ...f, descrizione: e.target.value }))}
+              placeholder="Es. accordo fuori sistema"
+              className="bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px] w-56"
             />
           </div>
           <button
@@ -228,6 +325,16 @@ const periodGroups = useMemo(
               <Trash2 className="w-3.5 h-3.5" /> Rimuovi
             </button>
           )}
+        </div>
+        <div>
+          <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Note</label>
+          <textarea
+            value={manualForm.note}
+            onChange={(e) => setManualForm((f) => ({ ...f, note: e.target.value }))}
+            rows={2}
+            placeholder="Dettagli facoltativi"
+            className="bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px] w-full max-w-xl"
+          />
         </div>
       </div>
 
@@ -364,15 +471,32 @@ const periodGroups = useMemo(
                   {group.items.map((c) => (
                     <CommissionRow key={c.id} c={c} clients={clients} mandanti={mandanti} onToggleStatus={setStatus} onDelete={deleteCommission} />
                   ))}
-                  {group.manualAmount !== undefined && (
+                  {group.manualAmount !== undefined && (() => {
+                    const entry = manualEntryByPeriod[group.key] || {};
+                    const manualClientName = clients.find((cl) => cl.id === entry.client_id)?.company_name;
+                    const manualMandanteName = mandanti.find((m) => m.id === entry.mandante_id)?.name;
+                    return (
                     <div className="grid grid-cols-2 md:grid-cols-7 gap-2 px-4 py-3 border-b border-[#E4E4E1] items-center text-[13px] bg-[#FFF9F5]">
                       <div className="font-mono">{group.key}</div>
-                      <div className="col-span-2 font-medium text-[#52525B] flex items-center gap-1.5">
-                        <Coins className="w-3.5 h-3.5 text-[#FF5A00]" /> Inserita manualmente
+                      <div className="col-span-2 font-medium text-[#52525B] flex flex-col gap-0.5">
+                        <span className="flex items-center gap-1.5">
+                          <Coins className="w-3.5 h-3.5 text-[#FF5A00]" /> Inserita manualmente
+                        </span>
+                        {(manualClientName || entry.descrizione) && (
+                          <span className="text-[11px] text-[#A1A1AA] pl-5">
+                            {[manualClientName, entry.descrizione].filter(Boolean).join(" · ")}
+                          </span>
+                        )}
                       </div>
-                      <div className="text-[#A1A1AA]">—</div>
-                      <div className="font-mono text-[#A1A1AA]">—</div>
-                      <div className="text-right font-cabinet font-bold">{fmt(group.manualAmount)}</div>
+                      <div className="text-[#A1A1AA]">{manualMandanteName || "—"}</div>
+                      <div className="font-mono text-[#A1A1AA] capitalize">{entry.tipo || "ordinaria"}</div>
+                      <div className="text-right">
+                        <div className="font-cabinet font-bold">{fmt(group.manualAmount)}</div>
+                        <div className="font-mono text-[10px] uppercase tracking-widest mt-1"
+                          style={{ color: entry.stato === "incassato" ? "#059669" : "#FF5A00" }}>
+                          {entry.stato || "maturato"}
+                        </div>
+                      </div>
                       <div className="flex justify-end">
                         <button onClick={() => removeManualCommission(group.key)}
                           className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors"
@@ -381,7 +505,8 @@ const periodGroups = useMemo(
                         </button>
                       </div>
                     </div>
-                  )}
+                    );
+                  })()}
                 </div>
               )}
             </div>

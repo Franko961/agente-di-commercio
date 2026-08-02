@@ -6,6 +6,7 @@ from typing import Dict, Optional
 from core.database import db
 from core.utils import now_local, local_date_str, local_month_str
 from services.settings_service import DEFAULT_GOAL_REVENUE
+from services.commission_service import normalize_manual_commission
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,13 @@ class DashboardService:
         expenses = await db.expenses.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
         self._warn_if_near_cap(user["id"], clients=clients, offers=offers, leads=leads,
                                 appointments=appts, commissions=commissions, expenses=expenses)
+
+        # Le provvigioni inserite manualmente contano come provvigioni vere:
+        # unite qui, PRIMA del filtro mandante sotto, così una manuale senza
+        # mandante_id viene esclusa quando è attivo un mandante specifico
+        # (stessa regola già in vigore per quelle reali, riusata gratis).
+        manual_commissions = await db.manual_commissions.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)
+        commissions = commissions + [normalize_manual_commission(user["id"], m) for m in manual_commissions]
 
         # Filtro per mandante attivo. Leads e Spese non hanno ancora un
         # collegamento al mandante (per le spese serve una migrazione di
@@ -275,6 +283,12 @@ class DashboardService:
         orders = await db.orders.find({"user_id": user_id}, {"_id": 0}).to_list(5000)
         self._warn_if_near_cap(user_id, clients=clients, appointments=appts, offers=offers,
                                 commissions=commissions, orders=orders)
+
+        # Le provvigioni inserite manualmente contano come provvigioni vere
+        # anche qui (payments_to_verify sotto) — vedi commento gemello in
+        # get_stats.
+        manual_commissions = await db.manual_commissions.find({"user_id": user_id}, {"_id": 0}).to_list(500)
+        commissions = commissions + [normalize_manual_commission(user_id, m) for m in manual_commissions]
 
         # Stesso filtro per mandante attivo usato in get_stats.
         if mandante_id:

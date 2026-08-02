@@ -51,6 +51,7 @@ def build_service_with_expense_tracking():
         lead_repo=FakeSimpleRepo(),
         offer_repo=FakeSimpleRepo(),
         commission_repo=FakeSimpleRepo(),
+        manual_commission_repo=FakeSimpleRepo(),
         mandante_repo=FakeSimpleRepo(),
         product_repo=FakeSimpleRepo(),
         expense_repo=expense_repo,

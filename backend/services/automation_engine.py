@@ -47,7 +47,9 @@ from repositories.lead_repository import lead_repository
 from repositories.appointment_repository import appointment_repository
 from repositories.order_repository import order_repository
 from repositories.commission_repository import commission_repository
+from repositories.manual_commission_repository import manual_commission_repository
 from repositories.user_repository import user_repository
+from services.commission_service import normalize_manual_commission
 from services.email_service import send_email
 
 logger = logging.getLogger(__name__)
@@ -136,6 +138,7 @@ class AutomationEngine:
         appointment_repo=appointment_repository,
         order_repo=order_repository,
         commission_repo=commission_repository,
+        manual_commission_repo=manual_commission_repository,
         user_repo=user_repository,
         send_email_fn=send_email,
     ):
@@ -148,6 +151,7 @@ class AutomationEngine:
         self.appointment_repo = appointment_repo
         self.order_repo = order_repo
         self.commission_repo = commission_repo
+        self.manual_commission_repo = manual_commission_repo
         self.user_repo = user_repo
         self.send_email_fn = send_email_fn
 
@@ -459,6 +463,10 @@ class AutomationEngine:
         threshold_pct = config.get("threshold_pct", 50)
         current_month_key = now_local().strftime("%Y-%m")
         commissions = await self.commission_repo.find_many(user_id)
+        # Le provvigioni manuali contano come vere anche qui, per lo stesso
+        # motivo spiegato dove sono state introdotte nel briefing AI/dashboard.
+        manual_commissions = await self.manual_commission_repo.find_many(user_id)
+        commissions = commissions + [normalize_manual_commission(user_id, m) for m in manual_commissions]
         commissions_month = sum(
             c.get("amount", 0) for c in commissions
             if local_month_str(c.get("created_at")) == current_month_key

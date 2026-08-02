@@ -82,7 +82,7 @@ class TestCsvExports:
         r = client.get(f"{API}/export/commissions.csv")
         rows = self._check_csv(
             r,
-            ["period", "client", "mandante", "amount", "rate", "status"],
+            ["period", "client", "mandante", "amount", "rate", "status", "origine"],
             "provvigioni.csv",
         )
         assert len(rows) >= 2
