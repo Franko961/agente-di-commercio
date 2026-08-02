@@ -6,7 +6,9 @@ from fastapi import HTTPException
 from core.config import PLANS
 from core.database import db
 from core.rate_limit import check_and_record
+from core.security import create_impersonation_token
 from repositories.admin_repository import admin_repository
+from repositories.user_repository import user_repository
 
 ALLOWED_USER_UPDATE_FIELDS = {"plan", "subscription_status", "role"}
 
@@ -107,6 +109,34 @@ class AdminService:
             admin.get("email", admin.get("id")) if admin else "sconosciuto",
             "delete_user", target_user_id=uid,
         )
+
+    async def impersonate_user(self, uid: str, admin: dict) -> tuple:
+        """Genera un token che autentica chi chiama come l'utente uid,
+        per poter entrare nel suo gestionale quando serve assistenza (es.
+        una richiesta telefonica di modificare qualcosa). Ritorna
+        (token, email_utente_target).
+
+        Due controlli oltre a require_admin (già applicato dal router):
+        - non ha senso "impersonificare" se stessi;
+        - un admin non impersonifica un altro admin — restrizione di
+          sicurezza aggiuntiva, anche se in pratica list_users/find_agents
+          esclude già gli admin dall'elenco mostrato in UI (filtra
+          role="agent"), quindi questo caso non dovrebbe essere raggiungibile
+          dall'interfaccia stessa."""
+        if uid == admin["id"]:
+            raise HTTPException(400, "Non puoi impersonificare te stesso")
+        target = await user_repository.find_by_id(uid)
+        if not target:
+            raise HTTPException(404, "Utente non trovato")
+        if target.get("role") == "admin":
+            raise HTTPException(403, "Non è possibile impersonificare un altro amministratore")
+
+        token = create_impersonation_token(admin["id"], uid, target["email"])
+        await self._record_audit(
+            admin.get("email", admin.get("id")), "impersonate_user",
+            target_user_id=uid, detail={"target_email": target["email"]},
+        )
+        return token, target["email"]
 
     async def get_audit_log(self, page: int = 1, limit: int = 50) -> dict:
         skip = (page - 1) * limit

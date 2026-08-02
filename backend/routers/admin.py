@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, Body, Request
-from core.security import require_admin, get_client_ip
+from fastapi import APIRouter, Depends, Body, Request, Response
+from core.security import require_admin, get_client_ip, IMPERSONATION_TOKEN_TTL_MINUTES
 from services.admin_service import admin_service
 from services.health_service import health_service
 
@@ -46,3 +46,16 @@ async def admin_update_user(uid: str, payload: dict = Body(...), admin=Depends(r
 async def admin_delete_user(uid: str, admin=Depends(require_admin)):
     await admin_service.delete_user(uid, admin=admin)
     return {"ok": True}
+
+
+@router.post("/admin/users/{uid}/impersonate")
+async def admin_impersonate_user(uid: str, response: Response, admin=Depends(require_admin)):
+    """Sostituisce il cookie di sessione dell'admin con uno che autentica
+    come l'utente uid, per entrare nel suo gestionale (es. assistenza
+    telefonica). Il cookie dell'admin viene sovrascritto, non serve però
+    un nuovo login per tornare admin: vedi POST /api/auth/exit-impersonation,
+    che usa il claim impersonated_by incorporato in questo stesso token."""
+    token, target_email = await admin_service.impersonate_user(uid, admin)
+    response.set_cookie("access_token", token, httponly=True, secure=True,
+                         samesite="none", max_age=IMPERSONATION_TOKEN_TTL_MINUTES * 60, path="/")
+    return {"ok": True, "email": target_email}

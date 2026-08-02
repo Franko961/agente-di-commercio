@@ -31,6 +31,17 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  // Ricarica l'intera pagina (invece di limitarsi a un setUser locale):
+  // il cookie di sessione è già stato sostituito lato server prima di
+  // chiamare questa funzione (vedi Admin.jsx e ImpersonationBanner in
+  // Layout.jsx), e con lui va ricaricato anche tutto lo stato dipendente
+  // dall'utente sparso nell'app (mandanti, notifiche, ecc.), non solo
+  // "user" in questo context.
+  const exitImpersonation = async () => {
+    try { await api.post("/auth/exit-impersonation"); } catch (e) {}
+    window.location.href = "/app/admin";
+  };
+
   const markOnboardingSeen = async () => {
     // Ottimista: nasconde subito la guida anche se la chiamata al backend
     // fallisse o fosse lenta, così l'utente non resta bloccato a guardarla.
@@ -39,7 +50,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, markOnboardingSeen }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, markOnboardingSeen, exitImpersonation }}>
       {children}
     </AuthContext.Provider>
   );

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../api";
 import {
   Users, TrendingUp, CreditCard, Pencil, Trash2, Check, X,
-  Activity, AlertTriangle, Mail, CalendarClock, Bot, ShieldCheck, Clock,
+  Activity, AlertTriangle, Mail, CalendarClock, Bot, ShieldCheck, Clock, LogIn,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -84,6 +84,19 @@ function BusinessTab() {
     await api.delete(`/admin/users/${id}`);
     toast.success("Utente eliminato");
     load();
+  };
+
+  const impersonate = async (id, email) => {
+    if (!window.confirm(`Entrare nel gestionale di ${email}? Potrai vedere e modificare i suoi dati come se fossi lui.`)) return;
+    try {
+      await api.post(`/admin/users/${id}/impersonate`);
+      // Reload pieno (non un semplice navigate): il cookie di sessione è
+      // già stato sostituito dal server, serve ricaricare tutto lo stato
+      // dell'app (AuthContext, mandanti, ecc.) come per un vero login.
+      window.location.href = "/app";
+    } catch {
+      toast.error("Impossibile entrare nell'account di questo utente");
+    }
   };
 
   const filtered = users.filter(u =>
@@ -191,6 +204,8 @@ function BusinessTab() {
                         </>
                       ) : (
                         <>
+                          <button onClick={() => impersonate(u.id, u.email)} title="Accedi come questo utente"
+                            className="p-1.5 text-[#A1A1AA] hover:text-[#FF5A00] hover:bg-[#FFF3EC] rounded"><LogIn className="w-4 h-4" /></button>
                           <button onClick={() => setEditUser({...u})}
                             className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
                           <button onClick={() => deleteUser(u.id, u.email)}
@@ -406,6 +421,7 @@ function AuditTab() {
     make_admin: "Promozione ad admin",
     update_user: "Modifica utente",
     delete_user: "Eliminazione utente",
+    impersonate_user: "Accesso come utente",
   };
 
   return (

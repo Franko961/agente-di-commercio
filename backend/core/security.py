@@ -73,6 +73,26 @@ def create_access_token(user_id: str, email: str) -> str:
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
 
 
+# Più breve dei 7 giorni del token normale apposta: una sessione di
+# impersonificazione dimenticata aperta (es. una scheda del browser mai
+# chiusa) deve scadere da sola in tempi brevi, non restare valida per una
+# settimana con accesso completo ai dati di un altro utente.
+IMPERSONATION_TOKEN_TTL_MINUTES = 60
+
+
+def create_impersonation_token(admin_id: str, target_user_id: str, target_email: str) -> str:
+    """Token che fa autenticare il chiamante COME target_user_id, con in più
+    il claim impersonated_by: è quel claim (letto da get_current_user sotto)
+    a rendere possibile tornare all'account admin originale senza dover
+    rifare login (vedi /api/auth/exit-impersonation in routers/auth.py)."""
+    payload = {
+        "sub": target_user_id, "email": target_email, "type": "access",
+        "impersonated_by": admin_id,
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=IMPERSONATION_TOKEN_TTL_MINUTES),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
+
+
 async def get_current_user(request: Request) -> dict:
     token = request.cookies.get("access_token")
     if not token:
@@ -90,6 +110,15 @@ async def get_current_user(request: Request) -> dict:
     user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+
+    # Presente solo nei token di impersonificazione (vedi
+    # create_impersonation_token): propagato qui, non solo letto al volo
+    # nell'endpoint di uscita, così ogni risposta che include l'utente
+    # (es. /api/auth/me) porta con sé l'informazione — è quello che permette
+    # al frontend di mostrare sempre il banner "stai impersonificando X",
+    # non solo nella pagina dove è iniziata la sessione.
+    if payload.get("impersonated_by"):
+        user["impersonated_by"] = payload["impersonated_by"]
 
     path = request.url.path
     is_exempt = any(path.startswith(p) for p in TRIAL_GATE_EXEMPT_PREFIXES)

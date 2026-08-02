@@ -11,8 +11,25 @@ import { useMandante } from "../contexts/MandanteContext";
 import {
   LayoutDashboard, Users, KanbanSquare, CalendarDays, Map, FileText, ShoppingCart,
   Coins, Building2, Package, Folder, Sparkles, Zap, LogOut, CreditCard, ShieldCheck, Receipt,
-  HelpCircle,
+  HelpCircle, Eye,
 } from "lucide-react";
+
+// Banner sempre visibile mentre un admin sta usando l'account di un altro
+// utente (vedi Admin.jsx "Accedi come" e AuthContext.exitImpersonation):
+// senza un avviso inequivocabile, sarebbe facile dimenticare in quale
+// account ci si trova mentre si naviga il gestionale altrui, con il
+// rischio di scambiare per propri dati che non lo sono.
+function ImpersonationBanner({ email, onExit }) {
+  return (
+    <div className="bg-[#DC2626] text-white text-[13px] font-medium py-2 px-4 flex items-center justify-center gap-3 text-center flex-wrap">
+      <Eye className="w-3.5 h-3.5 shrink-0" />
+      <span>Stai visualizzando l'account di <strong>{email}</strong> come amministratore.</span>
+      <button onClick={onExit} data-testid="exit-impersonation-button" className="underline font-bold shrink-0">
+        Esci dall'account
+      </button>
+    </div>
+  );
+}
 
 const fullNav = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard },
@@ -34,7 +51,7 @@ const fullNav = [
 
 export default function Layout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, logout, exitImpersonation } = useAuth();
   const isAdmin = user?.role === "admin";
   const { mandanti, activeMandante, setActiveMandante } = useMandante();
   const location = useLocation();
@@ -54,7 +71,9 @@ export default function Layout() {
   const baseTitle = Object.entries(titles).find(([k]) => location.pathname === k || (k !== "/app" && location.pathname.startsWith(k)))?.[1] || "";
 
   return (
-    <div className="flex min-h-screen bg-[#F9F9F8]">
+    <>
+      {user?.impersonated_by && <ImpersonationBanner email={user.email} onExit={exitImpersonation} />}
+      <div className="flex min-h-screen bg-[#F9F9F8]">
       {/* Le pagine dell'app sono private: non devono essere indicizzate da Google */}
       <meta name="robots" content="noindex, nofollow" />
       {user && !user.onboarding_seen && <OnboardingTour />}
@@ -141,6 +160,7 @@ export default function Layout() {
           </SheetContent>
         </Sheet>
       </main>
-    </div>
+      </div>
+    </>
   );
 }
