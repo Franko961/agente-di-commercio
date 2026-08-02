@@ -199,7 +199,7 @@ export default function Dashboard() {
         />
         {kpi.commissions_goal != null && (
           <GoalRow
-            label="Provvigioni del mese"
+            label="Provvigioni totali del mese"
             current={fmt(kpi.commissions_month)}
             target={fmt(kpi.commissions_goal)}
             pct={kpi.commissions_goal_pct}

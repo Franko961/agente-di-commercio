@@ -452,7 +452,7 @@ export default function Settings() {
                 </div>
                 <div>
                   <label className="block text-[12px] font-semibold text-[#52525B] mb-1.5">
-                    Obiettivo provvigioni (€)
+                    Obiettivo provvigioni totali (€)
                   </label>
                   <input
                     type="number" min="0" step="1"
@@ -461,6 +461,7 @@ export default function Settings() {
                     className="w-full px-3 py-2 border border-[#E4E4E1] rounded-md text-[14px] focus:outline-none focus:border-[#FF5A00]"
                     placeholder="non impostato"
                   />
+                  <p className="text-[11px] text-[#A1A1AA] mt-1">Maturate + incassate, del mese corrente.</p>
                 </div>
                 <div>
                   <label className="block text-[12px] font-semibold text-[#52525B] mb-1.5">

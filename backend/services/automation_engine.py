@@ -636,7 +636,7 @@ def _describe_target(target_type: str, context: dict) -> str:
         return f"Domani hai {count} {tappe} in programma{suffix}"
     if target_type == "digest_commissions":
         return (
-            f"Provvigioni al {context.get('pct', 0)}% dell'obiettivo mensile "
+            f"Provvigioni totali al {context.get('pct', 0)}% dell'obiettivo mensile "
             f"— mancano €{context.get('missing', 0):,.0f}".replace(",", ".")
         )
     return target_type

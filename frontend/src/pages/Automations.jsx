@@ -373,7 +373,7 @@ function AutoForm({ initial, onSave }) {
             />
           </div>
           <p className="text-[11px] text-[#A1A1AA] col-span-2">
-            Segnala solo se, al giorno indicato, le provvigioni del mese sono sotto questa percentuale del tuo obiettivo mensile (impostato in Impostazioni). Richiede un obiettivo provvigioni configurato.
+            Segnala solo se, al giorno indicato, le provvigioni totali del mese (maturate + incassate) sono sotto questa percentuale del tuo obiettivo mensile (impostato in Impostazioni). Richiede un obiettivo provvigioni configurato.
           </p>
         </div>
       )}
