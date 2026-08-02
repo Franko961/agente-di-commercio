@@ -20,7 +20,7 @@ export default function Privacy() {
         <div>
           <h1 className="font-cabinet font-black text-3xl mb-2">Informativa sulla Privacy</h1>
           <p className="text-[#52525B] text-xs">
-            Bozza — versione 1.2 del 01/08/2026. Documento da far verificare da un professionista
+            Bozza — versione 1.3 del 02/08/2026. Documento da far verificare da un professionista
             legale/DPO prima della pubblicazione definitiva, in base ai trattamenti realmente
             effettuati e alla struttura societaria.
           </p>
@@ -198,6 +198,22 @@ export default function Privacy() {
             impostazioni di conservazione configurate direttamente in tali strumenti dal
             Titolare, periodicamente verificate per restare al minimo necessario alle finalità
             statistiche sopra indicate.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="font-bold text-base mb-1">6-quater. Accesso al gestionale per finalità di assistenza</h2>
+          <p>
+            Il personale amministrativo del Titolare può, solo su richiesta esplicita
+            dell'utente (ad esempio nell'ambito di una richiesta di assistenza telefonica o via
+            email su una modifica specifica), accedere temporaneamente al gestionale dell'utente
+            con gli stessi permessi con cui l'utente stesso vi accede. L'accesso avviene
+            esclusivamente per fornire l'assistenza richiesta, mai per finalità di controllo,
+            marketing o analisi. Ogni accesso di questo tipo è tracciato in un registro interno
+            (chi lo ha effettuato, su quale account, quando) conservato dal Titolare a fini di
+            responsabilità (art. 5.2 GDPR), e la sessione così ottenuta scade automaticamente
+            entro un'ora. L'utente può richiedere informazioni sugli accessi effettuati sul
+            proprio account esercitando i diritti di cui al punto 8.
           </p>
         </section>
 
