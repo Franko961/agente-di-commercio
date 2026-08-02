@@ -19,7 +19,11 @@ class ManualCommissionIn(BaseModel):
     per restare comparabili quando le due liste vengono unite (vedi
     commission_service.get_effective_commissions)."""
     period: str = Field(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")  # "YYYY-MM"
-    amount: float = Field(ge=0, le=MAX_MONETARY_TARGET)
+    # gt=0, non ge=0: una provvigione manuale da 0€ non ha significato
+    # operativo, e con il CRUD per id (POST/PUT/DELETE) l'eliminazione ha
+    # già un'azione dedicata per riga — usare 0 come "elimina" sarebbe
+    # ridondante oltre che ambiguo.
+    amount: float = Field(gt=0, le=MAX_MONETARY_TARGET)
     mandante_id: Optional[str] = None
     client_id: Optional[str] = None
     descrizione: Optional[str] = Field(default=None, max_length=SHORT_TEXT_MAX_LENGTH)

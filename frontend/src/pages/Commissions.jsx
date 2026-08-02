@@ -158,8 +158,8 @@ const periodGroups = useMemo(
 
   const saveManualCommission = async () => {
     const amount = parseFloat(manualForm.amount);
-    if (Number.isNaN(amount) || amount < 0) {
-      toast.error("Inserisci un importo valido");
+    if (Number.isNaN(amount) || amount <= 0) {
+      toast.error("Inserisci un importo maggiore di zero");
       return;
     }
     if (!manualForm.period) {
@@ -284,7 +284,7 @@ const periodGroups = useMemo(
           <div>
             <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Importo (€)</label>
             <input
-              type="number" step="0.01" min="0" value={manualForm.amount}
+              type="number" step="0.01" min="0.01" value={manualForm.amount}
               onChange={(e) => setManualForm((f) => ({ ...f, amount: e.target.value }))}
               placeholder="0,00"
               className="bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px] w-32"

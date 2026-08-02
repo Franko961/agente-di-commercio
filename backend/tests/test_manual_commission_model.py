@@ -1,9 +1,9 @@
 """
 Verifica ManualCommissionIn: il modello del box "provvigioni inserite
 manualmente" nella pagina Provvigioni — period deve essere un mese valido
-("YYYY-MM"), amount non negativo e con lo stesso tetto massimo già usato
-per gli altri importi economici di grande entità (MAX_MONETARY_TARGET,
-vedi core/validation_limits.py).
+("YYYY-MM"), amount strettamente positivo (0€ non ha significato
+operativo) e con lo stesso tetto massimo già usato per gli altri importi
+economici di grande entità (MAX_MONETARY_TARGET, vedi core/validation_limits.py).
 
 Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
@@ -68,11 +68,12 @@ def test_tipo_non_valido_rifiutato():
         ManualCommissionIn(period="2026-08", amount=100, tipo="straordinaria")
 
 
-def test_amount_zero_accettato():
-    """Zero è un valore legittimo (es. per 'azzerare' il mese senza
-    cancellare la riga)."""
-    m = ManualCommissionIn(period="2026-08", amount=0)
-    assert m.amount == 0
+def test_amount_zero_rifiutato():
+    """Una provvigione manuale da 0€ non ha significato operativo — con
+    il CRUD per id, per rimuovere una riga c'è un DELETE dedicato, non
+    serve azzerarla."""
+    with pytest.raises(ValidationError):
+        ManualCommissionIn(period="2026-08", amount=0)
 
 
 def test_amount_negativo_rifiutato():
