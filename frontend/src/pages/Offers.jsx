@@ -59,7 +59,7 @@ export default function Offers() {
           <button
             data-testid="export-offers-button"
             onClick={() => exportOffers().then(() => toast.success("Export scaricato")).catch(() => toast.error("Errore export"))}
-            className="hidden sm:flex items-center gap-2 px-4 py-2.5 border border-[#E4E4E1] hover:border-[#0A192F] rounded-md text-[13px] font-medium"
+            className="flex items-center gap-2 px-4 py-2.5 border border-[#E4E4E1] hover:border-[#0A192F] rounded-md text-[13px] font-medium"
           >
             <Download className="w-4 h-4" /> CSV
           </button>
@@ -86,7 +86,8 @@ export default function Offers() {
             <div key={o.id} data-testid={`offer-card-${o.id}`} className="bg-white border border-[#E4E4E1] rounded-md p-4">
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div className="font-mono text-[10px] uppercase tracking-widest" style={{ color: STATUS_COLORS[o.status] }}>{o.status}</div>
-                <button onClick={async () => { await api.delete(`/offers/${o.id}`); load(); }} className="text-[#A1A1AA]"><Trash2 className="w-3.5 h-3.5" /></button>
+                <button onClick={async () => { await api.delete(`/offers/${o.id}`); load(); }} title="Elimina offerta"
+                  className="p-1.5 -m-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
               <div className="font-cabinet font-bold text-[15px] leading-tight mb-2">{o.title}</div>
               {o.sale_type && (
@@ -203,21 +204,24 @@ function OfferForm({ clients, mandanti, products, onSave }) {
         <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-2">Righe offerta</label>
         <div className="space-y-2">
           {f.items.map((it, i) => (
-            <div key={i} className="grid grid-cols-12 gap-2 items-center">
+            // Stesso fix di Ordini.jsx "Righe ordine" (form quasi identico):
+            // grid-cols-2 sotto sm, grid-cols-12 da sm in su, per evitare
+            // che i 5 campi diventino illeggibili su schermi stretti.
+            <div key={i} className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-center">
               <ProductCombobox
                 products={filtered}
                 value={it.product_id}
                 onSelect={(p) => updItem(i, { product_id: p.id, description: p.name, unit_price: p.price })}
-                className="col-span-3 w-full"
+                className="col-span-2 sm:col-span-3 w-full"
               />
               <input value={it.description} onChange={(e) => updItem(i, { description: e.target.value })} placeholder="Descrizione"
-                     className="col-span-4 bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
+                     className="col-span-2 sm:col-span-4 w-full bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
               <input type="number" value={it.quantity} onChange={(e) => updItem(i, { quantity: parseFloat(e.target.value) || 0 })} placeholder="Qta"
-                     className="col-span-1 bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
+                     className="col-span-1 w-full bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
               <input type="number" value={it.unit_price} onChange={(e) => updItem(i, { unit_price: parseFloat(e.target.value) || 0 })} placeholder="€"
-                     className="col-span-2 bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
+                     className="col-span-1 sm:col-span-2 w-full bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
               <input type="number" value={it.discount} onChange={(e) => updItem(i, { discount: parseFloat(e.target.value) || 0 })} placeholder="%"
-                     className="col-span-2 bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
+                     className="col-span-2 w-full bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
             </div>
           ))}
         </div>
