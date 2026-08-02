@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../api";
-import { Coins, Download, Trash2, Trophy, ChevronRight, ChevronDown } from "lucide-react";
+import { Coins, Download, Trash2, Pencil, Trophy, ChevronRight, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { exportCommissions } from "../utils/export";
 import { useMandante } from "../contexts/MandanteContext";
@@ -8,9 +8,13 @@ import { useMandante } from "../contexts/MandanteContext";
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
 const currentPeriod = () => new Date().toISOString().slice(0, 7); // "YYYY-MM"
 
-const emptyManualForm = {
-  amount: "", mandante_id: "", client_id: "", descrizione: "", stato: "maturato", note: "", tipo: "ordinaria",
-};
+// Più righe manuali possono coesistere sullo stesso periodo (es. un premio
+// per un mandante e una rettifica per un altro nello stesso mese), quindi
+// period fa parte della riga come gli altri campi, non è più un selettore
+// esterno che determina quale riga stai modificando.
+const emptyManualForm = () => ({
+  period: currentPeriod(), amount: "", mandante_id: "", client_id: "", descrizione: "", stato: "maturato", note: "", tipo: "ordinaria",
+});
 
 function periodLabel(key) {
   const [y, m] = (key || "").split("-").map(Number);
@@ -22,25 +26,26 @@ function periodLabel(key) {
 // Raggruppa le provvigioni (già filtrate per cliente/stato) per periodo,
 // stesso principio del raggruppamento mensile in Spese.jsx: il periodo
 // corrente resta aperto di default, i periodi passati partono chiusi
-// mostrando solo il totale. manualByPeriod arriva già filtrato per
-// mandante/cliente attivi (vedi visibleManualCommissions), quindi qui basta
-// sommarlo al totale del gruppo senza altre condizioni.
-function groupByPeriod(list, manualByPeriod) {
+// mostrando solo il totale. manualEntriesByPeriod arriva già filtrato per
+// mandante/cliente attivi (vedi visibleManualCommissions) e può contenere
+// PIÙ righe per lo stesso periodo (nessun vincolo di unicità lato backend).
+function groupByPeriod(list, manualEntriesByPeriod) {
   const byKey = new Map();
   for (const c of list) {
     const key = c.period || "—";
     if (!byKey.has(key)) byKey.set(key, []);
     byKey.get(key).push(c);
   }
-  for (const period of Object.keys(manualByPeriod)) {
+  for (const period of Object.keys(manualEntriesByPeriod)) {
     if (!byKey.has(period)) byKey.set(period, []);
   }
   return [...byKey.entries()]
     .sort((a, b) => (a[0] < b[0] ? 1 : -1))
     .map(([key, items]) => {
-      const manualAmount = manualByPeriod[key];
+      const manualEntries = manualEntriesByPeriod[key] || [];
+      const manualSum = manualEntries.reduce((s, m) => s + (m.amount || 0), 0);
       const calculatedTotal = items.reduce((s, c) => s + c.amount, 0);
-      return { key, label: periodLabel(key), items, manualAmount, total: calculatedTotal + (manualAmount || 0) };
+      return { key, label: periodLabel(key), items, manualEntries, total: calculatedTotal + manualSum };
     });
 }
 
@@ -54,8 +59,8 @@ export default function Commissions() {
   const [filter, setFilter] = useState("all");
   const [clientFilter, setClientFilter] = useState("all");
   const [manualCommissions, setManualCommissions] = useState([]);
-  const [manualPeriod, setManualPeriod] = useState(currentPeriod());
   const [manualForm, setManualForm] = useState(emptyManualForm);
+  const [editingManualId, setEditingManualId] = useState(null);
   const [savingManual, setSavingManual] = useState(false);
   const [expandedPeriods, setExpandedPeriods] = useState(() => new Set([currentPeriod()]));
   const togglePeriod = (key) => setExpandedPeriods((prev) => {
@@ -80,23 +85,28 @@ export default function Commissions() {
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [mandanteParam]);
 
-  // Il box segue il mese selezionato: se per quel mese esiste già un valore
-  // manuale salvato, lo ripropone COMPLETO (non solo importo e mandante) —
-  // altrimenti un salvataggio successivo (che è un upsert completo, non una
-  // patch parziale) cancellerebbe silenziosamente descrizione/note/cliente
-  // già inseriti. Su un mese senza valore salvato, il box torna vuoto.
-  useEffect(() => {
-    const existing = manualCommissions.find((m) => m.period === manualPeriod);
-    setManualForm(existing ? {
-      amount: String(existing.amount),
-      mandante_id: existing.mandante_id || "",
-      client_id: existing.client_id || "",
-      descrizione: existing.descrizione || "",
-      stato: existing.stato || "maturato",
-      note: existing.note || "",
-      tipo: existing.tipo || "ordinaria",
-    } : emptyManualForm);
-  }, [manualPeriod, manualCommissions]);
+  const startNewManualEntry = () => {
+    setEditingManualId(null);
+    setManualForm(emptyManualForm());
+  };
+
+  // Più righe manuali possono coesistere sullo stesso periodo, quindi non
+  // c'è più un pre-fill automatico legato al mese scelto: si modifica
+  // un'entrata esplicitamente cliccando "Modifica" sulla sua riga.
+  const startEditManualEntry = (entry) => {
+    setEditingManualId(entry.id);
+    setManualForm({
+      period: entry.period,
+      amount: String(entry.amount),
+      mandante_id: entry.mandante_id || "",
+      client_id: entry.client_id || "",
+      descrizione: entry.descrizione || "",
+      stato: entry.stato || "maturato",
+      note: entry.note || "",
+      tipo: entry.tipo || "ordinaria",
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
 const byClient = clientFilter === "all" ? commissions : commissions.filter(c => c.client_id === clientFilter);
 const filtered = filter === "all" ? byClient : byClient.filter(c => c.status === filter);
@@ -120,17 +130,16 @@ const manualCollected = useMemo(() => visibleManualCommissions.filter((m) => m.s
 // mandante/cliente corrente: si aggiunge al totale calcolato dagli ordini,
 // per provvigioni concluse fuori dal flusso ordini del CRM.
 const manualTotal = manualAccrued + manualCollected;
-const manualByPeriod = useMemo(
-  () => Object.fromEntries(visibleManualCommissions.map((m) => [m.period, m.amount])),
-  [visibleManualCommissions]
-);
-const manualEntryByPeriod = useMemo(
-  () => Object.fromEntries(visibleManualCommissions.map((m) => [m.period, m])),
-  [visibleManualCommissions]
-);
+const manualEntriesByPeriod = useMemo(() => {
+  const map = {};
+  for (const m of visibleManualCommissions) {
+    (map[m.period] ||= []).push(m);
+  }
+  return map;
+}, [visibleManualCommissions]);
 const periodGroups = useMemo(
-  () => groupByPeriod(filtered, manualByPeriod),
-  [filtered, manualByPeriod]
+  () => groupByPeriod(filtered, manualEntriesByPeriod),
+  [filtered, manualEntriesByPeriod]
 );
 
   const setStatus = async (id, status) => {
@@ -145,10 +154,14 @@ const periodGroups = useMemo(
       toast.error("Inserisci un importo valido");
       return;
     }
+    if (!manualForm.period) {
+      toast.error("Seleziona un mese");
+      return;
+    }
     setSavingManual(true);
     try {
-      await api.put("/commissions/manual", {
-        period: manualPeriod,
+      const payload = {
+        period: manualForm.period,
         amount,
         mandante_id: manualForm.mandante_id || null,
         client_id: manualForm.client_id || null,
@@ -156,10 +169,16 @@ const periodGroups = useMemo(
         stato: manualForm.stato,
         note: manualForm.note || null,
         tipo: manualForm.tipo,
-      });
-      toast.success("Provvigione manuale salvata");
-      setExpandedPeriods((prev) => new Set(prev).add(manualPeriod));
-      setManualPeriod(currentPeriod());
+      };
+      if (editingManualId) {
+        await api.put(`/commissions/manual/${editingManualId}`, payload);
+        toast.success("Provvigione manuale aggiornata");
+      } else {
+        await api.post("/commissions/manual", payload);
+        toast.success("Provvigione manuale aggiunta");
+      }
+      setExpandedPeriods((prev) => new Set(prev).add(manualForm.period));
+      startNewManualEntry();
       load();
     } catch {
       toast.error("Errore salvataggio provvigione manuale");
@@ -168,9 +187,10 @@ const periodGroups = useMemo(
     }
   };
 
-  const removeManualCommission = async (period) => {
-    if (!window.confirm(`Rimuovere la provvigione manuale di ${periodLabel(period)}?`)) return;
-    await api.delete(`/commissions/manual/${period}`);
+  const removeManualCommission = async (id, period) => {
+    if (!window.confirm(`Rimuovere questa provvigione manuale di ${periodLabel(period)}?`)) return;
+    await api.delete(`/commissions/manual/${id}`);
+    if (editingManualId === id) startNewManualEntry();
     toast.success("Provvigione manuale rimossa");
     load();
   };
@@ -221,25 +241,35 @@ const periodGroups = useMemo(
       </div>
 
       {/* Provvigioni inserite manualmente: si sommano al totale calcolato
-      dagli ordini, un valore per mese — per provvigioni concluse fuori dal
-      flusso ordini del CRM. Contano a tutti gli effetti come provvigioni
-      reali (dashboard, obiettivi, briefing AI, export CSV, dettaglio
-      cliente), non solo su questa pagina. */}
+      dagli ordini — per provvigioni concluse fuori dal flusso ordini del
+      CRM. Più righe possono coesistere sullo stesso mese (es. un premio per
+      un mandante e una rettifica per un altro). Contano a tutti gli effetti
+      come provvigioni reali (dashboard, obiettivi, briefing AI, export CSV,
+      dettaglio cliente), non solo su questa pagina. */}
       <div className="bg-white border border-[#E4E4E1] rounded-md p-5 mb-6">
-        <div className="flex items-center gap-2 mb-3">
-          <Coins className="w-4 h-4 text-[#FF5A00]" />
-          <span className="font-mono text-[11px] uppercase tracking-widest text-[#52525B]">Provvigioni inserite manualmente</span>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Coins className="w-4 h-4 text-[#FF5A00]" />
+            <span className="font-mono text-[11px] uppercase tracking-widest text-[#52525B]">
+              {editingManualId ? "Modifica provvigione manuale" : "Nuova provvigione manuale"}
+            </span>
+          </div>
+          {editingManualId && (
+            <button onClick={startNewManualEntry} className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] hover:text-[#0A192F]">
+              Annulla modifica
+            </button>
+          )}
         </div>
         <p className="text-[12px] text-[#52525B] mb-3">
-          Per provvigioni non tracciate tramite gli ordini del CRM. Si sommano al totale generato, un importo per mese.
+          Per provvigioni non tracciate tramite gli ordini del CRM. Si sommano al totale generato.
         </p>
         <div className="flex flex-wrap items-end gap-3 mb-3">
           <div>
             <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Mese</label>
             <input
               type="month"
-              value={manualPeriod}
-              onChange={(e) => setManualPeriod(e.target.value)}
+              value={manualForm.period}
+              onChange={(e) => setManualForm((f) => ({ ...f, period: e.target.value }))}
               className="bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
             />
           </div>
@@ -315,16 +345,8 @@ const periodGroups = useMemo(
             disabled={savingManual}
             className="px-4 py-2 bg-[#0A192F] text-white rounded-md text-[13px] font-medium disabled:opacity-50"
           >
-            Salva
+            {editingManualId ? "Aggiorna" : "Aggiungi"}
           </button>
-          {manualCommissions.some((m) => m.period === manualPeriod) && (
-            <button
-              onClick={() => removeManualCommission(manualPeriod)}
-              className="flex items-center gap-1.5 px-3 py-2 text-[13px] text-[#A1A1AA] hover:text-red-500"
-            >
-              <Trash2 className="w-3.5 h-3.5" /> Rimuovi
-            </button>
-          )}
         </div>
         <div>
           <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Note</label>
@@ -471,13 +493,12 @@ const periodGroups = useMemo(
                   {group.items.map((c) => (
                     <CommissionRow key={c.id} c={c} clients={clients} mandanti={mandanti} onToggleStatus={setStatus} onDelete={deleteCommission} />
                   ))}
-                  {group.manualAmount !== undefined && (() => {
-                    const entry = manualEntryByPeriod[group.key] || {};
+                  {group.manualEntries.map((entry) => {
                     const manualClientName = clients.find((cl) => cl.id === entry.client_id)?.company_name;
                     const manualMandanteName = mandanti.find((m) => m.id === entry.mandante_id)?.name;
                     return (
-                    <div className="grid grid-cols-2 md:grid-cols-7 gap-2 px-4 py-3 border-b border-[#E4E4E1] items-center text-[13px] bg-[#FFF9F5]">
-                      <div className="font-mono">{group.key}</div>
+                    <div key={entry.id} className="grid grid-cols-2 md:grid-cols-7 gap-2 px-4 py-3 border-b border-[#E4E4E1] items-center text-[13px] bg-[#FFF9F5]">
+                      <div className="font-mono">{entry.period}</div>
                       <div className="col-span-2 font-medium text-[#52525B] flex flex-col gap-0.5">
                         <span className="flex items-center gap-1.5">
                           <Coins className="w-3.5 h-3.5 text-[#FF5A00]" /> Inserita manualmente
@@ -491,14 +512,19 @@ const periodGroups = useMemo(
                       <div className="text-[#A1A1AA]">{manualMandanteName || "—"}</div>
                       <div className="font-mono text-[#A1A1AA] capitalize">{entry.tipo || "ordinaria"}</div>
                       <div className="text-right">
-                        <div className="font-cabinet font-bold">{fmt(group.manualAmount)}</div>
+                        <div className="font-cabinet font-bold">{fmt(entry.amount)}</div>
                         <div className="font-mono text-[10px] uppercase tracking-widest mt-1"
                           style={{ color: entry.stato === "incassato" ? "#059669" : "#FF5A00" }}>
                           {entry.stato || "maturato"}
                         </div>
                       </div>
-                      <div className="flex justify-end">
-                        <button onClick={() => removeManualCommission(group.key)}
+                      <div className="flex justify-end gap-1">
+                        <button onClick={() => startEditManualEntry(entry)}
+                          className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors"
+                          title="Modifica" aria-label="Modifica provvigione manuale">
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => removeManualCommission(entry.id, entry.period)}
                           className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors"
                           title="Rimuovi provvigione manuale" aria-label="Rimuovi provvigione manuale">
                           <Trash2 className="w-4 h-4" />
@@ -506,7 +532,7 @@ const periodGroups = useMemo(
                       </div>
                     </div>
                     );
-                  })()}
+                  })}
                 </div>
               )}
             </div>

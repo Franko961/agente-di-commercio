@@ -403,10 +403,20 @@ async def run_startup() -> None:
     await db.automation_runs.create_index([("automation_id", 1), ("target_id", 1)], unique=True)
     await db.automation_notifications.create_index([("user_id", 1), ("created_at", -1)])
 
-    # Un solo documento per (utente, mese): l'upsert in
-    # manual_commission_repository.py si affida a questo indice per restare
-    # coerente anche con due richieste quasi simultanee sullo stesso mese.
-    await db.manual_commissions.create_index([("user_id", 1), ("period", 1)], unique=True)
+    # L'indice univoco (user_id, period) limitava a una sola provvigione
+    # manuale per mese — troppo restrittivo una volta aggiunti mandante/
+    # cliente/tipo (es. un premio per un mandante e una rettifica per un
+    # altro nello stesso mese). Va rimosso esplicitamente: creare solo il
+    # nuovo indice non basta, quello univoco esistente in produzione
+    # continuerebbe a rifiutare righe multiple sullo stesso mese finché non
+    # viene tolto. drop_index in un try: un database nuovo (o dove è già
+    # stato tolto) non ha questo indice da rimuovere, non deve bloccare
+    # l'avvio dell'app.
+    try:
+        await db.manual_commissions.drop_index([("user_id", 1), ("period", 1)])
+    except Exception:
+        pass
+    await db.manual_commissions.create_index([("user_id", 1)])
 
     global _gcal_sync_task, _stuck_ai_action_task, _health_alert_task, _automation_engine_task, _demo_reset_task, _cancel_finalize_task, _demo_request_cleanup_task, _contact_request_cleanup_task
     _gcal_sync_task = asyncio.create_task(_google_calendar_sync_loop())

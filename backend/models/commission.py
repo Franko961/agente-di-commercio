@@ -6,8 +6,10 @@ from core.validation_limits import MAX_MONETARY_TARGET, SHORT_TEXT_MAX_LENGTH, L
 class ManualCommissionIn(BaseModel):
     """Provvigione inserita manualmente dall'utente per un mese, ad
     esempio per coprire un accordo concluso fuori dal flusso ordini del
-    CRM. Un solo valore per (utente, mese): l'endpoint fa upsert, non
-    aggiunge righe multiple per lo stesso periodo.
+    CRM. Più righe possono coesistere sullo stesso periodo (es. un premio
+    per un mandante e una rettifica per un altro nello stesso mese):
+    POST crea una nuova riga, PUT /manual/{id} aggiorna quella esistente —
+    nessun vincolo di unicità su (utente, mese), l'id è l'unica chiave.
     mandante_id è opzionale: se assente, la provvigione non è attribuita a
     nessun mandante e va inclusa solo nella vista "Tutti i mandanti" (vedi
     Commissions.jsx), non nel totale di un mandante specifico. Stessa

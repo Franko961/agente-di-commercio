@@ -1,4 +1,5 @@
 from typing import List
+from core.exceptions import NotFoundError
 from core.utils import gen_id, now_iso, now_local
 from repositories.commission_repository import commission_repository
 from repositories.mandante_repository import mandante_repository
@@ -163,11 +164,17 @@ class CommissionService:
     async def list_manual_commissions(self, user: dict) -> list:
         return await self.manual_repo.find_many(user["id"])
 
-    async def set_manual_commission(self, user: dict, period: str, fields: dict) -> dict:
-        return await self.manual_repo.upsert(user["id"], period, fields)
+    async def create_manual_commission(self, user: dict, fields: dict) -> dict:
+        doc = {"id": gen_id(), "user_id": user["id"], **fields}
+        return await self.manual_repo.insert(doc)
 
-    async def delete_manual_commission(self, user: dict, period: str) -> None:
-        await self.manual_repo.delete(user["id"], period)
+    async def update_manual_commission(self, user: dict, cid: str, fields: dict) -> None:
+        ok = await self.manual_repo.update(cid, user["id"], fields)
+        if not ok:
+            raise NotFoundError("Provvigione manuale non trovata")
+
+    async def delete_manual_commission(self, user: dict, cid: str) -> None:
+        await self.manual_repo.delete(cid, user["id"])
 
     async def get_effective_commissions(self, user: dict, mandante_id: str = None, client_id: str = None) -> list:
         """Provvigioni "vere" per dashboard/obiettivi/briefing AI/export/
@@ -204,9 +211,11 @@ def normalize_manual_commission(user_id: str, m: dict) -> dict:
     di salvataggio farebbe contare una provvigione manuale di un mese
     passato nel mese corrente. Mezzogiorno (non mezzanotte) evita qualunque
     ambiguità di fuso: resta lo stesso giorno di calendario in ora italiana
-    in ogni caso (CET o CEST)."""
+    in ogni caso (CET o CEST). id: fallback sintetico solo per compatibilità
+    con eventuali fixture di test prive di id — ogni documento reale ne ha
+    sempre uno (vedi CommissionService.create_manual_commission)."""
     return {
-        "id": f"manual:{m['period']}",
+        "id": m.get("id") or f"manual:{m['period']}",
         "user_id": user_id,
         "period": m["period"],
         "amount": m.get("amount", 0),
