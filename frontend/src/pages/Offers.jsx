@@ -86,7 +86,7 @@ export default function Offers() {
             <div key={o.id} data-testid={`offer-card-${o.id}`} className="bg-white border border-[#E4E4E1] rounded-md p-4">
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div className="font-mono text-[10px] uppercase tracking-widest" style={{ color: STATUS_COLORS[o.status] }}>{o.status}</div>
-                <button onClick={async () => { await api.delete(`/offers/${o.id}`); load(); }} title="Elimina offerta"
+                <button onClick={async () => { await api.delete(`/offers/${o.id}`); load(); }} title="Elimina offerta" aria-label="Elimina offerta"
                   className="p-1.5 -m-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
               <div className="font-cabinet font-bold text-[15px] leading-tight mb-2">{o.title}</div>

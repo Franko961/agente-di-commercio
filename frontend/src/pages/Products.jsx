@@ -90,10 +90,10 @@ export default function Products() {
               <div className="text-right font-cabinet font-bold">{fmt(p.price)}</div>
               <div className="text-right font-mono text-[12px] text-[#059669]">{margin}%</div>
               <div className="col-span-2 flex justify-end gap-1">
-                <button onClick={() => setEditTarget(p)} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica">
+                <button onClick={() => setEditTarget(p)} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica" aria-label="Modifica prodotto">
                   <Pencil className="w-4 h-4" />
                 </button>
-                <button onClick={() => deleteProduct(p.id, p.name)} className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors" title="Elimina">
+                <button onClick={() => deleteProduct(p.id, p.name)} className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors" title="Elimina" aria-label="Elimina prodotto">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>

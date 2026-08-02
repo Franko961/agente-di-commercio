@@ -278,7 +278,7 @@ export default function Clients() {
                 <td className="px-4 py-3"><span className="font-mono text-[10px] uppercase tracking-widest px-2 py-1 rounded" style={{ background: `${POTENTIAL_COLOR[c.potential]}20`, color: POTENTIAL_COLOR[c.potential] }}>{c.potential}</span></td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-2">
-                    <button onClick={() => setEditTarget(c)} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica">
+                    <button onClick={() => setEditTarget(c)} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica" aria-label="Modifica cliente">
                       <Pencil className="w-4 h-4" />
                     </button>
                     <Link to={`/app/clienti/${c.id}`} className="text-[#FF5A00] text-[12px] font-mono uppercase tracking-widest">apri</Link>
@@ -296,7 +296,7 @@ export default function Clients() {
         {clients.map((c) => (
           <div key={c.id} className="block bg-white border border-[#E4E4E1] rounded-md p-4">
             <div className="flex justify-end mb-1">
-              <button onClick={() => setEditTarget(c)} className="p-1 text-[#A1A1AA] hover:text-[#0A192F]" title="Modifica">
+              <button onClick={() => setEditTarget(c)} className="p-1 text-[#A1A1AA] hover:text-[#0A192F]" title="Modifica" aria-label="Modifica cliente">
                 <Pencil className="w-3.5 h-3.5" />
               </button>
             </div>

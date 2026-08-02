@@ -112,11 +112,11 @@ export default function Automations() {
                 <ConfigSummary automation={a} />
               </div>
               <Switch checked={a.enabled} onCheckedChange={() => toggle(a)} data-testid={`toggle-automation-${a.id}`} />
-              <button onClick={() => setEditing(a)} data-testid={`edit-automation-${a.id}`} title="Modifica"
+              <button onClick={() => setEditing(a)} data-testid={`edit-automation-${a.id}`} title="Modifica" aria-label="Modifica automazione"
                 className="p-1.5 -m-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors">
                 <Pencil className="w-4 h-4" />
               </button>
-              <button onClick={async () => { await api.delete(`/automations/${a.id}`); load(); }} title="Elimina automazione"
+              <button onClick={async () => { await api.delete(`/automations/${a.id}`); load(); }} title="Elimina automazione" aria-label="Elimina automazione"
                 className="p-1.5 -m-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors">
                 <Trash2 className="w-4 h-4" />
               </button>

@@ -242,7 +242,7 @@ function ExpenseRow({ e, onEdit, onDelete }) {
       <div className="col-span-2 truncate flex items-center gap-1.5">
         <span className="truncate">{e.description || "—"}</span>
         {e.receipt_document_id && (
-          <button onClick={() => downloadReceipt(e.receipt_document_id, e.description)} title="Vedi scontrino"
+          <button onClick={() => downloadReceipt(e.receipt_document_id, e.description)} title="Vedi scontrino" aria-label="Vedi scontrino"
             className="shrink-0 p-1 text-[#A1A1AA] hover:text-[#FF5A00] hover:bg-[#F3F3F1] rounded transition-colors">
             <Paperclip className="w-3.5 h-3.5" />
           </button>
@@ -250,10 +250,10 @@ function ExpenseRow({ e, onEdit, onDelete }) {
       </div>
       <div className="text-right font-cabinet font-bold">{fmt(e.amount)}</div>
       <div className="col-span-2 flex justify-end gap-1">
-        <button onClick={() => onEdit(e)} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica">
+        <button onClick={() => onEdit(e)} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica" aria-label="Modifica spesa">
           <Pencil className="w-4 h-4" />
         </button>
-        <button onClick={() => onDelete(e.id, e.description)} className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors" title="Elimina">
+        <button onClick={() => onDelete(e.id, e.description)} className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors" title="Elimina" aria-label="Elimina spesa">
           <Trash2 className="w-4 h-4" />
         </button>
       </div>

@@ -56,6 +56,7 @@ export default function Sidebar({ collapsed, onToggle }) {
             to="/app/aiuto"
             data-testid="help-center-link"
             title="Centro assistenza"
+            aria-label="Centro assistenza"
             className="w-8 h-8 flex items-center justify-center rounded-md text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] transition-colors"
           >
             <HelpCircle className="w-4 h-4" strokeWidth={1.75} />

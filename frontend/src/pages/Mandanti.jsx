@@ -72,10 +72,10 @@ export default function Mandanti() {
                   <span className="text-white font-cabinet font-black text-lg">{m.name[0]}</span>
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => setEditTarget({ ...m, bonus_tiers: m.bonus_tiers || [] })} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica">
+                  <button onClick={() => setEditTarget({ ...m, bonus_tiers: m.bonus_tiers || [] })} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica" aria-label="Modifica mandante">
                     <Pencil className="w-4 h-4" />
                   </button>
-                  <button onClick={() => remove(m.id)} className="p-1.5 text-[#A1A1AA] hover:text-[#DC2626] hover:bg-red-50 rounded transition-colors" title="Elimina">
+                  <button onClick={() => remove(m.id)} className="p-1.5 text-[#A1A1AA] hover:text-[#DC2626] hover:bg-red-50 rounded transition-colors" title="Elimina" aria-label="Elimina mandante">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>

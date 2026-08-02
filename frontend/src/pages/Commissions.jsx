@@ -500,7 +500,7 @@ const periodGroups = useMemo(
                       <div className="flex justify-end">
                         <button onClick={() => removeManualCommission(group.key)}
                           className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                          title="Rimuovi provvigione manuale">
+                          title="Rimuovi provvigione manuale" aria-label="Rimuovi provvigione manuale">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -543,7 +543,7 @@ function CommissionRow({ c, clients, mandanti, onToggleStatus, onDelete }) {
       <div className="flex justify-end">
         <button onClick={() => onDelete(c.id)}
           className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-          title="Elimina provvigione">
+          title="Elimina provvigione" aria-label="Elimina provvigione">
           <Trash2 className="w-4 h-4" />
         </button>
       </div>

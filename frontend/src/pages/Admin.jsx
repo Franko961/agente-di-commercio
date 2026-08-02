@@ -204,11 +204,11 @@ function BusinessTab() {
                         </>
                       ) : (
                         <>
-                          <button onClick={() => impersonate(u.id, u.email)} title="Accedi come questo utente"
+                          <button onClick={() => impersonate(u.id, u.email)} title="Accedi come questo utente" aria-label="Accedi come questo utente"
                             className="p-1.5 text-[#A1A1AA] hover:text-[#FF5A00] hover:bg-[#FFF3EC] rounded"><LogIn className="w-4 h-4" /></button>
-                          <button onClick={() => setEditUser({...u})}
+                          <button onClick={() => setEditUser({...u})} title="Modifica utente" aria-label="Modifica utente"
                             className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
-                          <button onClick={() => deleteUser(u.id, u.email)}
+                          <button onClick={() => deleteUser(u.id, u.email)} title="Elimina utente" aria-label="Elimina utente"
                             className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
                         </>
                       )}

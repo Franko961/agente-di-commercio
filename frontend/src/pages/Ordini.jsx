@@ -253,6 +253,7 @@ export default function Ordini() {
                               onClick={() => setEditingOrder(o)}
                               className="text-[#A1A1AA] hover:text-[#0A192F] p-1"
                               title="Modifica ordine"
+                              aria-label="Modifica ordine"
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
@@ -262,6 +263,7 @@ export default function Ordini() {
                               onClick={() => deleteOrder(o)}
                               className="text-[#A1A1AA] hover:text-[#DC2626] p-1"
                               title="Elimina ordine (e la provvigione collegata)"
+                              aria-label="Elimina ordine (e la provvigione collegata)"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>

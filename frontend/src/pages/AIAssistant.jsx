@@ -367,7 +367,7 @@ export default function AIAssistant() {
             {speaking && (
               <button type="button" onClick={stopSpeaking}
                 className="px-3 py-2 bg-[#0A192F] text-white rounded-md animate-pulse"
-                title="Interrompi lettura">
+                title="Interrompi lettura" aria-label="Interrompi lettura">
                 <VolumeX className="w-4 h-4" />
               </button>
             )}

@@ -205,7 +205,7 @@ export default function VoiceAssistant() {
             <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-[#FF5A00]">
               <Sparkles className="w-3.5 h-3.5" /> Salesfly
             </div>
-            <button onClick={close} className="p-1 text-[#A1A1AA] hover:text-[#0A0A0A] rounded" title="Chiudi">
+            <button onClick={close} className="p-1 text-[#A1A1AA] hover:text-[#0A0A0A] rounded" title="Chiudi" aria-label="Chiudi assistente vocale">
               <X className="w-4 h-4" />
             </button>
           </div>

@@ -158,11 +158,12 @@ export default function Documents() {
             <div key={d.id} data-testid={`doc-${d.id}`} className="bg-white border border-[#E4E4E1] rounded-md p-4 flex flex-col">
               <div className="flex items-start justify-between mb-3">
                 <button data-testid={`preview-doc-${d.id}`} onClick={() => d.storage_path ? setPreviewDoc(d) : null}
+                        title="Anteprima documento" aria-label="Anteprima documento"
                         className="w-10 h-10 rounded-md flex items-center justify-center transition-transform hover:scale-105"
                         style={{ background: `${color}15` }}>
                   <Icon className="w-5 h-5" style={{ color }} />
                 </button>
-                <button data-testid={`delete-doc-${d.id}`} onClick={() => remove(d.id)} title="Elimina documento"
+                <button data-testid={`delete-doc-${d.id}`} onClick={() => remove(d.id)} title="Elimina documento" aria-label="Elimina documento"
                   className="p-1.5 -m-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
               <div className="font-cabinet font-bold text-[14px] leading-tight flex-1">{d.name}</div>

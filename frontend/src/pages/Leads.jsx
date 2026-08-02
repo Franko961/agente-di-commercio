@@ -102,13 +102,13 @@ export default function Leads() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="font-medium text-[13px] flex-1">{l.company_name}</div>
                       <div className="flex items-center gap-1 shrink-0">
-                        <button onClick={() => setLoggingContact(l)} data-testid={`log-contact-${l.id}`} title="Registra contatto" className="text-[#A1A1AA] hover:text-[#059669]">
+                        <button onClick={() => setLoggingContact(l)} data-testid={`log-contact-${l.id}`} title="Registra contatto" aria-label="Registra contatto" className="text-[#A1A1AA] hover:text-[#059669]">
                           <PhoneCall className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={() => setEditing(l)} data-testid={`edit-lead-${l.id}`} title="Modifica" className="text-[#A1A1AA] hover:text-[#0A192F]">
+                        <button onClick={() => setEditing(l)} data-testid={`edit-lead-${l.id}`} title="Modifica" aria-label="Modifica lead" className="text-[#A1A1AA] hover:text-[#0A192F]">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={async () => { await api.delete(`/leads/${l.id}`); load(); }} title="Elimina" className="text-[#A1A1AA] hover:text-[#DC2626]">
+                        <button onClick={async () => { await api.delete(`/leads/${l.id}`); load(); }} title="Elimina" aria-label="Elimina lead" className="text-[#A1A1AA] hover:text-[#DC2626]">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
