@@ -50,15 +50,17 @@ async def admin_delete_user(uid: str, admin=Depends(require_admin)):
 
 
 @router.post("/admin/users/{uid}/impersonate")
-async def admin_impersonate_user(uid: str, response: Response, payload: ImpersonateIn = ImpersonateIn(), admin=Depends(require_admin)):
+async def admin_impersonate_user(uid: str, response: Response, payload: ImpersonateIn, admin=Depends(require_admin)):
     """Sostituisce il cookie di sessione dell'admin con uno che autentica
     come l'utente uid, per entrare nel suo gestionale (es. assistenza
     telefonica). Il cookie dell'admin viene sovrascritto, non serve però
     un nuovo login per tornare admin: vedi POST /api/auth/exit-impersonation,
     che usa il claim impersonated_by incorporato in questo stesso token.
-    payload.mode "view" (default) è sola lettura, "edit" richiede un motivo
-    — vedi admin_service.impersonate_user."""
-    token, target_email = await admin_service.impersonate_user(uid, admin, mode=payload.mode, reason=payload.reason)
+    payload.mode "view" è sola lettura, "edit" richiede anche un motivo;
+    payload.category è sempre obbligatoria (vedi admin_service.impersonate_user)."""
+    token, target_email = await admin_service.impersonate_user(
+        uid, admin, mode=payload.mode, reason=payload.reason, category=payload.category,
+    )
     response.set_cookie("access_token", token, httponly=True, secure=True,
                          samesite="none", max_age=IMPERSONATION_TOKEN_TTL_MINUTES * 60, path="/")
     return {"ok": True, "email": target_email}

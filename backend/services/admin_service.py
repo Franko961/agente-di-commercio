@@ -9,6 +9,7 @@ from core.rate_limit import check_and_record
 from core.security import create_impersonation_token
 from repositories.admin_repository import admin_repository
 from repositories.user_repository import user_repository
+from models.admin import IMPERSONATION_CATEGORIES
 
 ALLOWED_USER_UPDATE_FIELDS = {"plan", "subscription_status", "role"}
 
@@ -110,7 +111,7 @@ class AdminService:
             "delete_user", target_user_id=uid,
         )
 
-    async def impersonate_user(self, uid: str, admin: dict, mode: str = "view", reason: str = None) -> tuple:
+    async def impersonate_user(self, uid: str, admin: dict, mode: str = "view", reason: str = None, category: str = None) -> tuple:
         """Genera un token che autentica chi chiama come l'utente uid,
         per poter entrare nel suo gestionale quando serve assistenza (es.
         una richiesta telefonica di modificare qualcosa). Ritorna
@@ -125,11 +126,13 @@ class AdminService:
           dall'interfaccia stessa;
         - mode deve essere "view" (default, sola lettura — vedi
           core.security.forbid_demo_write) o "edit" (scrittura consentita);
-        - mode "edit" richiede un motivo non vuoto: l'accesso in sola
-          lettura non lo richiede perché non comporta nessuna modifica ai
-          dati dell'utente, mentre uno con permessi di scrittura sì, per
-          responsabilità (chi ha modificato cosa e perché, non solo chi è
-          entrato)."""
+        - category è SEMPRE obbligatoria (anche in sola lettura): anche un
+          accesso che non modifica nulla deve dichiarare almeno il motivo di
+          massima nell'audit log, non solo chi/su chi/quando;
+        - mode "edit" richiede IN PIÙ un motivo testuale libero non vuoto:
+          un accesso con permessi di scrittura merita un dettaglio preciso
+          (chi ha modificato cosa e perché), non solo una categoria
+          generica."""
         if uid == admin["id"]:
             raise HTTPException(400, "Non puoi impersonificare te stesso")
         target = await user_repository.find_by_id(uid)
@@ -139,12 +142,14 @@ class AdminService:
             raise HTTPException(403, "Non è possibile impersonificare un altro amministratore")
         if mode not in ("view", "edit"):
             raise HTTPException(400, "Modalità non valida")
+        if category not in IMPERSONATION_CATEGORIES:
+            raise HTTPException(400, "Indica una categoria valida per l'accesso")
         reason = (reason or "").strip()
         if mode == "edit" and not reason:
             raise HTTPException(400, "Indica un motivo per accedere in modifica")
 
         token = create_impersonation_token(admin["id"], uid, target["email"], mode=mode)
-        detail = {"target_email": target["email"], "mode": mode}
+        detail = {"target_email": target["email"], "mode": mode, "category": category}
         if mode == "edit":
             detail["reason"] = reason
         await self._record_audit(
@@ -152,6 +157,27 @@ class AdminService:
             target_user_id=uid, detail=detail,
         )
         return token, target["email"]
+
+    async def record_impersonation_exit(self, actor: str, target_user_id: str, target_email: str,
+                                         mode: str, started_at: datetime = None) -> None:
+        """Traccia la FINE di una sessione di impersonificazione (vedi
+        impersonate_user per l'inizio): senza questo, l'audit log diceva solo
+        quando una sessione era cominciata, mai quando è finita o quanto è
+        durata — chiamato da POST /api/auth/exit-impersonation."""
+        ended_at = datetime.now(timezone.utc)
+        duration_seconds = None
+        if started_at:
+            duration_seconds = round((ended_at - started_at).total_seconds())
+        await self._record_audit(
+            actor, "exit_impersonation", target_user_id=target_user_id,
+            detail={
+                "target_email": target_email,
+                "mode": mode,
+                "started_at": started_at.isoformat() if started_at else None,
+                "ended_at": ended_at.isoformat(),
+                "duration_seconds": duration_seconds,
+            },
+        )
 
     async def get_audit_log(self, page: int = 1, limit: int = 50) -> dict:
         skip = (page - 1) * limit

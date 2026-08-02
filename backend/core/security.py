@@ -87,10 +87,14 @@ def create_impersonation_token(admin_id: str, target_user_id: str, target_email:
     rifare login (vedi /api/auth/exit-impersonation in routers/auth.py).
     mode è "view" (default, sola lettura — vedi forbid_demo_write più sotto,
     che blocca le scritture anche in questa modalità) oppure "edit" (accesso
-    in scrittura, richiede un motivo — vedi admin_service.impersonate_user)."""
+    in scrittura, richiede un motivo — vedi admin_service.impersonate_user).
+    iat viene incluso esplicitamente (PyJWT lo converte in timestamp Unix da
+    solo) per poter calcolare la durata della sessione quando termina — vedi
+    admin_service.record_impersonation_exit."""
     payload = {
         "sub": target_user_id, "email": target_email, "type": "access",
         "impersonated_by": admin_id, "impersonation_mode": mode,
+        "iat": datetime.now(timezone.utc),
         "exp": datetime.now(timezone.utc) + timedelta(minutes=IMPERSONATION_TOKEN_TTL_MINUTES),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
@@ -123,6 +127,8 @@ async def get_current_user(request: Request) -> dict:
     if payload.get("impersonated_by"):
         user["impersonated_by"] = payload["impersonated_by"]
         user["impersonation_mode"] = payload.get("impersonation_mode", "view")
+        if payload.get("iat"):
+            user["impersonation_started_at"] = datetime.fromtimestamp(payload["iat"], tz=timezone.utc)
 
     path = request.url.path
     is_exempt = any(path.startswith(p) for p in TRIAL_GATE_EXEMPT_PREFIXES)

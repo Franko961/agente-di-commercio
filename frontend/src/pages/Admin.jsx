@@ -14,6 +14,14 @@ const STATUS_COLOR = {
   active: "#059669", trial: "#FF5A00", cancelled: "#DC2626", expired: "#A1A1AA"
 };
 
+// Valori allineati a backend/models/admin.py IMPERSONATION_CATEGORIES.
+const IMPERSONATE_CATEGORIES = [
+  { value: "assistenza_richiesta", label: "Assistenza richiesta" },
+  { value: "diagnosi_problema", label: "Diagnosi problema" },
+  { value: "verifica_configurazione", label: "Verifica configurazione" },
+  { value: "controllo_amministrativo", label: "Controllo amministrativo" },
+];
+
 export default function Admin() {
   const [tab, setTab] = useState("business"); // business | salute | audit
 
@@ -60,7 +68,8 @@ function BusinessTab() {
   const [page, setPage] = useState(1);
   const [editUser, setEditUser] = useState(null);
   const [search, setSearch] = useState("");
-  const [editImpersonateTarget, setEditImpersonateTarget] = useState(null);
+  const [impersonateTarget, setImpersonateTarget] = useState(null); // { id, email, mode }
+  const [impersonateCategory, setImpersonateCategory] = useState("");
   const [impersonateReason, setImpersonateReason] = useState("");
   const [submittingImpersonate, setSubmittingImpersonate] = useState(false);
 
@@ -95,25 +104,27 @@ function BusinessTab() {
   // (AuthContext, mandanti, ecc.) come per un vero login.
   const goToImpersonatedApp = () => { window.location.href = "/app"; };
 
-  const impersonateView = async (id, email) => {
-    if (!window.confirm(`Visualizzare il gestionale di ${email} in sola lettura? Non potrai modificare i suoi dati.`)) return;
-    try {
-      await api.post(`/admin/users/${id}/impersonate`, { mode: "view" });
-      goToImpersonatedApp();
-    } catch {
-      toast.error("Impossibile entrare nell'account di questo utente");
-    }
+  const openImpersonateDialog = (u, mode) => {
+    setImpersonateCategory("");
+    setImpersonateReason("");
+    setImpersonateTarget({ id: u.id, email: u.email, mode });
   };
 
-  const submitEditImpersonate = async () => {
-    if (!impersonateReason.trim()) {
+  const submitImpersonate = async () => {
+    if (!impersonateCategory) {
+      toast.error("Indica una categoria per l'accesso");
+      return;
+    }
+    if (impersonateTarget.mode === "edit" && !impersonateReason.trim()) {
       toast.error("Indica un motivo per accedere in modifica");
       return;
     }
     setSubmittingImpersonate(true);
     try {
-      await api.post(`/admin/users/${editImpersonateTarget.id}/impersonate`, {
-        mode: "edit", reason: impersonateReason.trim(),
+      await api.post(`/admin/users/${impersonateTarget.id}/impersonate`, {
+        mode: impersonateTarget.mode,
+        category: impersonateCategory,
+        reason: impersonateTarget.mode === "edit" ? impersonateReason.trim() : undefined,
       });
       goToImpersonatedApp();
     } catch {
@@ -227,9 +238,9 @@ function BusinessTab() {
                         </>
                       ) : (
                         <>
-                          <button onClick={() => impersonateView(u.id, u.email)} title="Visualizza come utente (sola lettura)" aria-label="Visualizza come utente (sola lettura)"
+                          <button onClick={() => openImpersonateDialog(u, "view")} title="Visualizza come utente (sola lettura)" aria-label="Visualizza come utente (sola lettura)"
                             className="p-1.5 text-[#A1A1AA] hover:text-[#FF5A00] hover:bg-[#FFF3EC] rounded"><Eye className="w-4 h-4" /></button>
-                          <button onClick={() => { setImpersonateReason(""); setEditImpersonateTarget(u); }} title="Accedi e modifica" aria-label="Accedi e modifica"
+                          <button onClick={() => openImpersonateDialog(u, "edit")} title="Accedi e modifica" aria-label="Accedi e modifica"
                             className="p-1.5 text-[#A1A1AA] hover:text-[#FF5A00] hover:bg-[#FFF3EC] rounded"><LogIn className="w-4 h-4" /></button>
                           <button onClick={() => setEditUser({...u})} title="Modifica utente" aria-label="Modifica utente"
                             className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
@@ -254,37 +265,59 @@ function BusinessTab() {
         )}
       </div>
 
-      {/* "Accedi e modifica": a differenza di "Visualizza come utente", qui
-      si ottiene un token che può scrivere sui dati dell'utente (vedi
-      core.security.forbid_demo_write), quindi si richiede un motivo — resta
-      nell'audit log insieme a chi ha fatto l'accesso e su chi. */}
-      <Dialog open={!!editImpersonateTarget} onOpenChange={(v) => !v && setEditImpersonateTarget(null)}>
+      {/* Categoria obbligatoria in ENTRAMBE le modalità: anche la sola
+      lettura non modifica nulla, ma deve comunque dichiarare almeno il
+      motivo di massima nell'audit log. Il motivo testuale libero resta
+      richiesto in aggiunta solo per "Accedi e modifica" (permessi di
+      scrittura, vedi core.security.forbid_demo_write). */}
+      <Dialog open={!!impersonateTarget} onOpenChange={(v) => !v && setImpersonateTarget(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Accedi e modifica</DialogTitle></DialogHeader>
-          {editImpersonateTarget && (
+          <DialogHeader><DialogTitle>{impersonateTarget?.mode === "edit" ? "Accedi e modifica" : "Visualizza come utente"}</DialogTitle></DialogHeader>
+          {impersonateTarget && (
             <div className="space-y-3">
               <p className="text-[13px] text-[#52525B]">
-                Entrerai nel gestionale di <strong>{editImpersonateTarget.email}</strong> con permessi di scrittura:
-                potrai creare, modificare ed eliminare i suoi dati come se fossi lui.
+                {impersonateTarget.mode === "edit" ? (
+                  <>Entrerai nel gestionale di <strong>{impersonateTarget.email}</strong> con permessi di scrittura:
+                  potrai creare, modificare ed eliminare i suoi dati come se fossi lui.</>
+                ) : (
+                  <>Entrerai nel gestionale di <strong>{impersonateTarget.email}</strong> in sola lettura:
+                  non potrai modificare i suoi dati.</>
+                )}
               </p>
               <div>
-                <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Motivo dell'accesso</label>
-                <textarea
-                  value={impersonateReason}
-                  onChange={(e) => setImpersonateReason(e.target.value)}
-                  rows={3}
-                  placeholder="Es. richiesta telefonica: correggere l'ordine #123"
+                <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Categoria dell'accesso</label>
+                <select
+                  value={impersonateCategory}
+                  onChange={(e) => setImpersonateCategory(e.target.value)}
                   className="bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px] w-full"
                   autoFocus
-                />
+                >
+                  <option value="">Seleziona…</option>
+                  {IMPERSONATE_CATEGORIES.map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
               </div>
+              {impersonateTarget.mode === "edit" && (
+                <div>
+                  <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Motivo dell'accesso</label>
+                  <textarea
+                    value={impersonateReason}
+                    onChange={(e) => setImpersonateReason(e.target.value)}
+                    rows={3}
+                    placeholder="Es. richiesta telefonica: correggere l'ordine #123"
+                    className="bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px] w-full"
+                  />
+                </div>
+              )}
               <div className="flex justify-end gap-2">
-                <button onClick={() => setEditImpersonateTarget(null)} className="px-4 py-2 border border-[#E4E4E1] rounded-md text-[13px] font-medium">
+                <button onClick={() => setImpersonateTarget(null)} className="px-4 py-2 border border-[#E4E4E1] rounded-md text-[13px] font-medium">
                   Annulla
                 </button>
-                <button onClick={submitEditImpersonate} disabled={submittingImpersonate || !impersonateReason.trim()}
+                <button onClick={submitImpersonate}
+                  disabled={submittingImpersonate || !impersonateCategory || (impersonateTarget.mode === "edit" && !impersonateReason.trim())}
                   className="px-4 py-2 bg-[#0A192F] text-white rounded-md text-[13px] font-medium disabled:opacity-50">
-                  Accedi e modifica
+                  {impersonateTarget.mode === "edit" ? "Accedi e modifica" : "Visualizza come utente"}
                 </button>
               </div>
             </div>
