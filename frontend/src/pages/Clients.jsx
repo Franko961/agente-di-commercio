@@ -172,6 +172,27 @@ export default function Clients() {
         </div>
       </div>
 
+      {/* Importa/Esporta su mobile: l'header sopra (dove vivono questi due
+      bottoni) è hidden md:flex — il titolo pagina è già mostrato dall'header
+      mobile condiviso in Layout.jsx, ma Importa/Esporta CSV non hanno
+      nessun'altra via d'accesso su schermi piccoli senza questa riga. */}
+      <div className="flex md:hidden items-center gap-2 mb-4">
+        <button
+          data-testid="import-clients-button-mobile"
+          onClick={() => navigate("/app/clienti/importa")}
+          className="flex items-center gap-1.5 px-3 py-2 border border-[#E4E4E1] rounded-md text-[12px] font-medium"
+        >
+          <Upload className="w-3.5 h-3.5" /> Importa
+        </button>
+        <button
+          data-testid="export-clients-button-mobile"
+          onClick={() => exportClients().then(() => toast.success("Export scaricato")).catch(() => toast.error("Errore export"))}
+          className="flex items-center gap-1.5 px-3 py-2 border border-[#E4E4E1] rounded-md text-[12px] font-medium"
+        >
+          <Download className="w-3.5 h-3.5" /> CSV
+        </button>
+      </div>
+
       {/* Dialog modifica cliente */}
       <Dialog open={!!editTarget} onOpenChange={(v) => !v && setEditTarget(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
