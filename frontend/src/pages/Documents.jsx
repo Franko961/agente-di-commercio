@@ -162,7 +162,8 @@ export default function Documents() {
                         style={{ background: `${color}15` }}>
                   <Icon className="w-5 h-5" style={{ color }} />
                 </button>
-                <button data-testid={`delete-doc-${d.id}`} onClick={() => remove(d.id)} className="text-[#A1A1AA] hover:text-[#DC2626]"><Trash2 className="w-3.5 h-3.5" /></button>
+                <button data-testid={`delete-doc-${d.id}`} onClick={() => remove(d.id)} title="Elimina documento"
+                  className="p-1.5 -m-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
               <div className="font-cabinet font-bold text-[14px] leading-tight flex-1">{d.name}</div>
               {d.original_filename && <div className="font-mono text-[10px] text-[#A1A1AA] mt-1 truncate">{d.original_filename}</div>}
