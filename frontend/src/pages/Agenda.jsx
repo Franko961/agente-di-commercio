@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import api from "../api";
 import { Plus, Trash2, MapPin, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
@@ -12,6 +12,7 @@ export default function Agenda() {
   const [open, setOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [base, setBase] = useState(new Date());
+  const todayColRef = useRef(null);
 
   const load = async () => {
     const [a, c] = await Promise.all([api.get("/appointments"), api.get("/clients")]);
@@ -21,6 +22,15 @@ export default function Agenda() {
 
   const weekStart = startOfWeek(base, { weekStartsOn: 1 });
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  // Su mobile le 7 colonne si impilano verticalmente (grid-cols-1): senza
+  // questo, il giorno corrente può richiedere parecchio scroll per essere
+  // raggiunto (es. se oggi è sabato). Non cambia il layout, solo la
+  // posizione di partenza dello scroll quando la settimana mostrata
+  // contiene il giorno corrente.
+  useEffect(() => {
+    todayColRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [base]);
 
   const deleteAppt = async (id) => {
     if (!window.confirm("Eliminare questo appuntamento?")) return;
@@ -79,7 +89,7 @@ export default function Agenda() {
           const dayAppts = appts.filter(a => isSameDay(parseISO(a.start), d));
           const isToday = isSameDay(d, new Date());
           return (
-            <div key={i} data-testid={`day-col-${format(d, "yyyy-MM-dd")}`} className={`bg-white border rounded-md p-3 min-h-[140px] ${isToday ? "border-[#FF5A00]" : "border-[#E4E4E1]"}`}>
+            <div key={i} ref={isToday ? todayColRef : null} data-testid={`day-col-${format(d, "yyyy-MM-dd")}`} className={`bg-white border rounded-md p-3 min-h-[140px] ${isToday ? "border-[#FF5A00]" : "border-[#E4E4E1]"}`}>
               <div className="mb-3 pb-2 border-b border-[#E4E4E1]">
                 <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">{format(d, "EEEE", { locale: it })}</div>
                 <div className="font-cabinet font-black text-2xl">{format(d, "d")}</div>
