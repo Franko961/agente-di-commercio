@@ -126,7 +126,14 @@ async def get_current_user(request: Request) -> dict:
 
     path = request.url.path
     is_exempt = any(path.startswith(p) for p in TRIAL_GATE_EXEMPT_PREFIXES)
-    if not is_exempt and user.get("role") != "admin" and not is_subscription_active(user):
+    # Una sessione di impersonificazione (payload.impersonated_by presente)
+    # è sempre esente dal gate, indipendentemente dal ruolo dell'utente
+    # impersonificato: l'admin sta entrando per assistenza, non deve essere
+    # bloccato dallo stato di abbonamento (scaduto/annullato) proprio
+    # dell'utente che sta aiutando — anzi è spesso proprio il motivo per cui
+    # serve assistenza. Non riguarda l'utente impersonificato quando accede
+    # con il proprio login normale (lì il token non porta questo claim).
+    if not is_exempt and not payload.get("impersonated_by") and user.get("role") != "admin" and not is_subscription_active(user):
         raise HTTPException(
             status_code=402,
             detail={

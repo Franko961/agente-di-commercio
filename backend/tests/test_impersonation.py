@@ -117,6 +117,43 @@ def test_get_current_user_propaga_impersonation_mode(monkeypatch):
     assert result["impersonation_mode"] == "edit"
 
 
+def test_impersonazione_esente_dal_gate_trial_anche_con_abbonamento_scaduto(monkeypatch):
+    """Un admin che entra per assistenza non deve essere bloccato dallo stato
+    di abbonamento (scaduto/annullato) dell'utente che sta aiutando — anzi è
+    spesso proprio il motivo per cui serve assistenza. Prima di questo fix,
+    get_current_user applicava il gate trial anche alle sessioni di
+    impersonificazione, rendendo inutilizzabile il gestionale (ogni
+    chiamata API rispondeva 402) per qualunque utente con abbonamento non
+    attivo — cioè gli utenti che più probabilmente hanno bisogno di aiuto."""
+    user_doc = {
+        "id": "user-42", "email": "utente@esempio.it", "role": "agent",
+        "subscription_status": "cancelled",
+    }
+    monkeypatch.setattr(security_mod, "db", FakeDb(user_doc))
+    token = create_impersonation_token("admin-1", "user-42", "utente@esempio.it")
+
+    result = run(get_current_user(FakeRequest(token)))
+
+    assert result["id"] == "user-42"
+
+
+def test_login_normale_con_abbonamento_scaduto_resta_bloccato(monkeypatch):
+    """Controllo di non-regressione: l'esenzione sopra riguarda SOLO le
+    sessioni di impersonificazione, non deve allentare il gate per l'utente
+    che accede con il proprio login normale."""
+    from core.security import create_access_token
+    user_doc = {
+        "id": "user-42", "email": "utente@esempio.it", "role": "agent",
+        "subscription_status": "cancelled",
+    }
+    monkeypatch.setattr(security_mod, "db", FakeDb(user_doc))
+    token = create_access_token("user-42", "utente@esempio.it")
+
+    with pytest.raises(HTTPException) as exc_info:
+        run(get_current_user(FakeRequest(token)))
+    assert exc_info.value.status_code == 402
+
+
 def test_get_current_user_normale_non_ha_impersonated_by(monkeypatch):
     from core.security import create_access_token
     user_doc = {"id": "user-42", "email": "utente@esempio.it", "role": "agent", "subscription_status": "active"}
