@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timezone
 
 from core.database import db, close_db
+from core.utils import gen_id
 from repositories.job_lock_repository import job_lock_repository
 from services.storage_service import init_storage
 
@@ -317,6 +318,21 @@ async def _automation_engine_loop() -> None:
             logger.error(f"Ciclo motore automazioni fallito: {e}")
 
 
+async def backfill_manual_commission_ids() -> None:
+    """Migrazione una tantum (query mirata, no-op sui giri successivi una
+    volta completata): i documenti creati PRIMA dell'introduzione del CRUD
+    per id — quando l'upsert era per (user_id, period), vedi il vecchio
+    manual_commission_repository.py — non hanno mai avuto un campo id. Ora
+    che l'unicità su (user_id, period) viene tolta (vedi run_startup), due
+    righe senza id potrebbero finire a condividere lo stesso fallback
+    sintetico in commission_service.normalize_manual_commission
+    (f"manual:{period}"), una collisione prima impossibile perché l'indice
+    univoco garantiva un solo documento per mese. Backfillare qui un id
+    reale su ogni documento esistente chiude il problema alla radice."""
+    async for doc in db.manual_commissions.find({"id": {"$exists": False}}, {"_id": 1}):
+        await db.manual_commissions.update_one({"_id": doc["_id"]}, {"$set": {"id": gen_id()}})
+
+
 async def run_startup() -> None:
     # Init object storage (non-blocking on failure)
     try:
@@ -402,6 +418,8 @@ async def run_startup() -> None:
     # target_id) e lettura notifiche per utente ordinate per data.
     await db.automation_runs.create_index([("automation_id", 1), ("target_id", 1)], unique=True)
     await db.automation_notifications.create_index([("user_id", 1), ("created_at", -1)])
+
+    await backfill_manual_commission_ids()
 
     # L'indice univoco (user_id, period) limitava a una sola provvigione
     # manuale per mese — troppo restrittivo una volta aggiunti mandante/

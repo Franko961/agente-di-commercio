@@ -211,9 +211,13 @@ def normalize_manual_commission(user_id: str, m: dict) -> dict:
     di salvataggio farebbe contare una provvigione manuale di un mese
     passato nel mese corrente. Mezzogiorno (non mezzanotte) evita qualunque
     ambiguità di fuso: resta lo stesso giorno di calendario in ora italiana
-    in ogni caso (CET o CEST). id: fallback sintetico solo per compatibilità
-    con eventuali fixture di test prive di id — ogni documento reale ne ha
-    sempre uno (vedi CommissionService.create_manual_commission)."""
+    in ogni caso (CET o CEST). id: fallback sintetico usato SOLO da fixture
+    di test prive di id — ogni documento reale ne ha sempre uno (creato da
+    CommissionService.create_manual_commission, oppure backfillato dalla
+    migrazione una tantum in startup_service.run_startup per i documenti
+    creati prima che id esistesse). Il fallback resta basato su period per
+    semplicità nei test, ma non deve mai essere raggiunto su dati reali:
+    con period non più univoco, righe diverse senza id vi collidrebbero."""
     return {
         "id": m.get("id") or f"manual:{m['period']}",
         "user_id": user_id,
