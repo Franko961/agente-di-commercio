@@ -80,14 +80,17 @@ def create_access_token(user_id: str, email: str) -> str:
 IMPERSONATION_TOKEN_TTL_MINUTES = 60
 
 
-def create_impersonation_token(admin_id: str, target_user_id: str, target_email: str) -> str:
+def create_impersonation_token(admin_id: str, target_user_id: str, target_email: str, mode: str = "view") -> str:
     """Token che fa autenticare il chiamante COME target_user_id, con in più
     il claim impersonated_by: è quel claim (letto da get_current_user sotto)
     a rendere possibile tornare all'account admin originale senza dover
-    rifare login (vedi /api/auth/exit-impersonation in routers/auth.py)."""
+    rifare login (vedi /api/auth/exit-impersonation in routers/auth.py).
+    mode è "view" (default, sola lettura — vedi forbid_demo_write più sotto,
+    che blocca le scritture anche in questa modalità) oppure "edit" (accesso
+    in scrittura, richiede un motivo — vedi admin_service.impersonate_user)."""
     payload = {
         "sub": target_user_id, "email": target_email, "type": "access",
-        "impersonated_by": admin_id,
+        "impersonated_by": admin_id, "impersonation_mode": mode,
         "exp": datetime.now(timezone.utc) + timedelta(minutes=IMPERSONATION_TOKEN_TTL_MINUTES),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
@@ -119,6 +122,7 @@ async def get_current_user(request: Request) -> dict:
     # non solo nella pagina dove è iniziata la sessione.
     if payload.get("impersonated_by"):
         user["impersonated_by"] = payload["impersonated_by"]
+        user["impersonation_mode"] = payload.get("impersonation_mode", "view")
 
     path = request.url.path
     is_exempt = any(path.startswith(p) for p in TRIAL_GATE_EXEMPT_PREFIXES)
@@ -189,11 +193,15 @@ async def require_admin(user: dict = Depends(get_current_user)) -> dict:
 
 async def forbid_demo_write(user: dict = Depends(get_current_user)) -> dict:
     """Blocca qualunque scrittura (creazione, modifica, cancellazione) per
-    l'account demo condiviso: è la dependency da usare su OGNI rotta
-    POST/PUT/PATCH/DELETE che modifica dati appartenenti all'utente, non
-    solo su quelle distruttive — l'account demo è pensato per essere
-    esplorabile in sola lettura, non modificabile dai visitatori (vedi
-    services/demo_reset_service.py per la strategia completa)."""
+    l'account demo condiviso, ED ANCHE per un admin che sta impersonificando
+    un utente in modalità "view" (sola lettura, vedi create_impersonation_token):
+    è la dependency da usare su OGNI rotta POST/PUT/PATCH/DELETE che modifica
+    dati appartenenti all'utente, non solo su quelle distruttive — sia
+    l'account demo sia una sessione di impersonificazione in sola lettura
+    sono pensati per essere esplorabili senza poter scrivere (vedi
+    services/demo_reset_service.py per la strategia demo completa)."""
     if user.get("is_demo"):
         raise HTTPException(status_code=403, detail="Questa azione non è disponibile nell'account demo")
+    if user.get("impersonation_mode") == "view":
+        raise HTTPException(status_code=403, detail="Modalità sola lettura: passa a \"Accedi e modifica\" per apportare modifiche")
     return user

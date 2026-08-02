@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import api from "../api";
 import {
   Users, TrendingUp, CreditCard, Pencil, Trash2, Check, X,
-  Activity, AlertTriangle, Mail, CalendarClock, Bot, ShieldCheck, Clock, LogIn,
+  Activity, AlertTriangle, Mail, CalendarClock, Bot, ShieldCheck, Clock, LogIn, Eye,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
 const fmtUsd = (n) => `$${(n ?? 0).toFixed(4)}`;
@@ -59,6 +60,9 @@ function BusinessTab() {
   const [page, setPage] = useState(1);
   const [editUser, setEditUser] = useState(null);
   const [search, setSearch] = useState("");
+  const [editImpersonateTarget, setEditImpersonateTarget] = useState(null);
+  const [impersonateReason, setImpersonateReason] = useState("");
+  const [submittingImpersonate, setSubmittingImpersonate] = useState(false);
 
   const load = async () => {
     const [s, u] = await Promise.all([
@@ -86,16 +90,35 @@ function BusinessTab() {
     load();
   };
 
-  const impersonate = async (id, email) => {
-    if (!window.confirm(`Entrare nel gestionale di ${email}? Potrai vedere e modificare i suoi dati come se fossi lui.`)) return;
+  // Reload pieno (non un semplice navigate): il cookie di sessione è già
+  // stato sostituito dal server, serve ricaricare tutto lo stato dell'app
+  // (AuthContext, mandanti, ecc.) come per un vero login.
+  const goToImpersonatedApp = () => { window.location.href = "/app"; };
+
+  const impersonateView = async (id, email) => {
+    if (!window.confirm(`Visualizzare il gestionale di ${email} in sola lettura? Non potrai modificare i suoi dati.`)) return;
     try {
-      await api.post(`/admin/users/${id}/impersonate`);
-      // Reload pieno (non un semplice navigate): il cookie di sessione è
-      // già stato sostituito dal server, serve ricaricare tutto lo stato
-      // dell'app (AuthContext, mandanti, ecc.) come per un vero login.
-      window.location.href = "/app";
+      await api.post(`/admin/users/${id}/impersonate`, { mode: "view" });
+      goToImpersonatedApp();
     } catch {
       toast.error("Impossibile entrare nell'account di questo utente");
+    }
+  };
+
+  const submitEditImpersonate = async () => {
+    if (!impersonateReason.trim()) {
+      toast.error("Indica un motivo per accedere in modifica");
+      return;
+    }
+    setSubmittingImpersonate(true);
+    try {
+      await api.post(`/admin/users/${editImpersonateTarget.id}/impersonate`, {
+        mode: "edit", reason: impersonateReason.trim(),
+      });
+      goToImpersonatedApp();
+    } catch {
+      toast.error("Impossibile entrare nell'account di questo utente");
+      setSubmittingImpersonate(false);
     }
   };
 
@@ -204,7 +227,9 @@ function BusinessTab() {
                         </>
                       ) : (
                         <>
-                          <button onClick={() => impersonate(u.id, u.email)} title="Accedi come questo utente" aria-label="Accedi come questo utente"
+                          <button onClick={() => impersonateView(u.id, u.email)} title="Visualizza come utente (sola lettura)" aria-label="Visualizza come utente (sola lettura)"
+                            className="p-1.5 text-[#A1A1AA] hover:text-[#FF5A00] hover:bg-[#FFF3EC] rounded"><Eye className="w-4 h-4" /></button>
+                          <button onClick={() => { setImpersonateReason(""); setEditImpersonateTarget(u); }} title="Accedi e modifica" aria-label="Accedi e modifica"
                             className="p-1.5 text-[#A1A1AA] hover:text-[#FF5A00] hover:bg-[#FFF3EC] rounded"><LogIn className="w-4 h-4" /></button>
                           <button onClick={() => setEditUser({...u})} title="Modifica utente" aria-label="Modifica utente"
                             className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
@@ -228,6 +253,44 @@ function BusinessTab() {
           </div>
         )}
       </div>
+
+      {/* "Accedi e modifica": a differenza di "Visualizza come utente", qui
+      si ottiene un token che può scrivere sui dati dell'utente (vedi
+      core.security.forbid_demo_write), quindi si richiede un motivo — resta
+      nell'audit log insieme a chi ha fatto l'accesso e su chi. */}
+      <Dialog open={!!editImpersonateTarget} onOpenChange={(v) => !v && setEditImpersonateTarget(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Accedi e modifica</DialogTitle></DialogHeader>
+          {editImpersonateTarget && (
+            <div className="space-y-3">
+              <p className="text-[13px] text-[#52525B]">
+                Entrerai nel gestionale di <strong>{editImpersonateTarget.email}</strong> con permessi di scrittura:
+                potrai creare, modificare ed eliminare i suoi dati come se fossi lui.
+              </p>
+              <div>
+                <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Motivo dell'accesso</label>
+                <textarea
+                  value={impersonateReason}
+                  onChange={(e) => setImpersonateReason(e.target.value)}
+                  rows={3}
+                  placeholder="Es. richiesta telefonica: correggere l'ordine #123"
+                  className="bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px] w-full"
+                  autoFocus
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setEditImpersonateTarget(null)} className="px-4 py-2 border border-[#E4E4E1] rounded-md text-[13px] font-medium">
+                  Annulla
+                </button>
+                <button onClick={submitEditImpersonate} disabled={submittingImpersonate || !impersonateReason.trim()}
+                  className="px-4 py-2 bg-[#0A192F] text-white rounded-md text-[13px] font-medium disabled:opacity-50">
+                  Accedi e modifica
+                </button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -20,7 +20,7 @@ export default function Privacy() {
         <div>
           <h1 className="font-cabinet font-black text-3xl mb-2">Informativa sulla Privacy</h1>
           <p className="text-[#52525B] text-xs">
-            Bozza — versione 1.3 del 02/08/2026. Documento da far verificare da un professionista
+            Bozza — versione 1.4 del 02/08/2026. Documento da far verificare da un professionista
             legale/DPO prima della pubblicazione definitiva, in base ai trattamenti realmente
             effettuati e alla struttura societaria.
           </p>
@@ -206,14 +206,19 @@ export default function Privacy() {
           <p>
             Il personale amministrativo del Titolare può, solo su richiesta esplicita
             dell'utente (ad esempio nell'ambito di una richiesta di assistenza telefonica o via
-            email su una modifica specifica), accedere temporaneamente al gestionale dell'utente
-            con gli stessi permessi con cui l'utente stesso vi accede. L'accesso avviene
-            esclusivamente per fornire l'assistenza richiesta, mai per finalità di controllo,
-            marketing o analisi. Ogni accesso di questo tipo è tracciato in un registro interno
-            (chi lo ha effettuato, su quale account, quando) conservato dal Titolare a fini di
-            responsabilità (art. 5.2 GDPR), e la sessione così ottenuta scade automaticamente
-            entro un'ora. L'utente può richiedere informazioni sugli accessi effettuati sul
-            proprio account esercitando i diritti di cui al punto 8.
+            email su una modifica specifica), accedere temporaneamente al gestionale dell'utente.
+            Per impostazione predefinita l'accesso è in sola lettura: non consente alcuna
+            modifica ai dati dell'utente. Solo quando la richiesta di assistenza lo richiede
+            (ad esempio per correggere direttamente un dato su indicazione dell'utente), il
+            personale amministrativo può accedere con permessi di scrittura, indicando
+            preventivamente il motivo dell'intervento; quel motivo resta anch'esso nel registro
+            interno di cui sotto. L'accesso avviene esclusivamente per fornire l'assistenza
+            richiesta, mai per finalità di controllo, marketing o analisi. Ogni accesso di questo
+            tipo è tracciato in un registro interno (chi lo ha effettuato, su quale account,
+            quando, con quali permessi) conservato dal Titolare a fini di responsabilità (art.
+            5.2 GDPR), e la sessione così ottenuta scade automaticamente entro un'ora. L'utente
+            può richiedere informazioni sugli accessi effettuati sul proprio account esercitando
+            i diritti di cui al punto 8.
           </p>
         </section>
 

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Body, Request
-from core.security import get_current_user, get_client_ip
+from core.security import get_current_user, get_client_ip, forbid_demo_write
 from services.subscription_service import subscription_service
 
 router = APIRouter(prefix="/api/subscription", tags=["subscription"])
@@ -16,7 +16,7 @@ async def subscription_status(user=Depends(get_current_user)):
 
 
 @router.post("/create-stripe-session")
-async def create_stripe_session(payload: dict = Body(...), user=Depends(get_current_user)):
+async def create_stripe_session(payload: dict = Body(...), user=Depends(forbid_demo_write)):
     return await subscription_service.create_stripe_session(user, payload)
 
 
@@ -36,12 +36,12 @@ async def stripe_webhook(request: Request):
 
 
 @router.post("/paypal-create")
-async def paypal_create(payload: dict = Body(...), user=Depends(get_current_user)):
+async def paypal_create(payload: dict = Body(...), user=Depends(forbid_demo_write)):
     return await subscription_service.create_paypal_subscription(user, payload)
 
 
 @router.post("/paypal-capture")
-async def paypal_capture(payload: dict = Body(...), user=Depends(get_current_user)):
+async def paypal_capture(payload: dict = Body(...), user=Depends(forbid_demo_write)):
     return await subscription_service.paypal_capture(user, payload)
 
 
@@ -51,5 +51,5 @@ async def paypal_webhook(request: Request):
 
 
 @router.post("/cancel")
-async def cancel_subscription(user=Depends(get_current_user)):
+async def cancel_subscription(user=Depends(forbid_demo_write)):
     return await subscription_service.cancel_subscription(user)

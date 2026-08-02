@@ -110,19 +110,26 @@ class AdminService:
             "delete_user", target_user_id=uid,
         )
 
-    async def impersonate_user(self, uid: str, admin: dict) -> tuple:
+    async def impersonate_user(self, uid: str, admin: dict, mode: str = "view", reason: str = None) -> tuple:
         """Genera un token che autentica chi chiama come l'utente uid,
         per poter entrare nel suo gestionale quando serve assistenza (es.
         una richiesta telefonica di modificare qualcosa). Ritorna
         (token, email_utente_target).
 
-        Due controlli oltre a require_admin (già applicato dal router):
+        Controlli oltre a require_admin (già applicato dal router):
         - non ha senso "impersonificare" se stessi;
         - un admin non impersonifica un altro admin — restrizione di
           sicurezza aggiuntiva, anche se in pratica list_users/find_agents
           esclude già gli admin dall'elenco mostrato in UI (filtra
           role="agent"), quindi questo caso non dovrebbe essere raggiungibile
-          dall'interfaccia stessa."""
+          dall'interfaccia stessa;
+        - mode deve essere "view" (default, sola lettura — vedi
+          core.security.forbid_demo_write) o "edit" (scrittura consentita);
+        - mode "edit" richiede un motivo non vuoto: l'accesso in sola
+          lettura non lo richiede perché non comporta nessuna modifica ai
+          dati dell'utente, mentre uno con permessi di scrittura sì, per
+          responsabilità (chi ha modificato cosa e perché, non solo chi è
+          entrato)."""
         if uid == admin["id"]:
             raise HTTPException(400, "Non puoi impersonificare te stesso")
         target = await user_repository.find_by_id(uid)
@@ -130,11 +137,19 @@ class AdminService:
             raise HTTPException(404, "Utente non trovato")
         if target.get("role") == "admin":
             raise HTTPException(403, "Non è possibile impersonificare un altro amministratore")
+        if mode not in ("view", "edit"):
+            raise HTTPException(400, "Modalità non valida")
+        reason = (reason or "").strip()
+        if mode == "edit" and not reason:
+            raise HTTPException(400, "Indica un motivo per accedere in modifica")
 
-        token = create_impersonation_token(admin["id"], uid, target["email"])
+        token = create_impersonation_token(admin["id"], uid, target["email"], mode=mode)
+        detail = {"target_email": target["email"], "mode": mode}
+        if mode == "edit":
+            detail["reason"] = reason
         await self._record_audit(
             admin.get("email", admin.get("id")), "impersonate_user",
-            target_user_id=uid, detail={"target_email": target["email"]},
+            target_user_id=uid, detail=detail,
         )
         return token, target["email"]
 

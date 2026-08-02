@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Body, Request, Response
 from core.security import require_admin, get_client_ip, IMPERSONATION_TOKEN_TTL_MINUTES
 from services.admin_service import admin_service
 from services.health_service import health_service
+from models.admin import ImpersonateIn
 
 router = APIRouter(prefix="/api", tags=["admin"])
 
@@ -49,13 +50,15 @@ async def admin_delete_user(uid: str, admin=Depends(require_admin)):
 
 
 @router.post("/admin/users/{uid}/impersonate")
-async def admin_impersonate_user(uid: str, response: Response, admin=Depends(require_admin)):
+async def admin_impersonate_user(uid: str, response: Response, payload: ImpersonateIn = ImpersonateIn(), admin=Depends(require_admin)):
     """Sostituisce il cookie di sessione dell'admin con uno che autentica
     come l'utente uid, per entrare nel suo gestionale (es. assistenza
     telefonica). Il cookie dell'admin viene sovrascritto, non serve però
     un nuovo login per tornare admin: vedi POST /api/auth/exit-impersonation,
-    che usa il claim impersonated_by incorporato in questo stesso token."""
-    token, target_email = await admin_service.impersonate_user(uid, admin)
+    che usa il claim impersonated_by incorporato in questo stesso token.
+    payload.mode "view" (default) è sola lettura, "edit" richiede un motivo
+    — vedi admin_service.impersonate_user."""
+    token, target_email = await admin_service.impersonate_user(uid, admin, mode=payload.mode, reason=payload.reason)
     response.set_cookie("access_token", token, httponly=True, secure=True,
                          samesite="none", max_age=IMPERSONATION_TOKEN_TTL_MINUTES * 60, path="/")
     return {"ok": True, "email": target_email}
