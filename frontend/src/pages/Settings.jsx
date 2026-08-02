@@ -188,10 +188,13 @@ export default function Settings() {
 
   return (
     <div className={tab === "registro-ai" ? "max-w-5xl" : "max-w-3xl"}>
-      <div className="flex items-center gap-1 mb-6 border-b border-[#E4E4E1]">
+      {/* overflow-x-auto: senza, i 5 tab non ci stanno su una riga sotto una
+      certa larghezza e si accavallano — stesso pattern già corretto in
+      ClientDetail.jsx per lo stesso motivo. */}
+      <div className="flex items-center gap-1 mb-6 border-b border-[#E4E4E1] overflow-x-auto">
         <button
           onClick={() => setTab("integrazioni")}
-          className={`flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium border-b-2 -mb-px transition-colors ${
+          className={`flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
             tab === "integrazioni" ? "border-[#FF5A00] text-[#0A192F]" : "border-transparent text-[#A1A1AA] hover:text-[#52525B]"
           }`}
         >
@@ -199,7 +202,7 @@ export default function Settings() {
         </button>
         <button
           onClick={() => setTab("obiettivi")}
-          className={`flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium border-b-2 -mb-px transition-colors ${
+          className={`flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
             tab === "obiettivi" ? "border-[#FF5A00] text-[#0A192F]" : "border-transparent text-[#A1A1AA] hover:text-[#52525B]"
           }`}
         >
@@ -207,7 +210,7 @@ export default function Settings() {
         </button>
         <button
           onClick={() => setTab("percorsi")}
-          className={`flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium border-b-2 -mb-px transition-colors ${
+          className={`flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
             tab === "percorsi" ? "border-[#FF5A00] text-[#0A192F]" : "border-transparent text-[#A1A1AA] hover:text-[#52525B]"
           }`}
         >
@@ -215,7 +218,7 @@ export default function Settings() {
         </button>
         <button
           onClick={() => setTab("registro-ai")}
-          className={`flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium border-b-2 -mb-px transition-colors ${
+          className={`flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
             tab === "registro-ai" ? "border-[#FF5A00] text-[#0A192F]" : "border-transparent text-[#A1A1AA] hover:text-[#52525B]"
           }`}
         >
@@ -223,7 +226,7 @@ export default function Settings() {
         </button>
         <button
           onClick={() => setTab("privacy")}
-          className={`flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium border-b-2 -mb-px transition-colors ${
+          className={`flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
             tab === "privacy" ? "border-[#FF5A00] text-[#0A192F]" : "border-transparent text-[#A1A1AA] hover:text-[#52525B]"
           }`}
         >
