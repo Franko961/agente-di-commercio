@@ -7,8 +7,9 @@ import { article as calcoloProvvigioni } from "./articles/calcolo-provvigioni-ag
 import { article as aiCrmAutomazione } from "./articles/ai-crm-automatizzano-vendite";
 import { article as enasarco } from "./articles/enasarco-cos-e-come-funziona";
 import { article as giroVisite } from "./articles/pianificare-giro-visite-agente-di-commercio";
+import { article as speseDeducibili } from "./articles/spese-deducibili-agente-di-commercio";
 
-const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite];
+const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili];
 
 export const articles = [...allArticles].sort(
   (a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)
