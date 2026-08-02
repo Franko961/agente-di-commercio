@@ -452,21 +452,27 @@ function OrderForm({ client, order, mandanti, products, onSave }) {
         <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-2">Righe ordine</label>
         <div className="space-y-2">
           {f.items.map((it, i) => (
-            <div key={i} className="grid grid-cols-12 gap-2 items-center">
+            // grid-cols-2 sotto sm, grid-cols-12 da sm in su: a 12 colonne
+            // fisse (senza collasso) i 5 campi diventavano larghi pochi
+            // pixel su schermi stretti (320-375px) o sfondavano il dialog
+            // — sotto sm ricadono su 2 righe leggibili (combobox e
+            // descrizione a tutta larghezza, quantità/prezzo affiancati,
+            // sconto a tutta larghezza).
+            <div key={i} className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-center">
               <ProductCombobox
                 products={filtered}
                 value={it.product_id}
                 onSelect={(p) => updItem(i, { product_id: p.id, description: p.name, unit_price: p.price })}
-                className="col-span-3 w-full"
+                className="col-span-2 sm:col-span-3 w-full"
               />
               <input value={it.description} onChange={(e) => updItem(i, { description: e.target.value })} placeholder="Descrizione" required
-                     className="col-span-4 bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
+                     className="col-span-2 sm:col-span-4 w-full bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
               <input type="number" min="0" step="any" value={it.quantity} onChange={(e) => updItem(i, { quantity: parseFloat(e.target.value) || 0 })} placeholder="Qta"
-                     className="col-span-1 bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
+                     className="col-span-1 w-full bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
               <input type="number" min="0" step="any" value={it.unit_price} onChange={(e) => updItem(i, { unit_price: parseFloat(e.target.value) || 0 })} placeholder="€"
-                     className="col-span-2 bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
+                     className="col-span-1 sm:col-span-2 w-full bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
               <input type="number" min="0" max="100" step="any" value={it.discount} onChange={(e) => updItem(i, { discount: parseFloat(e.target.value) || 0 })} placeholder="%"
-                     className="col-span-2 bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
+                     className="col-span-2 w-full bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px]" />
             </div>
           ))}
         </div>
