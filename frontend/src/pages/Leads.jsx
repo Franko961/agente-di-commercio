@@ -28,12 +28,22 @@ export default function Leads() {
   const load = async () => { const { data } = await api.get("/leads"); setLeads(data); };
   useEffect(() => { load(); }, []);
 
+  // Estratto da onDrop così lo stesso spostamento è raggiungibile anche
+  // senza drag-and-drop (vedi il menu a tendina sulla card): l'API HTML5
+  // drag-and-drop non genera eventi su dispositivi touch (iOS Safari,
+  // Chrome Android) — senza un'alternativa, uno stato non sarebbe MAI
+  // cambiabile da mobile, dato che il form di modifica del lead non
+  // espone nemmeno il campo stato.
+  const moveLead = async (id, status) => {
+    await api.patch(`/leads/${id}/status`, { status });
+    setLeads((prev) => prev.map(l => l.id === id ? { ...l, status } : l));
+    toast.success(`Lead spostato in "${status}"`);
+  };
+
   const onDrop = async (status) => {
     if (!drag) return;
-    await api.patch(`/leads/${drag.id}/status`, { status });
-    setLeads(leads.map(l => l.id === drag.id ? { ...l, status } : l));
+    await moveLead(drag.id, status);
     setDrag(null);
-    toast.success(`Lead spostato in "${status}"`);
   };
 
   return (
@@ -118,6 +128,22 @@ export default function Leads() {
                         )}
                       </div>
                     )}
+                    {/* Alternativa al drag-and-drop (che su touch non
+                    genera alcun evento): sposta lo stato dello stesso lead
+                    da qualunque dispositivo. */}
+                    <div className="mt-2 pt-2 border-t border-[#F3F3F1]">
+                      <select
+                        value={l.status}
+                        onChange={(e) => moveLead(l.id, e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        data-testid={`lead-status-select-${l.id}`}
+                        className="w-full bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[11px] font-mono uppercase tracking-widest"
+                      >
+                        {COLUMNS.map((c) => (
+                          <option key={c.id} value={c.id}>{c.label}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 ))}
               </div>
