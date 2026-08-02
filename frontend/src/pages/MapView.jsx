@@ -283,7 +283,14 @@ export default function MapView() {
   }, [plan]);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] md:h-screen">
+    // Su mobile sottrae anche l'altezza della bottom-nav fissa (MobileNav,
+    // stessi 80px/bottom-20 usati da VoiceAssistant.jsx per lo stesso
+    // motivo), non solo l'header (64px): senza, il pannello di
+    // pianificazione riempiva il container fino al bordo esatto dello
+    // schermo, e i pulsanti "Salva il giro in Agenda"/"Nuova
+    // pianificazione" — ultimo elemento non scrollabile del pannello —
+    // finivano proprio dove la bottom-nav (z-40) li copre.
+    <div className="flex flex-col h-[calc(100vh-64px-80px)] md:h-screen">
       <div className="p-4 md:p-8 border-b border-[#E4E4E1] bg-white flex items-center justify-between gap-4 flex-wrap">
         <div>
           <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-1">Geolocalizzazione</div>
