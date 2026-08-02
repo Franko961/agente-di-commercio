@@ -48,29 +48,35 @@ export default function Leads() {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="flex items-end justify-between border-b border-[#E4E4E1] pb-6 mb-6">
+      <div className="flex items-end justify-between border-b border-[#E4E4E1] pb-6 mb-6 gap-2">
         <div>
           <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Pipeline</div>
           <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Lead & Prospect</h1>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <button data-testid="new-lead-button" className="flex items-center gap-2 px-4 py-2.5 bg-[#0A192F] text-white rounded-md text-[13px] font-medium">
-              <Plus className="w-4 h-4" /> Nuovo lead
-            </button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Nuovo lead</DialogTitle></DialogHeader>
-            <LeadForm onSave={async (f) => { await api.post("/leads", f); load(); toast.success("Lead creato"); setOpen(false); }} />
-          </DialogContent>
-        </Dialog>
-        <button
-          data-testid="export-leads-button"
-          onClick={() => exportLeads().then(() => toast.success("Export scaricato")).catch(() => toast.error("Errore export"))}
-          className="hidden sm:flex items-center gap-2 px-4 py-2.5 border border-[#E4E4E1] hover:border-[#0A192F] rounded-md text-[13px] font-medium ml-2"
-        >
-          <Download className="w-4 h-4" /> CSV
-        </button>
+        {/* Nuovo lead + CSV raggruppati (prima erano fratelli diretti del
+        flex justify-between, con l'export nascosto sotto sm): raggruppare
+        li tiene vicini invece di spargerli sui tre "slot" del flex, e
+        rende l'export raggiungibile anche da mobile. */}
+        <div className="flex items-center gap-2">
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <button data-testid="new-lead-button" className="flex items-center gap-2 px-4 py-2.5 bg-[#0A192F] text-white rounded-md text-[13px] font-medium">
+                <Plus className="w-4 h-4" /> Nuovo lead
+              </button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Nuovo lead</DialogTitle></DialogHeader>
+              <LeadForm onSave={async (f) => { await api.post("/leads", f); load(); toast.success("Lead creato"); setOpen(false); }} />
+            </DialogContent>
+          </Dialog>
+          <button
+            data-testid="export-leads-button"
+            onClick={() => exportLeads().then(() => toast.success("Export scaricato")).catch(() => toast.error("Errore export"))}
+            className="flex items-center gap-2 px-4 py-2.5 border border-[#E4E4E1] hover:border-[#0A192F] rounded-md text-[13px] font-medium"
+          >
+            <Download className="w-4 h-4" /> CSV
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 overflow-x-auto">
