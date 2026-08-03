@@ -71,6 +71,19 @@ const PAGES = {
     changefreq: "weekly",
     priority: "0.7",
   },
+  // Pagina di atterraggio dedicata a campagne pubblicitarie sull'assistente
+  // AI (non raggiungibile dal menu principale, vedi LandingAI.jsx) —
+  // priorità/changefreq più bassi delle pagine di navigazione principale,
+  // coerente con il suo ruolo di pagina secondaria.
+  "/assistente-ai": {
+    title: "Assistente AI per il CRM — SALESFLY",
+    description:
+      "L'assistente AI di SALESFLY aggiunge clienti, appuntamenti, lead e note nel CRM al posto tuo: non ti dà consigli, esegue. Prova gratis 14 giorni.",
+    ogDescription:
+      "Altri assistenti AI nei CRM ti dicono cosa fare. Il nostro lo fa al posto tuo: clienti, appuntamenti, lead e note aggiornati mentre sei dal cliente.",
+    changefreq: "monthly",
+    priority: "0.5",
+  },
 };
 
 // Stessi valori per ogni articolo blog (a differenza di slug/title/ecc.,

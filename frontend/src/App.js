@@ -42,6 +42,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const RichiediDemo = lazy(() => import("./pages/RichiediDemo"));
+const LandingAI = lazy(() => import("./pages/LandingAI"));
 const BlogIndex = lazy(() => import("./pages/BlogIndex"));
 const BlogPost = lazy(() => import("./pages/BlogPost"));
 const GuidedTour = lazy(() => import("./pages/GuidedTour"));
@@ -80,6 +81,7 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/prezzi" element={<Pricing />} />
               <Route path="/richiedi-demo" element={<RichiediDemo />} />
+              <Route path="/assistente-ai" element={<LandingAI />} />
               <Route path="/blog" element={<BlogIndex />} />
               <Route path="/blog/:slug" element={<BlogPost />} />
               <Route path="/tour" element={<GuidedTour />} />
