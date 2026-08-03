@@ -13,7 +13,12 @@
  * Cosa fa: per ogni pagina pubblica nota (elencate sotto) e ogni articolo
  * del blog non in bozza, genera una copia di build/index.html con i tag
  * <title>/<meta description>/<link canonical>/OG/Twitter già corretti nel
- * markup statico, scritta in build/<percorso>/index.html. Netlify serve un
+ * markup statico, scritta in build/<percorso>.html (es. build/prezzi.html,
+ * build/blog/<slug>.html — non build/<percorso>/index.html: Netlify
+ * risolve i file .html senza estensione nell'URL SENZA redirect grazie a
+ * "pretty URLs", mentre un file indice in una sottocartella richiederebbe
+ * un redirect 301 per aggiungere la barra finale, un giro di rete in più
+ * su ogni pagina pubblica e ogni visita di un crawler). Netlify serve un
  * file statico che esiste fisicamente PRIMA di applicare la regola di
  * fallback SPA (/* -> /index.html in public/_redirects), quindi queste
  * pagine vengono servite già pronte, senza bisogno di alcuna modifica alla
@@ -209,9 +214,14 @@ function main() {
   const routes = buildRoutes();
   for (const route of routes) {
     const html = renderPage(template, route);
-    const outDir = path.join(BUILD_DIR, route.path === "/" ? "." : route.path);
-    fs.mkdirSync(outDir, { recursive: true });
-    fs.writeFileSync(path.join(outDir, "index.html"), html);
+    // "/" resta build/index.html (il file richiesto per servire la root);
+    // ogni altra rotta diventa un file .html pari, non una sottocartella
+    // con index.html — vedi il commento in testa al file sul perché.
+    const outPath = route.path === "/"
+      ? path.join(BUILD_DIR, "index.html")
+      : path.join(BUILD_DIR, `${route.path}.html`);
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+    fs.writeFileSync(outPath, html);
   }
 
   fs.writeFileSync(path.join(BUILD_DIR, "sitemap.xml"), generateSitemapXml(routes));

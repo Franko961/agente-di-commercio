@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import "@/App.css";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -8,41 +9,60 @@ import AdminRoute from "./components/AdminRoute";
 import Layout from "./components/Layout";
 import AnalyticsRouteGuard from "./components/AnalyticsRouteGuard";
 import CookieConsentBanner from "./components/CookieConsentBanner";
-import Landing from "./pages/Landing";
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Clients from "./pages/Clients";
-import ImportClienti from "./pages/ImportClienti";
-import ClientDetail from "./pages/ClientDetail";
-import Leads from "./pages/Leads";
-import Agenda from "./pages/Agenda";
-import MapView from "./pages/MapView";
-import Offers from "./pages/Offers";
-import Ordini from "./pages/Ordini";
-import Commissions from "./pages/Commissions";
-import Mandanti from "./pages/Mandanti";
-import Products from "./pages/Products";
-import Spese from "./pages/Spese";
-import Documents from "./pages/Documents";
-import Automations from "./pages/Automations";
-import AIAssistant from "./pages/AIAssistant";
-import Subscription from "./pages/Subscription";
-import Settings from "./pages/Settings";
-import Admin from "./pages/Admin";
-import Pricing from "./pages/Pricing";
-import RichiediDemo from "./pages/RichiediDemo";
-import BlogIndex from "./pages/BlogIndex";
-import BlogPost from "./pages/BlogPost";
-import GuidedTour from "./pages/GuidedTour";
-import HelpCenter from "./pages/HelpCenter";
-import WhySalesFly from "./pages/WhySalesFly";
-import Contatti from "./pages/Contatti";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import Privacy from "./pages/Privacy";
-import Terms from "./pages/Terms";
 import OfflineBanner from "./components/OfflineBanner";
 import { Toaster } from "./components/ui/sonner";
+
+// Ogni pagina in un chunk separato (React.lazy), invece di un unico bundle
+// da ~2.8MB con TUTTE le pagine, incluse quelle del gestionale privato
+// (mappe/Leaflet, PDF/jsPDF, grafici/Recharts, firma digitale) che un
+// visitatore pubblico — arrivato da una ricerca o un link condiviso sulla
+// homepage o un articolo del blog — non userà mai. Un bundle enorme
+// rallenta il primo caricamento (Core Web Vitals, fattore di ranking
+// Google) e aumenta l'abbandono prima ancora che la pagina sia pronta.
+const Landing = lazy(() => import("./pages/Landing"));
+const Login = lazy(() => import("./pages/Login"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Clients = lazy(() => import("./pages/Clients"));
+const ImportClienti = lazy(() => import("./pages/ImportClienti"));
+const ClientDetail = lazy(() => import("./pages/ClientDetail"));
+const Leads = lazy(() => import("./pages/Leads"));
+const Agenda = lazy(() => import("./pages/Agenda"));
+const MapView = lazy(() => import("./pages/MapView"));
+const Offers = lazy(() => import("./pages/Offers"));
+const Ordini = lazy(() => import("./pages/Ordini"));
+const Commissions = lazy(() => import("./pages/Commissions"));
+const Mandanti = lazy(() => import("./pages/Mandanti"));
+const Products = lazy(() => import("./pages/Products"));
+const Spese = lazy(() => import("./pages/Spese"));
+const Documents = lazy(() => import("./pages/Documents"));
+const Automations = lazy(() => import("./pages/Automations"));
+const AIAssistant = lazy(() => import("./pages/AIAssistant"));
+const Subscription = lazy(() => import("./pages/Subscription"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Admin = lazy(() => import("./pages/Admin"));
+const Pricing = lazy(() => import("./pages/Pricing"));
+const RichiediDemo = lazy(() => import("./pages/RichiediDemo"));
+const BlogIndex = lazy(() => import("./pages/BlogIndex"));
+const BlogPost = lazy(() => import("./pages/BlogPost"));
+const GuidedTour = lazy(() => import("./pages/GuidedTour"));
+const HelpCenter = lazy(() => import("./pages/HelpCenter"));
+const WhySalesFly = lazy(() => import("./pages/WhySalesFly"));
+const Contatti = lazy(() => import("./pages/Contatti"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const Privacy = lazy(() => import("./pages/Privacy"));
+const Terms = lazy(() => import("./pages/Terms"));
+
+// Stesso stile del loader già usato in ProtectedRoute per l'attesa della
+// sessione, per non mostrare due indicatori di caricamento diversi durante
+// lo stesso primo avvio dell'app.
+function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#F9F9F8]">
+      <div className="font-mono text-sm text-[#52525B]">caricamento...</div>
+    </div>
+  );
+}
 
 function App() {
   return (
@@ -54,6 +74,7 @@ function App() {
           <CookieConsentBanner />
           <AuthProvider>
             <MandanteProvider>
+              <Suspense fallback={<PageLoader />}>
               <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/login" element={<Login />} />
@@ -91,6 +112,7 @@ function App() {
                 <Route path="/app/admin" element={<AdminRoute><Admin /></AdminRoute>} />
               </Route>
               </Routes>
+              </Suspense>
             </MandanteProvider>
           </AuthProvider>
         </BrowserRouter>
