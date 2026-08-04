@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../api";
-import { Plus, Trash2, Download, Pencil, PhoneCall, Clock, CalendarClock } from "lucide-react";
+import { Plus, Trash2, Download, Pencil, PhoneCall, Clock, CalendarClock, Search, ChevronDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { toast } from "sonner";
 import { exportLeads } from "../utils/export";
@@ -16,6 +16,12 @@ const COLUMNS = [
   { id: "perso", label: "Perso", color: "#DC2626" },
 ];
 
+// Schede visibili per colonna al primo caricamento: con molti lead in uno
+// stesso stato, una colonna senza limite si allunga all'infinito (l'intera
+// board diventa una pagina lunghissima da scorrere). "Mostra altri" rivela
+// il resto a richiesta, invece di renderizzarlo e scrollarlo tutto subito.
+const PAGE_SIZE = 10;
+
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n || 0);
 
 export default function Leads() {
@@ -24,9 +30,22 @@ export default function Leads() {
   const [editing, setEditing] = useState(null);
   const [loggingContact, setLoggingContact] = useState(null);
   const [drag, setDrag] = useState(null);
+  const [search, setSearch] = useState("");
+  // Quante schede mostrare per colonna, per id colonna — sale di PAGE_SIZE
+  // alla volta cliccando "Mostra altri", non tocca le altre colonne.
+  const [visibleCounts, setVisibleCounts] = useState({});
+  const showMore = (colId) => setVisibleCounts((prev) => ({ ...prev, [colId]: (prev[colId] || PAGE_SIZE) + PAGE_SIZE }));
 
   const load = async () => { const { data } = await api.get("/leads"); setLeads(data); };
   useEffect(() => { load(); }, []);
+
+  const q = search.trim().toLowerCase();
+  // Con una ricerca attiva si mostrano TUTTI i risultati che corrispondono,
+  // ignorando il limite per colonna: lo scopo della ricerca è trovare
+  // subito un lead preciso, non scorrere una lista già filtrata.
+  const visibleLeads = q
+    ? leads.filter((l) => (l.company_name || "").toLowerCase().includes(q) || (l.contact_name || "").toLowerCase().includes(q))
+    : leads;
 
   // Estratto da onDrop così lo stesso spostamento è raggiungibile anche
   // senza drag-and-drop (vedi il menu a tendina sulla card): l'API HTML5
@@ -79,9 +98,23 @@ export default function Leads() {
         </div>
       </div>
 
+      <div className="relative mb-4 max-w-sm">
+        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#A1A1AA]" />
+        <input
+          data-testid="lead-search-input"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Cerca per ragione sociale, referente…"
+          className="w-full bg-white border border-[#E4E4E1] rounded-md pl-9 pr-3 py-2 text-[13px] focus:outline-none focus:border-[#0A192F]"
+        />
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 overflow-x-auto">
         {COLUMNS.map((col) => {
-          const items = leads.filter(l => l.status === col.id);
+          const items = visibleLeads.filter(l => l.status === col.id);
+          const visibleCount = q ? items.length : (visibleCounts[col.id] || PAGE_SIZE);
+          const shownItems = items.slice(0, visibleCount);
+          const remaining = items.length - shownItems.length;
           const total = items.reduce((s, l) => s + (l.estimated_value || 0), 0);
           return (
             <div key={col.id} data-testid={`kanban-col-${col.id}`}
@@ -95,8 +128,11 @@ export default function Leads() {
                 <span className="font-mono text-[10px] text-[#A1A1AA]">{items.length}</span>
               </div>
               <div className="font-mono text-[10px] text-[#52525B] mb-3">{fmt(total)} valore stimato</div>
-              <div className="space-y-2">
-                {items.map((l) => (
+              {/* Altezza massima + scroll interno: una colonna con molti
+              lead scorre su se stessa invece di allungare tutta la pagina
+              (vedi PAGE_SIZE sopra per il perché anche del "Mostra altri"). */}
+              <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-0.5">
+                {shownItems.map((l) => (
                   <div key={l.id} draggable onDragStart={() => setDrag(l)} data-testid={`lead-card-${l.id}`}
                        className="bg-white border border-[#E4E4E1] rounded-md p-3 cursor-grab active:cursor-grabbing">
                     <div className="flex items-start justify-between gap-2">
@@ -153,6 +189,16 @@ export default function Leads() {
                   </div>
                 ))}
               </div>
+              {remaining > 0 && (
+                <button
+                  onClick={() => showMore(col.id)}
+                  data-testid={`show-more-${col.id}`}
+                  className="w-full mt-2 flex items-center justify-center gap-1 text-[11px] font-mono uppercase tracking-widest text-[#52525B] hover:text-[#0A192F] py-1.5"
+                >
+                  Mostra altri {remaining}
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+              )}
             </div>
           );
         })}
