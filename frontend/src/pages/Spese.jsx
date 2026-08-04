@@ -108,6 +108,8 @@ export default function Spese() {
   const [newExpenseInitial, setNewExpenseInitial] = useState(emptyExpense());
   const [editTarget, setEditTarget] = useState(null);
   const [filter, setFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [expandedMonths, setExpandedMonths] = useState(() => new Set([monthKey(todayIso())]));
   const toggleMonth = (key) => setExpandedMonths((prev) => {
     const next = new Set(prev);
@@ -128,10 +130,14 @@ export default function Spese() {
   }, []);
 
   const load = async () => {
-    const { data } = await api.get("/expenses", { params: filter ? { category: filter } : {} });
+    const params = {};
+    if (filter) params.category = filter;
+    if (dateFrom) params.date_from = dateFrom;
+    if (dateTo) params.date_to = dateTo;
+    const { data } = await api.get("/expenses", { params });
     setExpenses(data);
   };
-  useEffect(() => { load(); }, [filter]);
+  useEffect(() => { load(); }, [filter, dateFrom, dateTo]);
 
   const deleteExpense = async (id, desc) => {
     if (!window.confirm(`Eliminare la spesa "${desc || "senza descrizione"}"?`)) return;
@@ -142,6 +148,13 @@ export default function Spese() {
 
   const total = useMemo(() => expenses.reduce((sum, e) => sum + (e.amount || 0), 0), [expenses]);
   const monthGroups = useMemo(() => groupByMonth(expenses), [expenses]);
+
+  // Con un filtro data attivo l'utente vuole vedere subito i risultati,
+  // non doverli scovare aprendo un mese alla volta come nella vista
+  // normale (dove solo il mese corrente parte aperto).
+  useEffect(() => {
+    if (dateFrom || dateTo) setExpandedMonths(new Set(monthGroups.map((g) => g.key)));
+  }, [dateFrom, dateTo, monthGroups]);
 
   return (
     <div className="p-4 md:p-8">
@@ -198,6 +211,33 @@ export default function Spese() {
         <div className="font-mono text-[11px] uppercase tracking-widest text-[#52525B]">
           Totale: <span className="font-cabinet font-black text-[15px] text-[#0A0A0A]">{fmt(total)}</span>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B]">Dal</label>
+        <input
+          type="date"
+          data-testid="expense-date-from"
+          value={dateFrom}
+          onChange={(e) => setDateFrom(e.target.value)}
+          className="bg-white border border-[#E4E4E1] rounded-md px-2.5 py-1.5 text-[12px]"
+        />
+        <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B]">Al</label>
+        <input
+          type="date"
+          data-testid="expense-date-to"
+          value={dateTo}
+          onChange={(e) => setDateTo(e.target.value)}
+          className="bg-white border border-[#E4E4E1] rounded-md px-2.5 py-1.5 text-[12px]"
+        />
+        {(dateFrom || dateTo) && (
+          <button
+            onClick={() => { setDateFrom(""); setDateTo(""); }}
+            className="text-[12px] text-[#52525B] hover:text-[#0A192F] underline underline-offset-4"
+          >
+            Cancella filtro date
+          </button>
+        )}
       </div>
 
       <div className="space-y-3">
