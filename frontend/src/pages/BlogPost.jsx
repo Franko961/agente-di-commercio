@@ -1,6 +1,6 @@
 import { useParams, Navigate, Link } from "react-router-dom";
-import { ArrowLeft, Calendar } from "lucide-react";
-import { getArticleBySlug } from "@/content/blog";
+import { ArrowLeft, ArrowRight, Calendar } from "lucide-react";
+import { getArticleBySlug, getPublishedArticles } from "@/content/blog";
 import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
 import PageMeta from "@/components/PageMeta";
@@ -36,6 +36,14 @@ export default function BlogPost() {
   const article = getArticleBySlug(slug);
 
   if (!article) return <Navigate to="/blog" replace />;
+
+  // Fino a 2 altri articoli pubblicati, i più recenti dopo quello corrente:
+  // collega ogni articolo agli altri invece di lasciarlo isolato (nessun
+  // link interno tra i pezzi del blog finora), aiutando sia il crawling
+  // di Google sia la permanenza del lettore sul sito.
+  const relatedArticles = getPublishedArticles()
+    .filter((a) => a.slug !== article.slug)
+    .slice(0, 2);
 
   return (
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
@@ -92,6 +100,29 @@ export default function BlogPost() {
         )}
 
         <article>{article.blocks.map(renderBlock)}</article>
+
+        {relatedArticles.length > 0 && (
+          <div className="mt-16 pt-10 border-t border-[#E4E4E1]">
+            <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#A1A1AA] mb-4">
+              Leggi anche
+            </div>
+            <div className="space-y-4">
+              {relatedArticles.map((a) => (
+                <Link
+                  key={a.slug}
+                  to={`/blog/${a.slug}`}
+                  className="block bg-white border border-[#E4E4E1] rounded-xl p-6 hover:border-[#0A192F] transition-colors"
+                >
+                  <div className="font-cabinet font-bold text-lg mb-2">{a.title}</div>
+                  <p className="text-[14px] text-[#52525B] mb-3">{a.description}</p>
+                  <span className="inline-flex items-center gap-1 text-[13px] text-[#FF5A00] font-medium">
+                    Leggi <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
 
       <PublicFooter />
