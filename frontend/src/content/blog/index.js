@@ -8,8 +8,9 @@ import { article as aiCrmAutomazione } from "./articles/ai-crm-automatizzano-ven
 import { article as enasarco } from "./articles/enasarco-cos-e-come-funziona";
 import { article as giroVisite } from "./articles/pianificare-giro-visite-agente-di-commercio";
 import { article as speseDeducibili } from "./articles/spese-deducibili-agente-di-commercio";
+import { article as multiMandante } from "./articles/gestire-piu-mandanti-crm";
 
-const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili];
+const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante];
 
 export const articles = [...allArticles].sort(
   (a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)
