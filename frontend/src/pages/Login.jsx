@@ -8,14 +8,11 @@ import usePlans from "../hooks/usePlans";
 
 export default function Login() {
   const { plansById, trialDays } = usePlans();
-  const { user, loading, login, register } = useAuth();
+  const { user, loading, login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [mode, setMode] = useState(searchParams.get("register") !== null ? "register" : "login");
-  const [plan, setPlan] = useState(searchParams.get("plan") || "base");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -24,15 +21,6 @@ export default function Login() {
   // richiedere una sessione autenticata (che non può più esistere).
   const [paywall, setPaywall] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
-
-  // Se arriva da /register?plan=pro apri direttamente registrazione
-  useEffect(() => {
-    if (searchParams.get("plan") || searchParams.get("register") !== null) {
-      setMode("register");
-      setEmail("");
-      setPassword("");
-    }
-  }, []);
 
   // Se arriva da un redirect per trial scaduto a metà sessione, avvisiamo
   // che deve reinserire le credenziali per procedere al pagamento.
@@ -65,14 +53,6 @@ export default function Login() {
   );
   if (user) return <Navigate to="/app" replace />;
 
-  const switchMode = (next) => {
-    setMode(next);
-    setError("");
-    setEmail("");
-    setPassword("");
-    setName("");
-  };
-
   const formatError = (err) => {
     const detail = err?.response?.data?.detail;
     if (typeof detail === "string") return detail;
@@ -92,15 +72,10 @@ export default function Login() {
     setError("");
     setPaywall(false);
     const cleanEmail = email.trim().toLowerCase();
-    if (mode === "register") {
-      if (!name.trim()) { setError("Inserisci nome e cognome"); return; }
-      if (password.length < 10) { setError("La password deve avere almeno 10 caratteri"); return; }
-    }
     setBusy(true);
     try {
-      if (mode === "login") await login(cleanEmail, password);
-      else await register(name.trim(), cleanEmail, password, plan);
-      toast.success(mode === "login" ? "Accesso effettuato" : "Account creato — benvenuto!");
+      await login(cleanEmail, password);
+      toast.success("Accesso effettuato");
       navigate("/app");
     } catch (err) {
       if (err?.response?.status === 402) {
@@ -139,34 +114,14 @@ export default function Login() {
         <div className="flex-1 flex items-center">
           <div className="w-full max-w-md fade-up">
             <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#FF5A00] mb-3">
-              {mode === "login" ? "01 — Accesso" : "01 — Registrazione"}
+              01 — Accesso
             </div>
             <h1 className="font-cabinet font-black text-4xl sm:text-5xl tracking-tight text-[#0A0A0A] mb-3">
-              {mode === "login" ? "Bentornato in zona." : "Nuovo agente."}
+              Bentornato in zona.
             </h1>
             <p className="text-[14px] text-[#52525B] leading-relaxed mb-8 max-w-sm">
-              {mode === "login"
-                ? "Accedi al tuo cruscotto. Gestisci clienti, provvigioni e visite in un unico posto."
-                : `${trialDays} giorni di prova gratuita. Nessuna carta richiesta.`}
+              Accedi al tuo cruscotto. Gestisci clienti, provvigioni e visite in un unico posto.
             </p>
-
-            {/* Selezione piano in registrazione */}
-            {mode === "register" && (
-              <div className="mb-5">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] mb-2">Piano scelto</div>
-                <div className="grid grid-cols-2 gap-2">
-                  {["base", "pro"].map(p => (
-                    <button key={p} type="button" onClick={() => setPlan(p)}
-                      className={`py-2.5 px-3 rounded-md border-2 text-[13px] font-medium transition-colors ${plan === p ? "border-[#FF5A00] bg-[#FF5A00] text-white" : "border-[#E4E4E1] text-[#52525B]"}`}>
-                      {plansById[p] ? `${plansById[p].name} — €${plansById[p].price_eur}/mese` : "…"}
-                    </button>
-                  ))}
-                </div>
-                <Link to="/prezzi" className="text-[11px] text-[#A1A1AA] mt-1.5 block hover:text-[#FF5A00]">
-                  Confronta i piani →
-                </Link>
-              </div>
-            )}
 
             {paywall && (
               <div data-testid="trial-expired-paywall" className="bg-white border-2 border-[#FF5A00] rounded-lg p-6 mb-6">
@@ -195,14 +150,6 @@ export default function Login() {
 
             {!paywall && (
             <form onSubmit={submit} className="space-y-4">
-              {mode === "register" && (
-                <div>
-                  <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Nome completo</label>
-                  <input data-testid="register-name-input" type="text" required value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2.5 text-[14px] focus:outline-none focus:border-[#0A192F]" />
-                </div>
-              )}
               <div>
                 <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Email</label>
                 <input data-testid="login-email-input" type="email" required value={email}
@@ -219,18 +166,16 @@ export default function Login() {
                     {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                {mode === "login" && (
-                  <div className="text-right mt-1.5">
-                    <Link to="/password-dimenticata" className="text-[12px] text-[#52525B] hover:text-[#0A192F] underline underline-offset-4">
-                      Password dimenticata?
-                    </Link>
-                  </div>
-                )}
+                <div className="text-right mt-1.5">
+                  <Link to="/password-dimenticata" className="text-[12px] text-[#52525B] hover:text-[#0A192F] underline underline-offset-4">
+                    Password dimenticata?
+                  </Link>
+                </div>
               </div>
 
               <button data-testid="login-submit-button" type="submit" disabled={busy}
                 className="w-full bg-[#0A192F] hover:bg-[#172A45] text-white font-medium py-3 rounded-md transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-                {busy ? "Attendere…" : mode === "login" ? "Accedi al gestionale" : "Inizia prova gratuita"}
+                {busy ? "Attendere…" : "Accedi al gestionale"}
                 <span className="text-[#FF5A00]">→</span>
               </button>
 
@@ -244,21 +189,12 @@ export default function Login() {
 
             {!paywall && (
             <div className="mt-6 text-[13px] text-[#52525B]">
-              {mode === "login" ? "Non hai un account? " : "Hai già un account? "}
-              <button data-testid="toggle-auth-mode" onClick={() => switchMode(mode === "login" ? "register" : "login")}
+              Non hai un account?{" "}
+              <Link data-testid="signup-link" to="/richiedi-demo"
                 className="text-[#0A192F] font-semibold underline underline-offset-4 decoration-[#FF5A00]">
-                {mode === "login" ? "Inizia gratis" : "Accedi"}
-              </button>
+                Inizia gratis
+              </Link>
             </div>
-            )}
-
-            {!paywall && mode === "login" && (
-              <div className="mt-8 pt-6 border-t border-[#E4E4E1]">
-                <button type="button" onClick={() => navigate("/richiedi-demo")} disabled={busy}
-                  className="w-full border-2 border-[#0A192F] text-[#0A192F] font-medium py-2.5 rounded-md hover:bg-[#0A192F] hover:text-white transition-colors disabled:opacity-50">
-                  Richiedi demo
-                </button>
-              </div>
             )}
           </div>
         </div>
