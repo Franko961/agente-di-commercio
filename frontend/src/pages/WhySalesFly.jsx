@@ -117,18 +117,21 @@ const BENEFITS = [
     title: "Pianifica il giro visite in pochi secondi.",
     support: "Meno tempo perso in auto, più tempo dai clienti che contano davvero.",
     Illustration: GiroVisiteIllustration,
+    blogSlug: "pianificare-giro-visite-agente-di-commercio",
   },
   {
     emoji: "🤖",
     title: "Ricevi suggerimenti dall'AI sui clienti da contattare.",
     support: "Non rincorri più i clienti a caso: l'AI ti dice chi contattare e, se vuoi, aggiorna lei stessa il CRM al posto tuo.",
     Illustration: AIIllustration,
+    blogSlug: "come-ai-e-crm-automatizzano-attivita-vendita",
   },
   {
     emoji: "💰",
     title: "Calcola automaticamente le provvigioni.",
     support: "Niente più fogli di calcolo: sai sempre esattamente quanto hai guadagnato.",
     Illustration: ProvvigioniIllustration,
+    blogSlug: "come-calcolare-provvigioni-agente-di-commercio",
   },
   {
     emoji: "📄",
@@ -171,17 +174,33 @@ export default function WhySalesFly() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-14">
-          {BENEFITS.map(({ emoji, title, support, Illustration }) => (
-            <div key={title} className="bg-white border border-[#E4E4E1] rounded-xl p-5 flex flex-col">
-              <Illustration />
-              <div className="mt-4">
-                <div className="font-cabinet font-bold text-[15px] leading-snug mb-2">
-                  <span className="mr-1.5">{emoji}</span>{title}
+          {BENEFITS.map(({ emoji, title, support, Illustration, blogSlug }) => {
+            // Solo i box con un articolo del blog dedicato diventano
+            // cliccabili: meglio nessun link che uno che porta a una pagina
+            // generica non pensata per approfondire proprio questo punto.
+            const CardTag = blogSlug ? Link : "div";
+            const cardProps = blogSlug ? { to: `/blog/${blogSlug}` } : {};
+            return (
+              <CardTag
+                key={title}
+                {...cardProps}
+                className={`bg-white border border-[#E4E4E1] rounded-xl p-5 flex flex-col transition-all duration-200 hover:scale-[1.03] hover:shadow-lg ${blogSlug ? "hover:border-[#0A192F]" : ""}`}
+              >
+                <Illustration />
+                <div className="mt-4">
+                  <div className="font-cabinet font-bold text-[15px] leading-snug mb-2">
+                    <span className="mr-1.5">{emoji}</span>{title}
+                  </div>
+                  <p className="text-[13px] text-[#52525B] leading-relaxed">{support}</p>
+                  {blogSlug && (
+                    <span className="inline-flex items-center gap-1 text-[12px] text-[#FF5A00] font-medium mt-3">
+                      Scopri di più <ArrowRight className="w-3.5 h-3.5" />
+                    </span>
+                  )}
                 </div>
-                <p className="text-[13px] text-[#52525B] leading-relaxed">{support}</p>
-              </div>
-            </div>
-          ))}
+              </CardTag>
+            );
+          })}
         </div>
 
         <div className="text-center">
