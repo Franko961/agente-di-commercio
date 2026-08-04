@@ -4,7 +4,7 @@ import {
   Users, KanbanSquare, CalendarDays, Map, FileText, Coins,
   Building2, Package, Sparkles, Zap, Check, ArrowRight, ShieldCheck,
   Calendar, PhoneCall, AlertTriangle, Banknote, Navigation, Target,
-  LayoutDashboard, Menu, X, Facebook,
+  LayoutDashboard, Menu, X, Facebook, Star,
 } from "lucide-react";
 
 const LANDING_NAV_LINKS = [
@@ -19,6 +19,7 @@ import { useCookieConsent } from "../contexts/CookieConsentContext";
 import PageMeta from "../components/PageMeta";
 import Reveal from "../components/Reveal";
 import CountUp from "../components/CountUp";
+import api from "../api";
 
 const FEATURES = [
   { icon: Users, title: "Clienti & anagrafiche", desc: "Tutti i tuoi clienti, contatti e storico visite in un unico posto, sempre a portata di mano." },
@@ -158,12 +159,21 @@ export default function Landing() {
   const { plansById, trialDays } = usePlans();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  // null finché non risponde il backend: la sezione "cosa dicono i nostri
+  // clienti" resta del tutto assente dalla pagina (non un placeholder vuoto
+  // o un caricamento visibile) finché non c'è almeno un feedback vero,
+  // approvato da un admin, con consenso alla pubblicazione dato dall'utente.
+  const [testimonials, setTestimonials] = useState(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    api.get("/feedback/public").then(({ data }) => setTestimonials(data)).catch(() => setTestimonials([]));
   }, []);
 
   return (
@@ -371,6 +381,32 @@ export default function Landing() {
             ))}
           </div>
         </section>
+
+        {/* Testimonianze: assente finché non c'è almeno un feedback reale
+        approvato e pubblicabile, vedi useEffect sopra — mai contenuto
+        finto per riempire la sezione. */}
+        {testimonials && testimonials.length > 0 && (
+          <section className="px-6 py-16 bg-white border-y border-[#E4E4E1]">
+            <div className="max-w-5xl mx-auto">
+              <h2 className="font-cabinet font-black text-3xl tracking-tight text-center mb-12">
+                Cosa dicono i nostri clienti
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {testimonials.map((t, i) => (
+                  <Reveal key={i} delay={(i % 3) * 80} className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-xl p-5">
+                    <div className="flex items-center gap-0.5 mb-3">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <Star key={n} className={`w-4 h-4 ${n <= t.rating ? "fill-[#FF5A00] text-[#FF5A00]" : "text-[#E4E4E1]"}`} />
+                      ))}
+                    </div>
+                    {t.text && <p className="text-[14px] text-[#3F3F46] leading-relaxed mb-3">"{t.text}"</p>}
+                    <div className="font-cabinet font-bold text-[13px]">{t.name}</div>
+                  </Reveal>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* CTA banda */}
         <section className="px-6 py-16 bg-[#0A192F]">

@@ -35,6 +35,7 @@ from routers.settings import router as settings_router
 from routers.geocoding import router as geocoding_router
 from routers.route_planning import router as route_planning_router
 from routers.gdpr import router as gdpr_router
+from routers.feedback import router as feedback_router
 from services.startup_service import run_startup, run_shutdown
 from core.exceptions import AppError
 from core.config import CORS_ORIGINS, SENTRY_DSN, TRUSTED_PROXY_HOPS
@@ -176,6 +177,7 @@ app.include_router(settings_router)
 app.include_router(geocoding_router)
 app.include_router(route_planning_router)
 app.include_router(gdpr_router)
+app.include_router(feedback_router)
 
 app.add_middleware(ObservabilityMiddleware)
 
