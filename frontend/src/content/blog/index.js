@@ -9,8 +9,9 @@ import { article as enasarco } from "./articles/enasarco-cos-e-come-funziona";
 import { article as giroVisite } from "./articles/pianificare-giro-visite-agente-di-commercio";
 import { article as speseDeducibili } from "./articles/spese-deducibili-agente-di-commercio";
 import { article as multiMandante } from "./articles/gestire-piu-mandanti-crm";
+import { article as crmMobile } from "./articles/crm-mobile-agenti-di-commercio";
 
-const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante];
+const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile];
 
 export const articles = [...allArticles].sort(
   (a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)
