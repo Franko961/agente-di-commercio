@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Eye, EyeOff, CreditCard } from "lucide-react";
 import api from "../api";
 import usePlans from "../hooks/usePlans";
+import CountUp from "../components/CountUp";
 
 export default function Login() {
   const { plansById, trialDays } = usePlans();
@@ -218,15 +219,15 @@ export default function Login() {
             </div>
             <div className="grid grid-cols-3 gap-2 text-center font-mono text-[11px]">
               <div className="border border-[#E4E4E1] rounded-md py-2">
-                <div className="text-[#FF5A00] text-base font-bold">€42K</div>
+                <div className="text-[#FF5A00] text-base font-bold"><CountUp end={42} prefix="€" suffix="K" /></div>
                 <div className="text-[#A1A1AA] uppercase tracking-widest text-[9px]">pipeline</div>
               </div>
               <div className="border border-[#E4E4E1] rounded-md py-2">
-                <div className="text-[#0A192F] text-base font-bold">3</div>
+                <div className="text-[#0A192F] text-base font-bold"><CountUp end={3} /></div>
                 <div className="text-[#A1A1AA] uppercase tracking-widest text-[9px]">mandanti</div>
               </div>
               <div className="border border-[#E4E4E1] rounded-md py-2">
-                <div className="text-[#059669] text-base font-bold">+18%</div>
+                <div className="text-[#059669] text-base font-bold"><CountUp end={18} prefix="+" suffix="%" /></div>
                 <div className="text-[#A1A1AA] uppercase tracking-widest text-[9px]">vs mese prec.</div>
               </div>
             </div>

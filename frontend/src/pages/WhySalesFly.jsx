@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
 import PageMeta from "@/components/PageMeta";
+import Reveal from "@/components/Reveal";
 
 // Illustrazioni originali (non screenshot dell'app): una scena semplice per
 // beneficio, stesso linguaggio visivo (blob di sfondo tenue + forme piatte
@@ -174,31 +175,32 @@ export default function WhySalesFly() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-14">
-          {BENEFITS.map(({ emoji, title, support, Illustration, blogSlug }) => {
+          {BENEFITS.map(({ emoji, title, support, Illustration, blogSlug }, i) => {
             // Solo i box con un articolo del blog dedicato diventano
             // cliccabili: meglio nessun link che uno che porta a una pagina
             // generica non pensata per approfondire proprio questo punto.
             const CardTag = blogSlug ? Link : "div";
             const cardProps = blogSlug ? { to: `/blog/${blogSlug}` } : {};
             return (
-              <CardTag
-                key={title}
-                {...cardProps}
-                className={`bg-white border border-[#E4E4E1] rounded-xl p-5 flex flex-col transition-all duration-200 hover:scale-[1.03] hover:shadow-lg ${blogSlug ? "hover:border-[#0A192F]" : ""}`}
-              >
-                <Illustration />
-                <div className="mt-4">
-                  <div className="font-cabinet font-bold text-[15px] leading-snug mb-2">
-                    <span className="mr-1.5">{emoji}</span>{title}
+              <Reveal key={title} delay={(i % 3) * 80}>
+                <CardTag
+                  {...cardProps}
+                  className={`bg-white border border-[#E4E4E1] rounded-xl p-5 flex flex-col transition-all duration-200 hover:scale-[1.03] hover:shadow-lg ${blogSlug ? "hover:border-[#0A192F]" : ""}`}
+                >
+                  <Illustration />
+                  <div className="mt-4">
+                    <div className="font-cabinet font-bold text-[15px] leading-snug mb-2">
+                      <span className="mr-1.5">{emoji}</span>{title}
+                    </div>
+                    <p className="text-[13px] text-[#52525B] leading-relaxed">{support}</p>
+                    {blogSlug && (
+                      <span className="inline-flex items-center gap-1 text-[12px] text-[#FF5A00] font-medium mt-3">
+                        Scopri di più <ArrowRight className="w-3.5 h-3.5" />
+                      </span>
+                    )}
                   </div>
-                  <p className="text-[13px] text-[#52525B] leading-relaxed">{support}</p>
-                  {blogSlug && (
-                    <span className="inline-flex items-center gap-1 text-[12px] text-[#FF5A00] font-medium mt-3">
-                      Scopri di più <ArrowRight className="w-3.5 h-3.5" />
-                    </span>
-                  )}
-                </div>
-              </CardTag>
+                </CardTag>
+              </Reveal>
             );
           })}
         </div>

@@ -4,6 +4,7 @@ import usePlans from "../hooks/usePlans";
 import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
 import PageMeta from "@/components/PageMeta";
+import Reveal from "@/components/Reveal";
 
 export default function Pricing() {
   const navigate = useNavigate();
@@ -39,7 +40,7 @@ export default function Pricing() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
 
           {/* Base */}
-          <div className="bg-white border border-[#E4E4E1] rounded-xl p-8">
+          <Reveal className="bg-white border border-[#E4E4E1] rounded-xl p-8">
             <div className="flex items-center gap-2 mb-2">
               <Zap className="w-5 h-5 text-[#52525B]" />
               <span className="font-cabinet font-bold text-lg">{base.name}</span>
@@ -62,10 +63,10 @@ export default function Pricing() {
                 </div>
               ))}
             </div>
-          </div>
+          </Reveal>
 
           {/* Pro */}
-          <div className="bg-[#0A192F] text-white rounded-xl p-8 relative overflow-hidden">
+          <Reveal delay={100} className="bg-[#0A192F] text-white rounded-xl p-8 relative overflow-hidden">
             <div className="absolute top-4 right-4 bg-[#FF5A00] text-white font-mono text-[9px] uppercase tracking-widest px-2 py-1 rounded">
               Più popolare
             </div>
@@ -91,7 +92,7 @@ export default function Pricing() {
                 </div>
               ))}
             </div>
-          </div>
+          </Reveal>
         </div>
 
         {/* FAQ */}
@@ -103,11 +104,11 @@ export default function Pricing() {
               ["Come funziona la prova gratuita?", `Hai ${trialDays} giorni per testare tutte le funzionalità senza inserire dati di pagamento. Al termine scegli il piano che preferisci.`],
               ["Posso cancellare quando voglio?", "Sì, nessun vincolo contrattuale. Puoi cancellare in qualsiasi momento dall'area abbonamento."],
               ["Quali metodi di pagamento accettate?", "Accettiamo carte di credito/debito tramite Stripe (Visa, Mastercard, Amex) e PayPal."],
-            ].map(([q, a]) => (
-              <div key={q} className="bg-white border border-[#E4E4E1] rounded-lg p-5">
+            ].map(([q, a], i) => (
+              <Reveal key={q} delay={i * 60} className="bg-white border border-[#E4E4E1] rounded-lg p-5">
                 <div className="font-cabinet font-bold text-[14px] mb-2">{q}</div>
                 <div className="text-[13px] text-[#52525B]">{a}</div>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>

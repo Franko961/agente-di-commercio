@@ -17,6 +17,8 @@ const LANDING_NAV_LINKS = [
 import usePlans from "../hooks/usePlans";
 import { useCookieConsent } from "../contexts/CookieConsentContext";
 import PageMeta from "../components/PageMeta";
+import Reveal from "../components/Reveal";
+import CountUp from "../components/CountUp";
 
 const FEATURES = [
   { icon: Users, title: "Clienti & anagrafiche", desc: "Tutti i tuoi clienti, contatti e storico visite in un unico posto, sempre a portata di mano." },
@@ -78,12 +80,14 @@ function PhoneMockupScreen() {
 
       <div className="grid grid-cols-2 gap-1.5 px-3 mt-2 shrink-0">
         {[
-          { label: "Fatturato vinto", value: "€10.126" },
-          { label: "Provvigioni", value: "€3.313" },
+          { label: "Fatturato vinto", value: 10126 },
+          { label: "Provvigioni", value: 3313 },
         ].map(({ label, value }) => (
           <div key={label} className="bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5">
             <div className="font-mono text-[4px] uppercase tracking-widest text-[#A1A1AA]">{label}</div>
-            <div className="font-cabinet font-black text-[9px] mt-0.5">{value}</div>
+            <div className="font-cabinet font-black text-[9px] mt-0.5">
+              <CountUp end={value} prefix="€" />
+            </div>
           </div>
         ))}
       </div>
@@ -335,14 +339,14 @@ export default function Landing() {
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {FEATURES.map(({ icon: Icon, title, desc }) => (
-                <div key={title} className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-xl p-5">
+              {FEATURES.map(({ icon: Icon, title, desc }, i) => (
+                <Reveal key={title} delay={(i % 4) * 60} className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-xl p-5">
                   <div className="w-10 h-10 bg-[#0A192F] rounded-lg flex items-center justify-center mb-4">
                     <Icon className="w-5 h-5 text-white" strokeWidth={1.75} />
                   </div>
                   <div className="font-cabinet font-bold text-[15px] mb-2">{title}</div>
                   <p className="text-[13px] text-[#52525B] leading-relaxed">{desc}</p>
-                </div>
+                </Reveal>
               ))}
             </div>
           </div>
@@ -358,19 +362,19 @@ export default function Landing() {
               ["01", "Crea i tuoi mandanti", "Inserisci mandanti, listini e regole di provvigione: bastano due minuti."],
               ["02", "Importa i tuoi clienti", "Aggiungi clienti e lead manualmente o parlando con l'assistente AI."],
               ["03", "Vendi e monitora", "Registra offerte e vendite: provvigioni e bonus si calcolano da soli."],
-            ].map(([n, t, d]) => (
-              <div key={n}>
+            ].map(([n, t, d], i) => (
+              <Reveal key={n} delay={i * 100}>
                 <div className="font-cabinet font-black text-3xl text-[#FF5A00] mb-3">{n}</div>
                 <div className="font-cabinet font-bold text-[16px] mb-2">{t}</div>
                 <p className="text-[13px] text-[#52525B] leading-relaxed">{d}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </section>
 
         {/* CTA banda */}
         <section className="px-6 py-16 bg-[#0A192F]">
-          <div className="max-w-3xl mx-auto text-center">
+          <Reveal className="max-w-3xl mx-auto text-center">
             <h2 className="font-cabinet font-black text-3xl md:text-4xl text-white tracking-tight mb-4">
               Pronto a semplificarti il lavoro?
             </h2>
@@ -386,7 +390,7 @@ export default function Landing() {
             <div className="flex items-center justify-center gap-2 mt-6 text-white/40 text-[12px] font-mono uppercase tracking-widest">
               <ShieldCheck className="w-4 h-4" /> Dati protetti · Nessuna carta richiesta
             </div>
-          </div>
+          </Reveal>
         </section>
       </main>
 
