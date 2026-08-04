@@ -10,8 +10,9 @@ import { article as giroVisite } from "./articles/pianificare-giro-visite-agente
 import { article as speseDeducibili } from "./articles/spese-deducibili-agente-di-commercio";
 import { article as multiMandante } from "./articles/gestire-piu-mandanti-crm";
 import { article as crmMobile } from "./articles/crm-mobile-agenti-di-commercio";
+import { article as crmDaTelefono } from "./articles/usare-crm-da-telefono-dai-clienti";
 
-const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile];
+const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono];
 
 export const articles = [...allArticles].sort(
   (a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)
