@@ -25,6 +25,7 @@ import asyncio
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 sys.path.insert(0, ".")
 
@@ -189,6 +190,12 @@ def test_submit_rifiuta_intervallo_di_date_invertito(monkeypatch):
     )
     with pytest.raises(ValidationAppError):
         run(service.submit(payload))
+
+
+@pytest.mark.parametrize("date_from", ["2026-99-99", "2026-02-31", "test", "2026-8-2"])
+def test_leave_request_in_rifiuta_date_non_valide(date_from):
+    with pytest.raises(ValidationError):
+        LeaveRequestIn(employee_token="tok", type="ferie", date_from=date_from, date_to="2026-08-05")
 
 
 def test_submit_denormalizza_il_nome_del_dipendente(monkeypatch):

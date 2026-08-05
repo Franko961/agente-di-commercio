@@ -49,8 +49,8 @@ class LeaveRequestService:
             # di mostrare un riferimento orfano.
             "employee_name": employee["name"],
             "type": payload.type,
-            "date_from": payload.date_from,
-            "date_to": payload.date_to,
+            "date_from": payload.date_from.isoformat(),
+            "date_to": payload.date_to.isoformat(),
             "note": (payload.note or "").strip(),
             "status": "in_attesa",
             "created_at": now_iso(),
