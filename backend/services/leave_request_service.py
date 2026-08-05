@@ -112,11 +112,16 @@ class LeaveRequestService:
         await self.repo.insert(doc)
 
         if owner.get("email"):
-            await send_email(
+            sent = await send_email(
                 to=owner["email"],
                 subject=f"Nuova richiesta di {LEAVE_TYPE_LABELS.get(payload.type, payload.type)} — {employee['name']}",
                 html=self._manager_email_html(doc, overlapping=bool(overlapping)),
             )
+            if not sent:
+                logger.warning(
+                    f"Invio email notifica nuova richiesta assenza fallito per {owner['email']} "
+                    f"(richiesta {doc['id']}): la richiesta è comunque stata salvata."
+                )
 
         return {"ok": True}
 
@@ -168,11 +173,16 @@ class LeaveRequestService:
 
         employee = await self.employees.find_one(request["employee_id"], user["id"])
         if employee and employee.get("email"):
-            await send_email(
+            sent = await send_email(
                 to=employee["email"],
                 subject=f"La tua richiesta di {LEAVE_TYPE_LABELS.get(request['type'], request['type'])} è stata {status}",
                 html=self._employee_email_html(request, status),
             )
+            if not sent:
+                logger.warning(
+                    f"Invio email esito richiesta assenza fallito per {employee['email']} "
+                    f"(richiesta {rid}): la decisione è comunque stata registrata."
+                )
 
     async def calendar(self, user: dict, month: str) -> list:
         """month in formato AAAA-MM: restituisce le richieste APPROVATE che

@@ -138,6 +138,10 @@ async def _noop_send_email(to, subject, html):
     return True
 
 
+async def _failing_send_email(to, subject, html):
+    return False
+
+
 def build_employee_service(owner=USER):
     repo = FakeEmployeeRepo()
     users = FakeUserRepo({owner["id"]: owner})
@@ -440,6 +444,24 @@ def test_submit_denormalizza_il_nome_del_dipendente(monkeypatch):
     assert saved["user_id"] == USER["id"]
 
 
+def test_submit_registra_ma_non_fallisce_se_email_al_responsabile_fallisce(monkeypatch, caplog):
+    """La richiesta va salvata comunque (il dipendente non deve rivedere
+    un errore e reinviare, creando un duplicato): il fallimento
+    dell'email va solo registrato nei log."""
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    monkeypatch.setattr(leave_request_mod, "send_email", _failing_send_email)
+
+    payload = LeaveRequestIn(employee_token=employee["request_token"], type="ferie", date_from="2026-08-01", date_to="2026-08-02")
+    with caplog.at_level("WARNING"):
+        result = run(service.submit(payload))
+
+    assert result == {"ok": True}
+    assert len(repo.docs) == 1
+    assert "fallito" in caplog.text.lower()
+
+
 # ---------- leave_request_service.decide ----------
 
 def test_decide_approva_una_richiesta_in_attesa(monkeypatch):
@@ -453,6 +475,22 @@ def test_decide_approva_una_richiesta_in_attesa(monkeypatch):
     run(service.decide(USER, rid, "approvata"))
     assert repo.docs[rid]["status"] == "approvata"
     assert repo.docs[rid]["decided_at"] is not None
+
+
+def test_decide_registra_ma_non_fallisce_se_email_al_dipendente_fallisce(monkeypatch, caplog):
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee(email="dipendente@example.com")))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    payload = LeaveRequestIn(employee_token=employee["request_token"], type="ferie", date_from="2026-08-01", date_to="2026-08-02")
+    run(service.submit(payload))
+    rid = list(repo.docs.keys())[0]
+
+    monkeypatch.setattr(leave_request_mod, "send_email", _failing_send_email)
+    with caplog.at_level("WARNING"):
+        run(service.decide(USER, rid, "approvata"))
+
+    assert repo.docs[rid]["status"] == "approvata"
+    assert "fallito" in caplog.text.lower()
 
 
 def test_decide_blocca_una_seconda_decisione(monkeypatch):
