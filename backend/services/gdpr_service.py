@@ -44,6 +44,10 @@ USER_SCOPED_COLLECTIONS = {
     "feedback": "feedback",
     "dipendenti": "employees",
     "richieste_assenza": "leave_requests",
+    "mezzi": "vehicles",
+    "scadenze_mezzi": "vehicle_deadlines",
+    "costi_mezzi": "vehicle_costs",
+    "carichi_merce": "cargo_loads",
 }
 
 # Ogni altra collection MongoDB realmente usata nel progetto (vedi

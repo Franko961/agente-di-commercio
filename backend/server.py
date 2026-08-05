@@ -38,6 +38,10 @@ from routers.gdpr import router as gdpr_router
 from routers.feedback import router as feedback_router
 from routers.employees import router as employees_router
 from routers.leave_requests import router as leave_requests_router
+from routers.vehicles import router as vehicles_router
+from routers.vehicle_deadlines import router as vehicle_deadlines_router
+from routers.vehicle_costs import router as vehicle_costs_router
+from routers.cargo_loads import router as cargo_loads_router
 from services.startup_service import run_startup, run_shutdown
 from core.exceptions import AppError
 from core.config import CORS_ORIGINS, SENTRY_DSN, TRUSTED_PROXY_HOPS
@@ -182,6 +186,10 @@ app.include_router(gdpr_router)
 app.include_router(feedback_router)
 app.include_router(employees_router)
 app.include_router(leave_requests_router)
+app.include_router(vehicles_router)
+app.include_router(vehicle_deadlines_router)
+app.include_router(vehicle_costs_router)
+app.include_router(cargo_loads_router)
 
 app.add_middleware(ObservabilityMiddleware)
 
