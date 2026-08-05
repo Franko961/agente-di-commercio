@@ -11,16 +11,20 @@ import { it } from "date-fns/locale";
 import { useMandante } from "../contexts/MandanteContext";
 import { useAuth } from "../contexts/AuthContext";
 
-// Allineato a backend/core/security.py MODULE_KEYS: se TUTTI questi sono
-// disattivati per l'account, la dashboard di vendita (fatturato, pipeline,
-// provvigioni, spese, ecc. — vedi sotto) non ha alcun senso da mostrare,
-// perché non è un account che usa SalesFly come CRM per agenti di
-// commercio (es. CACI SRL, che usa solo i moduli extra Personale/Flotta).
-// Vedi ExtraModulesHome più sotto per cosa vede al suo posto.
+// Sottoinsieme di backend/core/security.py MODULE_KEYS: solo i moduli
+// legati alla vendita vera e propria (i widget di questa dashboard —
+// fatturato, pipeline, provvigioni, portafoglio — derivano tutti da
+// questi). Se TUTTI sono disattivati per l'account, quella vista non ha
+// senso da mostrare: non è un account che usa SalesFly come CRM per
+// agenti di commercio (es. CACI SRL, che usa solo i moduli extra
+// Personale/Flotta). Documenti, Automazioni e Assistente AI sono
+// deliberatamente esclusi: sono strumenti generici che un account del
+// genere può comunque voler tenere attivi senza per questo diventare un
+// "agente di commercio". Vedi ExtraModulesHome più sotto per cosa vede
+// al posto della dashboard di vendita.
 const CORE_MODULE_KEYS = [
   "clienti", "lead", "agenda", "mappa", "offerte", "ordini",
-  "provvigioni", "spese", "mandanti", "prodotti", "documenti",
-  "automazioni", "ai",
+  "provvigioni", "spese", "mandanti", "prodotti",
 ];
 
 // Allineato a backend/core/security.py EXTRA_MODULE_KEYS.
