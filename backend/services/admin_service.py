@@ -6,12 +6,12 @@ from fastapi import HTTPException
 from core.config import PLANS
 from core.database import db
 from core.rate_limit import check_and_record
-from core.security import create_impersonation_token, MODULE_KEYS
+from core.security import create_impersonation_token, MODULE_KEYS, EXTRA_MODULE_KEYS
 from repositories.admin_repository import admin_repository
 from repositories.user_repository import user_repository
 from models.admin import IMPERSONATION_CATEGORIES
 
-ALLOWED_USER_UPDATE_FIELDS = {"plan", "subscription_status", "role", "disabled_modules"}
+ALLOWED_USER_UPDATE_FIELDS = {"plan", "subscription_status", "role", "disabled_modules", "enabled_extra_modules"}
 
 
 class AdminService:
@@ -102,6 +102,10 @@ class AdminService:
             modules = update["disabled_modules"]
             if not isinstance(modules, list) or any(m not in MODULE_KEYS for m in modules):
                 raise HTTPException(400, "disabled_modules non valido")
+        if "enabled_extra_modules" in update:
+            modules = update["enabled_extra_modules"]
+            if not isinstance(modules, list) or any(m not in EXTRA_MODULE_KEYS for m in modules):
+                raise HTTPException(400, "enabled_extra_modules non valido")
         await self.repo.update_user(uid, update)
         await self._record_audit(
             admin.get("email", admin.get("id")) if admin else "sconosciuto",

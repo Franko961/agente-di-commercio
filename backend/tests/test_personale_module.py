@@ -1,0 +1,276 @@
+"""
+Verifica il modulo "Personale" (services/employee_service.py +
+services/leave_request_service.py): CACI SRL gestisce i propri dipendenti
+e le loro richieste di ferie/permessi/malattia, inviate dal dipendente
+tramite un link personale senza bisogno di un account SalesFly.
+
+Copre:
+- create_employee genera un request_token univoco, usato dal form
+  pubblico (routers/leave_requests.py POST "") per risalire a dipendente
+  + azienda senza autenticazione.
+- submit rifiuta un token sconosciuto/disattivato e un intervallo di
+  date invertito; denormalizza employee_name sulla richiesta (resta
+  leggibile anche se il dipendente viene poi eliminato).
+- decide blocca una seconda decisione sulla stessa richiesta (non può
+  passare da "approvata" a "rifiutata" o viceversa).
+- calendar restituisce solo le richieste APPROVATE che si sovrappongono
+  al mese richiesto.
+
+Esegui con:
+    JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
+    python -m pytest tests/test_personale_module.py -v
+"""
+import sys
+import asyncio
+
+import pytest
+from fastapi import HTTPException
+
+sys.path.insert(0, ".")
+
+from core.exceptions import NotFoundError, ValidationAppError
+from models.employee import EmployeeIn
+from models.leave_request import LeaveRequestIn
+from services.employee_service import EmployeeService
+import services.leave_request_service as leave_request_mod
+from services.leave_request_service import LeaveRequestService
+
+
+def run(coro):
+    return asyncio.run(coro)
+
+
+USER = {"id": "user-1", "email": "manager@example.com"}
+
+
+class FakeEmployeeRepo:
+    def __init__(self):
+        self.docs = {}
+
+    async def find_many(self, user_id):
+        return [d for d in self.docs.values() if d["user_id"] == user_id]
+
+    async def find_one(self, eid, user_id):
+        d = self.docs.get(eid)
+        return d if d and d["user_id"] == user_id else None
+
+    async def find_by_token(self, token):
+        for d in self.docs.values():
+            if d["request_token"] == token:
+                return d
+        return None
+
+    async def insert(self, doc):
+        self.docs[doc["id"]] = dict(doc)
+        return doc
+
+    async def update(self, eid, user_id, data):
+        d = self.docs.get(eid)
+        if not d or d["user_id"] != user_id:
+            return False
+        d.update(data)
+        return True
+
+    async def delete(self, eid, user_id):
+        d = self.docs.get(eid)
+        if d and d["user_id"] == user_id:
+            del self.docs[eid]
+
+
+class FakeLeaveRequestRepo:
+    def __init__(self):
+        self.docs = {}
+
+    async def find_many(self, user_id, status=None):
+        rows = [d for d in self.docs.values() if d["user_id"] == user_id]
+        if status:
+            rows = [d for d in rows if d["status"] == status]
+        return rows
+
+    async def find_one(self, rid, user_id):
+        d = self.docs.get(rid)
+        return d if d and d["user_id"] == user_id else None
+
+    async def find_overlapping(self, user_id, date_from, date_to, status="approvata"):
+        return [
+            d for d in self.docs.values()
+            if d["user_id"] == user_id and d["status"] == status
+            and d["date_from"] <= date_to and d["date_to"] >= date_from
+        ]
+
+    async def insert(self, doc):
+        self.docs[doc["id"]] = dict(doc)
+        return doc
+
+    async def update(self, rid, user_id, data):
+        d = self.docs.get(rid)
+        if not d or d["user_id"] != user_id:
+            return False
+        d.update(data)
+        return True
+
+
+class FakeUserRepo:
+    def __init__(self, users):
+        self.users = users
+
+    async def find_by_id(self, uid):
+        return self.users.get(uid)
+
+
+async def _noop_send_email(to, subject, html):
+    return True
+
+
+def build_employee_service():
+    repo = FakeEmployeeRepo()
+    return EmployeeService(repo=repo), repo
+
+
+def build_leave_service(monkeypatch, employees_repo, manager=USER):
+    monkeypatch.setattr(leave_request_mod, "send_email", _noop_send_email)
+    monkeypatch.setattr(leave_request_mod, "check_and_record", lambda *a, **kw: _allow())
+    repo = FakeLeaveRequestRepo()
+    users = FakeUserRepo({manager["id"]: manager})
+    service = LeaveRequestService(repo=repo, employees=employees_repo, users=users)
+    return service, repo
+
+
+async def _allow():
+    return True
+
+
+def make_employee(name="Mario Rossi", **overrides):
+    payload = EmployeeIn(name=name, role=overrides.get("role", ""), email=overrides.get("email"))
+    return payload
+
+
+# ---------- employee_service ----------
+
+def test_create_employee_genera_un_token_univoco():
+    service, repo = build_employee_service()
+    e1 = run(service.create_employee(USER, make_employee("Mario Rossi")))
+    e2 = run(service.create_employee(USER, make_employee("Luca Bianchi")))
+    assert e1["request_token"] != e2["request_token"]
+    assert e1["user_id"] == USER["id"]
+
+
+def test_get_by_token_rifiuta_token_sconosciuto():
+    service, repo = build_employee_service()
+    with pytest.raises(NotFoundError):
+        run(service.get_by_token("token-inesistente"))
+
+
+def test_get_by_token_rifiuta_dipendente_disattivato():
+    service, repo = build_employee_service()
+    employee = run(service.create_employee(USER, make_employee()))
+    run(repo.update(employee["id"], USER["id"], {"active": False}))
+    with pytest.raises(NotFoundError):
+        run(service.get_by_token(employee["request_token"]))
+
+
+# ---------- leave_request_service.submit ----------
+
+def test_submit_rifiuta_token_sconosciuto(monkeypatch):
+    emp_service, emp_repo = build_employee_service()
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    payload = LeaveRequestIn(employee_token="non-esiste", type="ferie", date_from="2026-08-01", date_to="2026-08-05")
+    with pytest.raises(NotFoundError):
+        run(service.submit(payload))
+
+
+def test_submit_rifiuta_intervallo_di_date_invertito(monkeypatch):
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    payload = LeaveRequestIn(
+        employee_token=employee["request_token"], type="ferie",
+        date_from="2026-08-10", date_to="2026-08-05",
+    )
+    with pytest.raises(ValidationAppError):
+        run(service.submit(payload))
+
+
+def test_submit_denormalizza_il_nome_del_dipendente(monkeypatch):
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee("Mario Rossi")))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    payload = LeaveRequestIn(
+        employee_token=employee["request_token"], type="malattia",
+        date_from="2026-08-01", date_to="2026-08-02",
+    )
+    run(service.submit(payload))
+    saved = list(repo.docs.values())[0]
+    assert saved["employee_name"] == "Mario Rossi"
+    assert saved["status"] == "in_attesa"
+    assert saved["user_id"] == USER["id"]
+
+
+# ---------- leave_request_service.decide ----------
+
+def test_decide_approva_una_richiesta_in_attesa(monkeypatch):
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    payload = LeaveRequestIn(employee_token=employee["request_token"], type="ferie", date_from="2026-08-01", date_to="2026-08-02")
+    run(service.submit(payload))
+    rid = list(repo.docs.keys())[0]
+
+    run(service.decide(USER, rid, "approvata"))
+    assert repo.docs[rid]["status"] == "approvata"
+    assert repo.docs[rid]["decided_at"] is not None
+
+
+def test_decide_blocca_una_seconda_decisione(monkeypatch):
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    payload = LeaveRequestIn(employee_token=employee["request_token"], type="ferie", date_from="2026-08-01", date_to="2026-08-02")
+    run(service.submit(payload))
+    rid = list(repo.docs.keys())[0]
+
+    run(service.decide(USER, rid, "approvata"))
+    with pytest.raises(ValidationAppError):
+        run(service.decide(USER, rid, "rifiutata"))
+
+
+def test_decide_rifiuta_richiesta_di_un_altro_utente(monkeypatch):
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    payload = LeaveRequestIn(employee_token=employee["request_token"], type="ferie", date_from="2026-08-01", date_to="2026-08-02")
+    run(service.submit(payload))
+    rid = list(repo.docs.keys())[0]
+
+    with pytest.raises(NotFoundError):
+        run(service.decide({"id": "un-altro-utente"}, rid, "approvata"))
+
+
+# ---------- leave_request_service.calendar ----------
+
+def test_calendar_include_solo_le_richieste_approvate(monkeypatch):
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+
+    run(service.submit(LeaveRequestIn(employee_token=employee["request_token"], type="ferie", date_from="2026-08-10", date_to="2026-08-12")))
+    run(service.submit(LeaveRequestIn(employee_token=employee["request_token"], type="malattia", date_from="2026-08-15", date_to="2026-08-16")))
+    ids = list(repo.docs.keys())
+    run(service.decide(USER, ids[0], "approvata"))
+    run(service.decide(USER, ids[1], "rifiutata"))
+
+    result = run(service.calendar(USER, "2026-08"))
+    assert len(result) == 1
+    assert result[0]["status"] == "approvata"
+
+
+def test_calendar_esclude_richieste_fuori_dal_mese(monkeypatch):
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+
+    run(service.submit(LeaveRequestIn(employee_token=employee["request_token"], type="ferie", date_from="2026-07-10", date_to="2026-07-12")))
+    rid = list(repo.docs.keys())[0]
+    run(service.decide(USER, rid, "approvata"))
+
+    assert run(service.calendar(USER, "2026-08")) == []

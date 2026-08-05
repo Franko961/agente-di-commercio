@@ -39,6 +39,15 @@ const MODULES = [
   { value: "ai", label: "Assistente AI" },
 ];
 
+// Valori allineati a backend/core/security.py EXTRA_MODULE_KEYS: moduli
+// verticali costruiti per un cliente specifico (es. CACI SRL), spenti per
+// tutti finché non attivati esplicitamente qui — logica opposta a MODULES
+// sopra, vedi toggleExtraModule/saveModules più sotto.
+const EXTRA_MODULES = [
+  { value: "personale", label: "Personale (ferie, permessi, presenze)" },
+  { value: "flotta", label: "Flotta (mezzi, scadenze, carico merce)" },
+];
+
 export default function Admin() {
   const [tab, setTab] = useState("business"); // business | salute | audit | feedback
 
@@ -91,7 +100,7 @@ function BusinessTab() {
   const [impersonateCategory, setImpersonateCategory] = useState("");
   const [impersonateReason, setImpersonateReason] = useState("");
   const [submittingImpersonate, setSubmittingImpersonate] = useState(false);
-  const [moduleTarget, setModuleTarget] = useState(null); // { id, email, disabled_modules }
+  const [moduleTarget, setModuleTarget] = useState(null); // { id, email, disabled_modules, enabled_extra_modules }
 
   const load = async () => {
     const [s, u] = await Promise.all([
@@ -136,8 +145,26 @@ function BusinessTab() {
     });
   };
 
+  // Logica opposta a toggleModule sopra: qui "acceso" significa presente
+  // nell'elenco (vedi EXTRA_MODULES/core.security.EXTRA_MODULE_KEYS,
+  // spenti di default per tutti).
+  const toggleExtraModule = (value) => {
+    setModuleTarget((prev) => {
+      const has = prev.enabled_extra_modules.includes(value);
+      return {
+        ...prev,
+        enabled_extra_modules: has
+          ? prev.enabled_extra_modules.filter((m) => m !== value)
+          : [...prev.enabled_extra_modules, value],
+      };
+    });
+  };
+
   const saveModules = async () => {
-    await updateUser(moduleTarget.id, { disabled_modules: moduleTarget.disabled_modules });
+    await updateUser(moduleTarget.id, {
+      disabled_modules: moduleTarget.disabled_modules,
+      enabled_extra_modules: moduleTarget.enabled_extra_modules,
+    });
     setModuleTarget(null);
   };
 
@@ -281,7 +308,7 @@ function BusinessTab() {
                             className="p-1.5 text-[#A1A1AA] hover:text-[#FF5A00] hover:bg-[#FFF3EC] rounded"><LogIn className="w-4 h-4" /></button>
                           <button onClick={() => setEditUser({...u})} title="Modifica utente" aria-label="Modifica utente"
                             className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
-                          <button onClick={() => setModuleTarget({ id: u.id, email: u.email, disabled_modules: u.disabled_modules || [] })} title="Moduli attivi" aria-label="Moduli attivi"
+                          <button onClick={() => setModuleTarget({ id: u.id, email: u.email, disabled_modules: u.disabled_modules || [], enabled_extra_modules: u.enabled_extra_modules || [] })} title="Moduli attivi" aria-label="Moduli attivi"
                             className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><ToggleLeft className="w-4 h-4" /></button>
                           <button onClick={() => deleteUser(u.id, u.email)} title="Elimina utente" aria-label="Elimina utente"
                             className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
@@ -391,6 +418,25 @@ function BusinessTab() {
                   );
                 })}
               </div>
+
+              <p className="text-[13px] text-[#52525B] pt-2">
+                Moduli extra, costruiti per un cliente specifico — spenti per tutti finché non li attivi qui:
+              </p>
+              <div className="grid grid-cols-1 gap-2">
+                {EXTRA_MODULES.map((m) => {
+                  const enabled = moduleTarget.enabled_extra_modules.includes(m.value);
+                  return (
+                    <button key={m.value} type="button" onClick={() => toggleExtraModule(m.value)}
+                      className={`flex items-center justify-between px-3 py-2 rounded-md border text-[12px] font-medium transition-colors ${
+                        enabled ? "border-[#FF5A00]/30 bg-[#FF5A00]/5 text-[#FF5A00]" : "border-[#E4E4E1] text-[#A1A1AA]"
+                      }`}>
+                      {m.label}
+                      {enabled ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                    </button>
+                  );
+                })}
+              </div>
+
               <div className="flex justify-end gap-2 pt-2">
                 <button onClick={() => setModuleTarget(null)} className="px-4 py-2 border border-[#E4E4E1] rounded-md text-[13px] font-medium">
                   Annulla

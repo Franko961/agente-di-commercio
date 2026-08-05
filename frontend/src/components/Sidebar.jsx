@@ -2,7 +2,7 @@ import { NavLink, Link, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, KanbanSquare, CalendarDays, Map, FileText, ShoppingCart,
   Coins, Building2, Package, Folder, Sparkles, Zap, LogOut, ArrowLeftRight, ShieldCheck, CreditCard, Settings as SettingsIcon, Receipt,
-  HelpCircle,
+  HelpCircle, IdCard,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useMandante } from "../contexts/MandanteContext";
@@ -28,6 +28,9 @@ const navItems = [
   { to: "/app/documenti", label: "Documenti", icon: Folder, module: "documenti" },
   { to: "/app/automazioni", label: "Automazioni", icon: Zap, module: "automazioni" },
   { to: "/app/ai", label: "Assistente AI", icon: Sparkles, module: "ai" },
+  // extra: true = modulo verticale spento di default (vedi ModuleGuard.jsx
+  // e core.security.EXTRA_MODULE_KEYS), non i normali moduli CRM sopra.
+  { to: "/app/personale", label: "Personale", icon: IdCard, module: "personale", extra: true },
   { to: "/app/impostazioni", label: "Impostazioni", icon: SettingsIcon },
 ];
 
@@ -35,6 +38,7 @@ export default function Sidebar({ collapsed, onToggle }) {
   const { user, logout } = useAuth();
   const isAdmin = user?.role === "admin";
   const disabledModules = user?.disabled_modules || [];
+  const enabledExtraModules = user?.enabled_extra_modules || [];
   const { mandanti, activeMandante, setActiveMandante } = useMandante();
   const navigate = useNavigate();
 
@@ -93,7 +97,10 @@ export default function Sidebar({ collapsed, onToggle }) {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3">
-        {navItems.filter(({ module }) => !module || !disabledModules.includes(module)).map(({ to, label, icon: Icon }) => (
+        {navItems.filter(({ module, extra }) => {
+          if (!module) return true;
+          return extra ? enabledExtraModules.includes(module) : !disabledModules.includes(module);
+        }).map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}

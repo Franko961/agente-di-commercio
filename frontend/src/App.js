@@ -38,6 +38,8 @@ const Spese = lazy(() => import("./pages/Spese"));
 const Documents = lazy(() => import("./pages/Documents"));
 const Automations = lazy(() => import("./pages/Automations"));
 const AIAssistant = lazy(() => import("./pages/AIAssistant"));
+const Personale = lazy(() => import("./pages/Personale"));
+const RichiediAssenza = lazy(() => import("./pages/RichiediAssenza"));
 const Subscription = lazy(() => import("./pages/Subscription"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Admin = lazy(() => import("./pages/Admin"));
@@ -84,6 +86,7 @@ function App() {
               <Route path="/prezzi" element={<Pricing />} />
               <Route path="/richiedi-demo" element={<RichiediDemo />} />
               <Route path="/richiedi-demo/grazie" element={<RichiediDemoGrazie />} />
+              <Route path="/richiedi-assenza/:token" element={<RichiediAssenza />} />
               <Route path="/assistente-ai" element={<LandingAI />} />
               <Route path="/blog" element={<BlogIndex />} />
               <Route path="/blog/:slug" element={<BlogPost />} />
@@ -111,6 +114,7 @@ function App() {
                 <Route path="/app/documenti" element={<ModuleGuard module="documenti"><Documents /></ModuleGuard>} />
                 <Route path="/app/automazioni" element={<ModuleGuard module="automazioni"><Automations /></ModuleGuard>} />
                 <Route path="/app/ai" element={<ModuleGuard module="ai"><AIAssistant /></ModuleGuard>} />
+                <Route path="/app/personale" element={<ModuleGuard module="personale" extra><Personale /></ModuleGuard>} />
                 <Route path="/app/abbonamento" element={<Subscription />} />
                 <Route path="/app/impostazioni" element={<Settings />} />
                 <Route path="/app/aiuto" element={<HelpCenter />} />

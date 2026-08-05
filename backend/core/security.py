@@ -215,15 +215,33 @@ MODULE_KEYS = (
     "automazioni", "ai",
 )
 
+# Moduli verticali costruiti per un cliente specifico (es. CACI SRL), non
+# pertinenti a un normale agente di commercio plurimandatario: a differenza
+# di MODULE_KEYS sopra (attivi di default, disattivabili per singolo
+# account), questi partono SPENTI per tutti e vanno accesi esplicitamente
+# — vedi enabled_extra_modules sul documento utente, impostato da Admin.jsx.
+EXTRA_MODULE_KEYS = (
+    "personale",
+    "flotta",
+)
+
 
 def require_module(module: str):
     """Dependency factory da passare a APIRouter(dependencies=[...]) per
-    bloccare l'intero router se quel modulo è stato disattivato per
-    l'utente (vedi disabled_modules sul suo documento). A differenza del
-    semplice nascondere la voce di menu in sidebar, questo impedisce
-    anche di raggiungere l'API direttamente."""
+    bloccare l'intero router se quel modulo non è disponibile per
+    l'utente. Due logiche diverse a seconda del tipo di modulo: uno
+    "core" (MODULE_KEYS) è attivo finché non viene esplicitamente
+    disattivato (disabled_modules); uno "extra" (EXTRA_MODULE_KEYS) è
+    spento finché non viene esplicitamente attivato (enabled_extra_modules)
+    — vedi il commento sopra per il perché. A differenza del semplice
+    nascondere la voce di menu in sidebar, questo impedisce anche di
+    raggiungere l'API direttamente."""
     async def _check(user: dict = Depends(get_current_user)) -> dict:
-        if module in (user.get("disabled_modules") or []):
+        if module in EXTRA_MODULE_KEYS:
+            allowed = module in (user.get("enabled_extra_modules") or [])
+        else:
+            allowed = module not in (user.get("disabled_modules") or [])
+        if not allowed:
             raise HTTPException(status_code=403, detail=f"Il modulo \"{module}\" non è disponibile per questo account.")
         return user
     return _check

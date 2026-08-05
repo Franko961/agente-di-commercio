@@ -42,6 +42,8 @@ USER_SCOPED_COLLECTIONS = {
     "richiesta_demo": "demo_requests",
     "provvigioni_manuali": "manual_commissions",
     "feedback": "feedback",
+    "dipendenti": "employees",
+    "richieste_assenza": "leave_requests",
 }
 
 # Ogni altra collection MongoDB realmente usata nel progetto (vedi

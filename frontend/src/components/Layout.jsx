@@ -11,7 +11,7 @@ import { useMandante } from "../contexts/MandanteContext";
 import {
   LayoutDashboard, Users, KanbanSquare, CalendarDays, Map, FileText, ShoppingCart,
   Coins, Building2, Package, Folder, Sparkles, Zap, LogOut, CreditCard, ShieldCheck, Receipt,
-  HelpCircle, Eye, Pencil,
+  HelpCircle, Eye, Pencil, IdCard,
 } from "lucide-react";
 
 // Banner sempre visibile mentre un admin sta usando l'account di un altro
@@ -59,6 +59,7 @@ const fullNav = [
   { to: "/app/documenti", label: "Documenti", icon: Folder, module: "documenti" },
   { to: "/app/automazioni", label: "Automazioni", icon: Zap, module: "automazioni" },
   { to: "/app/ai", label: "Assistente AI", icon: Sparkles, module: "ai" },
+  { to: "/app/personale", label: "Personale", icon: IdCard, module: "personale", extra: true },
   { to: "/app/abbonamento", label: "Abbonamento", icon: CreditCard },
 ];
 
@@ -67,6 +68,7 @@ export default function Layout() {
   const { user, logout, exitImpersonation } = useAuth();
   const isAdmin = user?.role === "admin";
   const disabledModules = user?.disabled_modules || [];
+  const enabledExtraModules = user?.enabled_extra_modules || [];
   const { mandanti, activeMandante, setActiveMandante } = useMandante();
   const location = useLocation();
   const navigate = useNavigate();
@@ -79,7 +81,7 @@ export default function Layout() {
     "/app/provvigioni": "Provvigioni", "/app/mandanti": "Mandanti",
     "/app/spese": "Spese",
     "/app/prodotti": "Prodotti & Listini", "/app/documenti": "Documenti",
-    "/app/automazioni": "Automazioni", "/app/ai": "Assistente AI",
+    "/app/automazioni": "Automazioni", "/app/ai": "Assistente AI", "/app/personale": "Personale",
     "/app/aiuto": "Centro assistenza",
   };
   const baseTitle = Object.entries(titles).find(([k]) => location.pathname === k || (k !== "/app" && location.pathname.startsWith(k)))?.[1] || "";
@@ -138,7 +140,10 @@ export default function Layout() {
                 <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-1">{user?.name}</div>
               </div>
               <nav className="flex-1 overflow-y-auto py-2">
-                {fullNav.filter(({ module }) => !module || !disabledModules.includes(module)).map(({ to, label, icon: Icon }) => (
+                {fullNav.filter(({ module, extra }) => {
+                  if (!module) return true;
+                  return extra ? enabledExtraModules.includes(module) : !disabledModules.includes(module);
+                }).map(({ to, label, icon: Icon }) => (
                   <NavLink
                     key={to}
                     to={to}
