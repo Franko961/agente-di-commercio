@@ -39,7 +39,7 @@ class LeaveRequestService:
         # inviare richieste false da IP diversi (ognuno sotto la soglia
         # per-IP), generando storico fraudolento senza che nessun singolo
         # limite scatti.
-        token_ok = await check_and_record("leave_request_token", payload.employee_token, max_attempts=20, window_minutes=60)
+        token_ok = await check_and_record("leave_request_token", payload.employee_token, max_attempts=5, window_minutes=60)
         if not token_ok:
             raise HTTPException(429, "Troppe richieste per questo link, riprova più tardi.")
 
