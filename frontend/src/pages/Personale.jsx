@@ -321,21 +321,130 @@ export default function Personale() {
             <span className="font-cabinet font-bold text-[15px]">{monthLabel}</span>
             <button onClick={() => shiftMonth(1)} className="p-2 border border-[#E4E4E1] rounded-md hover:border-[#0A192F]"><ChevronRight className="w-4 h-4" /></button>
           </div>
-          {calendarRows.length === 0 ? (
-            <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#A1A1AA] text-[13px]">Nessuna assenza approvata in questo mese.</div>
-          ) : (
-            <div className="space-y-2">
-              {calendarRows.map((r) => (
-                <div key={r.id} className="bg-white border border-[#E4E4E1] rounded-md p-3 flex items-center gap-3 text-[13px]">
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: TYPE_COLORS[r.type] }} />
-                  <span className="font-medium">{r.employee_name}</span>
-                  <span className="text-[#A1A1AA]">{TYPE_LABELS[r.type]} · {r.date_from} → {r.date_to}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          <AbsenceCalendarGrid employees={employees} month={month} rows={calendarRows} />
         </div>
       )}
+    </div>
+  );
+}
+
+function daysInMonthCount(monthKey) {
+  const [y, m] = monthKey.split("-").map(Number);
+  return new Date(y, m, 0).getDate();
+}
+
+function dayIso(monthKey, day) {
+  const [y, m] = monthKey.split("-").map(Number);
+  return `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function isWeekend(monthKey, day) {
+  const [y, m] = monthKey.split("-").map(Number);
+  const dow = new Date(y, m - 1, day).getDay();
+  return dow === 0 || dow === 6;
+}
+
+// Vista a griglia (dipendenti sulle righe, giorni del mese sulle colonne)
+// pensata per aziende con diversi dipendenti (es. CACI SRL, ~40): la
+// precedente semplice lista mensile non dava un colpo d'occhio su chi è
+// assente quando, né segnalava sovrapposizioni. `rows` sono le richieste
+// APPROVATE del mese già filtrate dal backend (vedi
+// leave_request_service.calendar) — tutto il resto è calcolato qui.
+function AbsenceCalendarGrid({ employees, month, rows }) {
+  const activeEmployees = employees.filter((e) => e.active);
+
+  if (activeEmployees.length === 0) {
+    return (
+      <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#A1A1AA] text-[13px]">
+        Nessun dipendente attivo registrato.
+      </div>
+    );
+  }
+
+  const dayCount = daysInMonthCount(month);
+  const days = Array.from({ length: dayCount }, (_, i) => i + 1);
+
+  const byEmployee = {};
+  rows.forEach((r) => {
+    (byEmployee[r.employee_id] ||= []).push(r);
+  });
+  const covering = (employeeId, iso) =>
+    (byEmployee[employeeId] || []).filter((r) => r.date_from <= iso && r.date_to >= iso);
+
+  const absentCountByDay = days.map((day) => {
+    const iso = dayIso(month, day);
+    return activeEmployees.filter((e) => covering(e.id, iso).length > 0).length;
+  });
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-4 mb-3 text-[11px] text-[#52525B]">
+        {Object.entries(TYPE_LABELS).map(([key, label]) => (
+          <div key={key} className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-sm inline-block" style={{ background: TYPE_COLORS[key] }} />
+            {label}
+          </div>
+        ))}
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm inline-block ring-2 ring-red-500 ring-inset" style={{ background: TYPE_COLORS.ferie }} />
+          Sovrapposizione
+        </div>
+      </div>
+
+      <div className="overflow-x-auto border border-[#E4E4E1] rounded-md bg-white">
+        <table className="border-collapse text-[11px]">
+          <thead>
+            <tr>
+              <th className="sticky left-0 z-10 bg-white border-b border-r border-[#E4E4E1] px-3 py-2 text-left font-mono text-[10px] uppercase tracking-widest text-[#52525B] min-w-[150px]">
+                Dipendente
+              </th>
+              {days.map((day) => (
+                <th key={day}
+                  className={`border-b border-[#E4E4E1] w-7 text-center font-mono text-[10px] py-2 ${isWeekend(month, day) ? "bg-[#F9F9F8] text-[#A1A1AA]" : "text-[#52525B]"}`}>
+                  {day}
+                </th>
+              ))}
+            </tr>
+            <tr>
+              <th className="sticky left-0 z-10 bg-white border-b border-r border-[#E4E4E1] px-3 py-1 text-left font-mono text-[10px] text-[#A1A1AA] whitespace-nowrap">
+                Assenti / {activeEmployees.length}
+              </th>
+              {absentCountByDay.map((count, i) => (
+                <th key={i}
+                  className={`border-b border-[#E4E4E1] text-center font-mono text-[10px] py-1 ${count > 0 ? "text-[#FF5A00] font-bold" : "text-[#D4D4D1]"}`}>
+                  {count || "–"}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {activeEmployees.map((emp) => (
+              <tr key={emp.id}>
+                <td className="sticky left-0 z-10 bg-white border-r border-b border-[#E4E4E1] px-3 py-1 font-medium whitespace-nowrap">
+                  {emp.name}
+                </td>
+                {days.map((day) => {
+                  const iso = dayIso(month, day);
+                  const matches = covering(emp.id, iso);
+                  const weekend = isWeekend(month, day);
+                  if (matches.length === 0) {
+                    return <td key={day} className={`border-b border-[#E4E4E1] w-7 h-7 ${weekend ? "bg-[#F9F9F8]" : ""}`} />;
+                  }
+                  const conflict = matches.length > 1;
+                  const title = matches.map((m) => TYPE_LABELS[m.type]).join(" + ");
+                  return (
+                    <td key={day} title={conflict ? `Sovrapposizione: ${title}` : TYPE_LABELS[matches[0].type]}
+                      className="border-b border-[#E4E4E1] w-7 h-7 p-0.5">
+                      <div className={`w-full h-full rounded-sm ${conflict ? "ring-2 ring-red-500 ring-inset" : ""}`}
+                        style={{ background: TYPE_COLORS[matches[0].type] }} />
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
