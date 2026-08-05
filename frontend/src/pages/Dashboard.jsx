@@ -4,11 +4,62 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   LineChart, Line, PieChart, Pie, Cell
 } from "recharts";
-import { TrendingUp, Coins, Users, FileText, Target, ArrowUpRight, Calendar, PhoneCall, AlertTriangle, Banknote, Navigation, Sparkles, ArrowRight } from "lucide-react";
+import { TrendingUp, Coins, Users, FileText, Target, ArrowUpRight, Calendar, PhoneCall, AlertTriangle, Banknote, Navigation, Sparkles, ArrowRight, IdCard, Truck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { useMandante } from "../contexts/MandanteContext";
+import { useAuth } from "../contexts/AuthContext";
+
+// Allineato a backend/core/security.py MODULE_KEYS: se TUTTI questi sono
+// disattivati per l'account, la dashboard di vendita (fatturato, pipeline,
+// provvigioni, spese, ecc. — vedi sotto) non ha alcun senso da mostrare,
+// perché non è un account che usa SalesFly come CRM per agenti di
+// commercio (es. CACI SRL, che usa solo i moduli extra Personale/Flotta).
+// Vedi ExtraModulesHome più sotto per cosa vede al suo posto.
+const CORE_MODULE_KEYS = [
+  "clienti", "lead", "agenda", "mappa", "offerte", "ordini",
+  "provvigioni", "spese", "mandanti", "prodotti", "documenti",
+  "automazioni", "ai",
+];
+
+// Allineato a backend/core/security.py EXTRA_MODULE_KEYS.
+const EXTRA_MODULE_META = {
+  personale: { label: "Personale", desc: "Ferie, permessi, malattie e presenze dei dipendenti.", icon: IdCard, to: "/app/personale" },
+  flotta: { label: "Flotta", desc: "Anagrafica mezzi, scadenze documentali, costi e carico merce.", icon: Truck, to: "/app/flotta" },
+};
+
+function ExtraModulesHome({ user, enabledExtraModules }) {
+  return (
+    <div className="p-4 md:p-8">
+      <div className="border-b border-[#E4E4E1] pb-6 mb-6">
+        <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">
+          Cruscotto · {format(new Date(), "EEEE d MMMM yyyy", { locale: it })}
+        </div>
+        <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Buongiorno{user?.name ? `, ${user.name.split(" ")[0]}` : ""}.</h1>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+        {enabledExtraModules.map((key) => {
+          const meta = EXTRA_MODULE_META[key];
+          if (!meta) return null;
+          const Icon = meta.icon;
+          return (
+            <Link key={key} to={meta.to} className="bg-white border border-[#E4E4E1] rounded-md p-5 hover:border-[#0A192F] transition-colors">
+              <div className="w-10 h-10 bg-[#0A192F] rounded-md flex items-center justify-center mb-3">
+                <Icon className="w-5 h-5 text-white" strokeWidth={1.75} />
+              </div>
+              <div className="font-cabinet font-bold text-[15px] mb-1">{meta.label}</div>
+              <p className="text-[13px] text-[#52525B]">{meta.desc}</p>
+            </Link>
+          );
+        })}
+      </div>
+      {enabledExtraModules.length === 0 && (
+        <p className="text-[13px] text-[#A1A1AA]">Nessun modulo attivo per questo account al momento.</p>
+      )}
+    </div>
+  );
+}
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n || 0);
 const EXPENSE_CATEGORY_LABELS = {
@@ -114,14 +165,25 @@ export default function Dashboard() {
   const [data, setData] = useState(null);
   const [today, setToday] = useState(null);
   const { activeMandante } = useMandante();
+  const { user } = useAuth();
   const mandanteParam = activeMandante && activeMandante !== "all" ? activeMandante : undefined;
 
+  const disabledModules = user?.disabled_modules || [];
+  const enabledExtraModules = user?.enabled_extra_modules || [];
+  const noCoreModules = CORE_MODULE_KEYS.every((m) => disabledModules.includes(m));
+
   useEffect(() => {
+    if (noCoreModules) return;
     api.get("/dashboard/stats", { params: { mandante_id: mandanteParam } }).then(({ data }) => setData(data));
-  }, [mandanteParam]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mandanteParam, noCoreModules]);
   useEffect(() => {
+    if (noCoreModules) return;
     api.get("/dashboard/today", { params: { mandante_id: mandanteParam } }).then(({ data }) => setToday(data)).catch(() => {});
-  }, [mandanteParam]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mandanteParam, noCoreModules]);
+
+  if (noCoreModules) return <ExtraModulesHome user={user} enabledExtraModules={enabledExtraModules} />;
 
   if (!data) return <div className="p-8 font-mono text-sm text-[#A1A1AA]">caricamento dashboard…</div>;
 
