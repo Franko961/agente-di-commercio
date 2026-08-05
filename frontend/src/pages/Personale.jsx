@@ -29,6 +29,7 @@ export default function Personale() {
   const [month, setMonth] = useState(monthKeyToday());
   const [calendarRows, setCalendarRows] = useState([]);
   const [newLink, setNewLink] = useState(null); // { name, token } — mostrato una sola volta dopo creazione/rigenerazione
+  const [deleteTarget, setDeleteTarget] = useState(null); // dipendente per cui è aperta la scelta disattiva/elimina
 
   const loadEmployees = async () => {
     const { data } = await api.get("/employees");
@@ -74,10 +75,15 @@ export default function Personale() {
     loadEmployees();
   };
 
-  const deleteEmployee = async (id, name) => {
-    if (!window.confirm(`Eliminare "${name}"? Le richieste già inviate restano nello storico.`)) return;
-    await api.delete(`/employees/${id}`);
+  const deactivateFromDialog = async () => {
+    await toggleActive(deleteTarget);
+    setDeleteTarget(null);
+  };
+
+  const confirmDelete = async () => {
+    await api.delete(`/employees/${deleteTarget.id}`);
     toast.success("Dipendente eliminato");
+    setDeleteTarget(null);
     loadEmployees();
   };
 
@@ -165,6 +171,31 @@ export default function Personale() {
             <button onClick={copyNewLink} className="w-full flex items-center justify-center gap-2 bg-[#0A192F] text-white py-2.5 rounded-md text-[13px] font-medium">
               <Link2 className="w-4 h-4" /> Copia link
             </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Rimuovere {deleteTarget?.name}?</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <p className="text-[13px] text-[#52525B]">
+              Le richieste già inviate restano comunque nello storico.{" "}
+              {deleteTarget?.active && (
+                <>Se vuoi solo interrompere l'accesso al link, disattivare è la scelta più sicura: puoi riattivarlo in qualsiasi momento. </>
+              )}
+              L'eliminazione definitiva invece non può essere annullata.
+            </p>
+            <div className="flex flex-col gap-2">
+              {deleteTarget?.active && (
+                <button onClick={deactivateFromDialog} className="w-full flex items-center justify-center gap-2 bg-[#0A192F] text-white py-2.5 rounded-md text-[13px] font-medium">
+                  <PowerOff className="w-4 h-4" /> Disattiva dipendente
+                </button>
+              )}
+              <button onClick={confirmDelete} className="w-full flex items-center justify-center gap-2 border border-red-200 text-red-600 py-2.5 rounded-md text-[13px] font-medium hover:bg-red-50">
+                <Trash2 className="w-4 h-4" /> Elimina definitivamente
+              </button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -272,7 +303,7 @@ export default function Personale() {
                 </button>
                 <button onClick={() => setEditTarget(e)} title="Modifica" aria-label="Modifica dipendente"
                   className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
-                <button onClick={() => deleteEmployee(e.id, e.name)} title="Elimina" aria-label="Elimina dipendente"
+                <button onClick={() => setDeleteTarget(e)} title="Elimina" aria-label="Elimina dipendente"
                   className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
               </div>
             </div>
