@@ -1,10 +1,10 @@
 from typing import Optional
 from fastapi import APIRouter, Depends
-from core.security import get_current_user, forbid_demo_write
+from core.security import get_current_user, forbid_demo_write, require_module
 from services.ai_service import ai_service
 from models.ai import AIQuery, AIExecuteActionIn, AICancelActionIn
 
-router = APIRouter(prefix="/api/ai", tags=["ai"])
+router = APIRouter(prefix="/api/ai", tags=["ai"], dependencies=[Depends(require_module("ai"))])
 
 
 @router.get("/history")

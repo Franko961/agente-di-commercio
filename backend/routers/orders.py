@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends
 from typing import Optional
-from core.security import get_current_user, forbid_demo_write
+from core.security import get_current_user, forbid_demo_write, require_module
 from services.order_service import order_service
 from models.order import OrderIn, OrderStatusIn
 
-router = APIRouter(prefix="/api/orders", tags=["orders"])
+router = APIRouter(prefix="/api/orders", tags=["orders"], dependencies=[Depends(require_module("ordini"))])
 
 
 @router.get("")

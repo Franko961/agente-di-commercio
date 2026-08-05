@@ -204,6 +204,31 @@ async def require_admin(user: dict = Depends(get_current_user)) -> dict:
     return user
 
 
+# Moduli disattivabili per singolo account (vedi admin_service.py per
+# l'endpoint che li imposta, Admin.jsx per l'interfaccia). Dashboard,
+# Impostazioni e Abbonamento non sono in elenco: restano sempre attivi,
+# altrimenti un utente con tutto disattivato non potrebbe più navigare
+# l'app né riattivarsi da solo un modulo.
+MODULE_KEYS = (
+    "clienti", "lead", "agenda", "mappa", "offerte", "ordini",
+    "provvigioni", "spese", "mandanti", "prodotti", "documenti",
+    "automazioni", "ai",
+)
+
+
+def require_module(module: str):
+    """Dependency factory da passare a APIRouter(dependencies=[...]) per
+    bloccare l'intero router se quel modulo è stato disattivato per
+    l'utente (vedi disabled_modules sul suo documento). A differenza del
+    semplice nascondere la voce di menu in sidebar, questo impedisce
+    anche di raggiungere l'API direttamente."""
+    async def _check(user: dict = Depends(get_current_user)) -> dict:
+        if module in (user.get("disabled_modules") or []):
+            raise HTTPException(status_code=403, detail=f"Il modulo \"{module}\" non è disponibile per questo account.")
+        return user
+    return _check
+
+
 async def forbid_demo_write(user: dict = Depends(get_current_user)) -> dict:
     """Blocca qualunque scrittura (creazione, modifica, cancellazione) per
     l'account demo condiviso, ED ANCHE per un admin che sta impersonificando

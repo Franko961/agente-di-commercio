@@ -6,6 +6,7 @@ import { MandanteProvider } from "./contexts/MandanteContext";
 import { CookieConsentProvider } from "./contexts/CookieConsentContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
+import ModuleGuard from "./components/ModuleGuard";
 import Layout from "./components/Layout";
 import AnalyticsRouteGuard from "./components/AnalyticsRouteGuard";
 import CookieConsentBanner from "./components/CookieConsentBanner";
@@ -95,21 +96,21 @@ function App() {
               <Route path="/termini" element={<Terms />} />
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route path="/app" element={<Dashboard />} />
-                <Route path="/app/clienti" element={<Clients />} />
-                <Route path="/app/clienti/importa" element={<ImportClienti />} />
-                <Route path="/app/clienti/:id" element={<ClientDetail />} />
-                <Route path="/app/lead" element={<Leads />} />
-                <Route path="/app/agenda" element={<Agenda />} />
-                <Route path="/app/mappa" element={<MapView />} />
-                <Route path="/app/offerte" element={<Offers />} />
-                <Route path="/app/ordini" element={<Ordini />} />
-                <Route path="/app/provvigioni" element={<Commissions />} />
-                <Route path="/app/spese" element={<Spese />} />
-                <Route path="/app/mandanti" element={<Mandanti />} />
-                <Route path="/app/prodotti" element={<Products />} />
-                <Route path="/app/documenti" element={<Documents />} />
-                <Route path="/app/automazioni" element={<Automations />} />
-                <Route path="/app/ai" element={<AIAssistant />} />
+                <Route path="/app/clienti" element={<ModuleGuard module="clienti"><Clients /></ModuleGuard>} />
+                <Route path="/app/clienti/importa" element={<ModuleGuard module="clienti"><ImportClienti /></ModuleGuard>} />
+                <Route path="/app/clienti/:id" element={<ModuleGuard module="clienti"><ClientDetail /></ModuleGuard>} />
+                <Route path="/app/lead" element={<ModuleGuard module="lead"><Leads /></ModuleGuard>} />
+                <Route path="/app/agenda" element={<ModuleGuard module="agenda"><Agenda /></ModuleGuard>} />
+                <Route path="/app/mappa" element={<ModuleGuard module="mappa"><MapView /></ModuleGuard>} />
+                <Route path="/app/offerte" element={<ModuleGuard module="offerte"><Offers /></ModuleGuard>} />
+                <Route path="/app/ordini" element={<ModuleGuard module="ordini"><Ordini /></ModuleGuard>} />
+                <Route path="/app/provvigioni" element={<ModuleGuard module="provvigioni"><Commissions /></ModuleGuard>} />
+                <Route path="/app/spese" element={<ModuleGuard module="spese"><Spese /></ModuleGuard>} />
+                <Route path="/app/mandanti" element={<ModuleGuard module="mandanti"><Mandanti /></ModuleGuard>} />
+                <Route path="/app/prodotti" element={<ModuleGuard module="prodotti"><Products /></ModuleGuard>} />
+                <Route path="/app/documenti" element={<ModuleGuard module="documenti"><Documents /></ModuleGuard>} />
+                <Route path="/app/automazioni" element={<ModuleGuard module="automazioni"><Automations /></ModuleGuard>} />
+                <Route path="/app/ai" element={<ModuleGuard module="ai"><AIAssistant /></ModuleGuard>} />
                 <Route path="/app/abbonamento" element={<Subscription />} />
                 <Route path="/app/impostazioni" element={<Settings />} />
                 <Route path="/app/aiuto" element={<HelpCenter />} />

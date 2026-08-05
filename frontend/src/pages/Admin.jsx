@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../api";
 import {
   Users, TrendingUp, CreditCard, Pencil, Trash2, Check, X,
-  Activity, AlertTriangle, Mail, CalendarClock, Bot, ShieldCheck, Clock, LogIn, Eye, Star,
+  Activity, AlertTriangle, Mail, CalendarClock, Bot, ShieldCheck, Clock, LogIn, Eye, Star, ToggleLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
@@ -20,6 +20,23 @@ const IMPERSONATE_CATEGORIES = [
   { value: "diagnosi_problema", label: "Diagnosi problema" },
   { value: "verifica_configurazione", label: "Verifica configurazione" },
   { value: "controllo_amministrativo", label: "Controllo amministrativo" },
+];
+
+// Valori allineati a backend/core/security.py MODULE_KEYS.
+const MODULES = [
+  { value: "clienti", label: "Clienti" },
+  { value: "lead", label: "Lead & Pipeline" },
+  { value: "agenda", label: "Agenda" },
+  { value: "mappa", label: "Mappa" },
+  { value: "offerte", label: "Offerte" },
+  { value: "ordini", label: "Ordini" },
+  { value: "provvigioni", label: "Provvigioni" },
+  { value: "spese", label: "Spese" },
+  { value: "mandanti", label: "Mandanti" },
+  { value: "prodotti", label: "Prodotti & Listini" },
+  { value: "documenti", label: "Documenti" },
+  { value: "automazioni", label: "Automazioni" },
+  { value: "ai", label: "Assistente AI" },
 ];
 
 export default function Admin() {
@@ -74,6 +91,7 @@ function BusinessTab() {
   const [impersonateCategory, setImpersonateCategory] = useState("");
   const [impersonateReason, setImpersonateReason] = useState("");
   const [submittingImpersonate, setSubmittingImpersonate] = useState(false);
+  const [moduleTarget, setModuleTarget] = useState(null); // { id, email, disabled_modules }
 
   const load = async () => {
     const [s, u] = await Promise.all([
@@ -105,6 +123,23 @@ function BusinessTab() {
   // stato sostituito dal server, serve ricaricare tutto lo stato dell'app
   // (AuthContext, mandanti, ecc.) come per un vero login.
   const goToImpersonatedApp = () => { window.location.href = "/app"; };
+
+  const toggleModule = (value) => {
+    setModuleTarget((prev) => {
+      const has = prev.disabled_modules.includes(value);
+      return {
+        ...prev,
+        disabled_modules: has
+          ? prev.disabled_modules.filter((m) => m !== value)
+          : [...prev.disabled_modules, value],
+      };
+    });
+  };
+
+  const saveModules = async () => {
+    await updateUser(moduleTarget.id, { disabled_modules: moduleTarget.disabled_modules });
+    setModuleTarget(null);
+  };
 
   const openImpersonateDialog = (u, mode) => {
     setImpersonateCategory("");
@@ -246,6 +281,8 @@ function BusinessTab() {
                             className="p-1.5 text-[#A1A1AA] hover:text-[#FF5A00] hover:bg-[#FFF3EC] rounded"><LogIn className="w-4 h-4" /></button>
                           <button onClick={() => setEditUser({...u})} title="Modifica utente" aria-label="Modifica utente"
                             className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
+                          <button onClick={() => setModuleTarget({ id: u.id, email: u.email, disabled_modules: u.disabled_modules || [] })} title="Moduli attivi" aria-label="Moduli attivi"
+                            className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><ToggleLeft className="w-4 h-4" /></button>
                           <button onClick={() => deleteUser(u.id, u.email)} title="Elimina utente" aria-label="Elimina utente"
                             className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
                         </>
@@ -320,6 +357,46 @@ function BusinessTab() {
                   disabled={submittingImpersonate || !impersonateCategory || (impersonateTarget.mode === "edit" && !impersonateReason.trim())}
                   className="px-4 py-2 bg-[#0A192F] text-white rounded-md text-[13px] font-medium disabled:opacity-50">
                   {impersonateTarget.mode === "edit" ? "Accedi e modifica" : "Visualizza come utente"}
+                </button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Moduli attivi per l'account: la lettura di dati "condivisi" fra
+      pagine (clienti, mandanti, prodotti, offerte) resta sempre
+      raggiungibile anche a modulo disattivato — solo la creazione/
+      modifica/cancellazione viene bloccata, vedi core/security.py
+      require_module nel backend per il perché. */}
+      <Dialog open={!!moduleTarget} onOpenChange={(v) => !v && setModuleTarget(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Moduli attivi</DialogTitle></DialogHeader>
+          {moduleTarget && (
+            <div className="space-y-3">
+              <p className="text-[13px] text-[#52525B]">
+                Disattiva le funzioni non usate da <strong>{moduleTarget.email}</strong>: spariscono dal menu e non sono più modificabili.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {MODULES.map((m) => {
+                  const enabled = !moduleTarget.disabled_modules.includes(m.value);
+                  return (
+                    <button key={m.value} type="button" onClick={() => toggleModule(m.value)}
+                      className={`flex items-center justify-between px-3 py-2 rounded-md border text-[12px] font-medium transition-colors ${
+                        enabled ? "border-[#059669]/30 bg-[#059669]/5 text-[#059669]" : "border-[#E4E4E1] text-[#A1A1AA]"
+                      }`}>
+                      {m.label}
+                      {enabled ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button onClick={() => setModuleTarget(null)} className="px-4 py-2 border border-[#E4E4E1] rounded-md text-[13px] font-medium">
+                  Annulla
+                </button>
+                <button onClick={saveModules} className="px-4 py-2 bg-[#0A192F] text-white rounded-md text-[13px] font-medium">
+                  Salva
                 </button>
               </div>
             </div>

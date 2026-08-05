@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends
-from core.security import get_current_user, forbid_demo_write
+from core.security import get_current_user, forbid_demo_write, require_module
 from services.appointment_service import appointment_service
 from models.appointment import AppointmentIn, AppointmentBulkIn
 
-router = APIRouter(prefix="/api/appointments", tags=["appointments"])
+router = APIRouter(prefix="/api/appointments", tags=["appointments"], dependencies=[Depends(require_module("agenda"))])
 
 @router.get("")
 async def list_appointments(user=Depends(get_current_user)):

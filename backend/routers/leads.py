@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends
-from core.security import get_current_user, forbid_demo_write
+from core.security import get_current_user, forbid_demo_write, require_module
 from services.lead_service import lead_service
 from models.lead import LeadIn, LeadStatusIn, LeadContactIn
 
-router = APIRouter(prefix="/api/leads", tags=["leads"])
+router = APIRouter(prefix="/api/leads", tags=["leads"], dependencies=[Depends(require_module("lead"))])
 
 @router.get("")
 async def list_leads(user=Depends(get_current_user)):

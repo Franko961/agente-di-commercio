@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
-from core.security import get_current_user
+from core.security import get_current_user, require_module
 from core.rate_limit import check_and_record
 from services.route_optimization_service import route_optimization_service
 from models.route_planning import RoutePlanIn
 
-router = APIRouter(prefix="/api/route-planning", tags=["route-planning"])
+router = APIRouter(prefix="/api/route-planning", tags=["route-planning"], dependencies=[Depends(require_module("mappa"))])
 
 
 @router.post("/optimize")

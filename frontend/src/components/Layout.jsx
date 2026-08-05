@@ -40,21 +40,25 @@ function ImpersonationBanner({ email, mode, onExit }) {
   );
 }
 
+// "module" collega la voce a core.security.MODULE_KEYS lato backend, come
+// in Sidebar.jsx — stesso motivo, stesso elenco (qui duplicato perché il
+// menu a comparsa mobile mostra anche "Abbonamento", assente dalla sidebar
+// desktop dove ha già una sua scorciatoia dedicata in fondo).
 const fullNav = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/app/clienti", label: "Clienti", icon: Users },
-  { to: "/app/lead", label: "Lead & Pipeline", icon: KanbanSquare },
-  { to: "/app/agenda", label: "Agenda", icon: CalendarDays },
-  { to: "/app/mappa", label: "Mappa", icon: Map },
-  { to: "/app/offerte", label: "Offerte", icon: FileText },
-  { to: "/app/ordini", label: "Ordini", icon: ShoppingCart },
-  { to: "/app/provvigioni", label: "Provvigioni", icon: Coins },
-  { to: "/app/spese", label: "Spese", icon: Receipt },
-  { to: "/app/mandanti", label: "Mandanti", icon: Building2 },
-  { to: "/app/prodotti", label: "Prodotti & Listini", icon: Package },
-  { to: "/app/documenti", label: "Documenti", icon: Folder },
-  { to: "/app/automazioni", label: "Automazioni", icon: Zap },
-  { to: "/app/ai", label: "Assistente AI", icon: Sparkles },
+  { to: "/app/clienti", label: "Clienti", icon: Users, module: "clienti" },
+  { to: "/app/lead", label: "Lead & Pipeline", icon: KanbanSquare, module: "lead" },
+  { to: "/app/agenda", label: "Agenda", icon: CalendarDays, module: "agenda" },
+  { to: "/app/mappa", label: "Mappa", icon: Map, module: "mappa" },
+  { to: "/app/offerte", label: "Offerte", icon: FileText, module: "offerte" },
+  { to: "/app/ordini", label: "Ordini", icon: ShoppingCart, module: "ordini" },
+  { to: "/app/provvigioni", label: "Provvigioni", icon: Coins, module: "provvigioni" },
+  { to: "/app/spese", label: "Spese", icon: Receipt, module: "spese" },
+  { to: "/app/mandanti", label: "Mandanti", icon: Building2, module: "mandanti" },
+  { to: "/app/prodotti", label: "Prodotti & Listini", icon: Package, module: "prodotti" },
+  { to: "/app/documenti", label: "Documenti", icon: Folder, module: "documenti" },
+  { to: "/app/automazioni", label: "Automazioni", icon: Zap, module: "automazioni" },
+  { to: "/app/ai", label: "Assistente AI", icon: Sparkles, module: "ai" },
   { to: "/app/abbonamento", label: "Abbonamento", icon: CreditCard },
 ];
 
@@ -62,6 +66,7 @@ export default function Layout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { user, logout, exitImpersonation } = useAuth();
   const isAdmin = user?.role === "admin";
+  const disabledModules = user?.disabled_modules || [];
   const { mandanti, activeMandante, setActiveMandante } = useMandante();
   const location = useLocation();
   const navigate = useNavigate();
@@ -122,7 +127,7 @@ export default function Layout() {
 
         <Outlet />
 
-        <VoiceAssistant />
+        {!disabledModules.includes("ai") && <VoiceAssistant />}
         <MobileNav onMenu={() => setDrawerOpen(true)} />
 
         <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
@@ -133,7 +138,7 @@ export default function Layout() {
                 <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-1">{user?.name}</div>
               </div>
               <nav className="flex-1 overflow-y-auto py-2">
-                {fullNav.map(({ to, label, icon: Icon }) => (
+                {fullNav.filter(({ module }) => !module || !disabledModules.includes(module)).map(({ to, label, icon: Icon }) => (
                   <NavLink
                     key={to}
                     to={to}

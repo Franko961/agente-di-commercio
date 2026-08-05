@@ -104,6 +104,22 @@ CRM_WRITE_TOOLS = {
     "add_expense",
 }
 
+# A quale modulo (vedi core.security.MODULE_KEYS) appartiene ciascun tool:
+# un modulo disattivato per l'utente deve bloccare anche l'omologa azione
+# via assistente AI/vocale, non solo il form web — altrimenti disattivare
+# "Provvigioni" lascerebbe comunque possibile generarne una parlando con
+# l'assistente (add_offer con accepted=true crea anche la provvigione).
+TOOL_MODULE = {
+    "add_client": "clienti",
+    "add_note_to_client": "clienti",
+    "search_clients": "clienti",
+    "add_appointment": "agenda",
+    "add_lead": "lead",
+    "add_offer": "offerte",
+    "search_offers": "offerte",
+    "add_expense": "spese",
+}
+
 
 def _safe_float(value, default: float = 0.0) -> float:
     """Converte in float in modo sicuro un valore che può arrivare dall'AI
@@ -1214,7 +1230,14 @@ class AiService:
                     for block in message.content:
                         if block.type == "tool_use":
                             tools_invoked.add(block.name)
-                            if self.requires_confirmation(block.name, block.input, channel):
+                            blocked_module = TOOL_MODULE.get(block.name)
+                            if blocked_module and blocked_module in (user.get("disabled_modules") or []):
+                                result = f"🔒 Il modulo \"{blocked_module}\" non è disponibile per questo account."
+                                await self._log_action(
+                                    user["id"], channel, payload.message, block.name, block.input,
+                                    status="fallita", result=result,
+                                )
+                            elif self.requires_confirmation(block.name, block.input, channel):
                                 if block.name == "add_offer":
                                     prepared = await self.prepare_add_offer(block.input, user["id"])
                                 else:

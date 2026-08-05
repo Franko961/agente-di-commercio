@@ -8,27 +8,33 @@ import { useAuth } from "../contexts/AuthContext";
 import { useMandante } from "../contexts/MandanteContext";
 import NotificationBell from "./NotificationBell";
 
+// "module" collega la voce a core.security.MODULE_KEYS lato backend: se
+// presente nell'array disabled_modules dell'utente (impostato dall'admin,
+// vedi Admin.jsx), la voce sparisce dal menu. Dashboard e Impostazioni
+// non hanno un module — restano sempre visibili, altrimenti un utente
+// con tutto disattivato non avrebbe più modo di navigare l'app.
 const navItems = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/app/clienti", label: "Clienti", icon: Users },
-  { to: "/app/lead", label: "Lead & Pipeline", icon: KanbanSquare },
-  { to: "/app/agenda", label: "Agenda", icon: CalendarDays },
-  { to: "/app/mappa", label: "Mappa", icon: Map },
-  { to: "/app/offerte", label: "Offerte", icon: FileText },
-  { to: "/app/ordini", label: "Ordini", icon: ShoppingCart },
-  { to: "/app/provvigioni", label: "Provvigioni", icon: Coins },
-  { to: "/app/spese", label: "Spese", icon: Receipt },
-  { to: "/app/mandanti", label: "Mandanti", icon: Building2 },
-  { to: "/app/prodotti", label: "Prodotti & Listini", icon: Package },
-  { to: "/app/documenti", label: "Documenti", icon: Folder },
-  { to: "/app/automazioni", label: "Automazioni", icon: Zap },
-  { to: "/app/ai", label: "Assistente AI", icon: Sparkles },
+  { to: "/app/clienti", label: "Clienti", icon: Users, module: "clienti" },
+  { to: "/app/lead", label: "Lead & Pipeline", icon: KanbanSquare, module: "lead" },
+  { to: "/app/agenda", label: "Agenda", icon: CalendarDays, module: "agenda" },
+  { to: "/app/mappa", label: "Mappa", icon: Map, module: "mappa" },
+  { to: "/app/offerte", label: "Offerte", icon: FileText, module: "offerte" },
+  { to: "/app/ordini", label: "Ordini", icon: ShoppingCart, module: "ordini" },
+  { to: "/app/provvigioni", label: "Provvigioni", icon: Coins, module: "provvigioni" },
+  { to: "/app/spese", label: "Spese", icon: Receipt, module: "spese" },
+  { to: "/app/mandanti", label: "Mandanti", icon: Building2, module: "mandanti" },
+  { to: "/app/prodotti", label: "Prodotti & Listini", icon: Package, module: "prodotti" },
+  { to: "/app/documenti", label: "Documenti", icon: Folder, module: "documenti" },
+  { to: "/app/automazioni", label: "Automazioni", icon: Zap, module: "automazioni" },
+  { to: "/app/ai", label: "Assistente AI", icon: Sparkles, module: "ai" },
   { to: "/app/impostazioni", label: "Impostazioni", icon: SettingsIcon },
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {
   const { user, logout } = useAuth();
   const isAdmin = user?.role === "admin";
+  const disabledModules = user?.disabled_modules || [];
   const { mandanti, activeMandante, setActiveMandante } = useMandante();
   const navigate = useNavigate();
 
@@ -87,7 +93,7 @@ export default function Sidebar({ collapsed, onToggle }) {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3">
-        {navItems.map(({ to, label, icon: Icon }) => (
+        {navItems.filter(({ module }) => !module || !disabledModules.includes(module)).map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}

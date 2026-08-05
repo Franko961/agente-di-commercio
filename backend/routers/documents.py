@@ -3,7 +3,7 @@ from typing import Literal, Optional
 from fastapi import APIRouter, Depends, UploadFile, File, Form, Header, Query, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from core.security import (
-    get_current_user, forbid_demo_write,
+    get_current_user, forbid_demo_write, require_module,
     create_document_download_token, decode_document_download_token,
     DOCUMENT_DOWNLOAD_TOKEN_TTL_MINUTES,
 )
@@ -14,18 +14,27 @@ from models.document import DocumentIn, DocumentMetaUpdate, DOCUMENT_CATEGORIES
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
+# Il modulo "documenti" copre solo l'archivio documenti vero e proprio
+# (elenco, caricamento, cancellazione). Le rotte di download/signed-url
+# più sotto restano SEMPRE raggiungibili: sono quelle usate per aprire lo
+# scontrino allegato a una spesa (Spese.jsx) o l'allegato di un'offerta,
+# indipendentemente dal fatto che l'archivio documenti standalone sia
+# attivo per l'utente — disattivarlo non deve rendere illeggibili
+# allegati già collegati altrove.
+MODULE_DEP = Depends(require_module("documenti"))
 
-@router.get("")
+
+@router.get("", dependencies=[MODULE_DEP])
 async def list_documents(user=Depends(get_current_user)):
     return await document_service.list_documents(user)
 
 
-@router.post("")
+@router.post("", dependencies=[MODULE_DEP])
 async def create_document(payload: DocumentIn, user=Depends(forbid_demo_write)):
     return await document_service.create_document(user, payload)
 
 
-@router.post("/upload")
+@router.post("/upload", dependencies=[MODULE_DEP])
 async def upload_document(
     file: UploadFile = File(...),
     name: str = Form(...),
@@ -38,7 +47,7 @@ async def upload_document(
     return await document_service.upload_document(user, file, name, category, client_id, notes, tags)
 
 
-@router.patch("/{did}")
+@router.patch("/{did}", dependencies=[MODULE_DEP])
 async def update_document_meta(did: str, payload: DocumentMetaUpdate, user=Depends(forbid_demo_write)):
     """Update metadata (tags, name, category, notes, client_id) without re-uploading the file."""
     await document_service.update_document_meta(user, did, payload)
@@ -130,7 +139,7 @@ async def download_document(
     )
 
 
-@router.delete("/{did}")
+@router.delete("/{did}", dependencies=[MODULE_DEP])
 async def delete_document(did: str, user=Depends(forbid_demo_write)):
     await document_service.delete_document(user, did)
     return {"ok": True}

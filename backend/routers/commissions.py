@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, Body
 from typing import Optional
-from core.security import get_current_user, forbid_demo_write
+from core.security import get_current_user, forbid_demo_write, require_module
 from services.commission_service import commission_service
 from models.commission import ManualCommissionIn
 
-router = APIRouter(prefix="/api/commissions", tags=["commissions"])
+router = APIRouter(prefix="/api/commissions", tags=["commissions"], dependencies=[Depends(require_module("provvigioni"))])
 
 
 @router.get("")
