@@ -13,6 +13,13 @@ class LeaveRequestRepository:
     async def find_one(self, rid: str, user_id: str):
         return await self.collection.find_one({"id": rid, "user_id": user_id}, {"_id": 0})
 
+    async def find_by_employee(self, employee_id: str) -> list:
+        """Tutte le richieste (di ogni stato) di un singolo dipendente —
+        usato per individuare invii duplicati e sovrapposizioni di date,
+        indipendentemente dal tipo di assenza (es. ferie sovrapposte a
+        una malattia)."""
+        return await self.collection.find({"employee_id": employee_id}, {"_id": 0}).to_list(2000)
+
     async def find_overlapping(self, user_id: str, date_from: str, date_to: str, status: str = "approvata") -> list:
         """Richieste che si sovrappongono almeno in parte all'intervallo
         [date_from, date_to] (confronto su stringhe ISO YYYY-MM-DD, che

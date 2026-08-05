@@ -99,6 +99,9 @@ class FakeLeaveRequestRepo:
             and d["date_from"] <= date_to and d["date_to"] >= date_from
         ]
 
+    async def find_by_employee(self, employee_id):
+        return [d for d in self.docs.values() if d["employee_id"] == employee_id]
+
     async def insert(self, doc):
         self.docs[doc["id"]] = dict(doc)
         return doc
@@ -190,6 +193,112 @@ def test_submit_rifiuta_intervallo_di_date_invertito(monkeypatch):
     )
     with pytest.raises(ValidationAppError):
         run(service.submit(payload))
+
+
+def test_submit_e_idempotente_su_doppio_invio_identico(monkeypatch):
+    """Doppio clic / doppio invio della STESSA richiesta (stesso tipo e
+    stesse date, ancora in attesa): non deve creare un secondo record."""
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    payload = LeaveRequestIn(
+        employee_token=employee["request_token"], type="ferie",
+        date_from="2026-08-10", date_to="2026-08-15",
+    )
+    run(service.submit(payload))
+    run(service.submit(payload))
+    assert len(repo.docs) == 1
+
+
+def test_submit_non_deduplica_richieste_gia_decise(monkeypatch):
+    """Se la richiesta identica precedente è già stata decisa, un nuovo
+    invio è legittimo (es. ripresentata dopo un rifiuto) e va creato."""
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    payload = LeaveRequestIn(
+        employee_token=employee["request_token"], type="ferie",
+        date_from="2026-08-10", date_to="2026-08-15",
+    )
+    run(service.submit(payload))
+    first_id = list(repo.docs.keys())[0]
+    run(repo.update(first_id, USER["id"], {"status": "rifiutata"}))
+    run(service.submit(payload))
+    assert len(repo.docs) == 2
+
+
+def test_list_requests_segnala_richieste_sovrapposte(monkeypatch):
+    """Ferie 10-15 agosto e ferie 12-18 agosto per lo stesso dipendente:
+    entrambe vengono create (non bloccate), ma segnalate come sovrapposte."""
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    run(service.submit(LeaveRequestIn(
+        employee_token=employee["request_token"], type="ferie",
+        date_from="2026-08-10", date_to="2026-08-15",
+    )))
+    run(service.submit(LeaveRequestIn(
+        employee_token=employee["request_token"], type="ferie",
+        date_from="2026-08-12", date_to="2026-08-18",
+    )))
+    assert len(repo.docs) == 2
+    results = run(service.list_requests(USER))
+    assert all(r["overlaps"] for r in results)
+
+
+def test_list_requests_segnala_sovrapposizione_tra_tipi_diversi(monkeypatch):
+    """Ferie sovrapposte a una malattia già approvata dello stesso
+    dipendente: deve essere segnalata anche se il tipo è diverso."""
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    run(service.submit(LeaveRequestIn(
+        employee_token=employee["request_token"], type="malattia",
+        date_from="2026-08-10", date_to="2026-08-12",
+    )))
+    malattia_id = list(repo.docs.keys())[0]
+    run(repo.update(malattia_id, USER["id"], {"status": "approvata"}))
+    run(service.submit(LeaveRequestIn(
+        employee_token=employee["request_token"], type="ferie",
+        date_from="2026-08-11", date_to="2026-08-20",
+    )))
+    results = run(service.list_requests(USER))
+    assert all(r["overlaps"] for r in results)
+
+
+def test_list_requests_non_segnala_sovrapposizione_con_richiesta_rifiutata(monkeypatch):
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    run(service.submit(LeaveRequestIn(
+        employee_token=employee["request_token"], type="ferie",
+        date_from="2026-08-10", date_to="2026-08-15",
+    )))
+    first_id = list(repo.docs.keys())[0]
+    run(repo.update(first_id, USER["id"], {"status": "rifiutata"}))
+    run(service.submit(LeaveRequestIn(
+        employee_token=employee["request_token"], type="ferie",
+        date_from="2026-08-12", date_to="2026-08-18",
+    )))
+    results = run(service.list_requests(USER))
+    assert not any(r["overlaps"] for r in results)
+
+
+def test_list_requests_non_segnala_richieste_di_dipendenti_diversi(monkeypatch):
+    emp_service, emp_repo = build_employee_service()
+    e1 = run(emp_service.create_employee(USER, make_employee("Mario Rossi")))
+    e2 = run(emp_service.create_employee(USER, make_employee("Luca Bianchi")))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    run(service.submit(LeaveRequestIn(
+        employee_token=e1["request_token"], type="ferie",
+        date_from="2026-08-10", date_to="2026-08-15",
+    )))
+    run(service.submit(LeaveRequestIn(
+        employee_token=e2["request_token"], type="ferie",
+        date_from="2026-08-10", date_to="2026-08-15",
+    )))
+    results = run(service.list_requests(USER))
+    assert not any(r["overlaps"] for r in results)
 
 
 @pytest.mark.parametrize("date_from", ["2026-99-99", "2026-02-31", "test", "2026-8-2"])

@@ -40,6 +40,39 @@ class LeaveRequestService:
         if payload.date_to < payload.date_from:
             raise ValidationAppError("La data di fine non può precedere quella di inizio")
 
+        date_from_iso = payload.date_from.isoformat()
+        date_to_iso = payload.date_to.isoformat()
+
+        existing = await self.repo.find_by_employee(employee["id"])
+
+        # Idempotenza per doppio clic / doppio invio: una richiesta
+        # identica (stesso tipo e stesse date) già in attesa di decisione
+        # viene considerata lo stesso invio, non un duplicato — non ne
+        # viene creata una seconda né rimandata una seconda email al
+        # responsabile. Non si applica a richieste già decise: se
+        # approvata/rifiutata, un nuovo invio identico è una richiesta
+        # legittima (es. ripresentata dopo un rifiuto) e passa invece dal
+        # controllo di sovrapposizione sotto.
+        if any(
+            r["status"] == "in_attesa" and r["type"] == payload.type
+            and r["date_from"] == date_from_iso and r["date_to"] == date_to_iso
+            for r in existing
+        ):
+            return {"ok": True}
+
+        # Sovrapposizione con altre richieste dello stesso dipendente non
+        # rifiutate (in attesa o già approvate), di qualunque tipo — es.
+        # ferie che si sovrappongono a una malattia già approvata. Non
+        # blocca l'invio: il responsabile deve solo poterlo sapere prima
+        # di decidere (vedi list_requests, che ricalcola questo stesso
+        # controllo ad ogni lettura, così l'avviso resta aggiornato anche
+        # se una delle richieste sovrapposte viene poi rifiutata).
+        overlapping = [
+            r for r in existing
+            if r["status"] != "rifiutata"
+            and r["date_from"] <= date_to_iso and r["date_to"] >= date_from_iso
+        ]
+
         doc = {
             "id": gen_id(),
             "user_id": employee["user_id"],
@@ -49,8 +82,8 @@ class LeaveRequestService:
             # di mostrare un riferimento orfano.
             "employee_name": employee["name"],
             "type": payload.type,
-            "date_from": payload.date_from.isoformat(),
-            "date_to": payload.date_to.isoformat(),
+            "date_from": date_from_iso,
+            "date_to": date_to_iso,
             "note": (payload.note or "").strip(),
             "status": "in_attesa",
             "created_at": now_iso(),
@@ -63,13 +96,38 @@ class LeaveRequestService:
             await send_email(
                 to=manager["email"],
                 subject=f"Nuova richiesta di {LEAVE_TYPE_LABELS.get(payload.type, payload.type)} — {employee['name']}",
-                html=self._manager_email_html(doc),
+                html=self._manager_email_html(doc, overlapping=bool(overlapping)),
             )
 
         return {"ok": True}
 
     async def list_requests(self, user: dict, status: str = None) -> list:
-        return await self.repo.find_many(user["id"], status)
+        requests = await self.repo.find_many(user["id"])
+        self._attach_overlap_flags(requests)
+        if status:
+            requests = [r for r in requests if r["status"] == status]
+        return requests
+
+    @staticmethod
+    def _attach_overlap_flags(requests: list) -> None:
+        """Aggiunge a ciascuna richiesta non rifiutata un campo `overlaps`
+        (bool): True se si sovrappone ad almeno un'altra richiesta non
+        rifiutata dello stesso dipendente, di qualunque tipo. Calcolato al
+        volo ad ogni lettura (non salvato sul documento) così resta
+        corretto anche quando lo stato di una delle richieste coinvolte
+        cambia in seguito."""
+        by_employee = {}
+        for r in requests:
+            if r["status"] != "rifiutata":
+                by_employee.setdefault(r["employee_id"], []).append(r)
+        for r in requests:
+            if r["status"] == "rifiutata":
+                r["overlaps"] = False
+                continue
+            r["overlaps"] = any(
+                o["id"] != r["id"] and o["date_from"] <= r["date_to"] and o["date_to"] >= r["date_from"]
+                for o in by_employee.get(r["employee_id"], [])
+            )
 
     async def decide(self, user: dict, rid: str, status: str) -> None:
         request = await self.repo.find_one(rid, user["id"])
@@ -107,7 +165,7 @@ class LeaveRequestService:
         return csv_response(rows, headers, "assenze.csv")
 
     @staticmethod
-    def _manager_email_html(doc: dict) -> str:
+    def _manager_email_html(doc: dict, overlapping: bool = False) -> str:
         # employee_name e note arrivano in ultima analisi da un form pubblico
         # non autenticato (il nome è impostato dal manager stesso in fase di
         # creazione del dipendente, ma la nota la scrive il dipendente):
@@ -115,6 +173,13 @@ class LeaveRequestService:
         name = html.escape(doc["employee_name"])
         type_label = html.escape(LEAVE_TYPE_LABELS.get(doc["type"], doc["type"]))
         note = html.escape(doc["note"]) if doc["note"] else ""
+        warning = (
+            '<div style="margin-top:16px; padding:12px 16px; background:#FFF3EC; border:1px solid #FF5A00; '
+            'border-radius:8px; font-size:13px; color:#0A192F;">'
+            "⚠️ Esiste già un'altra richiesta di questo dipendente che si sovrappone al periodo selezionato."
+            "</div>"
+            if overlapping else ""
+        )
         return f"""
         <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">
           <h3 style="color:#0A192F;">Nuova richiesta di {type_label}</h3>
@@ -124,6 +189,7 @@ class LeaveRequestService:
             <tr><td style="padding:4px 0; color:#52525B;">Al</td><td>{doc['date_to']}</td></tr>
           </table>
           {f'<div style="margin-top:16px; padding:12px 16px; background:#F9F9F8; border:1px solid #E4E4E1; border-radius:8px; font-size:14px; white-space:pre-wrap;">{note}</div>' if note else ''}
+          {warning}
           <p style="font-size:13px; color:#52525B; margin-top:16px;">Approva o rifiuta dalla sezione Personale di SalesFly.</p>
         </div>
         """

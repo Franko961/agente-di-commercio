@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Plus, Trash2, Pencil, Check, X, Link2, Download, Clock,
-  CalendarDays, Users, ChevronLeft, ChevronRight,
+  CalendarDays, Users, ChevronLeft, ChevronRight, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "../api";
@@ -168,6 +168,12 @@ export default function Personale() {
                       </div>
                       <div className="text-[12px] text-[#52525B] mt-1">{r.date_from} → {r.date_to}</div>
                       {r.note && <div className="text-[12px] text-[#52525B] mt-1 italic">"{r.note}"</div>}
+                      {r.overlaps && (
+                        <div className="flex items-center gap-1.5 mt-1.5 text-[12px] text-[#FF5A00]">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                          Si sovrappone a un'altra richiesta di {r.employee_name}
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => decide(r.id, "approvata")} data-testid={`approve-${r.id}`}
