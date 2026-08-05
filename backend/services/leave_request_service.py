@@ -136,7 +136,16 @@ class LeaveRequestService:
         if request["status"] != "in_attesa":
             raise ValidationAppError("Questa richiesta è già stata decisa")
 
-        await self.repo.update(rid, user["id"], {"status": status, "decided_at": now_iso()})
+        # Aggiornamento condizionale atomico (non un update incondizionato
+        # dopo il controllo sopra): tra la lettura appena fatta e questo
+        # punto un'altra decisione concorrente sulla STESSA richiesta può
+        # essere già passata. Solo chi vince questa query invia l'email:
+        # altrimenti due decisioni quasi simultanee (es. approva/rifiuta)
+        # potrebbero entrambe leggere "in_attesa" e generare due email
+        # contrastanti al dipendente.
+        won_race = await self.repo.decide(rid, user["id"], {"status": status, "decided_at": now_iso()})
+        if not won_race:
+            raise ValidationAppError("Questa richiesta è già stata decisa")
 
         employee = await self.employees.find_one(request["employee_id"], user["id"])
         if employee and employee.get("email"):

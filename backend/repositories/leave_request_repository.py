@@ -41,5 +41,20 @@ class LeaveRequestRepository:
         res = await self.collection.update_one({"id": rid, "user_id": user_id}, {"$set": data})
         return res.matched_count > 0
 
+    async def decide(self, rid: str, user_id: str, data: dict) -> bool:
+        """Aggiornamento condizionale atomico: applica `data` SOLO se la
+        richiesta è ancora "in_attesa" in quel preciso istante secondo il
+        database (non secondo una lettura precedente). Evita la race
+        condition in cui due decisioni concorrenti sulla stessa richiesta
+        (es. approva/rifiuta quasi simultanei) leggono entrambe status
+        "in_attesa" e finiscono per sovrascriversi a vicenda — con questo
+        filtro nella query solo una delle due vince, l'altra ottiene
+        modified_count 0."""
+        res = await self.collection.update_one(
+            {"id": rid, "user_id": user_id, "status": "in_attesa"},
+            {"$set": data},
+        )
+        return res.modified_count == 1
+
 
 leave_request_repository = LeaveRequestRepository()

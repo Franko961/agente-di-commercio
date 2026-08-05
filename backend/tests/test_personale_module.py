@@ -113,6 +113,13 @@ class FakeLeaveRequestRepo:
         d.update(data)
         return True
 
+    async def decide(self, rid, user_id, data):
+        d = self.docs.get(rid)
+        if not d or d["user_id"] != user_id or d["status"] != "in_attesa":
+            return False
+        d.update(data)
+        return True
+
 
 class FakeUserRepo:
     def __init__(self, users):
@@ -348,6 +355,46 @@ def test_decide_blocca_una_seconda_decisione(monkeypatch):
     run(service.decide(USER, rid, "approvata"))
     with pytest.raises(ValidationAppError):
         run(service.decide(USER, rid, "rifiutata"))
+
+
+class StaleReadLeaveRepo(FakeLeaveRequestRepo):
+    """Simula la finestra della race condition: find_one restituisce
+    sempre un'istantanea con status "in_attesa", indipendentemente dallo
+    stato reale già scritto nel frattempo — come accadrebbe se due
+    richieste HTTP quasi simultanee leggessero lo stato PRIMA che la
+    prima decisione venga salvata. Serve a dimostrare che è l'update
+    condizionale atomico in decide() (non il pre-check basato su questa
+    lettura) a impedire la doppia decisione."""
+    async def find_one(self, rid, user_id):
+        d = self.docs.get(rid)
+        if not d or d["user_id"] != user_id:
+            return None
+        stale = dict(d)
+        stale["status"] = "in_attesa"
+        return stale
+
+
+def test_decide_e_atomico_contro_decisioni_concorrenti(monkeypatch):
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    monkeypatch.setattr(leave_request_mod, "send_email", _noop_send_email)
+    monkeypatch.setattr(leave_request_mod, "check_and_record", lambda *a, **kw: _allow())
+    repo = StaleReadLeaveRepo()
+    service = LeaveRequestService(repo=repo, employees=emp_repo, users=FakeUserRepo({USER["id"]: USER}))
+
+    payload = LeaveRequestIn(employee_token=employee["request_token"], type="ferie", date_from="2026-08-01", date_to="2026-08-02")
+    run(service.submit(payload))
+    rid = list(repo.docs.keys())[0]
+
+    run(service.decide(USER, rid, "approvata"))
+    assert repo.docs[rid]["status"] == "approvata"
+
+    # Il pre-check basato sulla lettura stantia (sempre "in_attesa") la
+    # lascerebbe passare; l'update atomico nel repository la blocca
+    # perché lo stato reale non è più "in_attesa".
+    with pytest.raises(ValidationAppError):
+        run(service.decide(USER, rid, "rifiutata"))
+    assert repo.docs[rid]["status"] == "approvata"
 
 
 def test_decide_rifiuta_richiesta_di_un_altro_utente(monkeypatch):
