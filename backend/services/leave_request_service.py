@@ -7,6 +7,7 @@ from core.utils import gen_id, now_iso
 from core.exceptions import NotFoundError, ValidationAppError
 from core.config import FRONTEND_URL
 from core.rate_limit import check_and_record
+from core.security import hash_reset_token
 from repositories.leave_request_repository import leave_request_repository
 from repositories.employee_repository import employee_repository
 from repositories.user_repository import user_repository
@@ -33,7 +34,16 @@ class LeaveRequestService:
             if not ok:
                 raise HTTPException(429, "Troppe richieste da questo indirizzo, riprova più tardi.")
 
-        employee = await self.employees.find_by_token(payload.employee_token)
+        # Oltre al limite per IP sopra, un limite per token: un link
+        # rubato/condiviso per errore verrebbe altrimenti usato per
+        # inviare richieste false da IP diversi (ognuno sotto la soglia
+        # per-IP), generando storico fraudolento senza che nessun singolo
+        # limite scatti.
+        token_ok = await check_and_record("leave_request_token", payload.employee_token, max_attempts=20, window_minutes=60)
+        if not token_ok:
+            raise HTTPException(429, "Troppe richieste per questo link, riprova più tardi.")
+
+        employee = await self.employees.find_by_token_hash(hash_reset_token(payload.employee_token))
         if not employee or not employee.get("active", True):
             raise NotFoundError("Link non valido")
 

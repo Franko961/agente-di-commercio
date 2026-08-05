@@ -55,9 +55,9 @@ class FakeEmployeeRepo:
         d = self.docs.get(eid)
         return d if d and d["user_id"] == user_id else None
 
-    async def find_by_token(self, token):
+    async def find_by_token_hash(self, token_hash):
         for d in self.docs.values():
-            if d["request_token"] == token:
+            if d["request_token_hash"] == token_hash:
                 return d
         return None
 
@@ -71,6 +71,11 @@ class FakeEmployeeRepo:
             return False
         d.update(data)
         return True
+
+    async def touch_last_used(self, eid, ts):
+        d = self.docs.get(eid)
+        if d:
+            d["last_used_at"] = ts
 
     async def delete(self, eid, user_id):
         d = self.docs.get(eid)
@@ -180,6 +185,59 @@ def test_get_by_token_rifiuta_dipendente_disattivato():
         run(service.get_by_token(employee["request_token"]))
 
 
+def test_create_employee_non_salva_il_token_in_chiaro():
+    service, repo = build_employee_service()
+    employee = run(service.create_employee(USER, make_employee()))
+    stored = repo.docs[employee["id"]]
+    assert "request_token" not in stored
+    assert stored["request_token_hash"]
+    assert stored["request_token_hash"] != employee["request_token"]
+
+
+def test_regenerate_token_invalida_il_precedente(monkeypatch):
+    service, repo = build_employee_service()
+    employee = run(service.create_employee(USER, make_employee()))
+    old_token = employee["request_token"]
+
+    new_token = run(service.regenerate_token(USER, employee["id"]))
+
+    assert new_token != old_token
+    with pytest.raises(NotFoundError):
+        run(service.get_by_token(old_token))
+    found = run(service.get_by_token(new_token))
+    assert found["id"] == employee["id"]
+
+
+def test_regenerate_token_rifiuta_dipendente_di_un_altro_utente():
+    service, repo = build_employee_service()
+    employee = run(service.create_employee(USER, make_employee()))
+    altro = {"id": "user-2", "email": "altro@example.com"}
+    with pytest.raises(NotFoundError):
+        run(service.regenerate_token(altro, employee["id"]))
+
+
+def test_set_active_disattiva_e_riattiva():
+    service, repo = build_employee_service()
+    employee = run(service.create_employee(USER, make_employee()))
+
+    run(service.set_active(USER, employee["id"], False))
+    with pytest.raises(NotFoundError):
+        run(service.get_by_token(employee["request_token"]))
+
+    run(service.set_active(USER, employee["id"], True))
+    found = run(service.get_by_token(employee["request_token"]))
+    assert found["id"] == employee["id"]
+
+
+def test_get_by_token_aggiorna_last_used_at():
+    service, repo = build_employee_service()
+    employee = run(service.create_employee(USER, make_employee()))
+    assert repo.docs[employee["id"]]["last_used_at"] is None
+
+    run(service.get_by_token(employee["request_token"]))
+    assert repo.docs[employee["id"]]["last_used_at"] is not None
+
+
 # ---------- leave_request_service.submit ----------
 
 def test_submit_rifiuta_token_sconosciuto(monkeypatch):
@@ -188,6 +246,28 @@ def test_submit_rifiuta_token_sconosciuto(monkeypatch):
     payload = LeaveRequestIn(employee_token="non-esiste", type="ferie", date_from="2026-08-01", date_to="2026-08-05")
     with pytest.raises(NotFoundError):
         run(service.submit(payload))
+
+
+def test_submit_rispetta_il_rate_limit_per_token(monkeypatch):
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+
+    calls = []
+
+    async def fake_check_and_record(kind, key, max_attempts, window_minutes):
+        calls.append(kind)
+        return kind != "leave_request_token"
+
+    monkeypatch.setattr(leave_request_mod, "send_email", _noop_send_email)
+    monkeypatch.setattr(leave_request_mod, "check_and_record", fake_check_and_record)
+    repo = FakeLeaveRequestRepo()
+    service = LeaveRequestService(repo=repo, employees=emp_repo, users=FakeUserRepo({USER["id"]: USER}))
+
+    payload = LeaveRequestIn(employee_token=employee["request_token"], type="ferie", date_from="2026-08-01", date_to="2026-08-02")
+    with pytest.raises(HTTPException) as exc_info:
+        run(service.submit(payload))
+    assert exc_info.value.status_code == 429
+    assert "leave_request_token" in calls
 
 
 def test_submit_rifiuta_intervallo_di_date_invertito(monkeypatch):

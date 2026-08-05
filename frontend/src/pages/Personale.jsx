@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Plus, Trash2, Pencil, Check, X, Link2, Download, Clock,
-  CalendarDays, Users, ChevronLeft, ChevronRight, AlertTriangle,
+  CalendarDays, Users, ChevronLeft, ChevronRight, AlertTriangle, RefreshCw, Power, PowerOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "../api";
@@ -28,6 +28,7 @@ export default function Personale() {
   const [editTarget, setEditTarget] = useState(null);
   const [month, setMonth] = useState(monthKeyToday());
   const [calendarRows, setCalendarRows] = useState([]);
+  const [newLink, setNewLink] = useState(null); // { name, token } — mostrato una sola volta dopo creazione/rigenerazione
 
   const loadEmployees = async () => {
     const { data } = await api.get("/employees");
@@ -65,9 +66,10 @@ export default function Personale() {
       toast.success("Dipendente aggiornato");
       setEditTarget(null);
     } else {
-      await api.post("/employees", f);
+      const { data } = await api.post("/employees", f);
       toast.success("Dipendente aggiunto");
       setOpen(false);
+      setNewLink({ name: data.name, token: data.request_token });
     }
     loadEmployees();
   };
@@ -79,8 +81,21 @@ export default function Personale() {
     loadEmployees();
   };
 
-  const copyLink = (token) => {
-    const url = `${window.location.origin}/richiedi-assenza/${token}`;
+  const regenerateToken = async (emp) => {
+    if (!window.confirm(`Rigenerare il link di "${emp.name}"? Il link precedente smetterà subito di funzionare.`)) return;
+    const { data } = await api.post(`/employees/${emp.id}/regenerate-token`);
+    toast.success("Nuovo link generato");
+    setNewLink({ name: emp.name, token: data.request_token });
+  };
+
+  const toggleActive = async (emp) => {
+    await api.patch(`/employees/${emp.id}/active`, { active: !emp.active });
+    toast.success(emp.active ? "Dipendente disattivato" : "Dipendente riattivato");
+    loadEmployees();
+  };
+
+  const copyNewLink = () => {
+    const url = `${window.location.origin}/richiedi-assenza/${newLink.token}`;
     navigator.clipboard.writeText(url);
     toast.success("Link copiato — condividilo con il dipendente");
   };
@@ -133,6 +148,24 @@ export default function Personale() {
         <DialogContent>
           <DialogHeader><DialogTitle>Modifica dipendente</DialogTitle></DialogHeader>
           {editTarget && <EmployeeForm initial={editTarget} onSave={saveEmployee} submitLabel="Aggiorna" />}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!newLink} onOpenChange={(v) => !v && setNewLink(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Link personale di {newLink?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-[13px] text-[#52525B]">
+              Copia e condividi questo link con il dipendente ora: per sicurezza non verrà più mostrato in seguito.
+              Se lo perdi, potrai generarne uno nuovo dalla scheda del dipendente (invaliderà quello attuale).
+            </p>
+            <div className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-md px-3 py-2">
+              <code className="text-[12px] break-all">{`${window.location.origin}/richiedi-assenza/${newLink?.token}`}</code>
+            </div>
+            <button onClick={copyNewLink} className="w-full flex items-center justify-center gap-2 bg-[#0A192F] text-white py-2.5 rounded-md text-[13px] font-medium">
+              <Link2 className="w-4 h-4" /> Copia link
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -219,12 +252,24 @@ export default function Personale() {
           {employees.map((e) => (
             <div key={e.id} data-testid={`employee-${e.id}`} className="bg-white border border-[#E4E4E1] rounded-md p-4 flex items-center justify-between gap-3 flex-wrap">
               <div>
-                <div className="font-cabinet font-bold text-[14px]">{e.name}</div>
+                <div className="flex items-center gap-2">
+                  <span className="font-cabinet font-bold text-[14px]">{e.name}</span>
+                  {!e.active && (
+                    <span className="font-mono text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-[#F3F3F1] text-[#A1A1AA]">Disattivato</span>
+                  )}
+                </div>
                 <div className="text-[12px] text-[#52525B]">{e.role || "—"}{e.email ? ` · ${e.email}` : ""}</div>
+                <div className="text-[11px] text-[#A1A1AA] mt-0.5">
+                  {e.last_used_at ? `Link usato l'ultima volta il ${new Date(e.last_used_at).toLocaleString("it-IT")}` : "Link non ancora utilizzato"}
+                </div>
               </div>
               <div className="flex gap-1">
-                <button onClick={() => copyLink(e.request_token)} title="Copia link personale" aria-label="Copia link personale"
-                  className="p-1.5 text-[#A1A1AA] hover:text-[#FF5A00] hover:bg-[#FFF3EC] rounded"><Link2 className="w-4 h-4" /></button>
+                <button onClick={() => regenerateToken(e)} title="Rigenera link personale" aria-label="Rigenera link personale"
+                  className="p-1.5 text-[#A1A1AA] hover:text-[#FF5A00] hover:bg-[#FFF3EC] rounded"><RefreshCw className="w-4 h-4" /></button>
+                <button onClick={() => toggleActive(e)} title={e.active ? "Disattiva" : "Riattiva"} aria-label={e.active ? "Disattiva dipendente" : "Riattiva dipendente"}
+                  className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded">
+                  {e.active ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
+                </button>
                 <button onClick={() => setEditTarget(e)} title="Modifica" aria-label="Modifica dipendente"
                   className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
                 <button onClick={() => deleteEmployee(e.id, e.name)} title="Elimina" aria-label="Elimina dipendente"
