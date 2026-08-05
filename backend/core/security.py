@@ -226,22 +226,28 @@ EXTRA_MODULE_KEYS = (
 )
 
 
+def module_enabled(user: dict, module: str) -> bool:
+    """Stessa logica di require_module qui sotto, ma richiamabile anche
+    fuori da un Depends() FastAPI — serve per verificare il modulo del
+    PROPRIETARIO di una risorsa, non dell'utente autenticato: gli
+    endpoint pubblici del modulo Personale (routers/employees.py
+    GET /by-token, routers/leave_requests.py POST) non hanno una sessione
+    autenticata da cui passare per require_module, ma devono comunque
+    rifiutare l'accesso se il proprietario ha nel frattempo disattivato
+    il modulo (vedi employee_service.get_by_token,
+    leave_request_service.submit)."""
+    if module in EXTRA_MODULE_KEYS:
+        return module in (user.get("enabled_extra_modules") or [])
+    return module not in (user.get("disabled_modules") or [])
+
+
 def require_module(module: str):
     """Dependency factory da passare a APIRouter(dependencies=[...]) per
     bloccare l'intero router se quel modulo non è disponibile per
-    l'utente. Due logiche diverse a seconda del tipo di modulo: uno
-    "core" (MODULE_KEYS) è attivo finché non viene esplicitamente
-    disattivato (disabled_modules); uno "extra" (EXTRA_MODULE_KEYS) è
-    spento finché non viene esplicitamente attivato (enabled_extra_modules)
-    — vedi il commento sopra per il perché. A differenza del semplice
-    nascondere la voce di menu in sidebar, questo impedisce anche di
-    raggiungere l'API direttamente."""
+    l'utente. A differenza del semplice nascondere la voce di menu in
+    sidebar, questo impedisce anche di raggiungere l'API direttamente."""
     async def _check(user: dict = Depends(get_current_user)) -> dict:
-        if module in EXTRA_MODULE_KEYS:
-            allowed = module in (user.get("enabled_extra_modules") or [])
-        else:
-            allowed = module not in (user.get("disabled_modules") or [])
-        if not allowed:
+        if not module_enabled(user, module):
             raise HTTPException(status_code=403, detail=f"Il modulo \"{module}\" non è disponibile per questo account.")
         return user
     return _check

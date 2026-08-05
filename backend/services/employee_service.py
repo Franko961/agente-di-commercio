@@ -2,8 +2,9 @@ import secrets
 
 from core.utils import gen_id, now_iso
 from core.exceptions import NotFoundError
-from core.security import hash_reset_token
+from core.security import hash_reset_token, module_enabled
 from repositories.employee_repository import employee_repository
+from repositories.user_repository import user_repository
 
 
 def _generate_token() -> tuple:
@@ -21,8 +22,9 @@ def _generate_token() -> tuple:
 
 
 class EmployeeService:
-    def __init__(self, repo=employee_repository):
+    def __init__(self, repo=employee_repository, users=user_repository):
         self.repo = repo
+        self.users = users
 
     async def list_employees(self, user: dict) -> list:
         return await self.repo.find_many(user["id"])
@@ -69,6 +71,15 @@ class EmployeeService:
         employee = await self.repo.find_by_token_hash(hash_reset_token(token))
         if not employee or not employee.get("active", True):
             raise NotFoundError("Link non valido")
+        # Il link resta valido di per sé, ma se il proprietario ha
+        # disattivato il modulo Personale dopo averlo generato non deve
+        # più essere utilizzabile: la sola verifica su require_module
+        # copre le pagine/API autenticate del gestionale, non questo
+        # endpoint pubblico, che quindi deve ripeterla qui contro il
+        # proprietario (non l'utente autenticato, qui non esiste).
+        owner = await self.users.find_by_id(employee["user_id"])
+        if not owner or not module_enabled(owner, "personale"):
+            raise NotFoundError("Link temporaneamente non disponibile")
         await self.repo.touch_last_used(employee["id"], now_iso())
         return employee
 

@@ -7,7 +7,7 @@ from core.utils import gen_id, now_iso
 from core.exceptions import NotFoundError, ValidationAppError
 from core.config import FRONTEND_URL
 from core.rate_limit import check_and_record
-from core.security import hash_reset_token
+from core.security import hash_reset_token, module_enabled
 from repositories.leave_request_repository import leave_request_repository
 from repositories.employee_repository import employee_repository
 from repositories.user_repository import user_repository
@@ -46,6 +46,16 @@ class LeaveRequestService:
         employee = await self.employees.find_by_token_hash(hash_reset_token(payload.employee_token))
         if not employee or not employee.get("active", True):
             raise NotFoundError("Link non valido")
+
+        # Come in employee_service.get_by_token: questo endpoint pubblico
+        # non passa da require_module (nessuna sessione autenticata da
+        # cui ricavarlo), quindi deve verificare da sé che il
+        # proprietario non abbia nel frattempo disattivato il modulo
+        # Personale — altrimenti i vecchi link resterebbero utilizzabili
+        # anche a modulo spento.
+        owner = await self.users.find_by_id(employee["user_id"])
+        if not owner or not module_enabled(owner, "personale"):
+            raise NotFoundError("Link temporaneamente non disponibile")
 
         if payload.date_to < payload.date_from:
             raise ValidationAppError("La data di fine non può precedere quella di inizio")
@@ -101,10 +111,9 @@ class LeaveRequestService:
         }
         await self.repo.insert(doc)
 
-        manager = await self.users.find_by_id(employee["user_id"])
-        if manager and manager.get("email"):
+        if owner.get("email"):
             await send_email(
-                to=manager["email"],
+                to=owner["email"],
                 subject=f"Nuova richiesta di {LEAVE_TYPE_LABELS.get(payload.type, payload.type)} — {employee['name']}",
                 html=self._manager_email_html(doc, overlapping=bool(overlapping)),
             )

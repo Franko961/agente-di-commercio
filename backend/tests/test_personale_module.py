@@ -41,7 +41,7 @@ def run(coro):
     return asyncio.run(coro)
 
 
-USER = {"id": "user-1", "email": "manager@example.com"}
+USER = {"id": "user-1", "email": "manager@example.com", "enabled_extra_modules": ["personale"]}
 
 
 class FakeEmployeeRepo:
@@ -138,9 +138,10 @@ async def _noop_send_email(to, subject, html):
     return True
 
 
-def build_employee_service():
+def build_employee_service(owner=USER):
     repo = FakeEmployeeRepo()
-    return EmployeeService(repo=repo), repo
+    users = FakeUserRepo({owner["id"]: owner})
+    return EmployeeService(repo=repo, users=users), repo
 
 
 def build_leave_service(monkeypatch, employees_repo, manager=USER):
@@ -181,6 +182,18 @@ def test_get_by_token_rifiuta_dipendente_disattivato():
     service, repo = build_employee_service()
     employee = run(service.create_employee(USER, make_employee()))
     run(repo.update(employee["id"], USER["id"], {"active": False}))
+    with pytest.raises(NotFoundError):
+        run(service.get_by_token(employee["request_token"]))
+
+
+def test_get_by_token_rifiuta_se_modulo_personale_disattivato():
+    """Un link generato quando il modulo era attivo non deve restare
+    utilizzabile dopo che l'account lo ha disattivato (vedi anche
+    test_submit_rifiuta_se_modulo_personale_disattivato per lo stesso
+    controllo sull'invio di una richiesta)."""
+    owner_senza_modulo = {"id": "user-9", "email": "senza-modulo@example.com", "enabled_extra_modules": []}
+    service, repo = build_employee_service(owner=owner_senza_modulo)
+    employee = run(service.create_employee(owner_senza_modulo, make_employee()))
     with pytest.raises(NotFoundError):
         run(service.get_by_token(employee["request_token"]))
 
@@ -246,6 +259,24 @@ def test_submit_rifiuta_token_sconosciuto(monkeypatch):
     payload = LeaveRequestIn(employee_token="non-esiste", type="ferie", date_from="2026-08-01", date_to="2026-08-05")
     with pytest.raises(NotFoundError):
         run(service.submit(payload))
+
+
+def test_submit_rifiuta_se_modulo_personale_disattivato(monkeypatch):
+    """Il modulo Personale viene attivato, l'azienda genera un link, poi
+    il modulo viene disattivato: il link non deve più poter essere usato
+    per inviare richieste (bug segnalato: la sola require_module sulle
+    pagine autenticate non copre questo endpoint pubblico)."""
+    owner_senza_modulo = {"id": "user-9", "email": "senza-modulo@example.com", "enabled_extra_modules": []}
+    emp_service, emp_repo = build_employee_service(owner=owner_senza_modulo)
+    employee = run(emp_service.create_employee(owner_senza_modulo, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo, manager=owner_senza_modulo)
+    payload = LeaveRequestIn(
+        employee_token=employee["request_token"], type="ferie",
+        date_from="2026-08-01", date_to="2026-08-05",
+    )
+    with pytest.raises(NotFoundError):
+        run(service.submit(payload))
+    assert len(repo.docs) == 0
 
 
 def test_submit_rispetta_il_rate_limit_per_token(monkeypatch):
