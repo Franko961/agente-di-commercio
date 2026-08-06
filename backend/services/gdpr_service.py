@@ -32,6 +32,7 @@ USER_SCOPED_COLLECTIONS = {
     "prodotti": "products",
     "mandanti": "mandanti",
     "documenti": "documents",
+    "documenti_dipendenti": "employee_documents",
     "conversazioni_ai": "ai_logs",
     "log_azioni_ai": "ai_action_logs",
     "log_email": "email_logs",
@@ -166,6 +167,25 @@ class GdprService:
                 except Exception as e:
                     logger.warning(f"Export: impossibile includere il documento {doc.get('id')}: {e}")
 
+            # Stessa logica per i documenti caricati sulla scheda dipendente
+            # (contratti, documenti d'identità, patenti — vedi
+            # routers/employee_documents.py), in una sottocartella separata.
+            seen_names_emp = {}
+            for doc in bundle["documenti_dipendenti"]:
+                storage_path = doc.get("storage_path")
+                if not storage_path:
+                    continue
+                try:
+                    content, _ = storage_get(storage_path)
+                    name = sanitize_filename(doc.get("original_filename") or doc.get("name") or doc["id"])
+                    seen_names_emp[name] = seen_names_emp.get(name, 0) + 1
+                    if seen_names_emp[name] > 1:
+                        stem, _, ext = name.rpartition(".")
+                        name = f"{stem or name} ({seen_names_emp[name]}).{ext}" if ext else f"{name} ({seen_names_emp[name]})"
+                    zf.writestr(f"documenti_dipendenti/{name}", content)
+                except Exception as e:
+                    logger.warning(f"Export: impossibile includere il documento dipendente {doc.get('id')}: {e}")
+
         zip_buf.seek(0)
         return zip_buf.read()
 
@@ -202,7 +222,8 @@ class GdprService:
 
         # Cancella davvero i file dei documenti da S3, non solo i record.
         documents = await db.documents.find({"user_id": user_id}, {"_id": 0, "storage_path": 1}).to_list(20000)
-        for doc in documents:
+        employee_documents = await db.employee_documents.find({"user_id": user_id}, {"_id": 0, "storage_path": 1}).to_list(20000)
+        for doc in documents + employee_documents:
             storage_path = doc.get("storage_path")
             if not storage_path:
                 continue

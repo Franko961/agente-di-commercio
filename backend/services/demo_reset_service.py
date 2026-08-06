@@ -39,7 +39,8 @@ class DemoResetService:
         # record — altrimenti si accumulerebbero indefinitamente ad ogni
         # ciclo, esattamente il problema che il reset dovrebbe risolvere.
         documents = await db.documents.find({"user_id": user_id}, {"_id": 0, "storage_path": 1}).to_list(20000)
-        for doc in documents:
+        employee_documents = await db.employee_documents.find({"user_id": user_id}, {"_id": 0, "storage_path": 1}).to_list(20000)
+        for doc in documents + employee_documents:
             storage_path = doc.get("storage_path")
             if not storage_path:
                 continue
