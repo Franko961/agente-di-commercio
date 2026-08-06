@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import {
   User, CalendarDays, Palmtree, Clock, Thermometer, Truck, Link2, BarChart3,
   RefreshCw, Power, PowerOff, Camera, Copy, FileText, Upload, Download, Trash2,
-  Package, Plus, Pencil, Wallet,
+  Package, Plus, Pencil, Wallet, History, Send, Check, X,
 } from "lucide-react";
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
@@ -25,6 +25,16 @@ const EQUIPMENT_STATUS_LABELS = { consegnato: "Consegnato", restituito: "Restitu
 const COMPENSATION_TYPE_LABELS = { stipendio: "Stipendio", bonus: "Bonus", rimborso: "Rimborso", altro: "Altro" };
 const fmtEur = (v) => (v || 0).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
+const ACTIVITY_META = {
+  assenza_inviata: { label: "Richiesta di assenza inviata", icon: Send, color: "#0A192F" },
+  assenza_approvata: { label: "Richiesta di assenza approvata", icon: Check, color: "#059669" },
+  assenza_rifiutata: { label: "Richiesta di assenza rifiutata", icon: X, color: "#DC2626" },
+  documento_caricato: { label: "Documento caricato", icon: FileText, color: "#0A192F" },
+  dotazione_aggiunta: { label: "Dotazione assegnata", icon: Package, color: "#0A192F" },
+  dotazione_restituita: { label: "Dotazione restituita", icon: Package, color: "#A1A1AA" },
+  compenso_registrato: { label: "Compenso registrato", icon: Wallet, color: "#0A192F" },
+};
+
 const TABS = [
   ["info", "Informazioni", User],
   ["assenze", "Assenze", CalendarDays],
@@ -35,6 +45,7 @@ const TABS = [
   ["dotazione", "Dotazione", Package],
   ["documenti", "Documenti", FileText],
   ["compensi", "Compensi", Wallet],
+  ["attivita", "Attività", History],
   ["link", "Link", Link2],
   ["kpi", "KPI", BarChart3],
 ];
@@ -149,6 +160,7 @@ export default function EmployeeDetailSheet({ employee, requests, onClose, onEmp
               {tab === "dotazione" && <DotazioneTab employeeId={employee.id} />}
               {tab === "documenti" && <DocumentiTab employeeId={employee.id} />}
               {tab === "compensi" && <CompensiTab employeeId={employee.id} />}
+              {tab === "attivita" && <AttivitaTab employeeId={employee.id} />}
               {tab === "link" && (
                 <LinkTab employee={emp} newLink={newLink} onRegenerate={regenerateToken}
                   onToggleActive={toggleActive} onCopy={copyLink} />
@@ -748,6 +760,53 @@ function CompensationForm({ employeeId, initial, onDone, onCancel }) {
         </button>
       </div>
     </form>
+  );
+}
+
+function formatActivityDate(at) {
+  // "at" può essere un ISO datetime completo (created_at/decided_at) o una
+  // semplice data "AAAA-MM-DD" (returned_date della dotazione): entrambi
+  // sono accettati da new Date(), qui si sceglie solo se mostrare anche
+  // l'orario in base a quanti caratteri ha la stringa originale.
+  const d = new Date(at);
+  if (Number.isNaN(d.getTime())) return at;
+  return at.length > 10 ? d.toLocaleString("it-IT") : d.toLocaleDateString("it-IT");
+}
+
+function AttivitaTab({ employeeId }) {
+  const [events, setEvents] = useState(null);
+
+  useEffect(() => {
+    api.get(`/employees/${employeeId}/activity`).then(({ data }) => setEvents(data));
+  }, [employeeId]);
+
+  return (
+    <div>
+      <p className="text-[11px] text-[#A1A1AA] mb-3">
+        Cronologia sola lettura: assenze, documenti, dotazione e compensi. Non include modifiche all'anagrafica o rigenerazioni del link.
+      </p>
+      <div className="space-y-2">
+        {(events || []).map((ev, i) => {
+          const meta = ACTIVITY_META[ev.type] || { label: ev.type, icon: History, color: "#52525B" };
+          const Icon = meta.icon;
+          return (
+            <div key={i} className="bg-white border border-[#E4E4E1] rounded-md p-3 flex items-start gap-3 text-[13px]">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: `${meta.color}1A` }}>
+                <Icon className="w-3.5 h-3.5" style={{ color: meta.color }} />
+              </div>
+              <div className="min-w-0">
+                <div className="font-medium">{meta.label}</div>
+                <div className="text-[#52525B] truncate">{ev.detail}</div>
+                <div className="text-[11px] text-[#A1A1AA] mt-0.5">{formatActivityDate(ev.at)}</div>
+              </div>
+            </div>
+          );
+        })}
+        {events && events.length === 0 && (
+          <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#A1A1AA] text-[13px]">Nessuna attività registrata.</div>
+        )}
+      </div>
+    </div>
   );
 }
 

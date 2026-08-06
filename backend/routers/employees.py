@@ -5,6 +5,7 @@ from services.employee_service import employee_service
 from services.leave_request_service import leave_request_service
 from services.vehicle_service import vehicle_service
 from services.vehicle_deadline_service import vehicle_deadline_service
+from services.employee_activity_service import employee_activity_service
 from models.employee import EmployeeIn, EmployeeActiveUpdate
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
@@ -68,6 +69,11 @@ async def get_employee_detail(eid: str, user=Depends(get_current_user)):
         "vehicle": vehicle,
         "next_revisione": next_revisione,
     }
+
+
+@router.get("/{eid}/activity", dependencies=[MODULE_DEP])
+async def get_employee_activity(eid: str, user=Depends(get_current_user)):
+    return await employee_activity_service.get_activity(user, eid)
 
 
 @router.get("/by-token/{token}")
