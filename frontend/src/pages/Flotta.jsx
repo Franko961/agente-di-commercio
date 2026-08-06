@@ -26,6 +26,18 @@ const EMPTY_LOAD = {
 
 const fmtEuro = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
 
+// Se il mezzo è collegato a un dipendente vero (modulo Personale), mostra il
+// suo nome invece del testo libero assigned_driver — i due sono alternativi,
+// non sommati (vedi VehicleForm: la tendina sostituisce il campo testo
+// quando ci sono dipendenti disponibili).
+function assignedLabel(vehicle, employees) {
+  if (vehicle.assigned_employee_id) {
+    const emp = employees.find((e) => e.id === vehicle.assigned_employee_id);
+    if (emp) return `${emp.name} ${emp.surname || ""}`.trim();
+  }
+  return vehicle.assigned_driver || "";
+}
+
 function daysUntil(dateStr) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -46,6 +58,8 @@ export default function Flotta() {
   const automazioniEnabled = !disabledModules.includes("automazioni");
   const clientiEnabled = !disabledModules.includes("clienti");
   const ordiniEnabled = !disabledModules.includes("ordini");
+  const enabledExtraModules = user?.enabled_extra_modules || [];
+  const personaleEnabled = enabledExtraModules.includes("personale");
 
   const [tab, setTab] = useState("mezzi"); // mezzi | scadenze | costi | carico
   const [vehicles, setVehicles] = useState([]);
@@ -54,6 +68,7 @@ export default function Flotta() {
   const [loads, setLoads] = useState([]);
   const [clients, setClients] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [employees, setEmployees] = useState([]);
 
   const [vehicleOpen, setVehicleOpen] = useState(false);
   const [vehicleEditTarget, setVehicleEditTarget] = useState(null);
@@ -76,6 +91,7 @@ export default function Flotta() {
   const loadLoads = async () => { const { data } = await api.get("/cargo-loads"); setLoads(data); };
   const loadClients = async () => { if (!clientiEnabled) return; const { data } = await api.get("/clients"); setClients(data); };
   const loadOrders = async () => { if (!ordiniEnabled) return; const { data } = await api.get("/orders"); setOrders(data); };
+  const loadEmployees = async () => { if (!personaleEnabled) return; const { data } = await api.get("/employees"); setEmployees(data); };
   const loadReminderAutomation = async () => {
     if (!automazioniEnabled) return;
     const { data } = await api.get("/automations");
@@ -88,7 +104,7 @@ export default function Flotta() {
 
   useEffect(() => {
     loadVehicles(); loadDeadlines(); loadCosts(); loadLoads();
-    loadClients(); loadOrders(); loadReminderAutomation();
+    loadClients(); loadOrders(); loadEmployees(); loadReminderAutomation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -277,14 +293,14 @@ export default function Flotta() {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>Nuovo mezzo</DialogTitle></DialogHeader>
-                <VehicleForm initial={EMPTY_VEHICLE} onSave={saveVehicle} />
+                <VehicleForm initial={EMPTY_VEHICLE} employees={employees} onSave={saveVehicle} />
               </DialogContent>
             </Dialog>
           </div>
           <Dialog open={!!vehicleEditTarget} onOpenChange={(v) => !v && setVehicleEditTarget(null)}>
             <DialogContent>
               <DialogHeader><DialogTitle>Modifica mezzo</DialogTitle></DialogHeader>
-              {vehicleEditTarget && <VehicleForm initial={vehicleEditTarget} onSave={saveVehicle} submitLabel="Aggiorna" />}
+              {vehicleEditTarget && <VehicleForm initial={vehicleEditTarget} employees={employees} onSave={saveVehicle} submitLabel="Aggiorna" />}
             </DialogContent>
           </Dialog>
 
@@ -299,7 +315,7 @@ export default function Flotta() {
                       <span className="font-mono text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-[#F3F3F1] text-[#A1A1AA]">Disattivato</span>
                     )}
                   </div>
-                  <div className="text-[12px] text-[#52525B]">{v.model || "—"}{v.assigned_driver ? ` · Assegnato a ${v.assigned_driver}` : ""}</div>
+                  <div className="text-[12px] text-[#52525B]">{v.model || "—"}{assignedLabel(v, employees) ? ` · Assegnato a ${assignedLabel(v, employees)}` : ""}</div>
                   {v.notes && <div className="text-[12px] text-[#A1A1AA] mt-0.5 italic">{v.notes}</div>}
                 </div>
                 <div className="flex gap-1">
@@ -524,13 +540,19 @@ export default function Flotta() {
   );
 }
 
-function VehicleForm({ initial, onSave, submitLabel = "Salva" }) {
+function VehicleForm({ initial, employees, onSave, submitLabel = "Salva" }) {
   const [f, setF] = useState({
     plate: initial.plate, model: initial.model || "", type: initial.type || "furgone",
-    assigned_driver: initial.assigned_driver || "", notes: initial.notes || "",
+    assigned_driver: initial.assigned_driver || "", assigned_employee_id: initial.assigned_employee_id || "",
+    notes: initial.notes || "",
   });
+  // La tendina (dipendenti reali, modulo Personale) sostituisce il campo di
+  // testo libero quando ci sono dipendenti tra cui scegliere — altrimenti
+  // (Personale disattivo, o nessun dipendente ancora censito) resta il
+  // testo libero di sempre, così Flotta funziona anche da sola.
+  const hasEmployees = employees && employees.length > 0;
   return (
-    <form onSubmit={async (e) => { e.preventDefault(); await onSave(f); }} className="space-y-3">
+    <form onSubmit={async (e) => { e.preventDefault(); await onSave({ ...f, assigned_employee_id: f.assigned_employee_id || null }); }} className="space-y-3">
       <div>
         <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Targa *</label>
         <input required value={f.plate} onChange={(e) => setF({ ...f, plate: e.target.value.toUpperCase() })}
@@ -550,9 +572,20 @@ function VehicleForm({ initial, onSave, submitLabel = "Salva" }) {
       </div>
       <div>
         <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Assegnato a (opzionale)</label>
-        <input value={f.assigned_driver} onChange={(e) => setF({ ...f, assigned_driver: e.target.value })}
-          placeholder="Nome del dipendente/autista"
-          className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
+        {hasEmployees ? (
+          <select value={f.assigned_employee_id}
+            onChange={(e) => setF({ ...f, assigned_employee_id: e.target.value, assigned_driver: "" })}
+            className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]">
+            <option value="">Nessuno</option>
+            {employees.map((emp) => (
+              <option key={emp.id} value={emp.id}>{`${emp.name} ${emp.surname || ""}`.trim()}</option>
+            ))}
+          </select>
+        ) : (
+          <input value={f.assigned_driver} onChange={(e) => setF({ ...f, assigned_driver: e.target.value })}
+            placeholder="Nome del dipendente/autista"
+            className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
+        )}
       </div>
       <div>
         <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Note</label>
