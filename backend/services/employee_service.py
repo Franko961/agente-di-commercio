@@ -29,6 +29,12 @@ class EmployeeService:
     async def list_employees(self, user: dict) -> list:
         return await self.repo.find_many(user["id"])
 
+    async def get_employee(self, user: dict, eid: str) -> dict:
+        employee = await self.repo.find_one(eid, user["id"])
+        if not employee:
+            raise NotFoundError("Dipendente non trovato")
+        return employee
+
     async def create_employee(self, user: dict, payload) -> dict:
         token, token_hash = _generate_token()
         doc = {

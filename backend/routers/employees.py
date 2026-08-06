@@ -2,6 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from core.security import get_current_user, forbid_demo_write, require_module, get_client_ip
 from core.rate_limit import check_and_record
 from services.employee_service import employee_service
+from services.leave_request_service import leave_request_service
+from services.vehicle_service import vehicle_service
+from services.vehicle_deadline_service import vehicle_deadline_service
 from models.employee import EmployeeIn, EmployeeActiveUpdate
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
@@ -44,6 +47,27 @@ async def regenerate_employee_token(eid: str, user=Depends(forbid_demo_write)):
 async def delete_employee(eid: str, user=Depends(forbid_demo_write)):
     await employee_service.delete_employee(user, eid)
     return {"ok": True}
+
+
+@router.get("/{eid}/detail", dependencies=[MODULE_DEP])
+async def get_employee_detail(eid: str, user=Depends(get_current_user)):
+    """Tutto ciò che serve alla scheda dipendente in una sola chiamata:
+    anagrafica, riepilogo ferie/permessi/malattie/KPI (leave_request_service),
+    e il mezzo Flotta eventualmente assegnato con la sua prossima revisione
+    — quest'ultimo resta None se il modulo Flotta non è in uso, senza far
+    fallire la richiesta."""
+    employee = await employee_service.get_employee(user, eid)
+    summary = await leave_request_service.employee_summary(user, employee)
+    vehicle = await vehicle_service.find_assigned(user, eid)
+    next_revisione = None
+    if vehicle:
+        next_revisione = await vehicle_deadline_service.next_deadline(user, vehicle["id"], "revisione")
+    return {
+        "employee": employee,
+        "summary": summary,
+        "vehicle": vehicle,
+        "next_revisione": next_revisione,
+    }
 
 
 @router.get("/by-token/{token}")

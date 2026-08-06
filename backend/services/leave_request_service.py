@@ -1,9 +1,11 @@
 import html
 import logging
+from datetime import datetime, timedelta
+from typing import Optional
 
 from fastapi import HTTPException
 
-from core.utils import gen_id, now_iso
+from core.utils import gen_id, now_iso, now_local
 from core.exceptions import NotFoundError, ValidationAppError
 from core.config import FRONTEND_URL
 from core.rate_limit import check_and_record
@@ -105,6 +107,8 @@ class LeaveRequestService:
             "date_from": date_from_iso,
             "date_to": date_to_iso,
             "note": (payload.note or "").strip(),
+            "hours": payload.hours if payload.type == "permesso" else None,
+            "certificate_received": None,
             "status": "in_attesa",
             "created_at": now_iso(),
             "decided_at": None,
@@ -183,6 +187,99 @@ class LeaveRequestService:
                     f"Invio email esito richiesta assenza fallito per {employee['email']} "
                     f"(richiesta {rid}): la decisione è comunque stata registrata."
                 )
+
+    async def set_certificate_received(self, user: dict, rid: str, received: bool) -> None:
+        """Solo il responsabile la imposta (a differenza di 'note', che
+        scrive il dipendente in fase di invio): conferma di aver ricevuto
+        il certificato medico, nessun dato sanitario collegato."""
+        request = await self.repo.find_one(rid, user["id"])
+        if not request:
+            raise NotFoundError("Richiesta non trovata")
+        if request["type"] != "malattia":
+            raise ValidationAppError("Il certificato riguarda solo le richieste di malattia")
+        await self.repo.update(rid, user["id"], {"certificate_received": received})
+
+    async def employee_summary(self, user: dict, employee: dict) -> dict:
+        """Riepilogo Ferie/Permessi/Malattie/KPI per la scheda dipendente:
+        tutto calcolato al volo dalle richieste esistenti (nessun dato
+        duplicato/da tenere sincronizzato a mano). "Presenze" è una stima
+        (giorni lavorativi trascorsi nell'anno meno le assenze approvate
+        a giornata intera) perché SalesFly non traccia timbrature reali —
+        non include "puntualità", che richiederebbe quel dato."""
+        year = now_local().year
+        requests = await self.repo.find_many(user["id"])
+        mine = [r for r in requests if r["employee_id"] == employee["id"]]
+
+        def _days(r) -> int:
+            d1 = datetime.strptime(r["date_from"], "%Y-%m-%d").date()
+            d2 = datetime.strptime(r["date_to"], "%Y-%m-%d").date()
+            return (d2 - d1).days + 1
+
+        def _in_year(r) -> bool:
+            return r["date_from"][:4] == str(year)
+
+        ferie_approvate = [r for r in mine if r["type"] == "ferie" and r["status"] == "approvata" and _in_year(r)]
+        permessi_anno = [r for r in mine if r["type"] == "permesso" and _in_year(r)]
+        permessi_approvati = [r for r in permessi_anno if r["status"] == "approvata"]
+        malattie_approvate = [r for r in mine if r["type"] == "malattia" and r["status"] == "approvata" and _in_year(r)]
+
+        ferie_godute = sum(_days(r) for r in ferie_approvate)
+        spettanti = employee.get("annual_vacation_days", 26)
+        malattia_giorni = sum(_days(r) for r in malattie_approvate)
+
+        today_local = now_local().date()
+        start_of_year = today_local.replace(month=1, day=1)
+        giorni_lavorativi_trascorsi = sum(
+            1 for i in range((today_local - start_of_year).days + 1)
+            if (start_of_year + timedelta(days=i)).weekday() < 5
+        )
+        assenze_giorni = ferie_godute + malattia_giorni
+        presenze_stimate = max(giorni_lavorativi_trascorsi - assenze_giorni, 0)
+
+        return {
+            "ferie": {
+                "spettanti": spettanti,
+                "godute": ferie_godute,
+                "residue": round(spettanti - ferie_godute, 1),
+            },
+            "permessi": {
+                "ore_richieste": sum(r.get("hours") or 0 for r in permessi_anno),
+                "ore_approvate": sum(r.get("hours") or 0 for r in permessi_approvati),
+            },
+            "malattie": {
+                "giorni": malattia_giorni,
+                "richieste": [
+                    {
+                        "id": r["id"], "date_from": r["date_from"], "date_to": r["date_to"],
+                        "giorni": _days(r), "status": r["status"],
+                        "certificate_received": r.get("certificate_received"),
+                    }
+                    for r in mine if r["type"] == "malattia" and _in_year(r)
+                ],
+            },
+            "kpi": {
+                "presenze_stimate": presenze_stimate,
+                "assenze_giorni": assenze_giorni,
+                "ferie_giorni": ferie_godute,
+                "permessi_ore": sum(r.get("hours") or 0 for r in permessi_approvati),
+                "malattie_giorni": malattia_giorni,
+            },
+            "current_status": self._current_leave_status(mine, today_local),
+        }
+
+    @staticmethod
+    def _current_leave_status(requests: list, today) -> Optional[str]:
+        """'in_ferie'/'in_malattia' se una richiesta APPROVATA copre la
+        data odierna, altrimenti None (lo stato mostrato in quel caso è
+        quello impostato manualmente su employee.employment_status)."""
+        today_iso = today.isoformat()
+        for r in requests:
+            if r["status"] == "approvata" and r["date_from"] <= today_iso <= r["date_to"]:
+                if r["type"] == "malattia":
+                    return "in_malattia"
+                if r["type"] == "ferie":
+                    return "in_ferie"
+        return None
 
     async def calendar(self, user: dict, month: str) -> list:
         """month in formato AAAA-MM: restituisce le richieste APPROVATE che

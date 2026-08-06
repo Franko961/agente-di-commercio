@@ -22,6 +22,12 @@ class VehicleIn(BaseModel):
     type: Literal["furgone", "camion", "auto", "altro"] = "furgone"
     assigned_driver: Optional[str] = Field("", max_length=SHORT_TEXT_MAX_LENGTH)
     notes: Optional[str] = Field("", max_length=LONG_TEXT_MAX_LENGTH)
+    # Collegamento vero al modulo Personale (facoltativo: un account può
+    # avere Flotta senza Personale, o viceversa) — usato dalla tab "Mezzo
+    # assegnato" della scheda dipendente. assigned_driver sopra resta il
+    # testo libero per chi non usa Personale.
+    assigned_employee_id: Optional[str] = None
+    current_km: Optional[float] = Field(None, ge=0, le=MAX_QUANTITY)
 
     @field_validator("plate")
     @classmethod

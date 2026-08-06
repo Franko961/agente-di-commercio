@@ -49,5 +49,17 @@ class VehicleDeadlineService:
     async def delete_deadline(self, user: dict, did: str) -> None:
         await self.repo.delete(did, user["id"])
 
+    async def next_deadline(self, user: dict, vehicle_id: str, deadline_type: str = "revisione"):
+        """Prossima scadenza futura di un dato tipo per il mezzo — usato
+        dalla tab "Mezzo assegnato" della scheda dipendente al posto di un
+        inesistente "ultimo controllo" (SalesFly traccia solo le prossime
+        scadenze, non lo storico dei controlli già effettuati)."""
+        deadlines = await self.repo.find_many(user["id"])
+        candidates = sorted(
+            (d for d in deadlines if d["vehicle_id"] == vehicle_id and d["type"] == deadline_type),
+            key=lambda d: d["due_date"],
+        )
+        return candidates[0] if candidates else None
+
 
 vehicle_deadline_service = VehicleDeadlineService()

@@ -18,7 +18,19 @@ class LeaveRequestIn(BaseModel):
     date_from: date
     date_to: date
     note: Optional[str] = Field("", max_length=LONG_TEXT_MAX_LENGTH)
+    # Solo per type == "permesso": un permesso è tipicamente di poche ore
+    # in un solo giorno, non un'assenza a giornata intera come ferie/
+    # malattia — usato per il riepilogo "ore richieste/approvate" nella
+    # tab Permessi. Ignorato per gli altri tipi.
+    hours: Optional[float] = Field(None, gt=0, le=24)
 
 
 class LeaveRequestDecision(BaseModel):
     status: Literal["approvata", "rifiutata"]
+
+
+class LeaveRequestCertificate(BaseModel):
+    """Solo per type == 'malattia': conferma da parte del responsabile di
+    aver ricevuto il certificato medico. Deliberatamente nessun dato
+    sanitario (diagnosi, codice, ecc.) — solo un booleano."""
+    certificate_received: bool

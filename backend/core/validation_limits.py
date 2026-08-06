@@ -12,6 +12,7 @@
 SHORT_TEXT_MAX_LENGTH = 200    # nomi, titoli, città, SKU, P.IVA, telefono, ecc.
 MEDIUM_TEXT_MAX_LENGTH = 500   # indirizzi, URL
 LONG_TEXT_MAX_LENGTH = 5000    # note, descrizioni, messaggi, messaggio contatti, prompt AI
+PHOTO_MAX_LENGTH = 700_000     # foto profilo come data URL base64 (~500KB binari): va ridimensionata/compressa lato client prima dell'upload
 
 # --- Numeri ---
 MAX_QUANTITY = 1_000_000            # quantità di una riga offerta/ordine

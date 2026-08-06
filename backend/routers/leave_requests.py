@@ -2,7 +2,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Request
 from core.security import get_current_user, forbid_demo_write, require_module, get_client_ip
 from services.leave_request_service import leave_request_service
-from models.leave_request import LeaveRequestIn, LeaveRequestDecision
+from models.leave_request import LeaveRequestIn, LeaveRequestDecision, LeaveRequestCertificate
 
 router = APIRouter(prefix="/api/leave-requests", tags=["leave-requests"])
 
@@ -27,6 +27,12 @@ async def list_leave_requests(status: Optional[str] = None, user=Depends(get_cur
 @router.patch("/{rid}/decision", dependencies=[MODULE_DEP])
 async def decide_leave_request(rid: str, payload: LeaveRequestDecision, user=Depends(forbid_demo_write)):
     await leave_request_service.decide(user, rid, payload.status)
+    return {"ok": True}
+
+
+@router.patch("/{rid}/certificate", dependencies=[MODULE_DEP])
+async def set_leave_request_certificate(rid: str, payload: LeaveRequestCertificate, user=Depends(forbid_demo_write)):
+    await leave_request_service.set_certificate_received(user, rid, payload.certificate_received)
     return {"ok": True}
 
 

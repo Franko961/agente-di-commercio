@@ -42,6 +42,7 @@ def run(coro):
 
 
 USER = {"id": "user-1", "email": "manager@example.com", "enabled_extra_modules": ["personale"]}
+ALTRO_USER = {"id": "user-2", "email": "altro@example.com", "enabled_extra_modules": ["personale"]}
 
 
 class FakeEmployeeRepo:
@@ -586,3 +587,178 @@ def test_calendar_esclude_richieste_fuori_dal_mese(monkeypatch):
     run(service.decide(USER, rid, "approvata"))
 
     assert run(service.calendar(USER, "2026-08")) == []
+
+
+# ---------- employee_service.get_employee ----------
+
+def test_get_employee_restituisce_il_dipendente():
+    service, repo = build_employee_service()
+    employee = run(service.create_employee(USER, make_employee()))
+    found = run(service.get_employee(USER, employee["id"]))
+    assert found["id"] == employee["id"]
+
+
+def test_get_employee_rifiuta_dipendente_di_un_altro_utente():
+    service, repo = build_employee_service()
+    employee = run(service.create_employee(USER, make_employee()))
+    with pytest.raises(NotFoundError):
+        run(service.get_employee(ALTRO_USER, employee["id"]))
+
+
+def test_get_employee_rifiuta_id_inesistente():
+    service, repo = build_employee_service()
+    with pytest.raises(NotFoundError):
+        run(service.get_employee(USER, "non-esiste"))
+
+
+# ---------- leave_request_service.set_certificate_received ----------
+
+def test_set_certificate_received_su_richiesta_malattia(monkeypatch):
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    run(service.submit(LeaveRequestIn(employee_token=employee["request_token"], type="malattia", date_from="2026-08-01", date_to="2026-08-03")))
+    rid = list(repo.docs.keys())[0]
+
+    run(service.set_certificate_received(USER, rid, True))
+    assert repo.docs[rid]["certificate_received"] is True
+
+
+def test_set_certificate_received_rifiuta_tipo_diverso_da_malattia(monkeypatch):
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    run(service.submit(LeaveRequestIn(employee_token=employee["request_token"], type="ferie", date_from="2026-08-01", date_to="2026-08-03")))
+    rid = list(repo.docs.keys())[0]
+
+    with pytest.raises(ValidationAppError):
+        run(service.set_certificate_received(USER, rid, True))
+
+
+def test_set_certificate_received_rifiuta_richiesta_inesistente(monkeypatch):
+    emp_service, emp_repo = build_employee_service()
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    with pytest.raises(NotFoundError):
+        run(service.set_certificate_received(USER, "non-esiste", True))
+
+
+# ---------- leave_request_service.employee_summary ----------
+
+def _freeze_today(monkeypatch, year, month, day):
+    from datetime import datetime as real_datetime
+    monkeypatch.setattr(leave_request_mod, "now_local", lambda: real_datetime(year, month, day, 10, 0))
+
+
+def test_employee_summary_calcola_ferie_godute_e_residue(monkeypatch):
+    _freeze_today(monkeypatch, 2026, 8, 20)
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))  # annual_vacation_days default 26
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+
+    run(service.submit(LeaveRequestIn(employee_token=employee["request_token"], type="ferie", date_from="2026-08-01", date_to="2026-08-05")))  # 5 giorni
+    rid = list(repo.docs.keys())[0]
+    run(service.decide(USER, rid, "approvata"))
+
+    summary = run(service.employee_summary(USER, employee))
+    assert summary["ferie"]["spettanti"] == 26
+    assert summary["ferie"]["godute"] == 5
+    assert summary["ferie"]["residue"] == 21
+
+
+def test_employee_summary_ignora_richieste_non_approvate_per_le_ferie_godute(monkeypatch):
+    _freeze_today(monkeypatch, 2026, 8, 20)
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+
+    run(service.submit(LeaveRequestIn(employee_token=employee["request_token"], type="ferie", date_from="2026-08-01", date_to="2026-08-05")))
+
+    summary = run(service.employee_summary(USER, employee))
+    assert summary["ferie"]["godute"] == 0
+
+
+def test_employee_summary_calcola_ore_permessi(monkeypatch):
+    _freeze_today(monkeypatch, 2026, 8, 20)
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+
+    run(service.submit(LeaveRequestIn(employee_token=employee["request_token"], type="permesso", date_from="2026-08-03", date_to="2026-08-03", hours=3)))
+    run(service.submit(LeaveRequestIn(employee_token=employee["request_token"], type="permesso", date_from="2026-08-10", date_to="2026-08-10", hours=2)))
+    ids = list(repo.docs.keys())
+    run(service.decide(USER, ids[0], "approvata"))
+    # ids[1] resta in attesa: conta per "richieste" ma non per "approvate"
+
+    summary = run(service.employee_summary(USER, employee))
+    assert summary["permessi"]["ore_richieste"] == 5
+    assert summary["permessi"]["ore_approvate"] == 3
+
+
+def test_employee_summary_malattie_include_certificato_e_stato(monkeypatch):
+    _freeze_today(monkeypatch, 2026, 8, 20)
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+
+    run(service.submit(LeaveRequestIn(employee_token=employee["request_token"], type="malattia", date_from="2026-08-01", date_to="2026-08-02")))  # 2 giorni
+    rid = list(repo.docs.keys())[0]
+    run(service.decide(USER, rid, "approvata"))
+    run(service.set_certificate_received(USER, rid, True))
+
+    summary = run(service.employee_summary(USER, employee))
+    assert summary["malattie"]["giorni"] == 2
+    assert len(summary["malattie"]["richieste"]) == 1
+    assert summary["malattie"]["richieste"][0]["certificate_received"] is True
+    assert summary["malattie"]["richieste"][0]["status"] == "approvata"
+
+
+def test_employee_summary_current_status_in_ferie_oggi(monkeypatch):
+    _freeze_today(monkeypatch, 2026, 8, 3)
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+
+    run(service.submit(LeaveRequestIn(employee_token=employee["request_token"], type="ferie", date_from="2026-08-01", date_to="2026-08-05")))
+    rid = list(repo.docs.keys())[0]
+    run(service.decide(USER, rid, "approvata"))
+
+    summary = run(service.employee_summary(USER, employee))
+    assert summary["current_status"] == "in_ferie"
+
+
+def test_employee_summary_current_status_none_se_nessuna_assenza_oggi(monkeypatch):
+    _freeze_today(monkeypatch, 2026, 8, 20)
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+
+    summary = run(service.employee_summary(USER, employee))
+    assert summary["current_status"] is None
+
+
+def test_employee_summary_kpi_assenze_somma_ferie_e_malattia(monkeypatch):
+    _freeze_today(monkeypatch, 2026, 8, 20)
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+
+    run(service.submit(LeaveRequestIn(employee_token=employee["request_token"], type="ferie", date_from="2026-08-01", date_to="2026-08-03")))  # 3 giorni
+    run(service.submit(LeaveRequestIn(employee_token=employee["request_token"], type="malattia", date_from="2026-08-10", date_to="2026-08-11")))  # 2 giorni
+    ids = list(repo.docs.keys())
+    run(service.decide(USER, ids[0], "approvata"))
+    run(service.decide(USER, ids[1], "approvata"))
+
+    summary = run(service.employee_summary(USER, employee))
+    assert summary["kpi"]["assenze_giorni"] == 5
+    assert summary["kpi"]["presenze_stimate"] >= 0
+
+
+def test_leave_request_in_accetta_ore_solo_per_permesso():
+    p = LeaveRequestIn(employee_token="tok", type="permesso", date_from="2026-08-01", date_to="2026-08-01", hours=4)
+    assert p.hours == 4
+
+
+@pytest.mark.parametrize("hours", [0, -1, 25])
+def test_leave_request_in_rifiuta_ore_fuori_range(hours):
+    with pytest.raises(ValidationError):
+        LeaveRequestIn(employee_token="tok", type="permesso", date_from="2026-08-01", date_to="2026-08-01", hours=hours)

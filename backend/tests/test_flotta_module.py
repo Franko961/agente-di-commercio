@@ -158,12 +158,14 @@ def make_vehicle(plate="AB123CD", **overrides):
         type=overrides.get("type", "furgone"),
         assigned_driver=overrides.get("assigned_driver", ""),
         notes=overrides.get("notes", ""),
+        assigned_employee_id=overrides.get("assigned_employee_id"),
+        current_km=overrides.get("current_km"),
     )
 
 
-def build_vehicle_service():
+def build_vehicle_service(employees=None):
     repo = FakeVehicleRepo()
-    return VehicleService(repo=repo), repo
+    return VehicleService(repo=repo, employees=employees or FakeRefRepo()), repo
 
 
 # ---------- vehicle_service ----------
@@ -533,3 +535,62 @@ def test_sign_load_rifiuta_carico_inesistente():
     service, repo = build_cargo_service(vrepo)
     with pytest.raises(NotFoundError):
         run(service.sign_load(USER, "non-esiste", "data:image/png;base64,xyz", "Mario Rossi"))
+
+
+# ---------- vehicle_service <-> Personale (assigned_employee_id) ----------
+
+def test_create_vehicle_accetta_dipendente_assegnato_valido():
+    employees = FakeRefRepo([{"id": "emp-1", "user_id": USER["id"]}])
+    service, repo = build_vehicle_service(employees=employees)
+    v = run(service.create_vehicle(USER, make_vehicle(assigned_employee_id="emp-1")))
+    assert v["assigned_employee_id"] == "emp-1"
+
+
+def test_create_vehicle_rifiuta_dipendente_assegnato_di_un_altro_utente():
+    employees = FakeRefRepo([{"id": "emp-1", "user_id": ALTRO_USER["id"]}])
+    service, repo = build_vehicle_service(employees=employees)
+    with pytest.raises(ValidationAppError):
+        run(service.create_vehicle(USER, make_vehicle(assigned_employee_id="emp-1")))
+
+
+def test_create_vehicle_senza_dipendente_assegnato_e_valido():
+    service, repo = build_vehicle_service()
+    v = run(service.create_vehicle(USER, make_vehicle()))
+    assert v["assigned_employee_id"] is None
+
+
+def test_find_assigned_restituisce_il_mezzo_del_dipendente():
+    employees = FakeRefRepo([{"id": "emp-1", "user_id": USER["id"]}])
+    service, repo = build_vehicle_service(employees=employees)
+    run(service.create_vehicle(USER, make_vehicle("AB123CD", assigned_employee_id="emp-1")))
+    run(service.create_vehicle(USER, make_vehicle("XY999ZZ")))
+
+    found = run(service.find_assigned(USER, "emp-1"))
+    assert found["plate"] == "AB123CD"
+
+
+def test_find_assigned_restituisce_none_se_nessun_mezzo_collegato():
+    service, repo = build_vehicle_service()
+    run(service.create_vehicle(USER, make_vehicle()))
+    assert run(service.find_assigned(USER, "emp-1")) is None
+
+
+# ---------- vehicle_deadline_service.next_deadline ----------
+
+def test_next_deadline_restituisce_la_piu_vicina_dello_stesso_tipo():
+    vservice, vrepo = build_vehicle_service()
+    vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
+    service, repo = build_deadline_service(vrepo)
+    run(service.create_deadline(USER, VehicleDeadlineIn(vehicle_id=vehicle["id"], type="revisione", due_date="2026-12-01")))
+    run(service.create_deadline(USER, VehicleDeadlineIn(vehicle_id=vehicle["id"], type="revisione", due_date="2026-10-01")))
+    run(service.create_deadline(USER, VehicleDeadlineIn(vehicle_id=vehicle["id"], type="bollo", due_date="2026-09-01")))
+
+    next_rev = run(service.next_deadline(USER, vehicle["id"], "revisione"))
+    assert next_rev["due_date"] == "2026-10-01"
+
+
+def test_next_deadline_restituisce_none_se_nessuna_scadenza_di_quel_tipo():
+    vservice, vrepo = build_vehicle_service()
+    vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
+    service, repo = build_deadline_service(vrepo)
+    assert run(service.next_deadline(USER, vehicle["id"], "revisione")) is None

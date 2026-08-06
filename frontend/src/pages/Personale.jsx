@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import {
-  Plus, Trash2, Pencil, Check, X, Link2, Download, Clock,
+  Plus, Trash2, Check, X, Link2, Download, Clock,
   CalendarDays, Users, ChevronLeft, ChevronRight, AlertTriangle, RefreshCw, Power, PowerOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "../api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { exportLeaveRequests } from "../utils/export";
+import EmployeeDetailSheet from "../components/EmployeeDetailSheet";
 
 const TYPE_LABELS = { ferie: "Ferie", permesso: "Permesso", malattia: "Malattia" };
 const TYPE_COLORS = { ferie: "#FF5A00", permesso: "#0A192F", malattia: "#DC2626" };
@@ -25,7 +26,7 @@ export default function Personale() {
   const [employees, setEmployees] = useState([]);
   const [requests, setRequests] = useState([]);
   const [open, setOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState(null);
+  const [detailTarget, setDetailTarget] = useState(null);
   const [month, setMonth] = useState(monthKeyToday());
   const [calendarRows, setCalendarRows] = useState([]);
   const [newLink, setNewLink] = useState(null); // { name, token } — mostrato una sola volta dopo creazione/rigenerazione
@@ -62,16 +63,10 @@ export default function Personale() {
   };
 
   const saveEmployee = async (f) => {
-    if (editTarget) {
-      await api.put(`/employees/${editTarget.id}`, f);
-      toast.success("Dipendente aggiornato");
-      setEditTarget(null);
-    } else {
-      const { data } = await api.post("/employees", f);
-      toast.success("Dipendente aggiunto");
-      setOpen(false);
-      setNewLink({ name: data.name, token: data.request_token });
-    }
+    const { data } = await api.post("/employees", f);
+    toast.success("Dipendente aggiunto");
+    setOpen(false);
+    setNewLink({ name: data.name, token: data.request_token });
     loadEmployees();
   };
 
@@ -150,12 +145,15 @@ export default function Personale() {
         </div>
       </div>
 
-      <Dialog open={!!editTarget} onOpenChange={(v) => !v && setEditTarget(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Modifica dipendente</DialogTitle></DialogHeader>
-          {editTarget && <EmployeeForm initial={editTarget} onSave={saveEmployee} submitLabel="Aggiorna" />}
-        </DialogContent>
-      </Dialog>
+      {detailTarget && (
+        <EmployeeDetailSheet
+          employee={detailTarget}
+          requests={requests}
+          onClose={() => setDetailTarget(null)}
+          onEmployeeUpdated={loadEmployees}
+          onRequestsChanged={() => { loadRequests(); loadCalendar(month); }}
+        />
+      )}
 
       <Dialog open={!!newLink} onOpenChange={(v) => !v && setNewLink(null)}>
         <DialogContent>
@@ -281,7 +279,8 @@ export default function Personale() {
       {tab === "dipendenti" && (
         <div className="space-y-2">
           {employees.map((e) => (
-            <div key={e.id} data-testid={`employee-${e.id}`} className="bg-white border border-[#E4E4E1] rounded-md p-4 flex items-center justify-between gap-3 flex-wrap">
+            <div key={e.id} data-testid={`employee-${e.id}`} onClick={() => setDetailTarget(e)}
+              className="bg-white border border-[#E4E4E1] rounded-md p-4 flex items-center justify-between gap-3 flex-wrap cursor-pointer hover:border-[#0A192F] transition-colors">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-cabinet font-bold text-[14px]">{e.name}</span>
@@ -294,15 +293,13 @@ export default function Personale() {
                   {e.last_used_at ? `Link usato l'ultima volta il ${new Date(e.last_used_at).toLocaleString("it-IT")}` : "Link non ancora utilizzato"}
                 </div>
               </div>
-              <div className="flex gap-1">
+              <div className="flex gap-1" onClick={(evt) => evt.stopPropagation()}>
                 <button onClick={() => regenerateToken(e)} title="Rigenera link personale" aria-label="Rigenera link personale"
                   className="p-1.5 text-[#A1A1AA] hover:text-[#FF5A00] hover:bg-[#FFF3EC] rounded"><RefreshCw className="w-4 h-4" /></button>
                 <button onClick={() => toggleActive(e)} title={e.active ? "Disattiva" : "Riattiva"} aria-label={e.active ? "Disattiva dipendente" : "Riattiva dipendente"}
                   className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded">
                   {e.active ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
                 </button>
-                <button onClick={() => setEditTarget(e)} title="Modifica" aria-label="Modifica dipendente"
-                  className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
                 <button onClick={() => setDeleteTarget(e)} title="Elimina" aria-label="Elimina dipendente"
                   className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
               </div>
