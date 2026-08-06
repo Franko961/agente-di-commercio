@@ -33,6 +33,7 @@ USER_SCOPED_COLLECTIONS = {
     "mandanti": "mandanti",
     "documenti": "documents",
     "documenti_dipendenti": "employee_documents",
+    "dotazione_dipendenti": "employee_equipment",
     "conversazioni_ai": "ai_logs",
     "log_azioni_ai": "ai_action_logs",
     "log_email": "email_logs",
