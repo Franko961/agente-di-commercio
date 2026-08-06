@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from core.security import get_current_user, forbid_demo_write, require_module
 from services.cargo_load_service import cargo_load_service
-from models.vehicle import CargoLoadIn
+from models.vehicle import CargoLoadIn, CargoLoadSign
 
 router = APIRouter(prefix="/api/cargo-loads", tags=["cargo-loads"], dependencies=[Depends(require_module("flotta"))])
 
@@ -19,6 +19,12 @@ async def create_load(payload: CargoLoadIn, user=Depends(forbid_demo_write)):
 @router.put("/{lid}")
 async def update_load(lid: str, payload: CargoLoadIn, user=Depends(forbid_demo_write)):
     await cargo_load_service.update_load(user, lid, payload)
+    return {"ok": True}
+
+
+@router.post("/{lid}/sign")
+async def sign_load(lid: str, payload: CargoLoadSign, user=Depends(forbid_demo_write)):
+    await cargo_load_service.sign_load(user, lid, payload.signature, payload.signer_name)
     return {"ok": True}
 
 

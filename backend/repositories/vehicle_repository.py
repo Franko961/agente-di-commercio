@@ -10,6 +10,12 @@ class VehicleRepository:
     async def find_one(self, vid: str, user_id: str):
         return await self.collection.find_one({"id": vid, "user_id": user_id}, {"_id": 0})
 
+    async def find_by_plate(self, plate: str, user_id: str):
+        """Usato per il controllo anti-duplicati: `plate` è già normalizzata
+        (maiuscolo, senza spazi/trattini) da models.vehicle.normalize_plate
+        prima di arrivare qui, quindi il confronto è un match esatto."""
+        return await self.collection.find_one({"plate": plate, "user_id": user_id}, {"_id": 0})
+
     async def insert(self, doc: dict) -> dict:
         await self.collection.insert_one(doc)
         doc.pop("_id", None)

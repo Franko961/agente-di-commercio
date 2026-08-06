@@ -49,6 +49,7 @@ from repositories.order_repository import order_repository
 from repositories.commission_repository import commission_repository
 from repositories.manual_commission_repository import manual_commission_repository
 from repositories.user_repository import user_repository
+from repositories.vehicle_deadline_repository import vehicle_deadline_repository
 from services.commission_service import normalize_manual_commission
 from services.email_service import send_email
 
@@ -140,6 +141,7 @@ class AutomationEngine:
         commission_repo=commission_repository,
         manual_commission_repo=manual_commission_repository,
         user_repo=user_repository,
+        vehicle_deadline_repo=vehicle_deadline_repository,
         send_email_fn=send_email,
     ):
         self.automation_repo = automation_repo
@@ -153,6 +155,7 @@ class AutomationEngine:
         self.commission_repo = commission_repo
         self.manual_commission_repo = manual_commission_repo
         self.user_repo = user_repo
+        self.vehicle_deadline_repo = vehicle_deadline_repo
         self.send_email_fn = send_email_fn
 
     # ------------------------------------------------------------------
@@ -484,6 +487,28 @@ class AutomationEngine:
         }
         return [("digest_commissions", f"{user_id}:{today_str}", context)]
 
+    async def _eval_vehicle_deadline(self, user_id: str, config: dict) -> list:
+        """Scadenze documentali dei mezzi (assicurazione/revisione/bollo,
+        vedi modulo Flotta) in arrivo tra esattamente una delle soglie
+        configurate (default 7/15/30 giorni). target_id include la soglia
+        ("<deadline_id>:<soglia>") apposta: ogni soglia deve generare il
+        proprio promemoria indipendente in automation_runs, altrimenti la
+        soglia più vicina (es. 7 giorni) risulterebbe già "consumata" da
+        quella più lontana (30 giorni) sulla stessa scadenza."""
+        reminder_days = config.get("reminder_days") or [7, 15, 30]
+        deadlines = await self.vehicle_deadline_repo.find_many(user_id)
+        today = now_local().date()
+        out = []
+        for d in deadlines:
+            try:
+                due = datetime.strptime(d["due_date"], "%Y-%m-%d").date()
+            except (ValueError, TypeError):
+                continue
+            days_until = (due - today).days
+            if days_until in reminder_days:
+                out.append(("vehicle_deadline", f"{d['id']}:{days_until}", {**d, "days_until": days_until}))
+        return out
+
     # ------------------------------------------------------------------
     # Esecutori di azione
     # ------------------------------------------------------------------
@@ -639,6 +664,10 @@ def _describe_target(target_type: str, context: dict) -> str:
             f"Provvigioni totali al {context.get('pct', 0)}% dell'obiettivo mensile "
             f"— mancano €{context.get('missing', 0):,.0f}".replace(",", ".")
         )
+    if target_type == "vehicle_deadline":
+        labels = {"assicurazione": "Assicurazione", "revisione": "Revisione", "bollo": "Bollo", "altro": "Scadenza"}
+        label = labels.get(context.get("type"), "Scadenza")
+        return f"{label} di {context.get('vehicle_plate', '')} tra {context.get('days_until', '?')} giorni"
     return target_type
 
 
@@ -651,6 +680,7 @@ _TRIGGER_EVALUATORS = {
     "client_birthday": AutomationEngine._eval_client_birthday,
     "tomorrow_appointments": AutomationEngine._eval_tomorrow_appointments,
     "commissions_below_target_mid_month": AutomationEngine._eval_commissions_below_target_mid_month,
+    "vehicle_deadline": AutomationEngine._eval_vehicle_deadline,
 }
 
 _ACTION_EXECUTORS = {

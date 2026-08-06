@@ -19,6 +19,18 @@ class CargoLoadRepository:
         res = await self.collection.update_one({"id": lid, "user_id": user_id}, {"$set": data})
         return res.matched_count > 0
 
+    async def sign(self, lid: str, user_id: str, signature: str, signer_name: str, signed_at: str) -> bool:
+        res = await self.collection.update_one(
+            {"id": lid, "user_id": user_id},
+            {"$set": {
+                "signature": signature,
+                "signer_name": signer_name,
+                "signed_at": signed_at,
+                "status": "consegnato",
+            }}
+        )
+        return res.matched_count > 0
+
     async def delete(self, lid: str, user_id: str) -> None:
         await self.collection.delete_one({"id": lid, "user_id": user_id})
 

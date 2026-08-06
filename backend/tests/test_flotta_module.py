@@ -28,11 +28,13 @@ from pydantic import ValidationError
 sys.path.insert(0, ".")
 
 from core.exceptions import NotFoundError, ValidationAppError
-from models.vehicle import VehicleIn, VehicleDeadlineIn, VehicleCostIn, CargoLoadIn
+from models.vehicle import VehicleIn, VehicleDeadlineIn, VehicleCostIn, CargoLoadIn, CargoLoadSign
 from services.vehicle_service import VehicleService
 from services.vehicle_deadline_service import VehicleDeadlineService
 from services.vehicle_cost_service import VehicleCostService
 from services.cargo_load_service import CargoLoadService
+from services.expense_service import ExpenseService
+from models.expense import ExpenseIn
 
 
 def run(coro):
@@ -70,6 +72,12 @@ class FakeVehicleRepo:
         if d and d["user_id"] == user_id:
             del self.docs[vid]
 
+    async def find_by_plate(self, plate, user_id):
+        for d in self.docs.values():
+            if d["plate"] == plate and d["user_id"] == user_id:
+                return d
+        return None
+
 
 class FakeDetailRepo:
     """Fake generico per deadline/cost/cargo: stessa forma in tutti e tre."""
@@ -98,6 +106,49 @@ class FakeDetailRepo:
         d = self.docs.get(rid)
         if d and d["user_id"] == user_id:
             del self.docs[rid]
+
+    async def sign(self, rid, user_id, signature, signer_name, signed_at):
+        d = self.docs.get(rid)
+        if not d or d["user_id"] != user_id:
+            return False
+        d.update({"signature": signature, "signer_name": signer_name, "signed_at": signed_at, "status": "consegnato"})
+        return True
+
+
+class FakeExpenseRepo:
+    def __init__(self):
+        self.docs = {}
+
+    async def find_one(self, eid, user_id):
+        d = self.docs.get(eid)
+        return d if d and d["user_id"] == user_id else None
+
+    async def insert(self, doc):
+        self.docs[doc["id"]] = dict(doc)
+        return doc
+
+    async def update(self, eid, user_id, data):
+        d = self.docs.get(eid)
+        if d and d["user_id"] == user_id:
+            d.update(data)
+
+    async def delete(self, eid, user_id):
+        d = self.docs.get(eid)
+        if d and d["user_id"] == user_id:
+            del self.docs[eid]
+
+
+class FakeRefRepo:
+    """Fake generico find_one su una lista di dict — usato per client/order
+    nei test di cargo_load_service (link facoltativi)."""
+    def __init__(self, docs=None):
+        self.docs = docs or []
+
+    async def find_one(self, doc_id, user_id):
+        for d in self.docs:
+            if d["id"] == doc_id and d["user_id"] == user_id:
+                return d
+        return None
 
 
 def make_vehicle(plate="AB123CD", **overrides):
@@ -157,6 +208,46 @@ def test_delete_vehicle_rimuove_solo_il_proprio():
     assert v["id"] not in repo.docs
 
 
+@pytest.mark.parametrize("raw,expected", [
+    ("ab123cd", "AB123CD"),
+    ("AB 123 CD", "AB123CD"),
+    ("ab-123-cd", "AB123CD"),
+])
+def test_create_vehicle_normalizza_la_targa(raw, expected):
+    service, repo = build_vehicle_service()
+    v = run(service.create_vehicle(USER, make_vehicle(plate=raw)))
+    assert v["plate"] == expected
+
+
+def test_create_vehicle_rifiuta_targa_duplicata_per_lo_stesso_utente():
+    service, repo = build_vehicle_service()
+    run(service.create_vehicle(USER, make_vehicle("AB123CD")))
+    with pytest.raises(ValidationAppError):
+        run(service.create_vehicle(USER, make_vehicle("ab 123-cd")))  # normalizza alla stessa targa
+
+
+def test_create_vehicle_permette_targa_duplicata_tra_utenti_diversi():
+    service, repo = build_vehicle_service()
+    run(service.create_vehicle(USER, make_vehicle("AB123CD")))
+    v2 = run(service.create_vehicle(ALTRO_USER, make_vehicle("AB123CD")))
+    assert v2["plate"] == "AB123CD"
+
+
+def test_update_vehicle_rifiuta_targa_duplicata_di_un_altro_mezzo():
+    service, repo = build_vehicle_service()
+    run(service.create_vehicle(USER, make_vehicle("AB123CD")))
+    v2 = run(service.create_vehicle(USER, make_vehicle("XY999ZZ")))
+    with pytest.raises(ValidationAppError):
+        run(service.update_vehicle(USER, v2["id"], make_vehicle("AB123CD")))
+
+
+def test_update_vehicle_permette_di_salvare_la_propria_stessa_targa():
+    service, repo = build_vehicle_service()
+    v = run(service.create_vehicle(USER, make_vehicle("AB123CD")))
+    run(service.update_vehicle(USER, v["id"], make_vehicle("AB123CD", model="Nuovo modello")))
+    assert repo.docs[v["id"]]["model"] == "Nuovo modello"
+
+
 # ---------- vehicle_deadline_service ----------
 
 def build_deadline_service(vehicle_repo):
@@ -214,17 +305,18 @@ def test_delete_deadline_resta_leggibile_dopo_eliminazione_mezzo():
     assert repo.docs[d["id"]]["vehicle_plate"] == "ZZ111AA"
 
 
-# ---------- vehicle_cost_service ----------
+# ---------- vehicle_cost_service (+ sync su Spese) ----------
 
-def build_cost_service(vehicle_repo):
+def build_cost_service(vehicle_repo, expense_repo=None):
     repo = FakeDetailRepo()
-    return VehicleCostService(repo=repo, vehicles=vehicle_repo), repo
+    expenses = expense_repo if expense_repo is not None else FakeExpenseRepo()
+    return VehicleCostService(repo=repo, vehicles=vehicle_repo, expenses=expenses), repo, expenses
 
 
 def test_create_cost_denormalizza_la_targa_e_salva_importo():
     vservice, vrepo = build_vehicle_service()
     vehicle = run(vservice.create_vehicle(USER, make_vehicle("CO123ST")))
-    service, repo = build_cost_service(vrepo)
+    service, repo, expenses = build_cost_service(vrepo)
     c = run(service.create_cost(USER, VehicleCostIn(
         vehicle_id=vehicle["id"], category="carburante", amount=45.5, date="2026-08-01",
     )))
@@ -234,7 +326,7 @@ def test_create_cost_denormalizza_la_targa_e_salva_importo():
 
 def test_create_cost_rifiuta_mezzo_inesistente():
     vservice, vrepo = build_vehicle_service()
-    service, repo = build_cost_service(vrepo)
+    service, repo, expenses = build_cost_service(vrepo)
     with pytest.raises(ValidationAppError):
         run(service.create_cost(USER, VehicleCostIn(
             vehicle_id="non-esiste", category="manutenzione", amount=100, date="2026-08-01",
@@ -248,11 +340,96 @@ def test_vehicle_cost_in_rifiuta_importo_non_positivo():
         VehicleCostIn(vehicle_id="qualsiasi", category="carburante", amount=-10, date="2026-08-01")
 
 
+def test_create_cost_genera_una_spesa_collegata():
+    vservice, vrepo = build_vehicle_service()
+    vehicle = run(vservice.create_vehicle(USER, make_vehicle("CO123ST")))
+    service, repo, expenses = build_cost_service(vrepo)
+    c = run(service.create_cost(USER, VehicleCostIn(
+        vehicle_id=vehicle["id"], category="carburante", amount=45.5, date="2026-08-01", description="Pieno diesel",
+    )))
+    assert c["expense_id"] in expenses.docs
+    expense = expenses.docs[c["expense_id"]]
+    assert expense["source"] == "flotta"
+    assert expense["vehicle_cost_id"] == c["id"]
+    assert expense["amount"] == 45.5
+    assert expense["category"] == "carburante"  # mappatura diretta
+    assert "CO123ST" in expense["description"]
+
+
+def test_create_cost_categoria_non_carburante_mappa_su_altro():
+    vservice, vrepo = build_vehicle_service()
+    vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
+    service, repo, expenses = build_cost_service(vrepo)
+    c = run(service.create_cost(USER, VehicleCostIn(
+        vehicle_id=vehicle["id"], category="manutenzione", amount=150, date="2026-08-01",
+    )))
+    assert expenses.docs[c["expense_id"]]["category"] == "altro"
+
+
+def test_update_cost_sincronizza_la_spesa_collegata():
+    vservice, vrepo = build_vehicle_service()
+    vehicle = run(vservice.create_vehicle(USER, make_vehicle("CO123ST")))
+    service, repo, expenses = build_cost_service(vrepo)
+    c = run(service.create_cost(USER, VehicleCostIn(
+        vehicle_id=vehicle["id"], category="carburante", amount=45.5, date="2026-08-01",
+    )))
+    run(service.update_cost(USER, c["id"], VehicleCostIn(
+        vehicle_id=vehicle["id"], category="manutenzione", amount=200, date="2026-08-02", description="Tagliando",
+    )))
+    expense = expenses.docs[c["expense_id"]]
+    assert expense["amount"] == 200
+    assert expense["date"] == "2026-08-02"
+    assert expense["category"] == "altro"
+    assert "Tagliando" in expense["description"]
+
+
+def test_delete_cost_elimina_anche_la_spesa_collegata():
+    vservice, vrepo = build_vehicle_service()
+    vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
+    service, repo, expenses = build_cost_service(vrepo)
+    c = run(service.create_cost(USER, VehicleCostIn(
+        vehicle_id=vehicle["id"], category="carburante", amount=45.5, date="2026-08-01",
+    )))
+    expense_id = c["expense_id"]
+    run(service.delete_cost(USER, c["id"]))
+    assert c["id"] not in repo.docs
+    assert expense_id not in expenses.docs
+
+
+def test_expense_service_rifiuta_modifica_di_una_spesa_generata_da_flotta():
+    vservice, vrepo = build_vehicle_service()
+    vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
+    cost_service, cost_repo, expenses = build_cost_service(vrepo)
+    c = run(cost_service.create_cost(USER, VehicleCostIn(
+        vehicle_id=vehicle["id"], category="carburante", amount=45.5, date="2026-08-01",
+    )))
+
+    expense_service = ExpenseService(repo=expenses)
+    with pytest.raises(ValidationAppError):
+        run(expense_service.update_expense(USER, c["expense_id"], ExpenseIn(date="2026-08-05", amount=999)))
+    with pytest.raises(ValidationAppError):
+        run(expense_service.delete_expense(USER, c["expense_id"]))
+    # In entrambi i casi la spesa non deve essere stata toccata.
+    assert expenses.docs[c["expense_id"]]["amount"] == 45.5
+
+
+def test_expense_service_permette_modifica_di_una_spesa_normale():
+    expenses = FakeExpenseRepo()
+    expense_service = ExpenseService(repo=expenses)
+    doc = run(expense_service.create_expense(USER, ExpenseIn(date="2026-08-01", amount=30, category="vitto")))
+    run(expense_service.update_expense(USER, doc["id"], ExpenseIn(date="2026-08-01", amount=35, category="vitto")))
+    assert expenses.docs[doc["id"]]["amount"] == 35
+
+
 # ---------- cargo_load_service ----------
 
-def build_cargo_service(vehicle_repo):
+def build_cargo_service(vehicle_repo, clients=None, orders=None):
     repo = FakeDetailRepo()
-    return CargoLoadService(repo=repo, vehicles=vehicle_repo), repo
+    service = CargoLoadService(
+        repo=repo, vehicles=vehicle_repo,
+        clients=clients or FakeRefRepo(), orders=orders or FakeRefRepo(),
+    )
+    return service, repo
 
 
 def test_create_load_denormalizza_la_targa():
@@ -265,6 +442,7 @@ def test_create_load_denormalizza_la_targa():
     )))
     assert load["vehicle_plate"] == "LO456AD"
     assert load["destination"] == "Cantiere Milano Nord"
+    assert load["status"] == "programmato"
 
 
 def test_create_load_rifiuta_mezzo_di_un_altro_utente():
@@ -292,3 +470,66 @@ def test_update_load_rifiuta_carico_di_un_altro_utente():
         run(service.update_load(ALTRO_USER, load["id"], CargoLoadIn(
             vehicle_id=altro_vehicle["id"], date="2026-08-06", description="Modificato",
         )))
+
+
+def test_create_load_accetta_cliente_e_ordine_facoltativi_validi():
+    vservice, vrepo = build_vehicle_service()
+    vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
+    clients = FakeRefRepo([{"id": "client-1", "user_id": USER["id"]}])
+    orders = FakeRefRepo([{"id": "order-1", "user_id": USER["id"]}])
+    service, repo = build_cargo_service(vrepo, clients=clients, orders=orders)
+    load = run(service.create_load(USER, CargoLoadIn(
+        vehicle_id=vehicle["id"], date="2026-08-05", description="Pallet",
+        client_id="client-1", order_id="order-1", quantity=10, colli=3, peso=250.5,
+    )))
+    assert load["client_id"] == "client-1"
+    assert load["order_id"] == "order-1"
+    assert load["quantity"] == 10
+    assert load["colli"] == 3
+    assert load["peso"] == 250.5
+
+
+def test_create_load_rifiuta_cliente_di_un_altro_utente():
+    vservice, vrepo = build_vehicle_service()
+    vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
+    clients = FakeRefRepo([{"id": "client-1", "user_id": ALTRO_USER["id"]}])
+    service, repo = build_cargo_service(vrepo, clients=clients)
+    with pytest.raises(ValidationAppError):
+        run(service.create_load(USER, CargoLoadIn(
+            vehicle_id=vehicle["id"], date="2026-08-05", description="Pallet", client_id="client-1",
+        )))
+
+
+def test_create_load_senza_cliente_o_ordine_e_comunque_valido():
+    """Un account con Clienti/Ordini disattivati (es. CACI SRL) deve poter
+    registrare un carico senza questi collegamenti."""
+    vservice, vrepo = build_vehicle_service()
+    vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
+    service, repo = build_cargo_service(vrepo)
+    load = run(service.create_load(USER, CargoLoadIn(
+        vehicle_id=vehicle["id"], date="2026-08-05", description="Pallet",
+    )))
+    assert load["client_id"] is None
+    assert load["order_id"] is None
+
+
+def test_sign_load_registra_la_firma_e_segna_consegnato():
+    vservice, vrepo = build_vehicle_service()
+    vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
+    service, repo = build_cargo_service(vrepo)
+    load = run(service.create_load(USER, CargoLoadIn(
+        vehicle_id=vehicle["id"], date="2026-08-05", description="Pallet",
+    )))
+    run(service.sign_load(USER, load["id"], "data:image/png;base64,xyz", "Mario Rossi"))
+    signed = repo.docs[load["id"]]
+    assert signed["status"] == "consegnato"
+    assert signed["signer_name"] == "Mario Rossi"
+    assert signed["signature"] == "data:image/png;base64,xyz"
+    assert signed["signed_at"] is not None
+
+
+def test_sign_load_rifiuta_carico_inesistente():
+    vservice, vrepo = build_vehicle_service()
+    service, repo = build_cargo_service(vrepo)
+    with pytest.raises(NotFoundError):
+        run(service.sign_load(USER, "non-esiste", "data:image/png;base64,xyz", "Mario Rossi"))

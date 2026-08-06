@@ -165,7 +165,7 @@ class FakeUserRepo:
 
 def build_engine(automations=None, offers=None, clients=None, leads=None,
                   appointments=None, orders=None, commissions=None, manual_commissions=None,
-                  users=None, send_email_fn=None):
+                  users=None, vehicle_deadlines=None, send_email_fn=None):
     sent_emails = []
 
     async def default_send_email(to, subject, html):
@@ -184,6 +184,7 @@ def build_engine(automations=None, offers=None, clients=None, leads=None,
         commission_repo=FakeSimpleRepo(commissions or []),
         manual_commission_repo=FakeSimpleRepo(manual_commissions or []),
         user_repo=FakeUserRepo(users or [{"id": "user-1", "email": "agente@example.com"}]),
+        vehicle_deadline_repo=FakeSimpleRepo(vehicle_deadlines or []),
         send_email_fn=send_email_fn or default_send_email,
     )
     engine._sent_emails = sent_emails
@@ -1199,6 +1200,104 @@ def test_provvigioni_senza_obiettivo_impostato_non_genera_nulla(monkeypatch):
     summary = run(engine.run_cycle())
 
     assert summary["executed"] == 0
+
+
+# ---------- vehicle_deadline (modulo Flotta) + send_reminder ----------
+
+def test_scadenza_mezzo_alla_soglia_di_7_giorni_genera_promemoria(monkeypatch):
+    import services.automation_engine as automation_engine_mod
+    from datetime import datetime as real_datetime
+    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 1, 9, 0))
+
+    automations = [{
+        "id": "auto-25", "user_id": "user-1", "name": "Scadenze mezzi",
+        "trigger": "vehicle_deadline", "action": "send_reminder", "enabled": True,
+        "config": {"reminder_days": [7, 15, 30]},
+    }]
+    vehicle_deadlines = [{
+        "id": "deadline-1", "user_id": "user-1", "vehicle_id": "v-1", "vehicle_plate": "AB123CD",
+        "type": "assicurazione", "due_date": "2026-03-08",  # esattamente 7 giorni dopo il 2026-03-01
+    }]
+    engine = build_engine(automations=automations, vehicle_deadlines=vehicle_deadlines)
+
+    summary = run(engine.run_cycle())
+
+    assert summary["executed"] == 1
+    assert engine.notification_repo.docs[0]["target_id"] == "deadline-1:7"
+    assert "AB123CD" in engine.notification_repo.docs[0]["message"]
+
+
+def test_scadenza_mezzo_fuori_soglia_non_genera_nulla(monkeypatch):
+    import services.automation_engine as automation_engine_mod
+    from datetime import datetime as real_datetime
+    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 1, 9, 0))
+
+    automations = [{
+        "id": "auto-26", "user_id": "user-1", "name": "Scadenze mezzi",
+        "trigger": "vehicle_deadline", "action": "send_reminder", "enabled": True,
+        "config": {"reminder_days": [7, 15, 30]},
+    }]
+    vehicle_deadlines = [{
+        "id": "deadline-1", "user_id": "user-1", "vehicle_id": "v-1", "vehicle_plate": "AB123CD",
+        "type": "revisione", "due_date": "2026-03-10",  # 9 giorni: nessuna soglia configurata coincide
+    }]
+    engine = build_engine(automations=automations, vehicle_deadlines=vehicle_deadlines)
+
+    summary = run(engine.run_cycle())
+
+    assert summary["executed"] == 0
+
+
+def test_scadenza_mezzo_soglia_personalizzata(monkeypatch):
+    import services.automation_engine as automation_engine_mod
+    from datetime import datetime as real_datetime
+    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 1, 9, 0))
+
+    automations = [{
+        "id": "auto-27", "user_id": "user-1", "name": "Scadenze mezzi",
+        "trigger": "vehicle_deadline", "action": "send_reminder", "enabled": True,
+        "config": {"reminder_days": [5]},
+    }]
+    vehicle_deadlines = [{
+        "id": "deadline-1", "user_id": "user-1", "vehicle_id": "v-1", "vehicle_plate": "XY000ZZ",
+        "type": "bollo", "due_date": "2026-03-06",  # 5 giorni: soglia personalizzata
+    }]
+    engine = build_engine(automations=automations, vehicle_deadlines=vehicle_deadlines)
+
+    summary = run(engine.run_cycle())
+
+    assert summary["executed"] == 1
+
+
+def test_scadenza_mezzo_due_soglie_diverse_generano_due_promemoria_distinti(monkeypatch):
+    """La stessa scadenza, valutata in due cicli separati (30 giorni prima e
+    poi 7 giorni prima), deve generare due promemoria distinti: il
+    target_id include la soglia apposta perché quella più vicina non
+    risulti già "consumata" da quella più lontana in automation_runs."""
+    import services.automation_engine as automation_engine_mod
+    from datetime import datetime as real_datetime
+
+    automations = [{
+        "id": "auto-28", "user_id": "user-1", "name": "Scadenze mezzi",
+        "trigger": "vehicle_deadline", "action": "send_reminder", "enabled": True,
+        "config": {"reminder_days": [7, 30]},
+    }]
+    vehicle_deadlines = [{
+        "id": "deadline-1", "user_id": "user-1", "vehicle_id": "v-1", "vehicle_plate": "AB123CD",
+        "type": "assicurazione", "due_date": "2026-03-08",
+    }]
+    engine = build_engine(automations=automations, vehicle_deadlines=vehicle_deadlines)
+
+    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 2, 6, 9, 0))
+    summary1 = run(engine.run_cycle())
+    assert summary1["executed"] == 1
+
+    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 1, 9, 0))
+    summary2 = run(engine.run_cycle())
+    assert summary2["executed"] == 1
+
+    target_ids = {d["target_id"] for d in engine.notification_repo.docs}
+    assert target_ids == {"deadline-1:30", "deadline-1:7"}
 
 
 if __name__ == "__main__":
