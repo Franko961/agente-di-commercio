@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Smartphone } from "lucide-react";
 import api from "../api";
 import { toast } from "sonner";
 import PageMeta from "../components/PageMeta";
@@ -23,12 +23,87 @@ export default function RichiediAssenza() {
   const [form, setForm] = useState({ type: "ferie", date_from: "", date_to: "", note: "" });
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [isIos, setIsIos] = useState(false);
 
   useEffect(() => {
     api.get(`/employees/by-token/${token}`)
       .then(({ data }) => setEmployeeName(data.name))
       .catch(() => setEmployeeName(false));
   }, [token]);
+
+  // Rende installabile come "app" a sé stante QUESTA pagina (con il token
+  // già nell'URL), non l'intero gestionale: il manifest statico in
+  // index.html punta a "/" (usato per installare SALESFLY da /app). Sostituisce
+  // temporaneamente <link rel="manifest"> con uno generato al volo (Blob URL,
+  // nessun endpoint dedicato necessario) che punta a questo percorso esatto,
+  // e lo ripristina smontando il componente.
+  useEffect(() => {
+    if (!employeeName) return;
+    const manifestLink = document.querySelector('link[rel="manifest"]');
+    const originalHref = manifestLink?.getAttribute("href");
+    const origin = window.location.origin;
+    const manifest = {
+      name: `Assenze — ${employeeName.split(" ")[0]}`,
+      short_name: "Assenze",
+      start_url: window.location.pathname,
+      scope: window.location.pathname,
+      display: "standalone",
+      theme_color: "#0A192F",
+      background_color: "#F9F9F8",
+      orientation: "portrait-primary",
+      icons: [
+        { src: `${origin}/icon-192.png`, type: "image/png", sizes: "192x192", purpose: "any maskable" },
+        { src: `${origin}/icon-512.png`, type: "image/png", sizes: "512x512", purpose: "any maskable" },
+      ],
+    };
+    const blobUrl = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" }));
+    if (manifestLink) manifestLink.setAttribute("href", blobUrl);
+
+    // iOS/Safari non legge affatto il manifest per "Aggiungi a Home": si
+    // basa solo su questi meta tag (assenti da index.html perché
+    // riguardano solo questa pagina, non l'app principale).
+    const appleTitle = document.createElement("meta");
+    appleTitle.name = "apple-mobile-web-app-title";
+    appleTitle.content = "Assenze";
+    document.head.appendChild(appleTitle);
+    const appleCapable = document.createElement("meta");
+    appleCapable.name = "apple-mobile-web-app-capable";
+    appleCapable.content = "yes";
+    document.head.appendChild(appleCapable);
+
+    return () => {
+      if (manifestLink && originalHref) manifestLink.setAttribute("href", originalHref);
+      URL.revokeObjectURL(blobUrl);
+      appleTitle.remove();
+      appleCapable.remove();
+    };
+  }, [employeeName]);
+
+  // Rileva se mostrare un invito a installare: Android/Chrome espone un
+  // evento nativo con cui offrire un tasto "Aggiungi" (installazione in un
+  // tocco); iOS/Safari non lo espone affatto — lì l'unica via è il tasto
+  // Condividi del browser, non azionabile da codice, quindi mostriamo solo
+  // un'istruzione testuale. Se l'app è già installata (aperta in modalità
+  // standalone), non mostriamo nulla.
+  useEffect(() => {
+    setIsStandalone(window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true);
+    setIsIos(/iphone|ipad|ipod/i.test(window.navigator.userAgent) && !window.MSStream);
+    const onBeforeInstall = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener("beforeinstallprompt", onBeforeInstall);
+    return () => window.removeEventListener("beforeinstallprompt", onBeforeInstall);
+  }, []);
+
+  const installApp = async () => {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    await installPrompt.userChoice;
+    setInstallPrompt(null);
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -71,6 +146,24 @@ export default function RichiediAssenza() {
             <p className="text-[#52525B] text-sm">
               Questo link non è (più) valido. Contatta chi gestisce il personale della tua azienda per riceverne uno nuovo.
             </p>
+          </div>
+        )}
+
+        {employeeName && !isStandalone && (installPrompt || isIos) && (
+          <div className="bg-white border border-[#E4E4E1] rounded-xl p-4 mb-6 flex items-start gap-3">
+            <Smartphone className="w-5 h-5 text-[#FF5A00] shrink-0 mt-0.5" />
+            {installPrompt ? (
+              <div className="flex-1 flex items-center justify-between gap-3 flex-wrap">
+                <p className="text-[13px] text-[#52525B]">Salva questo link sulla schermata Home per riaprirlo come un'app.</p>
+                <button onClick={installApp} className="shrink-0 px-3 py-1.5 bg-[#0A192F] text-white rounded-md text-[12px] font-medium">
+                  Aggiungi alla Home
+                </button>
+              </div>
+            ) : (
+              <p className="text-[13px] text-[#52525B]">
+                Salva questo link come un'app: tocca <strong>Condividi</strong> qui sotto, poi <strong>"Aggiungi a Home"</strong>.
+              </p>
+            )}
           </div>
         )}
 
