@@ -256,6 +256,56 @@ def test_get_by_token_aggiorna_last_used_at():
     assert repo.docs[employee["id"]]["last_used_at"] is not None
 
 
+# ---------- employee_service.get_manifest_for_token ----------
+
+def test_get_manifest_for_token_punta_esattamente_a_questo_link():
+    """start_url/scope devono puntare al link di QUESTO dipendente, non
+    all'app principale — è esattamente il bug osservato in produzione
+    (installava l'intera SALESFLY invece di questa pagina) quando il
+    manifest era un blob: generato lato client invece che servito da qui."""
+    service, repo = build_employee_service()
+    employee = run(service.create_employee(USER, make_employee(name="Franco Bianchi")))
+
+    manifest = run(service.get_manifest_for_token(employee["request_token"], "https://salesfly.it"))
+
+    assert manifest["start_url"] == f"/richiedi-assenza/{employee['request_token']}"
+    assert manifest["scope"] == f"/richiedi-assenza/{employee['request_token']}"
+    assert manifest["display"] == "standalone"
+
+
+def test_get_manifest_for_token_usa_solo_il_nome_di_battesimo():
+    service, repo = build_employee_service()
+    employee = run(service.create_employee(USER, make_employee(name="Franco Bianchi")))
+
+    manifest = run(service.get_manifest_for_token(employee["request_token"], "https://salesfly.it"))
+
+    assert manifest["name"] == "Assenze — Franco"
+
+
+def test_get_manifest_for_token_icone_assolute_sul_frontend_url():
+    service, repo = build_employee_service()
+    employee = run(service.create_employee(USER, make_employee()))
+
+    manifest = run(service.get_manifest_for_token(employee["request_token"], "https://salesfly.it"))
+
+    assert manifest["icons"][0]["src"] == "https://salesfly.it/icon-192.png"
+    assert manifest["icons"][1]["src"] == "https://salesfly.it/icon-512.png"
+
+
+def test_get_manifest_for_token_rifiuta_token_sconosciuto():
+    service, repo = build_employee_service()
+    with pytest.raises(NotFoundError):
+        run(service.get_manifest_for_token("token-inesistente", "https://salesfly.it"))
+
+
+def test_get_manifest_for_token_rifiuta_dipendente_disattivato():
+    service, repo = build_employee_service()
+    employee = run(service.create_employee(USER, make_employee()))
+    run(repo.update(employee["id"], USER["id"], {"active": False}))
+    with pytest.raises(NotFoundError):
+        run(service.get_manifest_for_token(employee["request_token"], "https://salesfly.it"))
+
+
 # ---------- leave_request_service.submit ----------
 
 def test_submit_rifiuta_token_sconosciuto(monkeypatch):

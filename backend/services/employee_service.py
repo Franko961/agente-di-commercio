@@ -89,5 +89,32 @@ class EmployeeService:
         await self.repo.touch_last_used(employee["id"], now_iso())
         return employee
 
+    async def get_manifest_for_token(self, token: str, frontend_url: str) -> dict:
+        """Manifest PWA per il link personale di QUESTO dipendente, servito
+        da un URL https reale (routers/employees.py) invece di un blob:
+        generato lato client: su iOS "Aggiungi a Home" installava l'intera
+        app SALESFLY invece di questa pagina — Safari non gestisce in modo
+        affidabile un <link rel="manifest"> con href blob: e ripiega su
+        quello statico dell'app principale (public/manifest.json, scope
+        "/"). start_url/scope puntano esattamente a questo token, così
+        l'icona salvata sulla home apre solo la pagina di richiesta assenza
+        di questo dipendente, non l'intero gestionale."""
+        employee = await self.get_by_token(token)
+        first_name = employee["name"].split(" ")[0]
+        return {
+            "name": f"Assenze — {first_name}",
+            "short_name": "Assenze",
+            "start_url": f"/richiedi-assenza/{token}",
+            "scope": f"/richiedi-assenza/{token}",
+            "display": "standalone",
+            "theme_color": "#0A192F",
+            "background_color": "#F9F9F8",
+            "orientation": "portrait-primary",
+            "icons": [
+                {"src": f"{frontend_url}/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any maskable"},
+                {"src": f"{frontend_url}/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any maskable"},
+            ],
+        }
+
 
 employee_service = EmployeeService()

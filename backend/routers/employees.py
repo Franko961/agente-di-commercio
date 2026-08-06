@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+import json
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from core.security import get_current_user, forbid_demo_write, require_module, get_client_ip
 from core.rate_limit import check_and_record
+from core.config import FRONTEND_URL
 from services.employee_service import employee_service
 from services.leave_request_service import leave_request_service
 from services.vehicle_service import vehicle_service
@@ -109,3 +111,17 @@ async def get_employee_by_token(token: str, request: Request):
         raise HTTPException(429, "Troppe richieste da questo indirizzo, riprova più tardi.")
     employee = await employee_service.get_by_token(token)
     return {"name": employee["name"]}
+
+
+@router.get("/by-token/{token}/manifest.webmanifest")
+async def get_employee_manifest(token: str, request: Request):
+    """Manifest PWA specifico per QUESTO dipendente/link — vedi
+    employee_service.get_manifest_for_token per il perché (installava
+    l'intera app invece di questa pagina su iOS). Pubblico apposta, stesso
+    principio e stesso limite per IP di GET /by-token qui sopra."""
+    ip_address = get_client_ip(request)
+    ok = await check_and_record("employee_by_token_ip", ip_address, max_attempts=30, window_minutes=60)
+    if not ok:
+        raise HTTPException(429, "Troppe richieste da questo indirizzo, riprova più tardi.")
+    manifest = await employee_service.get_manifest_for_token(token, FRONTEND_URL)
+    return Response(content=json.dumps(manifest), media_type="application/manifest+json")

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { CheckCircle2, Smartphone } from "lucide-react";
-import api from "../api";
+import api, { API_BASE } from "../api";
 import { toast } from "sonner";
 import PageMeta from "../components/PageMeta";
 
@@ -35,31 +35,19 @@ export default function RichiediAssenza() {
 
   // Rende installabile come "app" a sé stante QUESTA pagina (con il token
   // già nell'URL), non l'intero gestionale: il manifest statico in
-  // index.html punta a "/" (usato per installare SALESFLY da /app). Sostituisce
-  // temporaneamente <link rel="manifest"> con uno generato al volo (Blob URL,
-  // nessun endpoint dedicato necessario) che punta a questo percorso esatto,
-  // e lo ripristina smontando il componente.
+  // index.html punta a "/" (usato per installare SALESFLY da /app).
+  // Sostituisce temporaneamente <link rel="manifest"> con l'URL reale servito
+  // dal backend (GET /employees/by-token/{token}/manifest.webmanifest), e lo
+  // ripristina smontando il componente. Prima versione usava un Blob URL
+  // generato qui in JS: su iOS "Aggiungi a Home" installava comunque l'intera
+  // app SALESFLY invece di questa pagina — Safari non gestisce in modo
+  // affidabile un manifest con href blob: e ripiega su quello statico
+  // dell'app principale (scope "/"). Un URL https reale non ha questo problema.
   useEffect(() => {
     if (!employeeName) return;
     const manifestLink = document.querySelector('link[rel="manifest"]');
     const originalHref = manifestLink?.getAttribute("href");
-    const origin = window.location.origin;
-    const manifest = {
-      name: `Assenze — ${employeeName.split(" ")[0]}`,
-      short_name: "Assenze",
-      start_url: window.location.pathname,
-      scope: window.location.pathname,
-      display: "standalone",
-      theme_color: "#0A192F",
-      background_color: "#F9F9F8",
-      orientation: "portrait-primary",
-      icons: [
-        { src: `${origin}/icon-192.png`, type: "image/png", sizes: "192x192", purpose: "any maskable" },
-        { src: `${origin}/icon-512.png`, type: "image/png", sizes: "512x512", purpose: "any maskable" },
-      ],
-    };
-    const blobUrl = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" }));
-    if (manifestLink) manifestLink.setAttribute("href", blobUrl);
+    if (manifestLink) manifestLink.setAttribute("href", `${API_BASE}/employees/by-token/${token}/manifest.webmanifest`);
 
     // iOS/Safari non legge affatto il manifest per "Aggiungi a Home": si
     // basa solo su questi meta tag (assenti da index.html perché
@@ -75,11 +63,10 @@ export default function RichiediAssenza() {
 
     return () => {
       if (manifestLink && originalHref) manifestLink.setAttribute("href", originalHref);
-      URL.revokeObjectURL(blobUrl);
       appleTitle.remove();
       appleCapable.remove();
     };
-  }, [employeeName]);
+  }, [employeeName, token]);
 
   // Rileva se mostrare un invito a installare: Android/Chrome espone un
   // evento nativo con cui offrire un tasto "Aggiungi" (installazione in un
