@@ -279,12 +279,15 @@ export default function Spese() {
   );
 }
 
+const READONLY_SOURCE_LABELS = { flotta: "Flotta", personale: "Personale" };
+
 function ExpenseRow({ e, onEdit, onDelete }) {
   const meta = catMeta(e.category);
-  // Spesa generata automaticamente da un costo Flotta (vedi
-  // vehicle_cost_service.py): sola lettura qui, va modificata/eliminata
-  // dalla sezione Flotta > Costi, che tiene le due copie sincronizzate.
-  const fromFlotta = e.source === "flotta";
+  // Spesa generata automaticamente da un costo Flotta o da un compenso
+  // dipendente (vedi vehicle_cost_service.py / employee_compensation_service.py):
+  // sola lettura qui, va modificata/eliminata dal modulo che l'ha generata,
+  // che tiene le due copie sincronizzate.
+  const readonlySource = READONLY_SOURCE_LABELS[e.source];
   return (
     <div data-testid={`expense-${e.id}`} className="grid grid-cols-2 md:grid-cols-7 gap-2 px-4 py-3 border-b border-[#E4E4E1] items-center text-[13px]">
       <div className="font-mono text-[12px]">{e.date}</div>
@@ -293,8 +296,8 @@ function ExpenseRow({ e, onEdit, onDelete }) {
       </div>
       <div className="col-span-2 truncate flex items-center gap-1.5">
         <span className="truncate">{e.description || "—"}</span>
-        {fromFlotta && (
-          <span title="Generata automaticamente dal modulo Flotta" className="shrink-0 font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-[#F3F3F1] text-[#A1A1AA]">Flotta</span>
+        {readonlySource && (
+          <span title={`Generata automaticamente dal modulo ${readonlySource}`} className="shrink-0 font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-[#F3F3F1] text-[#A1A1AA]">{readonlySource}</span>
         )}
         {e.receipt_document_id && (
           <button onClick={() => downloadReceipt(e.receipt_document_id, e.description)} title="Vedi scontrino" aria-label="Vedi scontrino"
@@ -305,8 +308,8 @@ function ExpenseRow({ e, onEdit, onDelete }) {
       </div>
       <div className="text-right font-cabinet font-bold">{fmt(e.amount)}</div>
       <div className="col-span-2 flex justify-end gap-1">
-        {fromFlotta ? (
-          <span className="text-[11px] text-[#A1A1AA] italic px-1.5" title="Modificala dalla sezione Flotta &gt; Costi">Da Flotta</span>
+        {readonlySource ? (
+          <span className="text-[11px] text-[#A1A1AA] italic px-1.5" title={`Modificala dal modulo ${readonlySource}`}>Da {readonlySource}</span>
         ) : (
           <>
             <button onClick={() => onEdit(e)} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica" aria-label="Modifica spesa">
