@@ -25,9 +25,15 @@ from repositories.expense_repository import expense_repository
 from repositories.order_repository import order_repository
 from repositories.ai_action_log_repository import ai_action_log_repository
 from models.expense import EXPENSE_CATEGORIES
+from models.vehicle import VEHICLE_TYPES
+from models.employee import EmployeeIn
+from models.vehicle import VehicleIn
+from core.security import module_enabled
 from services.commission_service import calc_offer_total, get_commission_rate, normalize_manual_commission
 from services.order_service import order_service
 from services.dashboard_service import dashboard_service
+from services.employee_service import employee_service
+from services.vehicle_service import vehicle_service
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +108,8 @@ CRM_WRITE_TOOLS = {
     "add_note_to_client",
     "add_offer",
     "add_expense",
+    "add_employee",
+    "add_vehicle",
 }
 
 # A quale modulo (vedi core.security.MODULE_KEYS) appartiene ciascun tool:
@@ -118,6 +126,8 @@ TOOL_MODULE = {
     "add_offer": "offerte",
     "search_offers": "offerte",
     "add_expense": "spese",
+    "add_employee": "personale",
+    "add_vehicle": "flotta",
 }
 
 
@@ -268,6 +278,34 @@ CRM_TOOLS = [
                 "notes": {"type": "string", "description": "Note aggiuntive"},
             },
             "required": ["category", "amount"]
+        }
+    },
+    {
+        "name": "add_employee",
+        "description": "Aggiunge un nuovo dipendente al modulo Personale (nome, cognome, ruolo, contatti). Usare quando l'utente chiede di aggiungere/registrare un dipendente o collaboratore. Genera anche il link personale per le richieste di assenza, mostrato solo nella scheda del dipendente in SalesFly (mai qui in chat, per sicurezza — è un token da mostrare una sola volta).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Nome del dipendente"},
+                "surname": {"type": "string", "description": "Cognome del dipendente, se fornito"},
+                "role": {"type": "string", "description": "Ruolo o mansione, es. Autista, Magazziniere, Impiegata"},
+                "email": {"type": "string", "description": "Email di contatto, se fornita"},
+                "phone": {"type": "string", "description": "Telefono di contatto, se fornito"},
+            },
+            "required": ["name"]
+        }
+    },
+    {
+        "name": "add_vehicle",
+        "description": "Aggiunge un nuovo mezzo al modulo Flotta (targa, modello, tipo). Usare quando l'utente chiede di aggiungere/registrare un furgone, camion o auto aziendale.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "plate": {"type": "string", "description": "Targa del mezzo"},
+                "model": {"type": "string", "description": "Modello, es. Fiat Ducato"},
+                "type": {"type": "string", "enum": list(VEHICLE_TYPES), "description": "Tipo di mezzo. Default 'furgone' se non specificato."},
+            },
+            "required": ["plate"]
         }
     },
     {
@@ -648,6 +686,31 @@ class AiService:
                 if "error" in prepared:
                     return f"❌ {prepared['error']}"
                 return await self._finalize_expense(user_id, prepared["resolved_input"])
+
+            elif tool_name == "add_employee":
+                # Passa dal service (non un insert diretto come add_client)
+                # per riusare davvero la generazione del token/link personale
+                # (hash SHA-256, mai l'inserimento manuale della stessa
+                # logica qui) — vedi employee_service.create_employee.
+                payload = EmployeeIn(
+                    name=tool_input.get("name", ""),
+                    surname=tool_input.get("surname", ""),
+                    role=tool_input.get("role", ""),
+                    email=tool_input.get("email") or None,
+                    phone=tool_input.get("phone", ""),
+                )
+                doc = await employee_service.create_employee({"id": user_id}, payload)
+                full_name = f"{doc['name']} {doc.get('surname', '')}".strip()
+                return f"✅ Dipendente '{full_name}' aggiunto. Il link personale per le richieste di assenza è visibile nella sua scheda in Personale."
+
+            elif tool_name == "add_vehicle":
+                payload = VehicleIn(
+                    plate=tool_input.get("plate", ""),
+                    model=tool_input.get("model", ""),
+                    type=tool_input.get("type") or "furgone",
+                )
+                doc = await vehicle_service.create_vehicle({"id": user_id}, payload)
+                return f"✅ Mezzo '{doc['plate']}' aggiunto alla Flotta."
 
             elif tool_name == "search_clients":
                 return await self._search_clients(tool_input, user_id)
@@ -1230,9 +1293,17 @@ class AiService:
                     for block in message.content:
                         if block.type == "tool_use":
                             tools_invoked.add(block.name)
-                            blocked_module = TOOL_MODULE.get(block.name)
-                            if blocked_module and blocked_module in (user.get("disabled_modules") or []):
-                                result = f"🔒 Il modulo \"{blocked_module}\" non è disponibile per questo account."
+                            required_module = TOOL_MODULE.get(block.name)
+                            # module_enabled copre sia i moduli core (opt-out
+                            # via disabled_modules, es. "spese") sia i moduli
+                            # extra (opt-in via enabled_extra_modules, es.
+                            # "personale"/"flotta" — add_employee/add_vehicle):
+                            # un controllo che guardasse solo disabled_modules
+                            # lascerebbe passare questi ultimi anche per un
+                            # account che non li ha mai attivati, dato che non
+                            # compaiono affatto in disabled_modules in quel caso.
+                            if required_module and not module_enabled(user, required_module):
+                                result = f"🔒 Il modulo \"{required_module}\" non è disponibile per questo account."
                                 await self._log_action(
                                     user["id"], channel, payload.message, block.name, block.input,
                                     status="fallita", result=result,
@@ -1404,6 +1475,54 @@ class AiService:
         except Exception as e:
             logger.error(f"AI suggestions error: {e}")
         return {"suggestions": []}
+
+    async def generate_employee_summary(self, employee: dict, summary: dict) -> dict:
+        """Riepilogo in linguaggio naturale di un dipendente per la scheda
+        Personale (es. 'Mario ha 3 giorni di malattia questo mese, ferie
+        quasi esaurite'): stessa forma minimale di suggestions() (una
+        singola chiamata al modello, nessuna cronologia, nessun tool),
+        non la conversazione completa di chat(). Nessun dato sanitario nel
+        contesto inviato al modello — solo i conteggi già usati altrove
+        nella scheda dipendente, mai la diagnosi (che SalesFly non
+        memorizza comunque, vedi models/employee.py)."""
+        import anthropic as anthropic_sdk
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            return {"summary": None}
+
+        name = f"{employee.get('name', '')} {employee.get('surname', '')}".strip()
+        ferie = summary["ferie"]
+        permessi = summary["permessi"]
+        malattie = summary["malattie"]
+        kpi = summary["kpi"]
+        context = (
+            f"Dipendente: {name}\n"
+            f"Ruolo: {employee.get('role') or '—'}\n"
+            f"Stato contrattuale: {employee.get('employment_status', 'attivo')}\n"
+            f"Ferie quest'anno: {ferie['godute']} giorni goduti su {ferie['spettanti']} spettanti "
+            f"({ferie['residue']} residui)\n"
+            f"Permessi quest'anno: {permessi['ore_approvate']} ore approvate\n"
+            f"Malattie quest'anno: {malattie['giorni']} giorni\n"
+            f"Presenze stimate quest'anno: {kpi['presenze_stimate']} giorni\n"
+        )
+        system = (
+            "Sei un assistente HR italiano. In 1-2 frasi brevi e dirette riassumi la situazione di "
+            "questo dipendente per il suo responsabile, segnalando eventuali cose da tenere d'occhio "
+            "(es. ferie quasi esaurite, assenze frequenti). Non inventare dati non forniti, non "
+            "menzionare diagnosi o dettagli sanitari. Rispondi in italiano, testo semplice senza markdown."
+        )
+        try:
+            client_ai = anthropic_sdk.Anthropic(api_key=api_key)
+            message = client_ai.messages.create(
+                model=AI_MODEL,
+                max_tokens=200,
+                system=system,
+                messages=[{"role": "user", "content": context}],
+            )
+            return {"summary": message.content[0].text.strip()}
+        except Exception as e:
+            logger.error(f"AI employee summary error: {e}")
+        return {"summary": None}
 
 
 ai_service = AiService()

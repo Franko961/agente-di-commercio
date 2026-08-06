@@ -6,6 +6,7 @@ from services.leave_request_service import leave_request_service
 from services.vehicle_service import vehicle_service
 from services.vehicle_deadline_service import vehicle_deadline_service
 from services.employee_activity_service import employee_activity_service
+from services.ai_service import ai_service
 from models.employee import EmployeeIn, EmployeeActiveUpdate
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
@@ -74,6 +75,24 @@ async def get_employee_detail(eid: str, user=Depends(get_current_user)):
 @router.get("/{eid}/activity", dependencies=[MODULE_DEP])
 async def get_employee_activity(eid: str, user=Depends(get_current_user)):
     return await employee_activity_service.get_activity(user, eid)
+
+
+@router.get("/{eid}/ai-summary", dependencies=[MODULE_DEP, Depends(require_module("ai"))])
+async def get_employee_ai_summary(eid: str, user=Depends(get_current_user)):
+    """Riepilogo in linguaggio naturale generato su richiesta (non
+    precalcolato): richiede sia il modulo Personale sia il modulo AI
+    attivi, a differenza delle altre tab della scheda dipendente che
+    dipendono solo da Personale. Limitato in frequenza perché, a
+    differenza di /detail e /activity, comporta una vera chiamata a
+    pagamento al modello — vedi ai_service.generate_employee_summary,
+    che degrada senza errore (summary: None) se ANTHROPIC_API_KEY non è
+    configurata."""
+    ok = await check_and_record("ai_employee_summary", user["id"], max_attempts=20, window_minutes=60)
+    if not ok:
+        raise HTTPException(429, "Troppe richieste, riprova più tardi")
+    employee = await employee_service.get_employee(user, eid)
+    summary = await leave_request_service.employee_summary(user, employee)
+    return await ai_service.generate_employee_summary(employee, summary)
 
 
 @router.get("/by-token/{token}")

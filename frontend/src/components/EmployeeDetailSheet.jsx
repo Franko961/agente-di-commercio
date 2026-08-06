@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import {
   User, CalendarDays, Palmtree, Clock, Thermometer, Truck, Link2, BarChart3,
   RefreshCw, Power, PowerOff, Camera, Copy, FileText, Upload, Download, Trash2,
-  Package, Plus, Pencil, Wallet, History, Send, Check, X,
+  Package, Plus, Pencil, Wallet, History, Send, Check, X, Sparkles,
 } from "lucide-react";
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
@@ -46,6 +46,7 @@ const TABS = [
   ["documenti", "Documenti", FileText],
   ["compensi", "Compensi", Wallet],
   ["attivita", "Attività", History],
+  ["ai", "AI", Sparkles],
   ["link", "Link", Link2],
   ["kpi", "KPI", BarChart3],
 ];
@@ -161,6 +162,7 @@ export default function EmployeeDetailSheet({ employee, requests, onClose, onEmp
               {tab === "documenti" && <DocumentiTab employeeId={employee.id} />}
               {tab === "compensi" && <CompensiTab employeeId={employee.id} />}
               {tab === "attivita" && <AttivitaTab employeeId={employee.id} />}
+              {tab === "ai" && <AiTab employeeId={employee.id} />}
               {tab === "link" && (
                 <LinkTab employee={emp} newLink={newLink} onRegenerate={regenerateToken}
                   onToggleActive={toggleActive} onCopy={copyLink} />
@@ -806,6 +808,63 @@ function AttivitaTab({ employeeId }) {
           <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#A1A1AA] text-[13px]">Nessuna attività registrata.</div>
         )}
       </div>
+    </div>
+  );
+}
+
+function AiTab({ employeeId }) {
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const generate = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data } = await api.get(`/employees/${employeeId}/ai-summary`);
+      if (data.summary) {
+        setSummary(data.summary);
+      } else {
+        setError("Assistente AI non configurato per questo account.");
+      }
+    } catch (err) {
+      setError(err?.response?.status === 429
+        ? "Troppe richieste, riprova tra qualche minuto."
+        : "Impossibile generare il riepilogo al momento.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      {!summary && !loading && !error && (
+        <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center">
+          <Sparkles className="w-6 h-6 text-[#A1A1AA] mx-auto mb-2" />
+          <p className="text-[13px] text-[#52525B] mb-4">Genera un riepilogo in linguaggio naturale della situazione di questo dipendente.</p>
+          <button onClick={generate} className="px-4 py-2.5 bg-[#0A192F] text-white rounded-md text-[13px] font-medium">
+            Genera riepilogo
+          </button>
+        </div>
+      )}
+      {loading && (
+        <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#A1A1AA] text-[13px]">Generazione in corso…</div>
+      )}
+      {error && !loading && (
+        <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center">
+          <p className="text-[13px] text-[#DC2626] mb-3">{error}</p>
+          <button onClick={generate} className="px-3 py-2 border border-[#E4E4E1] rounded-md text-[12px] font-medium hover:border-[#0A192F]">Riprova</button>
+        </div>
+      )}
+      {summary && !loading && (
+        <div className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-md p-4">
+          <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-2">
+            <Sparkles className="w-3 h-3" /> Riepilogo AI
+          </div>
+          <p className="text-[13px] text-[#0A192F] leading-relaxed">{summary}</p>
+          <button onClick={generate} className="mt-3 text-[12px] font-medium text-[#52525B] hover:text-[#0A192F]">Rigenera</button>
+        </div>
+      )}
     </div>
   );
 }
