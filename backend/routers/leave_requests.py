@@ -36,6 +36,12 @@ async def set_leave_request_certificate(rid: str, payload: LeaveRequestCertifica
     return {"ok": True}
 
 
+@router.delete("/{rid}", dependencies=[MODULE_DEP])
+async def delete_leave_request(rid: str, user=Depends(forbid_demo_write)):
+    await leave_request_service.delete_request(user, rid)
+    return {"ok": True}
+
+
 @router.get("/calendar", dependencies=[MODULE_DEP])
 async def leave_requests_calendar(month: str, user=Depends(get_current_user)):
     """month in formato AAAA-MM."""

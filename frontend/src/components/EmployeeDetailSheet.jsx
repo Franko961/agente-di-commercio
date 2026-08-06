@@ -153,7 +153,7 @@ export default function EmployeeDetailSheet({ employee, requests, onClose, onEmp
               </div>
 
               {tab === "info" && <InfoTab employee={emp} onSaved={refreshAll} />}
-              {tab === "assenze" && <AssenzeTab requests={myRequests} summary={summary} />}
+              {tab === "assenze" && <AssenzeTab requests={myRequests} summary={summary} onDeleted={onRequestsChanged} />}
               {tab === "ferie" && <FerieTab summary={summary} />}
               {tab === "permessi" && <PermessiTab summary={summary} />}
               {tab === "malattie" && <MalattieTab summary={summary} onSetCertificate={setCertificate} />}
@@ -338,10 +338,21 @@ function InfoTab({ employee, onSaved }) {
   );
 }
 
-function AssenzeTab({ requests, summary }) {
+function AssenzeTab({ requests, summary, onDeleted }) {
   const [filterType, setFilterType] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const filtered = requests.filter((r) => (!filterType || r.type === filterType) && (!filterStatus || r.status === filterStatus));
+
+  const deleteRequest = async (r) => {
+    if (!window.confirm(`Eliminare la richiesta di ${LEAVE_TYPE_LABELS[r.type].toLowerCase()}?`)) return;
+    try {
+      await api.delete(`/leave-requests/${r.id}`);
+      toast.success("Richiesta eliminata");
+      onDeleted();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Eliminazione non riuscita");
+    }
+  };
 
   return (
     <div>
@@ -374,9 +385,13 @@ function AssenzeTab({ requests, summary }) {
                 <span className="text-[#52525B]">{r.date_from} → {r.date_to}</span>
                 {r.hours && <span className="text-[#A1A1AA]">({r.hours} h)</span>}
               </div>
-              <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: REQUEST_STATUS_COLORS[r.status] }}>
-                {REQUEST_STATUS_LABELS[r.status]}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: REQUEST_STATUS_COLORS[r.status] }}>
+                  {REQUEST_STATUS_LABELS[r.status]}
+                </span>
+                <button onClick={() => deleteRequest(r)} title="Elimina" aria-label="Elimina richiesta"
+                  className="p-1 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
+              </div>
             </div>
             {r.note && <div className="text-[12px] text-[#52525B] mt-1 italic">"{r.note}"</div>}
           </div>

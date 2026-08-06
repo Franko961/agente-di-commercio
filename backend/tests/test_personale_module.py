@@ -126,6 +126,11 @@ class FakeLeaveRequestRepo:
         d.update(data)
         return True
 
+    async def delete(self, rid, user_id):
+        d = self.docs.get(rid)
+        if d and d["user_id"] == user_id:
+            del self.docs[rid]
+
 
 class FakeUserRepo:
     def __init__(self, users):
@@ -607,6 +612,52 @@ def test_decide_rifiuta_richiesta_di_un_altro_utente(monkeypatch):
 
     with pytest.raises(NotFoundError):
         run(service.decide({"id": "un-altro-utente"}, rid, "approvata"))
+
+
+# ---------- leave_request_service.delete_request ----------
+
+def test_delete_request_rimuove_una_richiesta_in_attesa(monkeypatch):
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    payload = LeaveRequestIn(employee_token=employee["request_token"], type="ferie", date_from="2026-08-01", date_to="2026-08-02")
+    run(service.submit(payload))
+    rid = list(repo.docs.keys())[0]
+
+    run(service.delete_request(USER, rid))
+
+    assert repo.docs == {}
+
+
+def test_delete_request_rimuove_anche_una_richiesta_gia_decisa(monkeypatch):
+    """A differenza di decide(), delete_request non ha bisogno di uno stato
+    'in_attesa': una richiesta già approvata o rifiutata resta comunque
+    eliminabile (es. per ripulire un invio duplicato o un test)."""
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    payload = LeaveRequestIn(employee_token=employee["request_token"], type="ferie", date_from="2026-08-01", date_to="2026-08-02")
+    run(service.submit(payload))
+    rid = list(repo.docs.keys())[0]
+    run(service.decide(USER, rid, "approvata"))
+
+    run(service.delete_request(USER, rid))
+
+    assert repo.docs == {}
+
+
+def test_delete_request_di_un_altro_utente_e_un_noop(monkeypatch):
+    service, repo = build_leave_service(monkeypatch, FakeEmployeeRepo())
+    repo.docs["r-1"] = {"id": "r-1", "user_id": USER["id"], "status": "in_attesa"}
+
+    run(service.delete_request(ALTRO_USER, "r-1"))
+
+    assert "r-1" in repo.docs
+
+
+def test_delete_request_id_inesistente_non_solleva_eccezioni(monkeypatch):
+    service, repo = build_leave_service(monkeypatch, FakeEmployeeRepo())
+    run(service.delete_request(USER, "non-esiste"))  # non deve sollevare
 
 
 # ---------- leave_request_service.calendar ----------

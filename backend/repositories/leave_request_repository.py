@@ -41,6 +41,9 @@ class LeaveRequestRepository:
         res = await self.collection.update_one({"id": rid, "user_id": user_id}, {"$set": data})
         return res.matched_count > 0
 
+    async def delete(self, rid: str, user_id: str) -> None:
+        await self.collection.delete_one({"id": rid, "user_id": user_id})
+
     async def decide(self, rid: str, user_id: str, data: dict) -> bool:
         """Aggiornamento condizionale atomico: applica `data` SOLO se la
         richiesta è ancora "in_attesa" in quel preciso istante secondo il

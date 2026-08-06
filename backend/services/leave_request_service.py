@@ -188,6 +188,17 @@ class LeaveRequestService:
                     f"(richiesta {rid}): la decisione è comunque stata registrata."
                 )
 
+    async def delete_request(self, user: dict, rid: str) -> None:
+        """Elimina la richiesta indipendentemente dal suo stato (in attesa,
+        approvata o rifiutata) — a differenza di decide(), qui non c'è nulla
+        da proteggere da una race condition: la cancellazione è idempotente
+        di per sé (ripeterla non ha altro effetto). Se la richiesta era
+        approvata, i giorni non contano più nel riepilogo ferie/permessi/
+        malattie del dipendente (leave_request_service.employee_summary lo
+        calcola sempre dal vivo dalle richieste esistenti, non serve
+        aggiornare nient'altro)."""
+        await self.repo.delete(rid, user["id"])
+
     async def set_certificate_received(self, user: dict, rid: str, received: bool) -> None:
         """Solo il responsabile la imposta (a differenza di 'note', che
         scrive il dipendente in fase di invio): conferma di aver ricevuto

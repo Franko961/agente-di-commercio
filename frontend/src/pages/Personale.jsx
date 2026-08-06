@@ -62,6 +62,18 @@ export default function Personale() {
     }
   };
 
+  const deleteRequest = async (r) => {
+    if (!window.confirm(`Eliminare la richiesta di ${TYPE_LABELS[r.type].toLowerCase()} di ${r.employee_name}?`)) return;
+    try {
+      await api.delete(`/leave-requests/${r.id}`);
+      toast.success("Richiesta eliminata");
+      loadRequests();
+      loadCalendar(month);
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Eliminazione non riuscita");
+    }
+  };
+
   const saveEmployee = async (f) => {
     const { data } = await api.post("/employees", f);
     toast.success("Dipendente aggiunto");
@@ -246,6 +258,8 @@ export default function Personale() {
                         className="flex items-center gap-1.5 px-3 py-1.5 border border-[#E4E4E1] hover:border-[#DC2626] hover:text-[#DC2626] rounded-md text-[12px] font-medium">
                         <X className="w-3.5 h-3.5" /> Rifiuta
                       </button>
+                      <button onClick={() => deleteRequest(r)} title="Elimina" aria-label="Elimina richiesta"
+                        className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </div>
                 ))}
@@ -265,9 +279,13 @@ export default function Personale() {
                       <span className="font-medium">{r.employee_name}</span>
                       <span className="text-[#A1A1AA]">{TYPE_LABELS[r.type]} · {r.date_from} → {r.date_to}</span>
                     </div>
-                    <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: STATUS_COLORS[r.status] }}>
-                      {STATUS_LABELS[r.status]}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: STATUS_COLORS[r.status] }}>
+                        {STATUS_LABELS[r.status]}
+                      </span>
+                      <button onClick={() => deleteRequest(r)} title="Elimina" aria-label="Elimina richiesta"
+                        className="p-1 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </div>
                   </div>
                 ))}
               </div>
