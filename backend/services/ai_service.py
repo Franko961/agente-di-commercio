@@ -1505,11 +1505,18 @@ class AiService:
             f"Malattie quest'anno: {malattie['giorni']} giorni\n"
             f"Presenze stimate quest'anno: {kpi['presenze_stimate']} giorni\n"
         )
+        # Tono puramente descrittivo, non valutativo: un testo che sembrasse
+        # una valutazione automatizzata del lavoratore (es. segnalare
+        # "assenze frequenti" come un problema) è esattamente il tipo di
+        # output che un riepilogo HR generato da un modello non dovrebbe
+        # produrre, specie con dati vicini alla salute della persona
+        # (giorni di malattia) — riassume i valori, non li giudica.
         system = (
-            "Sei un assistente HR italiano. In 1-2 frasi brevi e dirette riassumi la situazione di "
-            "questo dipendente per il suo responsabile, segnalando eventuali cose da tenere d'occhio "
-            "(es. ferie quasi esaurite, assenze frequenti). Non inventare dati non forniti, non "
-            "menzionare diagnosi o dettagli sanitari. Rispondi in italiano, testo semplice senza markdown."
+            "Sei un assistente HR italiano. In 1-2 frasi brevi riassumi i valori (ferie, permessi, "
+            "malattie, presenze) di questo dipendente per il suo responsabile, in modo puramente "
+            "descrittivo: riporta i numeri così come sono, senza formulare giudizi sulla persona e "
+            "senza suggerire decisioni lavorative. Non inventare dati non forniti, non menzionare "
+            "diagnosi o dettagli sanitari. Rispondi in italiano, testo semplice senza markdown."
         )
         try:
             client_ai = anthropic_sdk.Anthropic(api_key=api_key)

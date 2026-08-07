@@ -109,6 +109,24 @@ def test_generate_employee_summary_non_menziona_diagnosi_nel_system_prompt(monke
     assert "diagnosi" in system_prompt.lower() or "sanitari" in system_prompt.lower()
 
 
+def test_generate_employee_summary_prompt_e_puramente_descrittivo(monkeypatch):
+    # Non deve chiedere di segnalare "assenze frequenti" o simili: con dati
+    # vicini alla salute della persona (giorni di malattia), un testo che
+    # suoni come una valutazione automatizzata del lavoratore va evitato —
+    # il prompt deve esplicitamente vietare giudizi e suggerimenti di
+    # decisioni lavorative, non solo evitare la diagnosi.
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    messages = FakeMessages(responses=[make_text_message("ok")])
+    install_fake_anthropic({"messages": messages})
+
+    run(ai_service_mod.ai_service.generate_employee_summary(EMPLOYEE, SUMMARY))
+
+    system_prompt = messages.calls[0]["system"].lower()
+    assert "assenze frequenti" not in system_prompt
+    assert "giudiz" in system_prompt
+    assert "decisioni lavorative" in system_prompt
+
+
 def test_generate_employee_summary_gestisce_errori_dell_api(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
     messages = FakeMessages(raise_error=RuntimeError("API down"))

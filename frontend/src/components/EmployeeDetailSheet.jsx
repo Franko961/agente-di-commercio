@@ -162,7 +162,7 @@ export default function EmployeeDetailSheet({ employee, requests, onClose, onEmp
               {tab === "documenti" && <DocumentiTab employeeId={employee.id} />}
               {tab === "compensi" && <CompensiTab employeeId={employee.id} />}
               {tab === "attivita" && <AttivitaTab employeeId={employee.id} />}
-              {tab === "ai" && <AiTab employeeId={employee.id} />}
+              {tab === "ai" && <AiTab employeeId={employee.id} summary={summary} />}
               {tab === "link" && (
                 <LinkTab employee={emp} newLink={newLink} onRegenerate={regenerateToken}
                   onToggleActive={toggleActive} onCopy={copyLink} />
@@ -843,8 +843,24 @@ function AttivitaTab({ employeeId }) {
   );
 }
 
-function AiTab({ employeeId }) {
-  const [summary, setSummary] = useState(null);
+// Riepilogo testuale deterministico, calcolato qui dal solo `summary` già
+// caricato per la scheda (nessuna chiamata di rete, nessun coinvolgimento
+// dell'AI): mostrato sempre, così chi vuole solo i numeri non deve inviare
+// nulla a un servizio esterno. Il riepilogo AI resta un'azione separata ed
+// esplicita più sotto (vedi generate/handleGenerate) — coerente col fatto
+// che i giorni di malattia, per quanto solo un numero, restano un dato
+// collegato alla salute della persona.
+function localSummaryText(summary) {
+  if (!summary) return "";
+  const { ferie, permessi, malattie } = summary;
+  const parts = [`Ferie residue: ${ferie.residue} giorni`];
+  if (permessi.ore_approvate) parts.push(`Permessi approvati: ${permessi.ore_approvate} ore`);
+  if (malattie.giorni) parts.push(`Malattie registrate: ${malattie.giorni} giorni`);
+  return parts.join(". ") + ".";
+}
+
+function AiTab({ employeeId, summary }) {
+  const [aiSummary, setAiSummary] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -854,7 +870,7 @@ function AiTab({ employeeId }) {
     try {
       const { data } = await api.get(`/employees/${employeeId}/ai-summary`);
       if (data.summary) {
-        setSummary(data.summary);
+        setAiSummary(data.summary);
       } else {
         setError("Assistente AI non configurato per questo account.");
       }
@@ -868,13 +884,19 @@ function AiTab({ employeeId }) {
   };
 
   return (
-    <div>
-      {!summary && !loading && !error && (
+    <div className="space-y-3">
+      <div className="bg-white border border-[#E4E4E1] rounded-md p-4">
+        <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-2">Riepilogo</div>
+        <p className="text-[13px] text-[#0A192F] leading-relaxed">{localSummaryText(summary)}</p>
+      </div>
+
+      {!aiSummary && !loading && !error && (
         <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center">
           <Sparkles className="w-6 h-6 text-[#A1A1AA] mx-auto mb-2" />
-          <p className="text-[13px] text-[#52525B] mb-4">Genera un riepilogo in linguaggio naturale della situazione di questo dipendente.</p>
+          <p className="text-[13px] text-[#52525B] mb-1">Genera un riepilogo in linguaggio naturale della situazione di questo dipendente.</p>
+          <p className="text-[11px] text-[#A1A1AA] mb-4">Invia questi valori a un servizio AI esterno (Anthropic) per generare il testo.</p>
           <button onClick={generate} className="px-4 py-2.5 bg-[#0A192F] text-white rounded-md text-[13px] font-medium">
-            Genera riepilogo
+            Genera riepilogo AI
           </button>
         </div>
       )}
@@ -887,12 +909,12 @@ function AiTab({ employeeId }) {
           <button onClick={generate} className="px-3 py-2 border border-[#E4E4E1] rounded-md text-[12px] font-medium hover:border-[#0A192F]">Riprova</button>
         </div>
       )}
-      {summary && !loading && (
+      {aiSummary && !loading && (
         <div className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-md p-4">
           <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-2">
             <Sparkles className="w-3 h-3" /> Riepilogo AI
           </div>
-          <p className="text-[13px] text-[#0A192F] leading-relaxed">{summary}</p>
+          <p className="text-[13px] text-[#0A192F] leading-relaxed">{aiSummary}</p>
           <button onClick={generate} className="mt-3 text-[12px] font-medium text-[#52525B] hover:text-[#0A192F]">Rigenera</button>
         </div>
       )}
