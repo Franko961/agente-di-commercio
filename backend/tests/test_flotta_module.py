@@ -398,6 +398,25 @@ def test_delete_cost_elimina_anche_la_spesa_collegata():
     assert expense_id not in expenses.docs
 
 
+def test_create_cost_rollback_spesa_se_insert_costo_fallisce():
+    # Niente transazione Mongo sul flusso a due scritture (insert spesa,
+    # poi insert costo): senza rollback esplicito, un fallimento qui
+    # lascerebbe la spesa orfana per sempre — vedi services/reconciliation_service.py.
+    vservice, vrepo = build_vehicle_service()
+    vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
+    service, repo, expenses = build_cost_service(vrepo)
+
+    async def failing_insert(doc):
+        raise RuntimeError("scrittura del costo fallita")
+    repo.insert = failing_insert
+
+    with pytest.raises(RuntimeError):
+        run(service.create_cost(USER, VehicleCostIn(
+            vehicle_id=vehicle["id"], category="carburante", amount=45.5, date="2026-08-01",
+        )))
+    assert expenses.docs == {}
+
+
 def test_expense_service_rifiuta_modifica_di_una_spesa_generata_da_flotta():
     vservice, vrepo = build_vehicle_service()
     vehicle = run(vservice.create_vehicle(USER, make_vehicle()))

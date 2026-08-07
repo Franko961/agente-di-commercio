@@ -74,7 +74,15 @@ class VehicleCostService:
             "expense_id": expense_doc["id"],
             "created_at": now_iso(),
         }
-        return await self.repo.insert(doc)
+        try:
+            return await self.repo.insert(doc)
+        except Exception:
+            # Rollback esplicito: vedi lo stesso commento in
+            # employee_compensation_service.create_compensation — senza
+            # transazione Mongo, un fallimento qui lascerebbe la spesa
+            # appena inserita orfana per sempre.
+            await self.expenses.delete(expense_doc["id"], user["id"])
+            raise
 
     async def update_cost(self, user: dict, cid: str, payload) -> None:
         vehicle = await self.vehicles.find_one(payload.vehicle_id, user["id"])

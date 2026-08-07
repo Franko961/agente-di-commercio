@@ -77,6 +77,17 @@ CONTACT_REQUEST_CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60
 DOCUMENT_TRASH_RETENTION_DAYS = 30
 DOCUMENT_TRASH_CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60
 
+# Controlla periodicamente che le spese generate automaticamente da un
+# compenso Personale o un costo Flotta (source "personale"/"flotta") siano
+# ancora coerenti con il documento che le ha generate — vedi
+# services/reconciliation_service.py per il perché possono divergere (niente
+# transazione Mongo sul flusso a due scritture). Non ripara nulla da solo,
+# avvisa solo l'admin via email per una revisione manuale: un'incoerenza
+# economica non va corretta in automatico senza che una persona la veda
+# prima. Ogni giorno è sufficiente: non è un problema che richieda una
+# reazione entro minuti/ore, a differenza degli alert di anomalie sopra.
+RECONCILIATION_CHECK_INTERVAL_SECONDS = 24 * 60 * 60
+
 # Retention della voce di audit "self_delete_account" (vedi
 # gdpr_service.delete_account): NON è coperta dall'assenza di TTL applicata
 # al resto dell'audit amministrativo qui sotto — quella riguarda azioni di
@@ -112,6 +123,7 @@ _cancel_finalize_task = None
 _demo_request_cleanup_task = None
 _contact_request_cleanup_task = None
 _document_trash_cleanup_task = None
+_reconciliation_check_task = None
 
 
 async def _google_calendar_sync_loop() -> None:
@@ -228,6 +240,48 @@ async def _document_trash_cleanup_loop() -> None:
             raise
         except Exception as e:
             logger.error(f"Ciclo di pulizia cestino documenti fallito: {e}")
+
+
+async def _reconciliation_check_loop() -> None:
+    """Segnala (via email admin) le spese Personale/Flotta orfane e i
+    compensi/costi il cui expense_id non punta più a nessuna spesa. Vedi
+    services/reconciliation_service.py e il commento sopra
+    RECONCILIATION_CHECK_INTERVAL_SECONDS per il perché."""
+    from services.reconciliation_service import reconciliation_service
+    from services.email_service import send_email
+    from core.config import ADMIN_NOTIFY_EMAIL
+
+    while True:
+        try:
+            await asyncio.sleep(RECONCILIATION_CHECK_INTERVAL_SECONDS)
+            if not await job_lock_repository.try_acquire("reconciliation_check", ttl_seconds=RECONCILIATION_CHECK_INTERVAL_SECONDS - 300):
+                continue
+            result = await reconciliation_service.find_inconsistencies()
+            orphan_expenses = result["orphan_expenses"]
+            orphan_links = result["orphan_links"]
+            if not orphan_expenses and not orphan_links:
+                continue
+
+            logger.warning(
+                f"Riconciliazione Personale/Flotta: {len(orphan_expenses)} spese orfane, "
+                f"{len(orphan_links)} compensi/costi senza spesa collegata"
+            )
+            rows = "".join(
+                f"<li>Spesa orfana {e['expense_id']} (source={e['source']}, utente {e['user_id']})</li>"
+                for e in orphan_expenses
+            ) + "".join(
+                f"<li>{l['source'].capitalize()} {l['id']} senza spesa collegata (utente {l['user_id']})</li>"
+                for l in orphan_links
+            )
+            await send_email(
+                ADMIN_NOTIFY_EMAIL,
+                "⚠️ Salesfly — incoerenze Personale/Flotta ↔ Spese",
+                f"<p>Trovate {len(orphan_expenses) + len(orphan_links)} incoerenze da rivedere manualmente:</p><ul>{rows}</ul>",
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.error(f"Ciclo di riconciliazione Personale/Flotta fallito: {e}")
 
 
 async def _contact_request_cleanup_loop() -> None:
@@ -492,7 +546,7 @@ async def run_startup() -> None:
         pass
     await db.manual_commissions.create_index([("user_id", 1)])
 
-    global _gcal_sync_task, _stuck_ai_action_task, _health_alert_task, _automation_engine_task, _demo_reset_task, _cancel_finalize_task, _demo_request_cleanup_task, _contact_request_cleanup_task, _document_trash_cleanup_task
+    global _gcal_sync_task, _stuck_ai_action_task, _health_alert_task, _automation_engine_task, _demo_reset_task, _cancel_finalize_task, _demo_request_cleanup_task, _contact_request_cleanup_task, _document_trash_cleanup_task, _reconciliation_check_task
     _gcal_sync_task = asyncio.create_task(_google_calendar_sync_loop())
     _stuck_ai_action_task = asyncio.create_task(_stuck_ai_action_cleanup_loop())
     _health_alert_task = asyncio.create_task(_health_alert_loop())
@@ -502,6 +556,7 @@ async def run_startup() -> None:
     _demo_request_cleanup_task = asyncio.create_task(_demo_request_cleanup_loop())
     _contact_request_cleanup_task = asyncio.create_task(_contact_request_cleanup_loop())
     _document_trash_cleanup_task = asyncio.create_task(_document_trash_cleanup_loop())
+    _reconciliation_check_task = asyncio.create_task(_reconciliation_check_loop())
 
 
 async def run_shutdown() -> None:
@@ -523,4 +578,6 @@ async def run_shutdown() -> None:
         _contact_request_cleanup_task.cancel()
     if _document_trash_cleanup_task:
         _document_trash_cleanup_task.cancel()
+    if _reconciliation_check_task:
+        _reconciliation_check_task.cancel()
     close_db()

@@ -142,6 +142,23 @@ def test_compensation_in_rifiuta_importo_non_positivo():
         EmployeeCompensationIn(amount=-50, date=date(2026, 1, 1))
 
 
+def test_create_compensation_rollback_spesa_se_insert_compenso_fallisce():
+    # Niente transazione Mongo sul flusso a due scritture (insert spesa, poi
+    # insert compenso): senza rollback esplicito, un fallimento qui
+    # lascerebbe la spesa orfana per sempre — vedi services/reconciliation_service.py.
+    service, comp_repo, _, expense_repo = build_service()
+
+    async def failing_insert(doc):
+        raise RuntimeError("scrittura del compenso fallita")
+    comp_repo.insert = failing_insert
+
+    with pytest.raises(RuntimeError):
+        run(service.create_compensation(USER, "emp-1", EmployeeCompensationIn(
+            type="stipendio", amount=1500, date=date(2026, 8, 1),
+        )))
+    assert expense_repo.docs == {}
+
+
 # ---------- list_compensations ----------
 
 def test_list_compensations_scoped_to_employee_and_user():

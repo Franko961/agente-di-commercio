@@ -76,7 +76,17 @@ class EmployeeCompensationService:
             "expense_id": expense_doc["id"],
             "created_at": now_iso(),
         }
-        return await self.repo.insert(doc)
+        try:
+            return await self.repo.insert(doc)
+        except Exception:
+            # Rollback esplicito: senza transazione Mongo, un fallimento qui
+            # lascerebbe la spesa già inserita sopra orfana (nessun compenso
+            # a puntarla) per sempre — non essendoci ancora nulla che la
+            # referenzi da questo lato, cancellarla è sempre sicuro (non
+            # esiste per definizione la corsa in cui qualcun altro l'ha già
+            # letta/collegata nel frattempo).
+            await self.expenses.delete(expense_doc["id"], user["id"])
+            raise
 
     async def update_compensation(self, user: dict, cid: str, payload) -> None:
         existing = await self.repo.find_one(cid, user["id"])
