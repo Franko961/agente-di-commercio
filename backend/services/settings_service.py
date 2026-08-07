@@ -52,5 +52,17 @@ class SettingsService:
         await self.repo.update_by_id(user["id"], data)
         return self._addresses_view({**user, **data})
 
+    @staticmethod
+    def _leave_view(user: dict) -> dict:
+        return {"ferie_count_mode": user.get("ferie_count_mode", "calendario")}
+
+    async def get_leave_settings(self, user: dict) -> dict:
+        return self._leave_view(user)
+
+    async def update_leave_settings(self, user: dict, payload) -> dict:
+        data = payload.model_dump()
+        await self.repo.update_by_id(user["id"], data)
+        return self._leave_view({**user, **data})
+
 
 settings_service = SettingsService()

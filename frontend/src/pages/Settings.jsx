@@ -13,7 +13,8 @@ import { useCookieConsent } from "../contexts/CookieConsentContext";
 
 export default function Settings() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+  const personaleEnabled = (user?.enabled_extra_modules || []).includes("personale");
   const { consent, openPreferences } = useCookieConsent();
   const [searchParams, setSearchParams] = useSearchParams();
   const [status, setStatus] = useState(null); // null = caricamento
@@ -25,6 +26,9 @@ export default function Settings() {
 
   const [addresses, setAddresses] = useState(null); // null = caricamento
   const [addressesBusy, setAddressesBusy] = useState(false);
+
+  const [leaveSettings, setLeaveSettings] = useState(null); // null = caricamento
+  const [leaveSettingsBusy, setLeaveSettingsBusy] = useState(false);
 
   const [fbRating, setFbRating] = useState(0);
   const [fbText, setFbText] = useState("");
@@ -118,10 +122,35 @@ export default function Settings() {
     }
   };
 
+  const loadLeaveSettings = async () => {
+    if (!personaleEnabled) return;
+    try {
+      const { data } = await api.get("/settings/leave");
+      setLeaveSettings(data);
+    } catch {
+      toast.error("Impossibile caricare le impostazioni ferie");
+    }
+  };
+
+  const saveLeaveSettings = async (mode) => {
+    setLeaveSettingsBusy(true);
+    try {
+      const { data } = await api.put("/settings/leave", { ferie_count_mode: mode });
+      setLeaveSettings(data);
+      toast.success("Preferenza aggiornata");
+    } catch {
+      toast.error("Errore nel salvataggio");
+    } finally {
+      setLeaveSettingsBusy(false);
+    }
+  };
+
   useEffect(() => {
     loadStatus();
     loadGoals();
     loadAddresses();
+    loadLeaveSettings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -528,6 +557,44 @@ export default function Settings() {
                 <Save className="w-3.5 h-3.5" /> {goalsBusy ? "Salvataggio…" : "Salva obiettivi"}
               </button>
             </form>
+          )}
+
+          {personaleEnabled && (
+            <div className="mt-8">
+              <div className="mb-3">
+                <h2 className="font-cabinet text-xl font-black">Ferie</h2>
+                <p className="text-[#52525B] mt-1 text-[13px]">
+                  Come contare i giorni di ferie godute/residue nella scheda dipendente.
+                </p>
+              </div>
+              {leaveSettings === null ? (
+                <div className="flex items-center gap-2 text-[13px] text-[#A1A1AA]">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Caricamento…
+                </div>
+              ) : (
+                <div className="border border-[#E4E4E1] rounded-lg p-5 space-y-3">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input type="radio" name="ferie_count_mode" className="mt-1" disabled={leaveSettingsBusy}
+                      checked={leaveSettings.ferie_count_mode === "calendario"}
+                      onChange={() => saveLeaveSettings("calendario")} />
+                    <span>
+                      <span className="block text-[13px] font-semibold">Giorni di calendario</span>
+                      <span className="block text-[12px] text-[#A1A1AA]">Conta ogni giorno dell'intervallo, weekend inclusi (es. venerdì-lunedì = 4 giorni).</span>
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input type="radio" name="ferie_count_mode" className="mt-1" disabled={leaveSettingsBusy}
+                      checked={leaveSettings.ferie_count_mode === "lavorativi"}
+                      onChange={() => saveLeaveSettings("lavorativi")} />
+                    <span>
+                      <span className="block text-[13px] font-semibold">Soli giorni lavorativi</span>
+                      <span className="block text-[12px] text-[#A1A1AA]">Esclude sabato e domenica (es. venerdì-lunedì = 2 giorni). Non esclude le festività infrasettimanali.</span>
+                    </span>
+                  </label>
+                  <p className="text-[11px] text-[#A1A1AA] pt-1">Si applica solo alle Ferie: le Malattie restano sempre a giorni di calendario.</p>
+                </div>
+              )}
+            </div>
           )}
         </>
       ) : tab === "feedback" ? (

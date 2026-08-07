@@ -813,6 +813,113 @@ def test_employee_summary_malattie_include_certificato_e_stato(monkeypatch):
     assert summary["malattie"]["richieste"][0]["status"] == "approvata"
 
 
+def test_employee_summary_malattia_a_cavallo_capodanno_conta_solo_i_giorni_dell_anno(monkeypatch):
+    """29 dicembre - 5 gennaio: 8 giorni totali, di cui 3 nel 2025 e 5 nel
+    2026. Prima del fix, l'intera richiesta veniva attribuita solo al 2025
+    (in base a date_from), quindi il riepilogo 2026 non la vedeva affatto."""
+    _freeze_today(monkeypatch, 2026, 1, 15)
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+
+    run(service.submit(LeaveRequestIn(employee_token=employee["request_token"], type="malattia", date_from="2025-12-29", date_to="2026-01-05")))
+    rid = list(repo.docs.keys())[0]
+    run(service.decide(USER, rid, "approvata"))
+
+    summary = run(service.employee_summary(USER, employee))
+    assert summary["malattie"]["giorni"] == 5  # solo i giorni del 2026 (1,2,3,4,5 gennaio)
+    assert len(summary["malattie"]["richieste"]) == 1
+    richiesta = summary["malattie"]["richieste"][0]
+    assert richiesta["giorni"] == 5
+    assert richiesta["date_from"] == "2025-12-29"  # l'intervallo reale resta quello originale
+    assert richiesta["date_to"] == "2026-01-05"
+
+
+def test_employee_summary_malattia_a_cavallo_capodanno_conta_i_giorni_dell_anno_precedente(monkeypatch):
+    """Stessa richiesta di sopra, ma vista dal lato dell'anno che finisce:
+    deve contare i 3 giorni di dicembre, non sparire e non contarne 8."""
+    _freeze_today(monkeypatch, 2025, 12, 30)
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+
+    run(service.submit(LeaveRequestIn(employee_token=employee["request_token"], type="malattia", date_from="2025-12-29", date_to="2026-01-05")))
+    rid = list(repo.docs.keys())[0]
+    run(service.decide(USER, rid, "approvata"))
+
+    summary = run(service.employee_summary(USER, employee))
+    assert summary["malattie"]["giorni"] == 3  # solo 29, 30, 31 dicembre
+
+
+def test_employee_summary_ferie_a_cavallo_capodanno_conta_solo_i_giorni_dell_anno(monkeypatch):
+    _freeze_today(monkeypatch, 2026, 1, 15)
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+
+    run(service.submit(LeaveRequestIn(employee_token=employee["request_token"], type="ferie", date_from="2025-12-29", date_to="2026-01-02")))
+    rid = list(repo.docs.keys())[0]
+    run(service.decide(USER, rid, "approvata"))
+
+    summary = run(service.employee_summary(USER, employee))
+    assert summary["ferie"]["godute"] == 2  # solo 1, 2 gennaio
+
+
+def test_employee_summary_ferie_conteggio_calendario_di_default(monkeypatch):
+    """Senza ferie_count_mode impostato sull'account, il comportamento resta
+    quello storico (giorni di calendario, weekend inclusi)."""
+    _freeze_today(monkeypatch, 2026, 8, 20)
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+
+    # Venerdì 2026-08-21 - lunedì 2026-08-24: 4 giorni di calendario, 2 lavorativi
+    run(service.submit(LeaveRequestIn(employee_token=employee["request_token"], type="ferie", date_from="2026-08-21", date_to="2026-08-24")))
+    rid = list(repo.docs.keys())[0]
+    run(service.decide(USER, rid, "approvata"))
+
+    summary = run(service.employee_summary(USER, employee))
+    assert summary["ferie"]["godute"] == 4
+
+
+def test_employee_summary_ferie_conteggio_solo_lavorativi(monkeypatch):
+    """Con ferie_count_mode='lavorativi' sull'account, lo stesso intervallo
+    venerdì-lunedì conta solo i 2 giorni lavorativi (sabato/domenica esclusi),
+    non i 4 di calendario."""
+    _freeze_today(monkeypatch, 2026, 8, 20)
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    user_lavorativi = {**USER, "ferie_count_mode": "lavorativi"}
+
+    run(service.submit(LeaveRequestIn(employee_token=employee["request_token"], type="ferie", date_from="2026-08-21", date_to="2026-08-24")))
+    rid = list(repo.docs.keys())[0]
+    run(service.decide(user_lavorativi, rid, "approvata"))
+
+    summary = run(service.employee_summary(user_lavorativi, employee))
+    assert summary["ferie"]["godute"] == 2
+    assert summary["ferie"]["residue"] == 24
+
+
+def test_employee_summary_conteggio_lavorativi_non_influenza_le_malattie(monkeypatch):
+    """Il conteggio 'solo lavorativi' si applica solo alle Ferie: le
+    Malattie restano sempre a giorni di calendario (prassi INPS/certificati),
+    indipendentemente da ferie_count_mode."""
+    _freeze_today(monkeypatch, 2026, 8, 20)
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    user_lavorativi = {**USER, "ferie_count_mode": "lavorativi"}
+
+    # Stesso intervallo venerdì-lunedì, ma di malattia
+    run(service.submit(LeaveRequestIn(employee_token=employee["request_token"], type="malattia", date_from="2026-08-21", date_to="2026-08-24")))
+    rid = list(repo.docs.keys())[0]
+    run(service.decide(user_lavorativi, rid, "approvata"))
+
+    summary = run(service.employee_summary(user_lavorativi, employee))
+    assert summary["malattie"]["giorni"] == 4  # non 2: le malattie restano a calendario
+
+
 def test_employee_summary_current_status_in_ferie_oggi(monkeypatch):
     _freeze_today(monkeypatch, 2026, 8, 3)
     emp_service, emp_repo = build_employee_service()

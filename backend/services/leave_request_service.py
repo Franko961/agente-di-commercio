@@ -1,6 +1,6 @@
 import html
 import logging
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 from fastapi import HTTPException
@@ -221,22 +221,45 @@ class LeaveRequestService:
         requests = await self.repo.find_many(user["id"])
         mine = [r for r in requests if r["employee_id"] == employee["id"]]
 
-        def _days(r) -> int:
+        def _days_in_year(r, working_only: bool = False) -> int:
+            """Giorni della richiesta che ricadono davvero in `year` — non
+            l'intera durata se la richiesta attraversa il capodanno (es.
+            29 dicembre - 5 gennaio: 3 giorni nell'anno che finisce, 5 in
+            quello che inizia). Prima veniva attribuita per intero
+            all'anno di inizio (solo in base a date_from), sballando sia
+            il riepilogo dell'anno vecchio (giorni mancanti) sia quello
+            nuovo (la richiesta spariva del tutto).
+
+            working_only conta solo lun-ven (usato per le Ferie quando
+            l'account ha scelto il conteggio "lavorativi" invece di quello
+            di calendario predefinito — vedi settings_service.get_leave_settings
+            e models/leave_settings.py per il perché: un weekend incluso
+            nell'intervallo non era comunque un giorno di ferie "consumato").
+            Non esclude le festività infrasettimanali italiane, per restare
+            semplice — scelta deliberata, non una svista."""
             d1 = datetime.strptime(r["date_from"], "%Y-%m-%d").date()
             d2 = datetime.strptime(r["date_to"], "%Y-%m-%d").date()
-            return (d2 - d1).days + 1
+            overlap_start = max(d1, date(year, 1, 1))
+            overlap_end = min(d2, date(year, 12, 31))
+            if overlap_start > overlap_end:
+                return 0
+            span = (overlap_end - overlap_start).days + 1
+            if not working_only:
+                return span
+            return sum(1 for i in range(span) if (overlap_start + timedelta(days=i)).weekday() < 5)
 
         def _in_year(r) -> bool:
-            return r["date_from"][:4] == str(year)
+            return _days_in_year(r) > 0
 
         ferie_approvate = [r for r in mine if r["type"] == "ferie" and r["status"] == "approvata" and _in_year(r)]
         permessi_anno = [r for r in mine if r["type"] == "permesso" and _in_year(r)]
         permessi_approvati = [r for r in permessi_anno if r["status"] == "approvata"]
         malattie_approvate = [r for r in mine if r["type"] == "malattia" and r["status"] == "approvata" and _in_year(r)]
 
-        ferie_godute = sum(_days(r) for r in ferie_approvate)
+        ferie_count_working_only = user.get("ferie_count_mode", "calendario") == "lavorativi"
+        ferie_godute = sum(_days_in_year(r, working_only=ferie_count_working_only) for r in ferie_approvate)
         spettanti = employee.get("annual_vacation_days", 26)
-        malattia_giorni = sum(_days(r) for r in malattie_approvate)
+        malattia_giorni = sum(_days_in_year(r) for r in malattie_approvate)
 
         today_local = now_local().date()
         start_of_year = today_local.replace(month=1, day=1)
@@ -262,7 +285,11 @@ class LeaveRequestService:
                 "richieste": [
                     {
                         "id": r["id"], "date_from": r["date_from"], "date_to": r["date_to"],
-                        "giorni": _days(r), "status": r["status"],
+                        # Giorni ricadenti in quest'anno, non l'intera durata
+                        # della richiesta se attraversa il capodanno — vedi
+                        # _days_in_year sopra. date_from/date_to restano
+                        # l'intervallo reale della richiesta.
+                        "giorni": _days_in_year(r), "status": r["status"],
                         "certificate_received": r.get("certificate_received"),
                     }
                     for r in mine if r["type"] == "malattia" and _in_year(r)
