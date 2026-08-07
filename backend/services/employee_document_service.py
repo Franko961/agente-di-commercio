@@ -2,8 +2,10 @@ import tempfile
 from fastapi import HTTPException
 from core.utils import gen_id, now_iso
 from core.config import MAX_FILE_BYTES
+from core.security import module_enabled
 from repositories.employee_document_repository import employee_document_repository
 from repositories.employee_repository import employee_repository
+from repositories.user_repository import user_repository
 from services.storage_service import (
     storage_put_stream, ALLOWED_EXT, APP_NAME, sanitize_filename, _sniff_matches_extension,
 )
@@ -19,9 +21,10 @@ SPOOL_MAX_MEMORY_BYTES = 8 * 1024 * 1024
 
 
 class EmployeeDocumentService:
-    def __init__(self, repo=employee_document_repository, employees=employee_repository):
+    def __init__(self, repo=employee_document_repository, employees=employee_repository, users=user_repository):
         self.repo = repo
         self.employees = employees
+        self.users = users
 
     async def _validate_employee(self, user_id: str, employee_id: str) -> dict:
         employee = await self.employees.find_one(employee_id, user_id)
@@ -85,22 +88,32 @@ class EmployeeDocumentService:
         }
         return await self.repo.insert(doc)
 
-    async def update_meta(self, user: dict, did: str, payload: EmployeeDocumentMetaUpdate) -> None:
+    async def update_meta(self, user: dict, employee_id: str, did: str, payload: EmployeeDocumentMetaUpdate) -> None:
         allowed = payload.model_dump(exclude_unset=True)
         if "name" in allowed:
             allowed["name"] = sanitize_filename(allowed["name"])
-        ok = await self.repo.update_meta(did, user["id"], allowed)
+        ok = await self.repo.update_meta(did, user["id"], employee_id, allowed)
         if not ok:
             raise HTTPException(404, "Documento non trovato")
 
-    async def get_document_for_download(self, user_id: str, did: str) -> dict:
-        doc = await self.repo.find_one(did, user_id)
+    async def get_document_for_download(self, user_id: str, employee_id: str, did: str) -> dict:
+        doc = await self.repo.find_one(did, user_id, employee_id)
         if not doc or not doc.get("storage_path"):
             raise HTTPException(404, "Documento non trovato")
+        # Il modulo Personale potrebbe essere stato disattivato DOPO che il
+        # link (diretto o firmato) è stato generato: il gating a livello di
+        # router (require_module su elenco/upload/cancellazione) non copre
+        # signed-url/download, che qui non passano per Depends(get_current_user)
+        # — vedi routers/employee_documents.py — quindi va ripetuto qui contro
+        # il proprietario del documento, stesso pattern di
+        # employee_service.get_by_token/leave_request_service.submit.
+        owner = await self.users.find_by_id(user_id)
+        if not owner or not module_enabled(owner, "personale"):
+            raise HTTPException(403, "Il modulo \"personale\" non è disponibile per questo account.")
         return doc
 
-    async def delete_document(self, user: dict, did: str) -> None:
-        await self.repo.soft_delete(did, user["id"])
+    async def delete_document(self, user: dict, employee_id: str, did: str) -> None:
+        await self.repo.soft_delete(did, user["id"], employee_id)
 
 
 employee_document_service = EmployeeDocumentService()

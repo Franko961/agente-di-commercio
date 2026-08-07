@@ -30,8 +30,8 @@ def run(coro):
     return asyncio.run(coro)
 
 
-USER = {"id": "user-1", "email": "manager@example.com"}
-OTHER_USER = {"id": "user-2", "email": "altro@example.com"}
+USER = {"id": "user-1", "email": "manager@example.com", "enabled_extra_modules": ["personale"]}
+OTHER_USER = {"id": "user-2", "email": "altro@example.com", "enabled_extra_modules": ["personale"]}
 
 # %PDF- come primi byte: unica firma richiesta da _sniff_matches_extension
 # per l'estensione "pdf" (vedi services/storage_service.py).
@@ -57,9 +57,9 @@ class FakeEmployeeDocumentRepo:
             if d["employee_id"] == employee_id and d["user_id"] == user_id and not d.get("is_deleted")
         ]
 
-    async def find_one(self, did, user_id):
+    async def find_one(self, did, user_id, employee_id):
         d = self.docs.get(did)
-        if not d or d["user_id"] != user_id or d.get("is_deleted"):
+        if not d or d["user_id"] != user_id or d["employee_id"] != employee_id or d.get("is_deleted"):
             return None
         return d
 
@@ -67,17 +67,25 @@ class FakeEmployeeDocumentRepo:
         self.docs[doc["id"]] = dict(doc)
         return doc
 
-    async def update_meta(self, did, user_id, data):
+    async def update_meta(self, did, user_id, employee_id, data):
         d = self.docs.get(did)
-        if not d or d["user_id"] != user_id or d.get("is_deleted"):
+        if not d or d["user_id"] != user_id or d["employee_id"] != employee_id or d.get("is_deleted"):
             return False
         d.update(data)
         return True
 
-    async def soft_delete(self, did, user_id):
+    async def soft_delete(self, did, user_id, employee_id):
         d = self.docs.get(did)
-        if d and d["user_id"] == user_id:
+        if d and d["user_id"] == user_id and d["employee_id"] == employee_id:
             d["is_deleted"] = True
+
+
+class FakeUserRepo:
+    def __init__(self):
+        self.docs = {}
+
+    async def find_by_id(self, uid):
+        return self.docs.get(uid)
 
 
 class FakeUploadFile:
@@ -96,8 +104,11 @@ def build_service():
     doc_repo = FakeEmployeeDocumentRepo()
     emp_repo = FakeEmployeeRepo()
     emp_repo.docs["emp-1"] = {"id": "emp-1", "user_id": USER["id"], "name": "Mario"}
-    service = EmployeeDocumentService(repo=doc_repo, employees=emp_repo)
-    return service, doc_repo, emp_repo
+    user_repo = FakeUserRepo()
+    user_repo.docs[USER["id"]] = USER
+    user_repo.docs[OTHER_USER["id"]] = OTHER_USER
+    service = EmployeeDocumentService(repo=doc_repo, employees=emp_repo, users=user_repo)
+    return service, doc_repo, emp_repo, user_repo
 
 
 def patch_storage(monkeypatch, put_result=None):
@@ -114,7 +125,7 @@ def patch_storage(monkeypatch, put_result=None):
 # ---------- upload_document ----------
 
 def test_upload_document_happy_path(monkeypatch):
-    service, doc_repo, _ = build_service()
+    service, doc_repo, _, _ = build_service()
     calls = patch_storage(monkeypatch)
     file = FakeUploadFile("contratto.pdf", PDF_BYTES)
 
@@ -133,7 +144,7 @@ def test_upload_document_happy_path(monkeypatch):
 
 
 def test_upload_document_defaults_name_to_filename(monkeypatch):
-    service, doc_repo, _ = build_service()
+    service, doc_repo, _, _ = build_service()
     patch_storage(monkeypatch)
     file = FakeUploadFile("patente.pdf", PDF_BYTES)
 
@@ -143,7 +154,7 @@ def test_upload_document_defaults_name_to_filename(monkeypatch):
 
 
 def test_upload_document_rejects_unknown_employee(monkeypatch):
-    service, _, _ = build_service()
+    service, _, _, _ = build_service()
     patch_storage(monkeypatch)
     file = FakeUploadFile("x.pdf", PDF_BYTES)
 
@@ -153,7 +164,7 @@ def test_upload_document_rejects_unknown_employee(monkeypatch):
 
 
 def test_upload_document_rejects_other_users_employee(monkeypatch):
-    service, _, _ = build_service()
+    service, _, _, _ = build_service()
     patch_storage(monkeypatch)
     file = FakeUploadFile("x.pdf", PDF_BYTES)
 
@@ -163,7 +174,7 @@ def test_upload_document_rejects_other_users_employee(monkeypatch):
 
 
 def test_upload_document_rejects_disallowed_extension(monkeypatch):
-    service, _, _ = build_service()
+    service, _, _, _ = build_service()
     patch_storage(monkeypatch)
     file = FakeUploadFile("script.exe", b"MZ" + b"x" * 100)
 
@@ -173,7 +184,7 @@ def test_upload_document_rejects_disallowed_extension(monkeypatch):
 
 
 def test_upload_document_rejects_content_not_matching_extension(monkeypatch):
-    service, _, _ = build_service()
+    service, _, _, _ = build_service()
     patch_storage(monkeypatch)
     # Estensione .pdf dichiarata, ma senza la firma "%PDF-" reale.
     file = FakeUploadFile("finto.pdf", b"not really a pdf" + b"x" * 100)
@@ -184,7 +195,7 @@ def test_upload_document_rejects_content_not_matching_extension(monkeypatch):
 
 
 def test_upload_document_rejects_empty_file(monkeypatch):
-    service, _, _ = build_service()
+    service, _, _, _ = build_service()
     patch_storage(monkeypatch)
     file = FakeUploadFile("vuoto.pdf", b"")
 
@@ -194,7 +205,7 @@ def test_upload_document_rejects_empty_file(monkeypatch):
 
 
 def test_upload_document_rejects_oversized_file(monkeypatch):
-    service, _, _ = build_service()
+    service, _, _, _ = build_service()
     patch_storage(monkeypatch)
     monkeypatch.setattr(employee_document_service_mod, "MAX_FILE_BYTES", 50)
     file = FakeUploadFile("grande.pdf", PDF_BYTES)  # più di 50 byte
@@ -207,7 +218,7 @@ def test_upload_document_rejects_oversized_file(monkeypatch):
 # ---------- list_documents ----------
 
 def test_list_documents_scoped_to_employee_and_user(monkeypatch):
-    service, doc_repo, emp_repo = build_service()
+    service, doc_repo, emp_repo, _ = build_service()
     emp_repo.docs["emp-2"] = {"id": "emp-2", "user_id": USER["id"], "name": "Luca"}
     patch_storage(monkeypatch)
     file = FakeUploadFile("a.pdf", PDF_BYTES)
@@ -221,7 +232,7 @@ def test_list_documents_scoped_to_employee_and_user(monkeypatch):
 
 
 def test_list_documents_rejects_unknown_employee():
-    service, _, _ = build_service()
+    service, _, _, _ = build_service()
     with pytest.raises(HTTPException) as exc:
         run(service.list_documents(USER, "emp-does-not-exist"))
     assert exc.value.status_code == 404
@@ -230,12 +241,12 @@ def test_list_documents_rejects_unknown_employee():
 # ---------- update_meta ----------
 
 def test_update_meta_updates_and_sanitizes_name(monkeypatch):
-    service, doc_repo, _ = build_service()
+    service, doc_repo, _, _ = build_service()
     patch_storage(monkeypatch)
     file = FakeUploadFile("a.pdf", PDF_BYTES)
     doc = run(service.upload_document(USER, "emp-1", file, "Vecchio nome", "altro", ""))
 
-    run(service.update_meta(USER, doc["id"], EmployeeDocumentMetaUpdate(name="Nuovo/nome*", category="contratto")))
+    run(service.update_meta(USER, "emp-1", doc["id"], EmployeeDocumentMetaUpdate(name="Nuovo/nome*", category="contratto")))
 
     updated = doc_repo.docs[doc["id"]]
     assert updated["category"] == "contratto"
@@ -243,35 +254,91 @@ def test_update_meta_updates_and_sanitizes_name(monkeypatch):
 
 
 def test_update_meta_unknown_document_raises_404():
-    service, _, _ = build_service()
+    service, _, _, _ = build_service()
     with pytest.raises(HTTPException) as exc:
-        run(service.update_meta(USER, "does-not-exist", EmployeeDocumentMetaUpdate(notes="x")))
+        run(service.update_meta(USER, "emp-1", "does-not-exist", EmployeeDocumentMetaUpdate(notes="x")))
+    assert exc.value.status_code == 404
+
+
+def test_update_meta_wrong_employee_id_raises_404(monkeypatch):
+    # Documento reale, ma eid nell'URL non è quello a cui appartiene: la
+    # richiesta non deve "trovarlo" comunque solo perché did+user_id
+    # coincidono — vedi employee_document_repository.find_one/update_meta.
+    service, doc_repo, emp_repo, _ = build_service()
+    emp_repo.docs["emp-2"] = {"id": "emp-2", "user_id": USER["id"], "name": "Luca"}
+    patch_storage(monkeypatch)
+    file = FakeUploadFile("a.pdf", PDF_BYTES)
+    doc = run(service.upload_document(USER, "emp-1", file, "", "altro", ""))
+
+    with pytest.raises(HTTPException) as exc:
+        run(service.update_meta(USER, "emp-2", doc["id"], EmployeeDocumentMetaUpdate(notes="x")))
     assert exc.value.status_code == 404
 
 
 # ---------- delete_document / get_document_for_download ----------
 
 def test_delete_document_soft_deletes(monkeypatch):
-    service, doc_repo, _ = build_service()
+    service, doc_repo, _, _ = build_service()
     patch_storage(monkeypatch)
     file = FakeUploadFile("a.pdf", PDF_BYTES)
     doc = run(service.upload_document(USER, "emp-1", file, "", "altro", ""))
 
-    run(service.delete_document(USER, doc["id"]))
+    run(service.delete_document(USER, "emp-1", doc["id"]))
 
     assert doc_repo.docs[doc["id"]]["is_deleted"] is True
     assert run(service.list_documents(USER, "emp-1")) == []
     with pytest.raises(HTTPException) as exc:
-        run(service.get_document_for_download(USER["id"], doc["id"]))
+        run(service.get_document_for_download(USER["id"], "emp-1", doc["id"]))
     assert exc.value.status_code == 404
 
 
+def test_delete_document_wrong_employee_id_does_not_delete(monkeypatch):
+    service, doc_repo, emp_repo, _ = build_service()
+    emp_repo.docs["emp-2"] = {"id": "emp-2", "user_id": USER["id"], "name": "Luca"}
+    patch_storage(monkeypatch)
+    file = FakeUploadFile("a.pdf", PDF_BYTES)
+    doc = run(service.upload_document(USER, "emp-1", file, "", "altro", ""))
+
+    run(service.delete_document(USER, "emp-2", doc["id"]))
+
+    assert doc_repo.docs[doc["id"]]["is_deleted"] is False
+
+
 def test_get_document_for_download_rejects_other_user(monkeypatch):
-    service, _, _ = build_service()
+    service, _, _, _ = build_service()
     patch_storage(monkeypatch)
     file = FakeUploadFile("a.pdf", PDF_BYTES)
     doc = run(service.upload_document(USER, "emp-1", file, "", "altro", ""))
 
     with pytest.raises(HTTPException) as exc:
-        run(service.get_document_for_download(OTHER_USER["id"], doc["id"]))
+        run(service.get_document_for_download(OTHER_USER["id"], "emp-1", doc["id"]))
     assert exc.value.status_code == 404
+
+
+def test_get_document_for_download_rejects_wrong_employee_id(monkeypatch):
+    service, doc_repo, emp_repo, _ = build_service()
+    emp_repo.docs["emp-2"] = {"id": "emp-2", "user_id": USER["id"], "name": "Luca"}
+    patch_storage(monkeypatch)
+    file = FakeUploadFile("a.pdf", PDF_BYTES)
+    doc = run(service.upload_document(USER, "emp-1", file, "", "altro", ""))
+
+    with pytest.raises(HTTPException) as exc:
+        run(service.get_document_for_download(USER["id"], "emp-2", doc["id"]))
+    assert exc.value.status_code == 404
+
+
+def test_get_document_for_download_rejects_when_module_disabled(monkeypatch):
+    # Il link (diretto o firmato) può essere stato generato PRIMA che
+    # l'account disattivasse il modulo Personale: la verifica va ripetuta
+    # qui contro il proprietario del documento, non solo a monte sulla
+    # rotta di elenco/upload/cancellazione (vedi commento nel service).
+    service, doc_repo, _, user_repo = build_service()
+    patch_storage(monkeypatch)
+    file = FakeUploadFile("a.pdf", PDF_BYTES)
+    doc = run(service.upload_document(USER, "emp-1", file, "", "altro", ""))
+
+    user_repo.docs[USER["id"]] = {**USER, "enabled_extra_modules": []}
+
+    with pytest.raises(HTTPException) as exc:
+        run(service.get_document_for_download(USER["id"], "emp-1", doc["id"]))
+    assert exc.value.status_code == 403

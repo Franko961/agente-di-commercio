@@ -39,13 +39,13 @@ async def upload_employee_document(
 
 @router.patch("/{did}", dependencies=[MODULE_DEP])
 async def update_employee_document_meta(eid: str, did: str, payload: EmployeeDocumentMetaUpdate, user=Depends(forbid_demo_write)):
-    await employee_document_service.update_meta(user, did, payload)
+    await employee_document_service.update_meta(user, eid, did, payload)
     return {"ok": True}
 
 
-@router.get("/{did}/signed-url")
+@router.get("/{did}/signed-url", dependencies=[MODULE_DEP])
 async def get_employee_document_signed_url(eid: str, did: str, user=Depends(get_current_user)):
-    await employee_document_service.get_document_for_download(user["id"], did)
+    await employee_document_service.get_document_for_download(user["id"], eid, did)
     token = create_document_download_token(user["id"], did)
     return {
         "url": f"/api/employees/{eid}/documents/{did}/download?token={token}",
@@ -83,7 +83,7 @@ async def download_employee_document(
     else:
         raise HTTPException(401, "Not authenticated")
 
-    doc = await employee_document_service.get_document_for_download(user_id, did)
+    doc = await employee_document_service.get_document_for_download(user_id, eid, did)
     chunk_iterator, ctype, content_length = storage_get_stream(doc["storage_path"])
     filename = sanitize_filename(doc.get("original_filename") or doc.get("name") or "file")
     disposition = "inline" if (ctype == "application/pdf" or ctype.startswith("image/")) else "attachment"
@@ -103,5 +103,5 @@ async def download_employee_document(
 
 @router.delete("/{did}", dependencies=[MODULE_DEP])
 async def delete_employee_document(eid: str, did: str, user=Depends(forbid_demo_write)):
-    await employee_document_service.delete_document(user, did)
+    await employee_document_service.delete_document(user, eid, did)
     return {"ok": True}
