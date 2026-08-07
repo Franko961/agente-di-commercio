@@ -21,6 +21,7 @@ class EmployeeEquipmentService:
 
     async def create_equipment(self, user: dict, employee_id: str, payload) -> dict:
         await self._validate_employee(user["id"], employee_id)
+        now = now_iso()
         doc = {
             "id": gen_id(),
             "user_id": user["id"],
@@ -30,7 +31,15 @@ class EmployeeEquipmentService:
             "returned_date": payload.returned_date.isoformat() if payload.returned_date else None,
             "status": payload.status,
             "notes": (payload.notes or "").strip(),
-            "created_at": now_iso(),
+            "created_at": now,
+            # updated_at (timestamp ISO completo) è quello che
+            # employee_activity_service usa per l'evento "dotazione
+            # restituita" nella timeline, invece di returned_date (una
+            # semplice stringa "AAAA-MM-DD", la data di calendario scelta
+            # dall'utente): serve un timestamp completo per ordinare quella
+            # voce in modo coerente con tutti gli altri eventi della
+            # timeline, che sono già timestamp completi.
+            "updated_at": now,
         }
         return await self.repo.insert(doc)
 
@@ -41,6 +50,7 @@ class EmployeeEquipmentService:
             "returned_date": payload.returned_date.isoformat() if payload.returned_date else None,
             "status": payload.status,
             "notes": (payload.notes or "").strip(),
+            "updated_at": now_iso(),
         })
         if not ok:
             raise NotFoundError("Dotazione non trovata")

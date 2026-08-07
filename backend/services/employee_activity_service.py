@@ -66,7 +66,20 @@ class EmployeeActivityService:
         for e in await self.equipment.find_many(employee_id, user["id"]):
             events.append({"type": "dotazione_aggiunta", "at": e["created_at"], "detail": e["name"]})
             if e["status"] == "restituito" and e.get("returned_date"):
-                events.append({"type": "dotazione_restituita", "at": e["returned_date"], "detail": e["name"]})
+                # "at" usa updated_at (timestamp ISO completo, come tutti gli
+                # altri eventi), non returned_date: quest'ultima è solo una
+                # data di calendario "AAAA-MM-DD" (la data di restituzione
+                # scelta dall'utente, non il momento in cui è stata
+                # registrata) — mischiarla con timestamp completi ordinava
+                # comunque bene lessicograficamente al giorno, ma restava
+                # un formato diverso dal resto della timeline. Il fallback a
+                # created_at copre le dotazioni create prima di questo
+                # campo (mai avuto un updated_at).
+                events.append({
+                    "type": "dotazione_restituita",
+                    "at": e.get("updated_at") or e["created_at"],
+                    "detail": e["name"],
+                })
 
         for c in await self.compensation.find_many(employee_id, user["id"]):
             label = _COMPENSATION_TYPE_LABELS.get(c["type"], c["type"])

@@ -112,6 +112,15 @@ def test_create_equipment_strips_name_and_notes():
     assert item["notes"] == "nota"
 
 
+def test_create_equipment_imposta_updated_at_uguale_a_created_at():
+    # employee_activity_service usa updated_at (timestamp completo) per
+    # l'evento "dotazione restituita" nella timeline, invece della sola
+    # data returned_date — vedi test_employee_activity.py.
+    service, eq_repo, _ = build_service()
+    item = run(service.create_equipment(USER, "emp-1", EmployeeEquipmentIn(name="Chiavi")))
+    assert item["updated_at"] == item["created_at"]
+
+
 # ---------- list_equipment ----------
 
 def test_list_equipment_scoped_to_employee_and_user():
@@ -183,6 +192,7 @@ def test_update_equipment_marks_returned():
     updated = eq_repo.docs[item["id"]]
     assert updated["status"] == "restituito"
     assert updated["returned_date"] == "2026-06-01"
+    assert updated["updated_at"] is not None
 
 
 def test_update_equipment_unknown_raises_404():

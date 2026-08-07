@@ -147,6 +147,41 @@ def test_get_activity_dotazione_restituita_include_entrambi_gli_eventi():
     assert "dotazione_restituita" in types
 
 
+def test_get_activity_dotazione_restituita_usa_updated_at_timestamp_completo():
+    # "at" deve essere un timestamp ISO completo come tutti gli altri
+    # eventi (created_at/decided_at), non la stringa "AAAA-MM-DD" di
+    # returned_date — vedi employee_equipment_service.update_equipment,
+    # che ora imposta updated_at ad ogni modifica.
+    service, _, _, _, equipment, _ = build_service()
+    equipment.docs.append({
+        "user_id": USER["id"], "employee_id": "emp-1", "name": "Divisa",
+        "status": "restituito", "returned_date": "2026-08-06",
+        "created_at": "2026-08-01T10:00:00+00:00", "updated_at": "2026-08-06T15:30:00+00:00",
+    })
+
+    events = run(service.get_activity(USER, "emp-1"))
+
+    ev = next(e for e in events if e["type"] == "dotazione_restituita")
+    assert ev["at"] == "2026-08-06T15:30:00+00:00"
+
+
+def test_get_activity_dotazione_restituita_ricade_su_created_at_se_senza_updated_at():
+    # Dotazioni create prima dell'introduzione di updated_at: nessun
+    # timestamp completo disponibile per l'evento di restituzione, meglio
+    # usare created_at (comunque un timestamp completo, coerente col resto
+    # della timeline) che lasciare la stringa di sola data.
+    service, _, _, _, equipment, _ = build_service()
+    equipment.docs.append({
+        "user_id": USER["id"], "employee_id": "emp-1", "name": "Divisa",
+        "status": "restituito", "returned_date": "2026-08-06", "created_at": "2026-08-01T10:00:00+00:00",
+    })
+
+    events = run(service.get_activity(USER, "emp-1"))
+
+    ev = next(e for e in events if e["type"] == "dotazione_restituita")
+    assert ev["at"] == "2026-08-01T10:00:00+00:00"
+
+
 def test_get_activity_include_compenso_registrato():
     service, _, _, _, _, compensation = build_service()
     compensation.docs.append({
