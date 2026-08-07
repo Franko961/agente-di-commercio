@@ -13,6 +13,7 @@ import asyncio
 from datetime import date
 
 import pytest
+from pydantic import ValidationError
 
 sys.path.insert(0, ".")
 
@@ -128,6 +129,44 @@ def test_list_equipment_rejects_unknown_employee():
     service, _, _ = build_service()
     with pytest.raises(ValidationAppError):
         run(service.list_equipment(USER, "emp-does-not-exist"))
+
+
+# ---------- EmployeeEquipmentIn: coerenza stato/date ----------
+
+def test_equipment_in_restituito_richiede_returned_date():
+    with pytest.raises(ValidationError, match="data di restituzione è obbligatoria"):
+        EmployeeEquipmentIn(name="Chiavi", status="restituito")
+
+
+def test_equipment_in_rifiuta_returned_date_precedente_a_delivered_date():
+    with pytest.raises(ValidationError, match="non può essere precedente"):
+        EmployeeEquipmentIn(
+            name="Chiavi", status="restituito",
+            delivered_date=date(2026, 6, 1), returned_date=date(2026, 1, 1),
+        )
+
+
+def test_equipment_in_accetta_returned_date_uguale_a_delivered_date():
+    item = EmployeeEquipmentIn(
+        name="Chiavi", status="restituito",
+        delivered_date=date(2026, 6, 1), returned_date=date(2026, 6, 1),
+    )
+    assert item.returned_date == date(2026, 6, 1)
+
+
+def test_equipment_in_consegnato_azzera_returned_date_residuo():
+    # Es. la stessa dotazione viene rimessa in consegna dopo essere stata
+    # segnata restituita, ma il form non svuota il campo data da solo.
+    item = EmployeeEquipmentIn(
+        name="Chiavi", status="consegnato",
+        delivered_date=date(2026, 1, 1), returned_date=date(2026, 6, 1),
+    )
+    assert item.returned_date is None
+
+
+def test_equipment_in_consegnato_senza_date_e_ok():
+    item = EmployeeEquipmentIn(name="Chiavi", status="consegnato")
+    assert item.returned_date is None
 
 
 # ---------- update_equipment ----------

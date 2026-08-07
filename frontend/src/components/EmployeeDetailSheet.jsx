@@ -599,7 +599,19 @@ function EquipmentForm({ employeeId, initial, onDone, onCancel }) {
       onDone();
     } catch (err) {
       const detail = err?.response?.data?.detail;
-      toast.error(typeof detail === "string" ? detail : "Salvataggio non riuscito");
+      let message = "Salvataggio non riuscito";
+      if (typeof detail === "string") {
+        message = detail;
+      } else if (Array.isArray(detail) && detail.length) {
+        // 422 di Pydantic (es. i controlli di coerenza stato/date in
+        // models/employee_equipment.py): detail è una lista di errori, non
+        // una stringa — senza questo l'utente vedeva solo il messaggio
+        // generico sopra e non capiva cosa correggere. Il prefisso
+        // "Value error, " è aggiunto automaticamente da Pydantic quando
+        // l'errore arriva da un @model_validator che solleva ValueError.
+        message = detail.map((e) => (e?.msg || "").replace(/^Value error,\s*/, "")).filter(Boolean).join(" · ") || message;
+      }
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -617,8 +629,12 @@ function EquipmentForm({ employeeId, initial, onDone, onCancel }) {
         </div>
         <div>
           <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1">Stato</label>
-          <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })}
-            className="w-full bg-white border border-[#E4E4E1] rounded-md px-2 py-2 text-[13px]">
+          <select value={f.status} onChange={(e) => {
+            const status = e.target.value;
+            // Coerente con la normalizzazione lato backend (models/employee_equipment.py):
+            // "consegnato" non ha senso con una data di restituzione residua di un giro precedente.
+            setF({ ...f, status, returned_date: status === "consegnato" ? "" : f.returned_date });
+          }} className="w-full bg-white border border-[#E4E4E1] rounded-md px-2 py-2 text-[13px]">
             {Object.entries(EQUIPMENT_STATUS_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
           </select>
         </div>
