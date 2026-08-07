@@ -66,6 +66,17 @@ DEMO_REQUEST_CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60
 CONTACT_REQUEST_RETENTION_DAYS = 730
 CONTACT_REQUEST_CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60
 
+# Un documento eliminato dall'utente (DELETE /api/documents/{id} o
+# /api/employee-documents/{id}) resta recuperabile per questo numero di
+# giorni (soft-delete, vedi document_repository.soft_delete) prima che
+# services/document_trash_service lo cancelli per davvero, DB e file S3
+# inclusi. 30 giorni è lo stesso ordine di grandezza usato comunemente per
+# un "cestino" (es. Google Drive, Dropbox): abbastanza per rimediare a un
+# click sbagliato, non così lungo da vanificare lo scopo della pulizia
+# (spazio di storage occupato indefinitamente, il problema che risolve).
+DOCUMENT_TRASH_RETENTION_DAYS = 30
+DOCUMENT_TRASH_CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60
+
 # Retention della voce di audit "self_delete_account" (vedi
 # gdpr_service.delete_account): NON è coperta dall'assenza di TTL applicata
 # al resto dell'audit amministrativo qui sotto — quella riguarda azioni di
@@ -100,6 +111,7 @@ _demo_reset_task = None
 _cancel_finalize_task = None
 _demo_request_cleanup_task = None
 _contact_request_cleanup_task = None
+_document_trash_cleanup_task = None
 
 
 async def _google_calendar_sync_loop() -> None:
@@ -196,6 +208,26 @@ async def _demo_request_cleanup_loop() -> None:
             raise
         except Exception as e:
             logger.error(f"Ciclo di pulizia richieste demo fallito: {e}")
+
+
+async def _document_trash_cleanup_loop() -> None:
+    """Cancella per davvero (DB + file S3) i documenti che l'utente ha
+    eliminato (soft-delete) più di DOCUMENT_TRASH_RETENTION_DAYS giorni fa.
+    Vedi services/document_trash_service.py e il commento sopra
+    DOCUMENT_TRASH_RETENTION_DAYS per il perché serve."""
+    from services.document_trash_service import document_trash_service
+    while True:
+        try:
+            await asyncio.sleep(DOCUMENT_TRASH_CLEANUP_INTERVAL_SECONDS)
+            if not await job_lock_repository.try_acquire("document_trash_cleanup", ttl_seconds=DOCUMENT_TRASH_CLEANUP_INTERVAL_SECONDS - 300):
+                continue
+            purged = await document_trash_service.purge_expired(DOCUMENT_TRASH_RETENTION_DAYS)
+            if purged:
+                logger.info(f"Pulizia cestino documenti: eliminati definitivamente {purged} documenti più vecchi di {DOCUMENT_TRASH_RETENTION_DAYS} giorni")
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.error(f"Ciclo di pulizia cestino documenti fallito: {e}")
 
 
 async def _contact_request_cleanup_loop() -> None:
@@ -333,6 +365,24 @@ async def backfill_manual_commission_ids() -> None:
         await db.manual_commissions.update_one({"_id": doc["_id"]}, {"$set": {"id": gen_id()}})
 
 
+async def backfill_document_deleted_at() -> None:
+    """Migrazione una tantum (no-op sui giri successivi una volta
+    completata): i documenti già soft-deleted PRIMA dell'introduzione del
+    campo deleted_at (soft_delete si limitava a is_deleted=True) non hanno
+    mai avuto quel campo — senza backfill, il filtro deleted_at < cutoff del
+    ciclo di pulizia (_document_trash_cleanup_loop) non li troverebbe mai,
+    restando orfani per sempre esattamente come il problema che il ciclo
+    risolve. Il valore di backfill è 'adesso', non una data nel passato: dà
+    a questi documenti l'intera finestra di conservazione invece di
+    cancellarli in blocco al primo giro utile dopo il deploy."""
+    now = datetime.now(timezone.utc).isoformat()
+    for collection_name in ("documents", "employee_documents"):
+        await db[collection_name].update_many(
+            {"is_deleted": True, "deleted_at": {"$exists": False}},
+            {"$set": {"deleted_at": now}},
+        )
+
+
 async def run_startup() -> None:
     # Init object storage (non-blocking on failure)
     try:
@@ -347,6 +397,12 @@ async def run_startup() -> None:
     await db.clients.create_index([("user_id", 1)])
     await db.offers.create_index([("user_id", 1)])
     await db.documents.create_index([("user_id", 1), ("is_deleted", 1)])
+    # Non filtrato per user_id: usato dal ciclo periodico di pulizia cestino
+    # (_document_trash_cleanup_loop), che scansiona i documenti soft-deleted
+    # di TUTTI gli utenti.
+    await db.documents.create_index([("is_deleted", 1), ("deleted_at", 1)])
+    await db.employee_documents.create_index([("is_deleted", 1), ("deleted_at", 1)])
+    await backfill_document_deleted_at()
     # Queste cinque collection sono lette per intero ad ogni caricamento della
     # dashboard (get_stats/get_today_brief), filtrate per user_id: senza
     # indice, ogni query è una scansione completa della collection su TUTTI
@@ -436,7 +492,7 @@ async def run_startup() -> None:
         pass
     await db.manual_commissions.create_index([("user_id", 1)])
 
-    global _gcal_sync_task, _stuck_ai_action_task, _health_alert_task, _automation_engine_task, _demo_reset_task, _cancel_finalize_task, _demo_request_cleanup_task, _contact_request_cleanup_task
+    global _gcal_sync_task, _stuck_ai_action_task, _health_alert_task, _automation_engine_task, _demo_reset_task, _cancel_finalize_task, _demo_request_cleanup_task, _contact_request_cleanup_task, _document_trash_cleanup_task
     _gcal_sync_task = asyncio.create_task(_google_calendar_sync_loop())
     _stuck_ai_action_task = asyncio.create_task(_stuck_ai_action_cleanup_loop())
     _health_alert_task = asyncio.create_task(_health_alert_loop())
@@ -445,6 +501,7 @@ async def run_startup() -> None:
     _cancel_finalize_task = asyncio.create_task(_cancel_finalize_loop())
     _demo_request_cleanup_task = asyncio.create_task(_demo_request_cleanup_loop())
     _contact_request_cleanup_task = asyncio.create_task(_contact_request_cleanup_loop())
+    _document_trash_cleanup_task = asyncio.create_task(_document_trash_cleanup_loop())
 
 
 async def run_shutdown() -> None:
@@ -464,4 +521,6 @@ async def run_shutdown() -> None:
         _demo_request_cleanup_task.cancel()
     if _contact_request_cleanup_task:
         _contact_request_cleanup_task.cancel()
+    if _document_trash_cleanup_task:
+        _document_trash_cleanup_task.cancel()
     close_db()

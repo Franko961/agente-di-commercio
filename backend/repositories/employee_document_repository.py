@@ -1,4 +1,5 @@
 from core.database import db
+from core.utils import now_iso
 from typing import Optional
 
 
@@ -28,9 +29,12 @@ class EmployeeDocumentRepository:
         return res.matched_count > 0
 
     async def soft_delete(self, did: str, user_id: str) -> None:
+        # Vedi commento in document_repository.soft_delete: deleted_at è
+        # quello che serve al ciclo periodico di pulizia per applicare la
+        # retention (services/document_trash_service.py).
         await self.collection.update_one(
             {"id": did, "user_id": user_id},
-            {"$set": {"is_deleted": True}},
+            {"$set": {"is_deleted": True, "deleted_at": now_iso()}},
         )
 
 

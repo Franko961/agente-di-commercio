@@ -1,4 +1,5 @@
 from core.database import db
+from core.utils import now_iso
 from typing import Optional
 
 
@@ -33,9 +34,14 @@ class DocumentRepository:
         return res.matched_count > 0
 
     async def soft_delete(self, did: str, user_id: str) -> None:
+        # deleted_at (non solo is_deleted) è quello che permette al ciclo
+        # periodico di pulizia (services/document_trash_service.py) di sapere
+        # QUANDO è stato eliminato, per applicare la retention — senza,
+        # servirebbe rifarsi a created_at (la data di caricamento, non di
+        # eliminazione), sballando la finestra di conservazione.
         await self.collection.update_one(
             {"id": did, "user_id": user_id},
-            {"$set": {"is_deleted": True}},
+            {"$set": {"is_deleted": True, "deleted_at": now_iso()}},
         )
 
 
