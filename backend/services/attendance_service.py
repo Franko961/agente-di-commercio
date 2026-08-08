@@ -1,6 +1,6 @@
 import secrets
 from calendar import monthrange
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import HTTPException
 
@@ -303,12 +303,23 @@ class AttendanceService:
         quanti hanno già timbrato. expected_today resta 0 se nessun
         dipendente ha un orario configurato o oggi non è lavorativo per
         nessuno (es. weekend): il widget lo interpreta come 'nessuno in
-        turno oggi', non come un problema."""
+        turno oggi', non come un problema.
+
+        clocked_today è calcolato con UNA query sola su tutti i dipendenti
+        (find_clocked_in_between), non un find_many() per dipendente: con
+        poche decine è irrilevante, ma con centinaia diventerebbe una
+        classica N+1 — oltre a scaricare l'intera cronologia di ciascun
+        dipendente (find_many non ha un filtro data) solo per sapere se
+        almeno una sessione ricade in oggi."""
         now = now_local()
-        today_str = now.date().isoformat()
         weekday = now.weekday()
+        today_midnight_local = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_start = today_midnight_local.astimezone(timezone.utc).isoformat()
+        tomorrow_start = (today_midnight_local + timedelta(days=1)).astimezone(timezone.utc).isoformat()
 
         employees = await self.employees.find_many(user["id"])
+        clocked_employee_ids = set(await self.repo.find_clocked_in_between(user["id"], today_start, tomorrow_start))
+
         total_active = 0
         expected_today = 0
         clocked_today = 0
@@ -321,8 +332,7 @@ class AttendanceService:
             if not (work_days and shift_start and weekday in work_days):
                 continue
             expected_today += 1
-            sessions = await self.repo.find_many(e["id"], user["id"])
-            if any(local_date_str(s["clock_in"]) == today_str for s in sessions):
+            if e["id"] in clocked_employee_ids:
                 clocked_today += 1
         return {"total_active": total_active, "expected_today": expected_today, "clocked_today": clocked_today}
 

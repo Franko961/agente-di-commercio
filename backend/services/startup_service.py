@@ -479,6 +479,12 @@ async def run_startup() -> None:
         partialFilterExpression={"clock_out": None},
         name="unique_open_session_per_employee",
     )
+    # (user_id, clock_in) senza employee_id in testa: serve a
+    # find_clocked_in_between (vedi attendance_service.today_summary), che
+    # filtra per TUTTI i dipendenti dell'utente in un colpo solo — l'indice
+    # sopra (che parte da employee_id) non aiuterebbe qui, la query non lo
+    # userebbe in modo efficiente senza filtrare anche per employee_id.
+    await db.attendance_sessions.create_index([("user_id", 1), ("clock_in", 1)])
     await db.leads.create_index([("user_id", 1)])
     await db.appointments.create_index([("user_id", 1)])
     await db.commissions.create_index([("user_id", 1)])

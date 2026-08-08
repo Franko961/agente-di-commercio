@@ -24,6 +24,19 @@ class AttendanceRepository:
             {"employee_id": employee_id, "user_id": user_id, "clock_out": None}, {"_id": 0}
         )
 
+    async def find_clocked_in_between(self, user_id: str, start_iso: str, end_iso: str) -> list:
+        """ID dei dipendenti che hanno almeno una sessione con clock_in
+        nell'intervallo [start_iso, end_iso) — una sola query con distinct,
+        invece di un find_many() per dipendente (vedi
+        attendance_service.today_summary): con poche decine di dipendenti
+        la differenza è irrilevante, ma con centinaia diventerebbe una
+        classica N+1, oltre a scaricare l'intera cronologia di ciascuno
+        (find_many non ha un filtro data) solo per sapere se almeno UNA
+        sessione ricade in oggi."""
+        return await self.collection.distinct(
+            "employee_id", {"user_id": user_id, "clock_in": {"$gte": start_iso, "$lt": end_iso}}
+        )
+
     async def find_all_closed(self, user_id: str) -> list:
         """Tutte le sessioni chiuse (clock_out valorizzato) di TUTTI i
         dipendenti dell'utente — per l'aggregazione ore/giorno della

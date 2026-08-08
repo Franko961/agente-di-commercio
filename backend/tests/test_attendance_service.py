@@ -22,6 +22,7 @@ sys.path.insert(0, ".")
 
 from core.exceptions import NotFoundError, ValidationAppError, ConflictError
 from core.security import hash_password
+from core.utils import LOCAL_TZ
 from models.attendance import AttendanceCorrectionIn
 from services.attendance_service import AttendanceService
 
@@ -124,6 +125,15 @@ class FakeAttendanceRepo:
             }
             for d in self.docs.values() if d["user_id"] == user_id and d["clock_out"] is not None
         ]
+
+    async def find_clocked_in_between(self, user_id, start_iso, end_iso):
+        # Stessa semantica del $gte/$lt su stringa ISO usato dal vero
+        # AttendanceRepository.find_clocked_in_between (le stringhe ISO UTC
+        # in questo formato ordinano correttamente anche come stringhe).
+        return list({
+            d["employee_id"] for d in self.docs.values()
+            if d["user_id"] == user_id and start_iso <= d["clock_in"] < end_iso
+        })
 
     async def insert(self, doc):
         # Simula l'indice parziale univoco MongoDB su (employee_id,
@@ -645,7 +655,7 @@ def test_today_summary_dipendente_atteso_e_gia_timbrato(monkeypatch):
     import services.attendance_service as attendance_mod
     from datetime import datetime as real_datetime
 
-    monkeypatch.setattr(attendance_mod, "now_local", lambda: real_datetime(2026, 8, 3, 10, 0))  # lunedì
+    monkeypatch.setattr(attendance_mod, "now_local", lambda: real_datetime(2026, 8, 3, 10, 0, tzinfo=LOCAL_TZ))  # lunedì
 
     service, _, emp_repo, _, _ = build_service(monkeypatch)
     emp_repo.docs["emp-1"].update({"work_days": [0, 1, 2, 3, 4], "shift_start_time": "09:00"})
@@ -662,7 +672,7 @@ def test_today_summary_dipendente_atteso_non_ancora_timbrato(monkeypatch):
     import services.attendance_service as attendance_mod
     from datetime import datetime as real_datetime
 
-    monkeypatch.setattr(attendance_mod, "now_local", lambda: real_datetime(2026, 8, 3, 10, 0))
+    monkeypatch.setattr(attendance_mod, "now_local", lambda: real_datetime(2026, 8, 3, 10, 0, tzinfo=LOCAL_TZ))
 
     service, _, emp_repo, _, _ = build_service(monkeypatch)
     emp_repo.docs["emp-1"].update({"work_days": [0, 1, 2, 3, 4], "shift_start_time": "09:00"})
@@ -680,7 +690,7 @@ def test_today_summary_dipendente_senza_orario_non_e_atteso(monkeypatch):
     import services.attendance_service as attendance_mod
     from datetime import datetime as real_datetime
 
-    monkeypatch.setattr(attendance_mod, "now_local", lambda: real_datetime(2026, 8, 3, 10, 0))
+    monkeypatch.setattr(attendance_mod, "now_local", lambda: real_datetime(2026, 8, 3, 10, 0, tzinfo=LOCAL_TZ))
 
     service, _, _, _, _ = build_service(monkeypatch)
 
@@ -693,7 +703,7 @@ def test_today_summary_giorno_non_lavorativo_non_e_atteso(monkeypatch):
     import services.attendance_service as attendance_mod
     from datetime import datetime as real_datetime
 
-    monkeypatch.setattr(attendance_mod, "now_local", lambda: real_datetime(2026, 8, 3, 10, 0))  # lunedì
+    monkeypatch.setattr(attendance_mod, "now_local", lambda: real_datetime(2026, 8, 3, 10, 0, tzinfo=LOCAL_TZ))  # lunedì
 
     service, _, emp_repo, _, _ = build_service(monkeypatch)
     emp_repo.docs["emp-1"].update({"work_days": [5, 6], "shift_start_time": "09:00"})  # solo weekend
@@ -707,7 +717,7 @@ def test_today_summary_dipendente_non_attivo_escluso(monkeypatch):
     import services.attendance_service as attendance_mod
     from datetime import datetime as real_datetime
 
-    monkeypatch.setattr(attendance_mod, "now_local", lambda: real_datetime(2026, 8, 3, 10, 0))
+    monkeypatch.setattr(attendance_mod, "now_local", lambda: real_datetime(2026, 8, 3, 10, 0, tzinfo=LOCAL_TZ))
 
     service, _, emp_repo, _, _ = build_service(monkeypatch)
     emp_repo.docs["emp-1"].update({"work_days": [0, 1, 2, 3, 4], "shift_start_time": "09:00", "active": False})
@@ -721,7 +731,7 @@ def test_today_summary_scoped_per_utente(monkeypatch):
     import services.attendance_service as attendance_mod
     from datetime import datetime as real_datetime
 
-    monkeypatch.setattr(attendance_mod, "now_local", lambda: real_datetime(2026, 8, 3, 10, 0))
+    monkeypatch.setattr(attendance_mod, "now_local", lambda: real_datetime(2026, 8, 3, 10, 0, tzinfo=LOCAL_TZ))
 
     service, _, emp_repo, _, _ = build_service(monkeypatch)
     emp_repo.docs["emp-2"] = {
@@ -732,6 +742,34 @@ def test_today_summary_scoped_per_utente(monkeypatch):
     summary = run(service.today_summary(USER))
 
     assert summary == {"total_active": 1, "expected_today": 0, "clocked_today": 0}
+
+
+def test_today_summary_confine_del_giorno_in_ora_italiana(monkeypatch):
+    """Il calcolo di 'oggi' passa dal confine di mezzanotte in ora
+    italiana (CEST, UTC+2 il 3 agosto), non da mezzanotte UTC: una
+    timbratura delle 23:59 locali di ieri (21:59 UTC) NON deve contare
+    come di oggi, una delle 00:00 locali di oggi (22:00 UTC di ieri) sì."""
+    import services.attendance_service as attendance_mod
+    from datetime import datetime as real_datetime
+
+    monkeypatch.setattr(attendance_mod, "now_local", lambda: real_datetime(2026, 8, 3, 10, 0, tzinfo=LOCAL_TZ))
+
+    service, att_repo, emp_repo, _, _ = build_service(monkeypatch)
+    emp_repo.docs["emp-1"].update({"work_days": [0, 1, 2, 3, 4], "shift_start_time": "09:00"})
+    run(service.create_manual_session(USER, "emp-1", AttendanceCorrectionIn(
+        clock_in="2026-08-02T21:59:00+00:00", clock_out="2026-08-02T22:30:00+00:00",  # 23:59 di ieri in ora italiana
+    )))
+
+    summary_ieri_tardi = run(service.today_summary(USER))
+    assert summary_ieri_tardi["clocked_today"] == 0
+
+    del att_repo.docs[list(att_repo.docs.keys())[0]]
+    run(service.create_manual_session(USER, "emp-1", AttendanceCorrectionIn(
+        clock_in="2026-08-02T22:00:00+00:00", clock_out="2026-08-02T22:30:00+00:00",  # 00:00 di oggi in ora italiana
+    )))
+
+    summary_oggi_presto = run(service.today_summary(USER))
+    assert summary_oggi_presto["clocked_today"] == 1
 
 
 # ---------- export_csv (cartellino: presenze + assenze approvate) ----------
