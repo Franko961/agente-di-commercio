@@ -485,6 +485,16 @@ async def run_startup() -> None:
     # sopra (che parte da employee_id) non aiuterebbe qui, la query non lo
     # userebbe in modo efficiente senza filtrare anche per employee_id.
     await db.attendance_sessions.create_index([("user_id", 1), ("clock_in", 1)])
+    # Indice univoco su (user_id, plate): find_by_plate() in
+    # vehicle_service.create_vehicle/update_vehicle è già un check
+    # preventivo, ma da solo è un check-then-act — due richieste di
+    # creazione concorrenti con la stessa targa (già normalizzata da
+    # models.vehicle.normalize_plate) potrebbero entrambe superarlo prima
+    # che il primo insert completi. Questo indice è l'ultima linea di
+    # difesa: la seconda insert_one/update_one fallisce con
+    # DuplicateKeyError, tradotto in ValidationAppError da
+    # vehicle_repository — stesso messaggio già usato dal pre-check.
+    await db.vehicles.create_index([("user_id", 1), ("plate", 1)], unique=True)
     await db.leads.create_index([("user_id", 1)])
     await db.appointments.create_index([("user_id", 1)])
     await db.commissions.create_index([("user_id", 1)])

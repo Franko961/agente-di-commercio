@@ -57,10 +57,21 @@ class FakeVehicleRepo:
         return d if d and d["user_id"] == user_id else None
 
     async def insert(self, doc):
+        # Simula l'indice univoco MongoDB su (user_id, plate) — vedi
+        # startup_service.run_startup e vehicle_repository.insert: al
+        # massimo un mezzo per targa/utente, indipendentemente da cosa
+        # abbia visto find_by_plate() poco prima.
+        for d in self.docs.values():
+            if d["user_id"] == doc["user_id"] and d["plate"] == doc["plate"]:
+                raise ValidationAppError(f"Esiste già un mezzo con targa {doc.get('plate')}")
         self.docs[doc["id"]] = dict(doc)
         return doc
 
     async def update(self, vid, user_id, data):
+        if "plate" in data:
+            for d in self.docs.values():
+                if d["id"] != vid and d["user_id"] == user_id and d["plate"] == data["plate"]:
+                    raise ValidationAppError(f"Esiste già un mezzo con targa {data.get('plate')}")
         d = self.docs.get(vid)
         if not d or d["user_id"] != user_id:
             return False
@@ -248,6 +259,46 @@ def test_update_vehicle_permette_di_salvare_la_propria_stessa_targa():
     v = run(service.create_vehicle(USER, make_vehicle("AB123CD")))
     run(service.update_vehicle(USER, v["id"], make_vehicle("AB123CD", model="Nuovo modello")))
     assert repo.docs[v["id"]]["model"] == "Nuovo modello"
+
+
+def test_create_vehicle_indice_univoco_blocca_la_race_condition(monkeypatch):
+    """find_by_plate() poi insert() in vehicle_service.create_vehicle non è
+    atomico da solo: due creazioni concorrenti con la stessa targa
+    potrebbero entrambe superare il pre-check prima che la prima abbia
+    scritto. Qui si simula esattamente questa finestra (il pre-check non
+    vede ancora il mezzo appena creato) e si verifica che l'ultima linea
+    di difesa — l'indice univoco MongoDB, simulato da FakeVehicleRepo.insert
+    — blocchi comunque il doppione con ValidationAppError."""
+    service, repo = build_vehicle_service()
+    run(service.create_vehicle(USER, make_vehicle("AB123CD")))
+
+    async def fake_find_by_plate(plate, user_id):
+        return None  # simula la finestra di race: il pre-check non vede il mezzo già creato
+
+    monkeypatch.setattr(repo, "find_by_plate", fake_find_by_plate)
+
+    with pytest.raises(ValidationAppError, match="Esiste già un mezzo con targa"):
+        run(service.create_vehicle(USER, make_vehicle("AB123CD")))
+
+    # Un solo mezzo con quella targa è davvero rimasto, non due.
+    matching = [d for d in repo.docs.values() if d["user_id"] == USER["id"] and d["plate"] == "AB123CD"]
+    assert len(matching) == 1
+
+
+def test_update_vehicle_indice_univoco_blocca_la_race_condition(monkeypatch):
+    service, repo = build_vehicle_service()
+    run(service.create_vehicle(USER, make_vehicle("AB123CD")))
+    v2 = run(service.create_vehicle(USER, make_vehicle("XY999ZZ")))
+
+    async def fake_find_by_plate(plate, user_id):
+        return None
+
+    monkeypatch.setattr(repo, "find_by_plate", fake_find_by_plate)
+
+    with pytest.raises(ValidationAppError, match="Esiste già un mezzo con targa"):
+        run(service.update_vehicle(USER, v2["id"], make_vehicle("AB123CD")))
+
+    assert repo.docs[v2["id"]]["plate"] == "XY999ZZ"  # non modificato
 
 
 # ---------- vehicle_deadline_service ----------

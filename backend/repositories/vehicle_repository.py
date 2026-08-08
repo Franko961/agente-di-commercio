@@ -1,4 +1,6 @@
+from pymongo.errors import DuplicateKeyError
 from core.database import db
+from core.exceptions import ValidationAppError
 
 
 class VehicleRepository:
@@ -17,12 +19,23 @@ class VehicleRepository:
         return await self.collection.find_one({"plate": plate, "user_id": user_id}, {"_id": 0})
 
     async def insert(self, doc: dict) -> dict:
-        await self.collection.insert_one(doc)
+        # L'indice univoco su (user_id, plate) — vedi startup_service.run_startup
+        # — è l'ultima linea di difesa contro due mezzi con la stessa targa:
+        # find_by_plate() in vehicle_service è già un check preventivo, ma da
+        # solo è un check-then-act che due richieste concorrenti potrebbero
+        # entrambe superare prima che il primo insert completi.
+        try:
+            await self.collection.insert_one(doc)
+        except DuplicateKeyError:
+            raise ValidationAppError(f"Esiste già un mezzo con targa {doc.get('plate')}")
         doc.pop("_id", None)
         return doc
 
     async def update(self, vid: str, user_id: str, data: dict) -> bool:
-        res = await self.collection.update_one({"id": vid, "user_id": user_id}, {"$set": data})
+        try:
+            res = await self.collection.update_one({"id": vid, "user_id": user_id}, {"$set": data})
+        except DuplicateKeyError:
+            raise ValidationAppError(f"Esiste già un mezzo con targa {data.get('plate')}")
         return res.matched_count > 0
 
     async def delete(self, vid: str, user_id: str) -> None:
