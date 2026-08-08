@@ -1,4 +1,4 @@
-from core.utils import gen_id, now_iso
+from core.utils import gen_id, now_iso, now_local
 from core.exceptions import NotFoundError, ValidationAppError
 from repositories.vehicle_deadline_repository import vehicle_deadline_repository
 from repositories.vehicle_repository import vehicle_repository
@@ -50,13 +50,18 @@ class VehicleDeadlineService:
         await self.repo.delete(did, user["id"])
 
     async def next_deadline(self, user: dict, vehicle_id: str, deadline_type: str = "revisione"):
-        """Prossima scadenza futura di un dato tipo per il mezzo — usato
-        dalla tab "Mezzo assegnato" della scheda dipendente al posto di un
-        inesistente "ultimo controllo" (SalesFly traccia solo le prossime
-        scadenze, non lo storico dei controlli già effettuati)."""
+        """Prossima scadenza FUTURA (o odierna) di un dato tipo per il
+        mezzo — usato dalla tab "Mezzo assegnato" della scheda dipendente
+        al posto di un inesistente "ultimo controllo" (SalesFly traccia
+        solo le prossime scadenze, non lo storico dei controlli già
+        effettuati). Esclude le scadenze già passate: senza il filtro su
+        due_date, una revisione mai aggiornata dopo essere scaduta
+        risultava comunque "la prossima" solo perché la più vicina in
+        ordine cronologico, anche se ormai nel passato."""
+        today = now_local().strftime("%Y-%m-%d")
         deadlines = await self.repo.find_many(user["id"])
         candidates = sorted(
-            (d for d in deadlines if d["vehicle_id"] == vehicle_id and d["type"] == deadline_type),
+            (d for d in deadlines if d["vehicle_id"] == vehicle_id and d["type"] == deadline_type and d["due_date"] >= today),
             key=lambda d: d["due_date"],
         )
         return candidates[0] if candidates else None

@@ -1,5 +1,6 @@
 from core.utils import gen_id, now_iso
 from core.exceptions import NotFoundError, ValidationAppError
+from core.security import module_enabled
 from repositories.vehicle_repository import vehicle_repository
 from repositories.employee_repository import employee_repository
 
@@ -49,7 +50,17 @@ class VehicleService:
     async def find_assigned(self, user: dict, employee_id: str):
         """Il mezzo (se esiste) assegnato a questo dipendente — per la tab
         "Mezzo assegnato" della scheda dipendente. None se il modulo
-        Flotta non è in uso o nessun mezzo è collegato a lui."""
+        Flotta non è in uso o nessun mezzo è collegato a lui.
+
+        Il controllo su module_enabled è qui (non solo a monte, nel router
+        di Personale) perché questo metodo viene chiamato SEMPRE da
+        get_employee_detail, indipendentemente da Flotta — senza, un
+        account che disattiva Flotta dopo aver assegnato un mezzo
+        continuerebbe a vederselo mostrato nella scheda dipendente, perché
+        i mezzi restano nel database (solo il modulo è disattivato, non i
+        dati)."""
+        if not module_enabled(user, "flotta"):
+            return None
         vehicles = await self.repo.find_many(user["id"])
         return next((v for v in vehicles if v.get("assigned_employee_id") == employee_id), None)
 

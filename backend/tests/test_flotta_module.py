@@ -41,8 +41,8 @@ def run(coro):
     return asyncio.run(coro)
 
 
-USER = {"id": "user-1", "email": "manager@example.com"}
-ALTRO_USER = {"id": "user-2", "email": "altro@example.com"}
+USER = {"id": "user-1", "email": "manager@example.com", "enabled_extra_modules": ["flotta"]}
+ALTRO_USER = {"id": "user-2", "email": "altro@example.com", "enabled_extra_modules": ["flotta"]}
 
 
 class FakeVehicleRepo:
@@ -594,6 +594,18 @@ def test_find_assigned_restituisce_none_se_nessun_mezzo_collegato():
     assert run(service.find_assigned(USER, "emp-1")) is None
 
 
+def test_find_assigned_restituisce_none_se_modulo_flotta_disattivato():
+    # Il mezzo resta nel database (solo il modulo è disattivato, non i
+    # dati): senza il controllo su module_enabled, la scheda dipendente
+    # continuerebbe a mostrare il mezzo assegnato in precedenza.
+    employees = FakeRefRepo([{"id": "emp-1", "user_id": USER["id"]}])
+    service, repo = build_vehicle_service(employees=employees)
+    run(service.create_vehicle(USER, make_vehicle("AB123CD", assigned_employee_id="emp-1")))
+
+    user_senza_flotta = {**USER, "enabled_extra_modules": []}
+    assert run(service.find_assigned(user_senza_flotta, "emp-1")) is None
+
+
 # ---------- vehicle_deadline_service.next_deadline ----------
 
 def test_next_deadline_restituisce_la_piu_vicina_dello_stesso_tipo():
@@ -613,3 +625,48 @@ def test_next_deadline_restituisce_none_se_nessuna_scadenza_di_quel_tipo():
     vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
     service, repo = build_deadline_service(vrepo)
     assert run(service.next_deadline(USER, vehicle["id"], "revisione")) is None
+
+
+def test_next_deadline_esclude_le_scadenze_gia_passate(monkeypatch):
+    import services.vehicle_deadline_service as vehicle_deadline_mod
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    monkeypatch.setattr(vehicle_deadline_mod, "now_local", lambda: datetime(2026, 6, 15, tzinfo=ZoneInfo("Europe/Rome")))
+
+    vservice, vrepo = build_vehicle_service()
+    vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
+    service, repo = build_deadline_service(vrepo)
+    run(service.create_deadline(USER, VehicleDeadlineIn(vehicle_id=vehicle["id"], type="revisione", due_date="2026-02-01")))
+    run(service.create_deadline(USER, VehicleDeadlineIn(vehicle_id=vehicle["id"], type="revisione", due_date="2026-12-01")))
+
+    next_rev = run(service.next_deadline(USER, vehicle["id"], "revisione"))
+    assert next_rev["due_date"] == "2026-12-01"
+
+
+def test_next_deadline_restituisce_none_se_tutte_le_scadenze_sono_passate(monkeypatch):
+    import services.vehicle_deadline_service as vehicle_deadline_mod
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    monkeypatch.setattr(vehicle_deadline_mod, "now_local", lambda: datetime(2026, 6, 15, tzinfo=ZoneInfo("Europe/Rome")))
+
+    vservice, vrepo = build_vehicle_service()
+    vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
+    service, repo = build_deadline_service(vrepo)
+    run(service.create_deadline(USER, VehicleDeadlineIn(vehicle_id=vehicle["id"], type="revisione", due_date="2026-02-01")))
+
+    assert run(service.next_deadline(USER, vehicle["id"], "revisione")) is None
+
+
+def test_next_deadline_include_la_scadenza_di_oggi(monkeypatch):
+    import services.vehicle_deadline_service as vehicle_deadline_mod
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    monkeypatch.setattr(vehicle_deadline_mod, "now_local", lambda: datetime(2026, 6, 15, tzinfo=ZoneInfo("Europe/Rome")))
+
+    vservice, vrepo = build_vehicle_service()
+    vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
+    service, repo = build_deadline_service(vrepo)
+    run(service.create_deadline(USER, VehicleDeadlineIn(vehicle_id=vehicle["id"], type="revisione", due_date="2026-06-15")))
+
+    next_rev = run(service.next_deadline(USER, vehicle["id"], "revisione"))
+    assert next_rev["due_date"] == "2026-06-15"
