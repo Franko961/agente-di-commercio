@@ -127,16 +127,23 @@ class AttendanceService:
         return result
 
     async def _check_rate_limit(self, token: str, employee_id: str, ip_address: str = None) -> None:
+        # IP e token azienda: 300/ora, non 60 — un solo tablet fisico
+        # all'ingresso genera TUTTO il traffico di un'azienda con più
+        # dipendenti da un'unica IP e con un unico QR, quindi entrambi i
+        # limiti si sommano sullo stesso dispositivo. Un'azienda con 40
+        # dipendenti fa già 80 timbrature (40 ingressi + 40 uscite) più le
+        # correzioni e i ricaricamenti dell'elenco nella stessa ora: un
+        # tetto di 60 sarebbe scattato per uso legittimo, non per abuso.
+        # Il vero freno al brute-force resta il limite per singolo
+        # dipendente sotto: 10 tentativi ogni 15 minuti rendono
+        # impraticabile provare le 10000 combinazioni del PIN a 4 cifre in
+        # tempi ragionevoli, indipendentemente da quanto sono larghi i
+        # limiti IP/token.
         if ip_address:
-            ok = await check_and_record("attendance_kiosk_ip", ip_address, max_attempts=60, window_minutes=60)
+            ok = await check_and_record("attendance_kiosk_ip", ip_address, max_attempts=300, window_minutes=60)
             if not ok:
                 raise HTTPException(429, "Troppe richieste da questo indirizzo, riprova più tardi.")
-        # Per token azienda (un QR condiviso riceve più traffico di un
-        # link personale, soglia più alta) e per singolo dipendente (qui
-        # sta anche il vero freno al brute-force del PIN a 4 cifre: 10
-        # tentativi ogni 15 minuti rendono impraticabile provare le
-        # 10000 combinazioni in tempi ragionevoli).
-        token_ok = await check_and_record("attendance_kiosk_token", token, max_attempts=60, window_minutes=60)
+        token_ok = await check_and_record("attendance_kiosk_token", token, max_attempts=300, window_minutes=60)
         if not token_ok:
             raise HTTPException(429, "Troppe richieste per questo QR, riprova più tardi.")
         pin_ok = await check_and_record("attendance_pin_attempt", employee_id, max_attempts=10, window_minutes=15)
