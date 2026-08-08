@@ -163,6 +163,7 @@ def build_service(monkeypatch, with_pin=True):
     emp_repo = FakeEmployeeRepo()
     emp_repo.docs["emp-1"] = {
         "id": "emp-1", "user_id": USER["id"], "name": "Mario", "surname": "Rossi", "active": True,
+        "employment_status": "attivo",
         "pin_hash": hash_password(PIN) if with_pin else None,
     }
     user_repo = FakeUserRepo()
@@ -453,6 +454,25 @@ def test_expected_hours_esclude_dipendente_senza_orario(monkeypatch):
     assert run(service.expected_hours(USER, "2026-08")) == []
 
 
+def test_expected_hours_esclude_dipendente_non_attivo(monkeypatch):
+    service, _, emp_repo, _, _ = build_service(monkeypatch)
+    emp_repo.docs["emp-1"].update({
+        "work_days": [0, 1, 2, 3, 4], "shift_start_time": "09:00", "shift_end_time": "17:00", "active": False,
+    })
+
+    assert run(service.expected_hours(USER, "2026-08")) == []
+
+
+def test_expected_hours_esclude_dipendente_cessato(monkeypatch):
+    service, _, emp_repo, _, _ = build_service(monkeypatch)
+    emp_repo.docs["emp-1"].update({
+        "work_days": [0, 1, 2, 3, 4], "shift_start_time": "09:00", "shift_end_time": "17:00",
+        "employment_status": "cessato",
+    })
+
+    assert run(service.expected_hours(USER, "2026-08")) == []
+
+
 def test_expected_hours_conta_solo_i_giorni_lavorativi_selezionati(monkeypatch):
     service, _, emp_repo, _, _ = build_service(monkeypatch)
     emp_repo.docs["emp-1"].update({"work_days": [5, 6], "shift_start_time": "10:00", "shift_end_time": "14:00"})
@@ -472,6 +492,101 @@ def test_expected_hours_scoped_per_utente(monkeypatch):
     }
 
     assert run(service.expected_hours(USER, "2026-08")) == []
+
+
+# ---------- today_summary (widget "Presenze oggi" della Dashboard) ----------
+
+def test_today_summary_dipendente_atteso_e_gia_timbrato(monkeypatch):
+    import services.attendance_service as attendance_mod
+    from datetime import datetime as real_datetime
+
+    monkeypatch.setattr(attendance_mod, "now_local", lambda: real_datetime(2026, 8, 3, 10, 0))  # lunedì
+
+    service, _, emp_repo, _, _ = build_service(monkeypatch)
+    emp_repo.docs["emp-1"].update({"work_days": [0, 1, 2, 3, 4], "shift_start_time": "09:00"})
+    run(service.create_manual_session(USER, "emp-1", AttendanceCorrectionIn(
+        clock_in="2026-08-03T08:00:00+00:00", clock_out="2026-08-03T09:00:00+00:00",
+    )))
+
+    summary = run(service.today_summary(USER))
+
+    assert summary == {"total_active": 1, "expected_today": 1, "clocked_today": 1}
+
+
+def test_today_summary_dipendente_atteso_non_ancora_timbrato(monkeypatch):
+    import services.attendance_service as attendance_mod
+    from datetime import datetime as real_datetime
+
+    monkeypatch.setattr(attendance_mod, "now_local", lambda: real_datetime(2026, 8, 3, 10, 0))
+
+    service, _, emp_repo, _, _ = build_service(monkeypatch)
+    emp_repo.docs["emp-1"].update({"work_days": [0, 1, 2, 3, 4], "shift_start_time": "09:00"})
+
+    summary = run(service.today_summary(USER))
+
+    assert summary == {"total_active": 1, "expected_today": 1, "clocked_today": 0}
+
+
+def test_today_summary_dipendente_senza_orario_non_e_atteso(monkeypatch):
+    """Un dipendente senza work_days/shift_start_time conta nel totale
+    attivi ma non tra gli attesi oggi: stesso criterio del trigger
+    attendance_missing, niente falsi allarmi per chi non ha mai avuto un
+    orario da rispettare."""
+    import services.attendance_service as attendance_mod
+    from datetime import datetime as real_datetime
+
+    monkeypatch.setattr(attendance_mod, "now_local", lambda: real_datetime(2026, 8, 3, 10, 0))
+
+    service, _, _, _, _ = build_service(monkeypatch)
+
+    summary = run(service.today_summary(USER))
+
+    assert summary == {"total_active": 1, "expected_today": 0, "clocked_today": 0}
+
+
+def test_today_summary_giorno_non_lavorativo_non_e_atteso(monkeypatch):
+    import services.attendance_service as attendance_mod
+    from datetime import datetime as real_datetime
+
+    monkeypatch.setattr(attendance_mod, "now_local", lambda: real_datetime(2026, 8, 3, 10, 0))  # lunedì
+
+    service, _, emp_repo, _, _ = build_service(monkeypatch)
+    emp_repo.docs["emp-1"].update({"work_days": [5, 6], "shift_start_time": "09:00"})  # solo weekend
+
+    summary = run(service.today_summary(USER))
+
+    assert summary == {"total_active": 1, "expected_today": 0, "clocked_today": 0}
+
+
+def test_today_summary_dipendente_non_attivo_escluso(monkeypatch):
+    import services.attendance_service as attendance_mod
+    from datetime import datetime as real_datetime
+
+    monkeypatch.setattr(attendance_mod, "now_local", lambda: real_datetime(2026, 8, 3, 10, 0))
+
+    service, _, emp_repo, _, _ = build_service(monkeypatch)
+    emp_repo.docs["emp-1"].update({"work_days": [0, 1, 2, 3, 4], "shift_start_time": "09:00", "active": False})
+
+    summary = run(service.today_summary(USER))
+
+    assert summary == {"total_active": 0, "expected_today": 0, "clocked_today": 0}
+
+
+def test_today_summary_scoped_per_utente(monkeypatch):
+    import services.attendance_service as attendance_mod
+    from datetime import datetime as real_datetime
+
+    monkeypatch.setattr(attendance_mod, "now_local", lambda: real_datetime(2026, 8, 3, 10, 0))
+
+    service, _, emp_repo, _, _ = build_service(monkeypatch)
+    emp_repo.docs["emp-2"] = {
+        "id": "emp-2", "user_id": OTHER_USER["id"], "name": "Anna", "active": True, "pin_hash": None,
+        "work_days": [0, 1, 2, 3, 4], "shift_start_time": "09:00",
+    }
+
+    summary = run(service.today_summary(USER))
+
+    assert summary == {"total_active": 1, "expected_today": 0, "clocked_today": 0}
 
 
 # ---------- export_csv (cartellino: presenze + assenze approvate) ----------

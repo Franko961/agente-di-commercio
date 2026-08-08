@@ -56,6 +56,13 @@ async def get_attendance_expected(month: str, user=Depends(get_current_user)):
     return await attendance_service.expected_hours(user, month)
 
 
+@account_router.get("/today-summary", dependencies=[MODULE_DEP])
+async def get_attendance_today_summary(user=Depends(get_current_user)):
+    """Widget 'Presenze oggi' della Dashboard: quanti dipendenti attesi in
+    turno oggi hanno già timbrato, vedi attendance_service.today_summary."""
+    return await attendance_service.today_summary(user)
+
+
 @account_router.get("/export.csv", dependencies=[MODULE_DEP])
 async def export_attendance(month: str, user=Depends(get_current_user)):
     """month in formato AAAA-MM. Cartellino del mese (timbrature + assenze

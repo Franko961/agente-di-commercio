@@ -29,9 +29,45 @@ const CORE_MODULE_KEYS = [
 
 // Allineato a backend/core/security.py EXTRA_MODULE_KEYS.
 const EXTRA_MODULE_META = {
-  personale: { label: "Personale", desc: "Ferie, permessi, malattie e presenze dei dipendenti.", icon: IdCard, to: "/app/personale" },
+  personale: { label: "Personale", desc: "Anagrafica dipendenti e richieste di ferie, permessi, malattie.", icon: IdCard, to: "/app/personale" },
   flotta: { label: "Flotta", desc: "Anagrafica mezzi, scadenze documentali, costi e carico merce.", icon: Truck, to: "/app/flotta" },
 };
+
+// Widget compatto "Presenze oggi": quanti dipendenti attesi in turno oggi
+// hanno già timbrato (vedi attendance_service.today_summary) — mostrato sia
+// nella home semplificata (nessun modulo core, es. CACI SRL) sia nella
+// dashboard di vendita completa, per chi ha ANCHE il modulo Personale
+// attivo. Fetch autonomo (non dipende da /dashboard/stats, che gli account
+// senza moduli core non chiamano nemmeno) apposta per funzionare in
+// entrambi i contesti senza duplicare la logica.
+function PresenzeWidget() {
+  const [summary, setSummary] = useState(null);
+
+  useEffect(() => {
+    api.get("/attendance/today-summary").then(({ data }) => setSummary(data)).catch(() => {});
+  }, []);
+
+  // Nessun dipendente registrato: il widget non aggiungerebbe informazione utile.
+  if (!summary || summary.total_active === 0) return null;
+
+  return (
+    <Link to="/app/presenze" data-testid="presenze-widget"
+      className="bg-white border border-[#E4E4E1] rounded-md p-5 flex items-center justify-between gap-4 hover:border-[#0A192F] transition-colors fade-up">
+      <div>
+        <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-1">Presenze oggi</div>
+        {summary.expected_today > 0 ? (
+          <div className="font-cabinet font-black text-2xl text-[#0A0A0A]">
+            {summary.clocked_today}/{summary.expected_today}
+            <span className="ml-2 text-[13px] font-normal text-[#52525B]">dipendenti hanno timbrato</span>
+          </div>
+        ) : (
+          <div className="text-[14px] text-[#52525B]">Nessun dipendente in turno oggi</div>
+        )}
+      </div>
+      <ArrowRight className="w-4 h-4 text-[#FF5A00] shrink-0" />
+    </Link>
+  );
+}
 
 function ExtraModulesHome({ user, enabledExtraModules }) {
   return (
@@ -42,6 +78,11 @@ function ExtraModulesHome({ user, enabledExtraModules }) {
         </div>
         <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Buongiorno{user?.name ? `, ${user.name.split(" ")[0]}` : ""}.</h1>
       </div>
+      {enabledExtraModules.includes("personale") && (
+        <div className="max-w-2xl mb-4">
+          <PresenzeWidget />
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
         {enabledExtraModules.map((key) => {
           const meta = EXTRA_MODULE_META[key];
@@ -245,6 +286,9 @@ export default function Dashboard() {
           )}
         </div>
       )}
+
+      {/* Presenze oggi — solo per gli account con il modulo Personale attivo */}
+      {enabledExtraModules.includes("personale") && <PresenzeWidget />}
 
       {/* KPI grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

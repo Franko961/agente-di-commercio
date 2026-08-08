@@ -4,7 +4,7 @@ from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
 
-from core.utils import gen_id, now_iso, local_date_str, LOCAL_TZ
+from core.utils import gen_id, now_iso, now_local, local_date_str, LOCAL_TZ
 from core.exceptions import NotFoundError, ValidationAppError
 from core.security import hash_reset_token, hash_password, verify_password, module_enabled
 from core.rate_limit import check_and_record
@@ -235,13 +235,19 @@ class AttendanceService:
         apposta (per non rompere chi ha configurato solo l'avviso di
         timbratura mancante), quindi qui semplicemente si salta chi non
         l'ha ancora compilato — nessuna riga, non un valore a zero, per
-        distinguere "non configurato" da "zero ore attese"."""
+        distinguere "non configurato" da "zero ore attese". Un dipendente
+        sospeso/cessato (o disattivato) non ha ore attese, stesso criterio
+        già usato da automation_engine._eval_attendance_missing e
+        today_summary — altrimenti la griglia mostrerebbe uno scostamento
+        per qualcuno che non dovrebbe più lavorare."""
         employees = await self.employees.find_many(user["id"])
         year, mon = (int(p) for p in month.split("-"))
         days_in_month = monthrange(year, mon)[1]
 
         out = []
         for e in employees:
+            if not e.get("active", True) or e.get("employment_status") != "attivo":
+                continue
             work_days = e.get("work_days")
             start = e.get("shift_start_time")
             end = e.get("shift_end_time")
@@ -255,6 +261,37 @@ class AttendanceService:
                     continue
                 out.append({"employee_id": e["id"], "date": f"{month}-{day:02d}", "hours": shift_hours})
         return out
+
+    async def today_summary(self, user: dict) -> dict:
+        """Riepilogo timbrature di oggi per il widget 'Presenze oggi' della
+        Dashboard: quanti dipendenti attivi erano attesi in turno oggi
+        (stesso criterio del trigger attendance_missing — orario
+        contrattuale configurato + oggi è un giorno lavorativo per loro) e
+        quanti hanno già timbrato. expected_today resta 0 se nessun
+        dipendente ha un orario configurato o oggi non è lavorativo per
+        nessuno (es. weekend): il widget lo interpreta come 'nessuno in
+        turno oggi', non come un problema."""
+        now = now_local()
+        today_str = now.date().isoformat()
+        weekday = now.weekday()
+
+        employees = await self.employees.find_many(user["id"])
+        total_active = 0
+        expected_today = 0
+        clocked_today = 0
+        for e in employees:
+            if not e.get("active", True) or e.get("employment_status") != "attivo":
+                continue
+            total_active += 1
+            work_days = e.get("work_days")
+            shift_start = e.get("shift_start_time")
+            if not (work_days and shift_start and weekday in work_days):
+                continue
+            expected_today += 1
+            sessions = await self.repo.find_many(e["id"], user["id"])
+            if any(local_date_str(s["clock_in"]) == today_str for s in sessions):
+                clocked_today += 1
+        return {"total_active": total_active, "expected_today": expected_today, "clocked_today": clocked_today}
 
     async def export_csv(self, user: dict, month: str):
         """Cartellino del mese richiesto (AAAA-MM): una riga per ogni

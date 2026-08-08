@@ -2,7 +2,7 @@ import { NavLink, Link, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, KanbanSquare, CalendarDays, Map, FileText, ShoppingCart,
   Coins, Building2, Package, Folder, Sparkles, Zap, LogOut, ArrowLeftRight, ShieldCheck, CreditCard, Settings as SettingsIcon, Receipt,
-  HelpCircle, IdCard, Truck,
+  HelpCircle, IdCard, Truck, Clock,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useMandante } from "../contexts/MandanteContext";
@@ -31,6 +31,7 @@ const navItems = [
   // extra: true = modulo verticale spento di default (vedi ModuleGuard.jsx
   // e core.security.EXTRA_MODULE_KEYS), non i normali moduli CRM sopra.
   { to: "/app/personale", label: "Personale", icon: IdCard, module: "personale", extra: true },
+  { to: "/app/presenze", label: "Presenze", icon: Clock, module: "personale", extra: true },
   { to: "/app/flotta", label: "Flotta", icon: Truck, module: "flotta", extra: true },
   { to: "/app/impostazioni", label: "Impostazioni", icon: SettingsIcon },
 ];

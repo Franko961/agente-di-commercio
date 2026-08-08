@@ -11,7 +11,7 @@ import { useMandante } from "../contexts/MandanteContext";
 import {
   LayoutDashboard, Users, KanbanSquare, CalendarDays, Map, FileText, ShoppingCart,
   Coins, Building2, Package, Folder, Sparkles, Zap, LogOut, CreditCard, ShieldCheck, Receipt,
-  HelpCircle, Eye, Pencil, IdCard, Truck,
+  HelpCircle, Eye, Pencil, IdCard, Truck, Clock,
 } from "lucide-react";
 
 // Banner sempre visibile mentre un admin sta usando l'account di un altro
@@ -60,6 +60,7 @@ const fullNav = [
   { to: "/app/automazioni", label: "Automazioni", icon: Zap, module: "automazioni" },
   { to: "/app/ai", label: "Assistente AI", icon: Sparkles, module: "ai" },
   { to: "/app/personale", label: "Personale", icon: IdCard, module: "personale", extra: true },
+  { to: "/app/presenze", label: "Presenze", icon: Clock, module: "personale", extra: true },
   { to: "/app/flotta", label: "Flotta", icon: Truck, module: "flotta", extra: true },
   { to: "/app/abbonamento", label: "Abbonamento", icon: CreditCard },
 ];
@@ -83,6 +84,7 @@ export default function Layout() {
     "/app/spese": "Spese",
     "/app/prodotti": "Prodotti & Listini", "/app/documenti": "Documenti",
     "/app/automazioni": "Automazioni", "/app/ai": "Assistente AI", "/app/personale": "Personale",
+    "/app/presenze": "Presenze",
     "/app/flotta": "Flotta",
     "/app/aiuto": "Centro assistenza",
   };
