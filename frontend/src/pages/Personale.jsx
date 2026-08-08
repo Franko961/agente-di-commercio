@@ -30,6 +30,7 @@ export default function Personale() {
   const [detailTarget, setDetailTarget] = useState(null);
   const [month, setMonth] = useState(monthKeyToday());
   const [calendarRows, setCalendarRows] = useState([]);
+  const [hoursRows, setHoursRows] = useState([]); // [{ employee_id, date, hours }] — ore lavorate dal chiosco
   const [newLink, setNewLink] = useState(null); // { name, token } — mostrato una sola volta dopo creazione/rigenerazione
   const [deleteTarget, setDeleteTarget] = useState(null); // dipendente per cui è aperta la scelta disattiva/elimina
   const [kioskDialogOpen, setKioskDialogOpen] = useState(false);
@@ -48,9 +49,13 @@ export default function Personale() {
     const { data } = await api.get("/leave-requests/calendar", { params: { month: m } });
     setCalendarRows(data);
   };
+  const loadHours = async (m) => {
+    const { data } = await api.get("/attendance/calendar", { params: { month: m } });
+    setHoursRows(data);
+  };
 
   useEffect(() => { loadEmployees(); loadRequests(); }, []);
-  useEffect(() => { loadCalendar(month); }, [month]);
+  useEffect(() => { loadCalendar(month); loadHours(month); }, [month]);
 
   const pending = requests.filter((r) => r.status === "in_attesa");
   const decided = requests.filter((r) => r.status !== "in_attesa");
@@ -394,7 +399,7 @@ export default function Personale() {
             <span className="font-cabinet font-bold text-[15px]">{monthLabel}</span>
             <button onClick={() => shiftMonth(1)} className="p-2 border border-[#E4E4E1] rounded-md hover:border-[#0A192F]"><ChevronRight className="w-4 h-4" /></button>
           </div>
-          <AbsenceCalendarGrid employees={employees} month={month} rows={calendarRows} />
+          <AbsenceCalendarGrid employees={employees} month={month} rows={calendarRows} hoursRows={hoursRows} />
         </div>
       )}
     </div>
@@ -422,8 +427,10 @@ function isWeekend(monthKey, day) {
 // precedente semplice lista mensile non dava un colpo d'occhio su chi è
 // assente quando, né segnalava sovrapposizioni. `rows` sono le richieste
 // APPROVATE del mese già filtrate dal backend (vedi
-// leave_request_service.calendar) — tutto il resto è calcolato qui.
-function AbsenceCalendarGrid({ employees, month, rows }) {
+// leave_request_service.calendar); `hoursRows` sono le ore lavorate dal
+// chiosco di timbratura nello stesso mese (vedi attendance_service.calendar)
+// — tutto il resto è calcolato qui.
+function AbsenceCalendarGrid({ employees, month, rows, hoursRows }) {
   const activeEmployees = employees.filter((e) => e.active);
 
   if (activeEmployees.length === 0) {
@@ -444,6 +451,11 @@ function AbsenceCalendarGrid({ employees, month, rows }) {
   const covering = (employeeId, iso) =>
     (byEmployee[employeeId] || []).filter((r) => r.date_from <= iso && r.date_to >= iso);
 
+  // Ore lavorate dal chiosco di timbratura (vedi attendance_service.calendar):
+  // una mappa "employeeId|data" -> ore, per un accesso O(1) per cella.
+  const hoursByKey = {};
+  (hoursRows || []).forEach((r) => { hoursByKey[`${r.employee_id}|${r.date}`] = r.hours; });
+
   const absentCountByDay = days.map((day) => {
     const iso = dayIso(month, day);
     return activeEmployees.filter((e) => covering(e.id, iso).length > 0).length;
@@ -461,6 +473,10 @@ function AbsenceCalendarGrid({ employees, month, rows }) {
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-sm inline-block ring-2 ring-red-500 ring-inset" style={{ background: TYPE_COLORS.ferie }} />
           Sovrapposizione
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono text-[10px] text-[#52525B]">8</span>
+          Ore lavorate (dal chiosco di timbratura)
         </div>
       </div>
 
@@ -500,16 +516,23 @@ function AbsenceCalendarGrid({ employees, month, rows }) {
                   const iso = dayIso(month, day);
                   const matches = covering(emp.id, iso);
                   const weekend = isWeekend(month, day);
+                  const hours = hoursByKey[`${emp.id}|${iso}`];
                   if (matches.length === 0) {
-                    return <td key={day} className={`border-b border-[#E4E4E1] w-7 h-7 ${weekend ? "bg-[#F9F9F8]" : ""}`} />;
+                    return (
+                      <td key={day} className={`border-b border-[#E4E4E1] w-7 h-7 text-center ${weekend ? "bg-[#F9F9F8]" : ""}`}>
+                        {hours ? <span className="font-mono text-[9px] text-[#52525B]">{hours}</span> : null}
+                      </td>
+                    );
                   }
                   const conflict = matches.length > 1;
-                  const title = matches.map((m) => TYPE_LABELS[m.type]).join(" + ");
+                  const title = matches.map((m) => TYPE_LABELS[m.type]).join(" + ") + (hours ? ` · ${hours}h lavorate` : "");
                   return (
-                    <td key={day} title={conflict ? `Sovrapposizione: ${title}` : TYPE_LABELS[matches[0].type]}
+                    <td key={day} title={title}
                       className="border-b border-[#E4E4E1] w-7 h-7 p-0.5">
-                      <div className={`w-full h-full rounded-sm ${conflict ? "ring-2 ring-red-500 ring-inset" : ""}`}
-                        style={{ background: TYPE_COLORS[matches[0].type] }} />
+                      <div className={`w-full h-full rounded-sm flex items-center justify-center ${conflict ? "ring-2 ring-red-500 ring-inset" : ""}`}
+                        style={{ background: TYPE_COLORS[matches[0].type] }}>
+                        {hours ? <span className="font-mono text-[8px] text-white/90">{hours}</span> : null}
+                      </div>
                     </td>
                   );
                 })}

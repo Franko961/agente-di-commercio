@@ -22,6 +22,18 @@ class AttendanceRepository:
             {"employee_id": employee_id, "user_id": user_id, "clock_out": None}, {"_id": 0}
         )
 
+    async def find_all_closed(self, user_id: str) -> list:
+        """Tutte le sessioni chiuse (clock_out valorizzato) di TUTTI i
+        dipendenti dell'utente — per l'aggregazione ore/giorno della
+        griglia di gruppo (Personale → Calendario). Filtrata per mese lato
+        service, non qui: stesso principio già scelto per
+        leave_request_repository.find_many (il volume per un account di
+        piccola azienda resta gestibile senza un filtro lato query)."""
+        return await self.collection.find(
+            {"user_id": user_id, "clock_out": {"$ne": None}},
+            {"_id": 0, "employee_id": 1, "clock_in": 1, "clock_out": 1},
+        ).to_list(20000)
+
     async def insert(self, doc: dict) -> dict:
         await self.collection.insert_one(doc)
         doc.pop("_id", None)

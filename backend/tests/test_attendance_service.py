@@ -100,6 +100,12 @@ class FakeAttendanceRepo:
                 return d
         return None
 
+    async def find_all_closed(self, user_id):
+        return [
+            {"employee_id": d["employee_id"], "clock_in": d["clock_in"], "clock_out": d["clock_out"]}
+            for d in self.docs.values() if d["user_id"] == user_id and d["clock_out"] is not None
+        ]
+
     async def insert(self, doc):
         self.docs[doc["id"]] = dict(doc)
         return doc
@@ -331,6 +337,48 @@ def test_delete_session_other_user_is_noop(monkeypatch):
     )))
     run(service.delete_session(OTHER_USER, session["id"]))
     assert session["id"] in att_repo.docs
+
+
+# ---------- calendar (ore lavorate per dipendente/giorno) ----------
+
+def test_calendar_aggrega_le_ore_dello_stesso_giorno(monkeypatch):
+    service, _, _, _ = build_service(monkeypatch)
+    run(service.create_manual_session(USER, "emp-1", AttendanceCorrectionIn(
+        clock_in="2026-08-05T08:00:00+00:00", clock_out="2026-08-05T12:00:00+00:00",
+    )))
+    run(service.create_manual_session(USER, "emp-1", AttendanceCorrectionIn(
+        clock_in="2026-08-05T13:00:00+00:00", clock_out="2026-08-05T17:00:00+00:00",
+    )))
+
+    rows = run(service.calendar(USER, "2026-08"))
+
+    assert rows == [{"employee_id": "emp-1", "date": "2026-08-05", "hours": 8.0}]
+
+
+def test_calendar_esclude_mesi_diversi(monkeypatch):
+    service, _, _, _ = build_service(monkeypatch)
+    run(service.create_manual_session(USER, "emp-1", AttendanceCorrectionIn(
+        clock_in="2026-07-31T08:00:00+00:00", clock_out="2026-07-31T12:00:00+00:00",
+    )))
+
+    assert run(service.calendar(USER, "2026-08")) == []
+
+
+def test_calendar_esclude_sessioni_ancora_aperte(monkeypatch):
+    service, _, _, _ = build_service(monkeypatch)
+    run(service.clock_in_kiosk(KIOSK_TOKEN, "emp-1", PIN))
+
+    assert run(service.calendar(USER, "2026-08")) == []
+
+
+def test_calendar_scoped_per_utente(monkeypatch):
+    service, _, emp_repo, _ = build_service(monkeypatch)
+    emp_repo.docs["emp-2"] = {"id": "emp-2", "user_id": OTHER_USER["id"], "name": "Anna", "active": True, "pin_hash": None}
+    run(service.create_manual_session(OTHER_USER, "emp-2", AttendanceCorrectionIn(
+        clock_in="2026-08-05T08:00:00+00:00", clock_out="2026-08-05T12:00:00+00:00",
+    )))
+
+    assert run(service.calendar(USER, "2026-08")) == []
 
 
 # ---------- AttendanceCorrectionIn: validazione intervallo ----------

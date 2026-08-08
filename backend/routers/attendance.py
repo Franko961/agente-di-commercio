@@ -34,6 +34,20 @@ async def delete_attendance(eid: str, sid: str, user=Depends(forbid_demo_write))
     return {"ok": True}
 
 
+# Account-level (non per singolo dipendente): router separato, non sotto
+# il prefix "/api/employees/{eid}/attendance" sopra, altrimenti "calendar"
+# verrebbe interpretato come un {eid} letterale.
+account_router = APIRouter(prefix="/api/attendance", tags=["attendance"])
+
+
+@account_router.get("/calendar", dependencies=[MODULE_DEP])
+async def get_attendance_calendar(month: str, user=Depends(get_current_user)):
+    """month in formato AAAA-MM. Ore lavorate per dipendente/giorno, per
+    la griglia di gruppo (Personale → Calendario) accanto alle assenze
+    già mostrate da GET /leave-requests/calendar."""
+    return await attendance_service.calendar(user, month)
+
+
 # Chiosco pubblico: QR fisico uguale per tutti i dipendenti, affisso
 # all'ingresso dell'azienda (vedi il docstring di AttendanceService per
 # il perché di questa scelta invece del link personale). Router separato,

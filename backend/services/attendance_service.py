@@ -1,8 +1,9 @@
 import secrets
+from datetime import datetime
 
 from fastapi import HTTPException
 
-from core.utils import gen_id, now_iso
+from core.utils import gen_id, now_iso, local_date_str
 from core.exceptions import NotFoundError, ValidationAppError
 from core.security import hash_reset_token, hash_password, verify_password, module_enabled
 from core.rate_limit import check_and_record
@@ -179,6 +180,32 @@ class AttendanceService:
     async def list_sessions(self, user: dict, employee_id: str) -> list:
         await self._validate_employee(user["id"], employee_id)
         return await self.repo.find_many(employee_id, user["id"])
+
+    async def calendar(self, user: dict, month: str) -> list:
+        """Ore lavorate per dipendente/giorno nel mese richiesto (AAAA-MM)
+        — per la griglia di gruppo (Personale → Calendario), accanto alle
+        assenze già mostrate da leave_request_service.calendar.
+
+        Solo sessioni chiuse: una sessione ancora aperta non ha una durata
+        definitiva da contare (comparirebbe comunque il giorno dopo la
+        chiusura). L'intera durata viene attribuita al giorno solare
+        italiano di clock_in (vedi local_date_str) anche per un turno che
+        sconfina a cavallo di mezzanotte — semplificazione deliberata,
+        stesso principio già scelto per il conteggio ferie a giorni di
+        calendario in leave_request_service."""
+        sessions = await self.repo.find_all_closed(user["id"])
+        totals: dict = {}
+        for s in sessions:
+            day = local_date_str(s["clock_in"])
+            if not day.startswith(month):
+                continue
+            hours = (datetime.fromisoformat(s["clock_out"]) - datetime.fromisoformat(s["clock_in"])).total_seconds() / 3600
+            key = (s["employee_id"], day)
+            totals[key] = totals.get(key, 0) + hours
+        return [
+            {"employee_id": employee_id, "date": date, "hours": round(hours, 2)}
+            for (employee_id, date), hours in totals.items()
+        ]
 
     async def create_manual_session(self, user: dict, employee_id: str, payload) -> dict:
         employee = await self._validate_employee(user["id"], employee_id)
