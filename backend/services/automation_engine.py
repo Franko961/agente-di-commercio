@@ -50,6 +50,9 @@ from repositories.commission_repository import commission_repository
 from repositories.manual_commission_repository import manual_commission_repository
 from repositories.user_repository import user_repository
 from repositories.vehicle_deadline_repository import vehicle_deadline_repository
+from repositories.employee_repository import employee_repository
+from repositories.attendance_repository import attendance_repository
+from repositories.leave_request_repository import leave_request_repository
 from services.commission_service import normalize_manual_commission
 from services.email_service import send_email
 
@@ -92,6 +95,9 @@ def _placeholder_values(target_type: str, context: dict) -> dict:
         return {"nome": context.get("title", ""), "scadenza": (context.get("expires_at") or "")[:10], "citta": ""}
     if target_type in ("client", "lead"):
         return {"nome": context.get("company_name", ""), "scadenza": "", "citta": context.get("city", "")}
+    if target_type == "employee_attendance":
+        nome = f"{context.get('name', '')} {context.get('surname', '')}".strip()
+        return {"nome": nome, "scadenza": "", "citta": ""}
     return {"nome": "", "scadenza": "", "citta": ""}
 
 
@@ -142,6 +148,9 @@ class AutomationEngine:
         manual_commission_repo=manual_commission_repository,
         user_repo=user_repository,
         vehicle_deadline_repo=vehicle_deadline_repository,
+        employee_repo=employee_repository,
+        attendance_repo=attendance_repository,
+        leave_request_repo=leave_request_repository,
         send_email_fn=send_email,
     ):
         self.automation_repo = automation_repo
@@ -156,6 +165,9 @@ class AutomationEngine:
         self.manual_commission_repo = manual_commission_repo
         self.user_repo = user_repo
         self.vehicle_deadline_repo = vehicle_deadline_repo
+        self.employee_repo = employee_repo
+        self.attendance_repo = attendance_repo
+        self.leave_request_repo = leave_request_repo
         self.send_email_fn = send_email_fn
 
     # ------------------------------------------------------------------
@@ -509,6 +521,52 @@ class AutomationEngine:
                 out.append(("vehicle_deadline", f"{d['id']}:{days_until}", {**d, "days_until": days_until}))
         return out
 
+    async def _eval_attendance_missing(self, user_id: str, config: dict) -> list:
+        """Dipendente che non ha ancora timbrato l'ingresso oggi, pur
+        essendo un giorno lavorativo per lui/lei ed essendo passata almeno
+        un'ora dall'inizio del turno configurato (work_days/shift_start_time
+        sulla scheda dipendente, vedi models.employee). Un dipendente SENZA
+        questi due campi impostati non viene mai monitorato apposta: niente
+        falsi allarmi retroattivi su chi non ha mai avuto un orario da
+        rispettare. Le assenze approvate (ferie/permessi/malattia) che
+        coprono la data odierna escludono il dipendente dal controllo.
+        target_id include la data odierna apposta: si ripete da solo ogni
+        giorno lavorativo, senza bisogno di alcun cooldown_days."""
+        now = now_local()
+        today_str = now.date().isoformat()
+        weekday = now.weekday()  # 0 = lunedì ... 6 = domenica
+
+        employees = await self.employee_repo.find_many(user_id)
+        out = []
+        for e in employees:
+            if not e.get("active", True) or e.get("employment_status") != "attivo":
+                continue
+            work_days = e.get("work_days")
+            shift_start = e.get("shift_start_time")
+            if not work_days or not shift_start or weekday not in work_days:
+                continue
+            try:
+                hour, minute = (int(p) for p in shift_start.split(":"))
+            except (ValueError, AttributeError):
+                continue  # orario malformato: non blocca il ciclo, semplicemente non monitorato
+            threshold = now.replace(hour=hour, minute=minute, second=0, microsecond=0) + timedelta(hours=1)
+            if now < threshold:
+                continue
+
+            sessions = await self.attendance_repo.find_many(e["id"], user_id)
+            if any(local_date_str(s["clock_in"]) == today_str for s in sessions):
+                continue  # ha già timbrato oggi (sessione aperta o chiusa)
+
+            leave_requests = await self.leave_request_repo.find_by_employee(e["id"])
+            if any(
+                r["status"] == "approvata" and r["date_from"] <= today_str <= r["date_to"]
+                for r in leave_requests
+            ):
+                continue  # assenza approvata che copre oggi: esclusa dal controllo
+
+            out.append(("employee_attendance", f"{e['id']}:{today_str}", e))
+        return out
+
     # ------------------------------------------------------------------
     # Esecutori di azione
     # ------------------------------------------------------------------
@@ -668,6 +726,9 @@ def _describe_target(target_type: str, context: dict) -> str:
         labels = {"assicurazione": "Assicurazione", "revisione": "Revisione", "bollo": "Bollo", "altro": "Scadenza"}
         label = labels.get(context.get("type"), "Scadenza")
         return f"{label} di {context.get('vehicle_plate', '')} tra {context.get('days_until', '?')} giorni"
+    if target_type == "employee_attendance":
+        nome = f"{context.get('name', '')} {context.get('surname', '')}".strip()
+        return f"{nome} non ha ancora timbrato l'ingresso oggi"
     return target_type
 
 
@@ -681,6 +742,7 @@ _TRIGGER_EVALUATORS = {
     "tomorrow_appointments": AutomationEngine._eval_tomorrow_appointments,
     "commissions_below_target_mid_month": AutomationEngine._eval_commissions_below_target_mid_month,
     "vehicle_deadline": AutomationEngine._eval_vehicle_deadline,
+    "attendance_missing": AutomationEngine._eval_attendance_missing,
 }
 
 _ACTION_EXECUTORS = {

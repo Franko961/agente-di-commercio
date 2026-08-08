@@ -163,9 +163,30 @@ class FakeUserRepo:
         return dict(self.users[uid]) if uid in self.users else None
 
 
+class FakeAttendanceRepoForEngine:
+    """find_many(employee_id, user_id) — firma diversa da FakeSimpleRepo
+    (che filtra solo per user_id), quindi non riusabile qui."""
+    def __init__(self, docs=None):
+        self.docs = docs or []
+
+    async def find_many(self, employee_id, user_id):
+        return [dict(d) for d in self.docs if d["employee_id"] == employee_id and d["user_id"] == user_id]
+
+
+class FakeLeaveRequestRepoForEngine:
+    """find_by_employee(employee_id) — nessun filtro per user_id, stessa
+    firma di leave_request_repository.find_by_employee."""
+    def __init__(self, docs=None):
+        self.docs = docs or []
+
+    async def find_by_employee(self, employee_id):
+        return [dict(d) for d in self.docs if d["employee_id"] == employee_id]
+
+
 def build_engine(automations=None, offers=None, clients=None, leads=None,
                   appointments=None, orders=None, commissions=None, manual_commissions=None,
-                  users=None, vehicle_deadlines=None, send_email_fn=None):
+                  users=None, vehicle_deadlines=None, employees=None, attendance_sessions=None,
+                  leave_requests=None, send_email_fn=None):
     sent_emails = []
 
     async def default_send_email(to, subject, html):
@@ -185,6 +206,9 @@ def build_engine(automations=None, offers=None, clients=None, leads=None,
         manual_commission_repo=FakeSimpleRepo(manual_commissions or []),
         user_repo=FakeUserRepo(users or [{"id": "user-1", "email": "agente@example.com"}]),
         vehicle_deadline_repo=FakeSimpleRepo(vehicle_deadlines or []),
+        employee_repo=FakeSimpleRepo(employees or []),
+        attendance_repo=FakeAttendanceRepoForEngine(attendance_sessions or []),
+        leave_request_repo=FakeLeaveRequestRepoForEngine(leave_requests or []),
         send_email_fn=send_email_fn or default_send_email,
     )
     engine._sent_emails = sent_emails
@@ -1298,6 +1322,232 @@ def test_scadenza_mezzo_due_soglie_diverse_generano_due_promemoria_distinti(monk
 
     target_ids = {d["target_id"] for d in engine.notification_repo.docs}
     assert target_ids == {"deadline-1:30", "deadline-1:7"}
+
+
+# ---------- attendance_missing (dipendente che non ha timbrato) ----------
+
+def _employee(**overrides):
+    base = {
+        "id": "emp-1", "user_id": "user-1", "name": "Mario", "surname": "Rossi",
+        "active": True, "employment_status": "attivo",
+        "work_days": None, "shift_start_time": None,
+    }
+    base.update(overrides)
+    return base
+
+
+def test_dipendente_senza_timbratura_dopo_un_ora_dal_turno_genera_notifica(monkeypatch):
+    import services.automation_engine as automation_engine_mod
+    from datetime import datetime as real_datetime
+
+    mocked_now = real_datetime(2026, 3, 16, 10, 5)  # 1h05 dopo le 09:00
+    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
+
+    automations = [{
+        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
+        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
+    }]
+    employees = [_employee(work_days=[mocked_now.weekday()], shift_start_time="09:00")]
+    engine = build_engine(automations=automations, employees=employees)
+
+    summary = run(engine.run_cycle())
+
+    assert summary["executed"] == 1
+    assert engine.notification_repo.docs[0]["target_id"] == "emp-1:2026-03-16"
+    assert "Mario Rossi" in engine.notification_repo.docs[0]["message"]
+
+
+def test_meno_di_un_ora_dopo_inizio_turno_non_genera_nulla(monkeypatch):
+    import services.automation_engine as automation_engine_mod
+    from datetime import datetime as real_datetime
+
+    mocked_now = real_datetime(2026, 3, 16, 9, 30)  # solo 30 minuti dopo le 09:00
+    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
+
+    automations = [{
+        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
+        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
+    }]
+    employees = [_employee(work_days=[mocked_now.weekday()], shift_start_time="09:00")]
+    engine = build_engine(automations=automations, employees=employees)
+
+    summary = run(engine.run_cycle())
+
+    assert summary["executed"] == 0
+
+
+def test_giorno_non_lavorativo_non_genera_nulla(monkeypatch):
+    import services.automation_engine as automation_engine_mod
+    from datetime import datetime as real_datetime
+
+    mocked_now = real_datetime(2026, 3, 16, 10, 5)
+    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
+
+    automations = [{
+        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
+        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
+    }]
+    # work_days deliberatamente SENZA il giorno di oggi.
+    altro_giorno = (mocked_now.weekday() + 1) % 7
+    employees = [_employee(work_days=[altro_giorno], shift_start_time="09:00")]
+    engine = build_engine(automations=automations, employees=employees)
+
+    summary = run(engine.run_cycle())
+
+    assert summary["executed"] == 0
+
+
+def test_dipendente_senza_orario_configurato_non_viene_mai_monitorato(monkeypatch):
+    """Niente falsi allarmi retroattivi: un dipendente senza work_days/
+    shift_start_time (es. creato prima dell'introduzione della funzione)
+    non genera mai una segnalazione."""
+    import services.automation_engine as automation_engine_mod
+    from datetime import datetime as real_datetime
+
+    mocked_now = real_datetime(2026, 3, 16, 20, 0)  # a fine giornata, per escludere ogni dubbio
+    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
+
+    automations = [{
+        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
+        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
+    }]
+    employees = [_employee()]  # work_days/shift_start_time = None
+    engine = build_engine(automations=automations, employees=employees)
+
+    summary = run(engine.run_cycle())
+
+    assert summary["executed"] == 0
+
+
+def test_dipendente_che_ha_gia_timbrato_non_genera_nulla(monkeypatch):
+    import services.automation_engine as automation_engine_mod
+    from datetime import datetime as real_datetime
+
+    mocked_now = real_datetime(2026, 3, 16, 10, 5)
+    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
+
+    automations = [{
+        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
+        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
+    }]
+    employees = [_employee(work_days=[mocked_now.weekday()], shift_start_time="09:00")]
+    attendance_sessions = [{
+        "id": "s-1", "user_id": "user-1", "employee_id": "emp-1",
+        "clock_in": "2026-03-16T08:00:00+01:00", "clock_out": "2026-03-16T09:00:00+01:00",
+    }]
+    engine = build_engine(automations=automations, employees=employees, attendance_sessions=attendance_sessions)
+
+    summary = run(engine.run_cycle())
+
+    assert summary["executed"] == 0
+
+
+def test_dipendente_con_assenza_approvata_oggi_non_genera_nulla(monkeypatch):
+    import services.automation_engine as automation_engine_mod
+    from datetime import datetime as real_datetime
+
+    mocked_now = real_datetime(2026, 3, 16, 10, 5)
+    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
+
+    automations = [{
+        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
+        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
+    }]
+    employees = [_employee(work_days=[mocked_now.weekday()], shift_start_time="09:00")]
+    leave_requests = [{
+        "id": "lr-1", "user_id": "user-1", "employee_id": "emp-1", "status": "approvata",
+        "date_from": "2026-03-16", "date_to": "2026-03-16",
+    }]
+    engine = build_engine(automations=automations, employees=employees, leave_requests=leave_requests)
+
+    summary = run(engine.run_cycle())
+
+    assert summary["executed"] == 0
+
+
+def test_assenza_in_attesa_non_esclude_dal_controllo(monkeypatch):
+    """Solo le assenze APPROVATE escludono dal controllo — una richiesta
+    ancora in attesa di decisione non è una scusa valida per non timbrare."""
+    import services.automation_engine as automation_engine_mod
+    from datetime import datetime as real_datetime
+
+    mocked_now = real_datetime(2026, 3, 16, 10, 5)
+    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
+
+    automations = [{
+        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
+        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
+    }]
+    employees = [_employee(work_days=[mocked_now.weekday()], shift_start_time="09:00")]
+    leave_requests = [{
+        "id": "lr-1", "user_id": "user-1", "employee_id": "emp-1", "status": "in_attesa",
+        "date_from": "2026-03-16", "date_to": "2026-03-16",
+    }]
+    engine = build_engine(automations=automations, employees=employees, leave_requests=leave_requests)
+
+    summary = run(engine.run_cycle())
+
+    assert summary["executed"] == 1
+
+
+def test_dipendente_non_attivo_non_genera_nulla(monkeypatch):
+    import services.automation_engine as automation_engine_mod
+    from datetime import datetime as real_datetime
+
+    mocked_now = real_datetime(2026, 3, 16, 10, 5)
+    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
+
+    automations = [{
+        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
+        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
+    }]
+    employees = [_employee(work_days=[mocked_now.weekday()], shift_start_time="09:00", active=False)]
+    engine = build_engine(automations=automations, employees=employees)
+
+    summary = run(engine.run_cycle())
+
+    assert summary["executed"] == 0
+
+
+def test_dipendente_cessato_non_genera_nulla(monkeypatch):
+    import services.automation_engine as automation_engine_mod
+    from datetime import datetime as real_datetime
+
+    mocked_now = real_datetime(2026, 3, 16, 10, 5)
+    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
+
+    automations = [{
+        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
+        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
+    }]
+    employees = [_employee(work_days=[mocked_now.weekday()], shift_start_time="09:00", employment_status="cessato")]
+    engine = build_engine(automations=automations, employees=employees)
+
+    summary = run(engine.run_cycle())
+
+    assert summary["executed"] == 0
+
+
+def test_stesso_dipendente_non_genera_due_notifiche_lo_stesso_giorno(monkeypatch):
+    import services.automation_engine as automation_engine_mod
+    from datetime import datetime as real_datetime
+
+    mocked_now = real_datetime(2026, 3, 16, 10, 5)
+    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
+
+    automations = [{
+        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
+        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
+    }]
+    employees = [_employee(work_days=[mocked_now.weekday()], shift_start_time="09:00")]
+    engine = build_engine(automations=automations, employees=employees)
+
+    first = run(engine.run_cycle())
+    second = run(engine.run_cycle())
+
+    assert first["executed"] == 1
+    assert second["executed"] == 0
+    assert second["skipped"] == 1
 
 
 if __name__ == "__main__":

@@ -7,8 +7,10 @@ import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import api from "../api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
+import { Switch } from "../components/ui/switch";
 import { exportLeaveRequests } from "../utils/export";
 import EmployeeDetailSheet from "../components/EmployeeDetailSheet";
+import { useAuth } from "../contexts/AuthContext";
 
 const TYPE_LABELS = { ferie: "Ferie", permesso: "Permesso", malattia: "Malattia" };
 const TYPE_COLORS = { ferie: "#FF5A00", permesso: "#0A192F", malattia: "#DC2626" };
@@ -23,6 +25,8 @@ function monthKeyToday() {
 }
 
 export default function Personale() {
+  const { user } = useAuth();
+  const automazioniEnabled = !(user?.disabled_modules || []).includes("automazioni");
   const [tab, setTab] = useState("richieste"); // richieste | dipendenti | calendario
   const [employees, setEmployees] = useState([]);
   const [requests, setRequests] = useState([]);
@@ -36,6 +40,7 @@ export default function Personale() {
   const [kioskDialogOpen, setKioskDialogOpen] = useState(false);
   const [kioskHasToken, setKioskHasToken] = useState(null); // null = non ancora caricato
   const [kioskToken, setKioskToken] = useState(null); // token in chiaro, mostrato una sola volta dopo generazione
+  const [attendanceReminder, setAttendanceReminder] = useState(null); // automazione "attendance_missing", null finché non caricata/creata
 
   const loadEmployees = async () => {
     const { data } = await api.get("/employees");
@@ -53,9 +58,44 @@ export default function Personale() {
     const { data } = await api.get("/attendance/calendar", { params: { month: m } });
     setHoursRows(data);
   };
+  const loadAttendanceReminder = async () => {
+    if (!automazioniEnabled) return;
+    const { data } = await api.get("/automations");
+    const existing = data.find((a) => a.trigger === "attendance_missing");
+    if (existing) setAttendanceReminder(existing);
+  };
 
-  useEffect(() => { loadEmployees(); loadRequests(); }, []);
+  useEffect(() => { loadEmployees(); loadRequests(); loadAttendanceReminder(); }, []);
   useEffect(() => { loadCalendar(month); loadHours(month); }, [month]);
+
+  // Nessun campo di config oltre enabled: l'orario del controllo (1h dopo
+  // l'inizio turno di ciascun dipendente) viene già dall'orario
+  // contrattuale impostato sulla scheda dipendente (vedi
+  // automation_engine._eval_attendance_missing), non serve altro qui —
+  // stesso schema di toggleReminderDay in Flotta.jsx, ma senza soglie da
+  // configurare.
+  const toggleAttendanceReminder = async (enabled) => {
+    const payload = {
+      name: "Timbratura mancante", trigger: "attendance_missing", action: "send_reminder",
+      enabled, config: {},
+    };
+    try {
+      if (attendanceReminder) {
+        // PUT /automations/{id} ritorna solo {ok:true} (vedi
+        // automation_service.update_automation), non il documento
+        // aggiornato: a differenza della creazione, qui l'id non cambia,
+        // quindi si aggiorna lo stato locale con lo stesso payload inviato.
+        await api.put(`/automations/${attendanceReminder.id}`, payload);
+        setAttendanceReminder({ ...attendanceReminder, ...payload });
+      } else {
+        const { data } = await api.post("/automations", payload);
+        setAttendanceReminder(data);
+      }
+      toast.success(enabled ? "Segnalazione attivata" : "Segnalazione disattivata");
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Operazione non riuscita");
+    }
+  };
 
   const pending = requests.filter((r) => r.status === "in_attesa");
   const decided = requests.filter((r) => r.status !== "in_attesa");
@@ -394,6 +434,21 @@ export default function Personale() {
 
       {tab === "calendario" && (
         <div>
+          {automazioniEnabled ? (
+            <div className="bg-white border border-[#E4E4E1] rounded-md p-4 mb-4 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-[13px] font-medium">Avvisami se un dipendente non timbra</div>
+                <div className="text-[12px] text-[#A1A1AA]">
+                  Un'ora dopo l'inizio del turno contrattuale (impostato sulla scheda dipendente), se non ha timbrato e non ha un'assenza approvata.
+                </div>
+              </div>
+              <Switch checked={attendanceReminder?.enabled || false} onCheckedChange={toggleAttendanceReminder} />
+            </div>
+          ) : (
+            <div className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-md p-4 mb-4 text-[13px] text-[#A1A1AA]">
+              Attiva il modulo Automazioni per la segnalazione delle timbrature mancanti.
+            </div>
+          )}
           <div className="flex items-center justify-between mb-4">
             <button onClick={() => shiftMonth(-1)} className="p-2 border border-[#E4E4E1] rounded-md hover:border-[#0A192F]"><ChevronLeft className="w-4 h-4" /></button>
             <span className="font-cabinet font-bold text-[15px]">{monthLabel}</span>

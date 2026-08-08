@@ -24,6 +24,9 @@ const FILE_BASE = process.env.REACT_APP_BACKEND_URL;
 const DOCUMENT_MAX_MB = 50;
 const EQUIPMENT_STATUS_LABELS = { consegnato: "Consegnato", restituito: "Restituito" };
 const COMPENSATION_TYPE_LABELS = { stipendio: "Stipendio", bonus: "Bonus", rimborso: "Rimborso", altro: "Altro" };
+// Indice 0=lunedì … 6=domenica, coerente con date.weekday() lato backend
+// (vedi models.employee.work_days e automation_engine._eval_attendance_missing).
+const WEEKDAY_LABELS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 const fmtEur = (v) => (v || 0).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 
 const ACTIVITY_META = {
@@ -66,6 +69,22 @@ const TAB_GROUPS = [
   { key: "economia", label: "Economia", icon: Wallet, tabs: ["compensi", "kpi"] },
   { key: "attivita_gruppo", label: "Attività", icon: History, tabs: ["attivita"] },
 ];
+
+// Estrae un messaggio leggibile da un errore API: FastAPI risponde con una
+// stringa per un errore applicativo, ma con una LISTA di errori per un 422
+// di Pydantic (es. i @model_validator su employee/employee_equipment/
+// attendance) — senza questo l'utente vedeva solo un fallback generico e
+// non capiva cosa correggere. Il prefisso "Value error, " è aggiunto
+// automaticamente da Pydantic quando l'errore arriva da un model_validator
+// che solleva ValueError.
+function formatApiError(err, fallback = "Salvataggio non riuscito") {
+  const detail = err?.response?.data?.detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail) && detail.length) {
+    return detail.map((e) => (e?.msg || "").replace(/^Value error,\s*/, "")).filter(Boolean).join(" · ") || fallback;
+  }
+  return fallback;
+}
 
 // Ridimensiona l'immagine lato client prima di convertirla in data URL: una
 // foto profilo non ha bisogno di essere a piena risoluzione, e mandarla
@@ -286,9 +305,17 @@ function InfoTab({ employee, onSaved }) {
     address: employee.address || "", city: employee.city || "", zip_code: employee.zip_code || "", province: employee.province || "",
     notes: employee.notes || "", annual_vacation_days: employee.annual_vacation_days ?? 26,
     photo: employee.photo || null,
+    work_days: employee.work_days || [], shift_start_time: employee.shift_start_time || "",
   });
   const [saving, setSaving] = useState(false);
   const fileRef = useRef(null);
+
+  const toggleWorkDay = (day) => {
+    setF((prev) => ({
+      ...prev,
+      work_days: prev.work_days.includes(day) ? prev.work_days.filter((d) => d !== day) : [...prev.work_days, day].sort(),
+    }));
+  };
 
   const handlePhoto = async (e) => {
     const file = e.target.files?.[0];
@@ -310,11 +337,17 @@ function InfoTab({ employee, onSaved }) {
         email: f.email || null,
         birth_date: f.birth_date || null,
         hire_date: f.hire_date || null,
+        // Entrambi vuoti = "nessun orario configurato" (vedi
+        // models.employee._valida_orario_contrattuale): un array vuoto o
+        // una stringa vuota andrebbero rifiutati dal backend, che si
+        // aspetta o entrambi i campi valorizzati o entrambi null.
+        work_days: f.work_days.length ? f.work_days : null,
+        shift_start_time: f.shift_start_time || null,
       });
       toast.success("Informazioni aggiornate");
       onSaved();
     } catch (err) {
-      toast.error(err?.response?.data?.detail || "Salvataggio non riuscito");
+      toast.error(formatApiError(err));
     } finally {
       setSaving(false);
     }
@@ -370,6 +403,29 @@ function InfoTab({ employee, onSaved }) {
               onChange={(e) => setF({ ...f, annual_vacation_days: e.target.value })}
               className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
           </div>
+        </div>
+      </div>
+
+      <div>
+        <div className="font-mono text-[11px] uppercase tracking-widest text-[#52525B] mb-2">Orario contrattuale</div>
+        <p className="text-[12px] text-[#52525B] mb-2">
+          Usato solo per segnalare una timbratura mancante (Personale → "Avvisami se un dipendente non timbra"):
+          se lasci vuoto, il dipendente non viene monitorato.
+        </p>
+        <div className="flex gap-1.5 mb-2">
+          {WEEKDAY_LABELS.map((label, day) => (
+            <button key={day} type="button" onClick={() => toggleWorkDay(day)}
+              className={`flex-1 py-2 rounded-md text-[11px] font-medium border ${
+                f.work_days.includes(day) ? "bg-[#0A192F] text-white border-[#0A192F]" : "bg-white border-[#E4E4E1] text-[#52525B]"
+              }`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="max-w-[160px]">
+          <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Inizio turno</label>
+          <input type="time" value={f.shift_start_time} onChange={(e) => setF({ ...f, shift_start_time: e.target.value })}
+            className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
         </div>
       </div>
 
@@ -656,20 +712,7 @@ function EquipmentForm({ employeeId, initial, onDone, onCancel }) {
       }
       onDone();
     } catch (err) {
-      const detail = err?.response?.data?.detail;
-      let message = "Salvataggio non riuscito";
-      if (typeof detail === "string") {
-        message = detail;
-      } else if (Array.isArray(detail) && detail.length) {
-        // 422 di Pydantic (es. i controlli di coerenza stato/date in
-        // models/employee_equipment.py): detail è una lista di errori, non
-        // una stringa — senza questo l'utente vedeva solo il messaggio
-        // generico sopra e non capiva cosa correggere. Il prefisso
-        // "Value error, " è aggiunto automaticamente da Pydantic quando
-        // l'errore arriva da un @model_validator che solleva ValueError.
-        message = detail.map((e) => (e?.msg || "").replace(/^Value error,\s*/, "")).filter(Boolean).join(" · ") || message;
-      }
-      toast.error(message);
+      toast.error(formatApiError(err));
     } finally {
       setSaving(false);
     }
@@ -964,17 +1007,7 @@ function AttendanceForm({ employeeId, initial, onDone, onCancel }) {
       }
       onDone();
     } catch (err) {
-      const detail = err?.response?.data?.detail;
-      let message = "Salvataggio non riuscito";
-      if (typeof detail === "string") {
-        message = detail;
-      } else if (Array.isArray(detail) && detail.length) {
-        // 422 di Pydantic (validatore clock_out > clock_in in
-        // models/attendance.py): detail è una lista di errori, non una
-        // stringa — stesso pattern già applicato in EquipmentForm.
-        message = detail.map((e) => (e?.msg || "").replace(/^Value error,\s*/, "")).filter(Boolean).join(" · ") || message;
-      }
-      toast.error(message);
+      toast.error(formatApiError(err));
     } finally {
       setSaving(false);
     }

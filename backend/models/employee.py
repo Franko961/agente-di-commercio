@@ -1,6 +1,6 @@
 from datetime import date
-from pydantic import BaseModel, EmailStr, Field
-from typing import Literal, Optional
+from pydantic import BaseModel, EmailStr, Field, model_validator
+from typing import List, Literal, Optional
 from core.validation_limits import SHORT_TEXT_MAX_LENGTH, LONG_TEXT_MAX_LENGTH, PHOTO_MAX_LENGTH
 
 EMPLOYMENT_STATUSES = ("attivo", "sospeso", "cessato")
@@ -41,6 +41,26 @@ class EmployeeIn(BaseModel):
     # vedi models/offer.py): niente storage a parte, va ridimensionata/
     # compressa lato client prima dell'invio.
     photo: Optional[str] = Field(None, max_length=PHOTO_MAX_LENGTH)
+    # Orario contrattuale: usato SOLO per segnalare una timbratura mancante
+    # (vedi automation_engine._eval_attendance_missing), entrambi opzionali
+    # ma legati — o impostati insieme o nessuno dei due. Un dipendente senza
+    # questi campi non viene mai monitorato apposta: introdurre la
+    # segnalazione non deve generare falsi allarmi retroattivi sui
+    # dipendenti già esistenti, che non hanno mai avuto un orario da
+    # rispettare finché non lo si imposta esplicitamente.
+    work_days: Optional[List[int]] = None  # 0=lunedì … 6=domenica (date.weekday())
+    shift_start_time: Optional[str] = Field(None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+
+    @model_validator(mode="after")
+    def _valida_orario_contrattuale(self):
+        if (self.work_days is None) != (self.shift_start_time is None):
+            raise ValueError("Giorni lavorativi e orario di inizio turno vanno impostati insieme")
+        if self.work_days is not None:
+            if not self.work_days:
+                raise ValueError("Seleziona almeno un giorno lavorativo")
+            if any(d < 0 or d > 6 for d in self.work_days):
+                raise ValueError("Giorno lavorativo non valido")
+        return self
 
 
 class EmployeeActiveUpdate(BaseModel):
