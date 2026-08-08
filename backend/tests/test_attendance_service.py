@@ -20,7 +20,7 @@ from pydantic import ValidationError
 
 sys.path.insert(0, ".")
 
-from core.exceptions import NotFoundError, ValidationAppError
+from core.exceptions import NotFoundError, ValidationAppError, ConflictError
 from core.security import hash_password
 from models.attendance import AttendanceCorrectionIn
 from services.attendance_service import AttendanceService
@@ -126,6 +126,15 @@ class FakeAttendanceRepo:
         ]
 
     async def insert(self, doc):
+        # Simula l'indice parziale univoco MongoDB su (employee_id,
+        # user_id) con clock_out=null (vedi startup_service.run_startup e
+        # attendance_repository.insert): al massimo una sessione aperta
+        # per dipendente, indipendentemente da cosa abbia visto
+        # find_open_session() poco prima.
+        if doc.get("clock_out") is None:
+            for d in self.docs.values():
+                if d["employee_id"] == doc["employee_id"] and d["user_id"] == doc["user_id"] and d["clock_out"] is None:
+                    raise ConflictError("Sei già in servizio: registra prima l'uscita")
         self.docs[doc["id"]] = dict(doc)
         return doc
 
@@ -262,6 +271,30 @@ def test_clock_in_kiosk_rifiuta_se_gia_in_servizio(monkeypatch):
     run(service.clock_in_kiosk(KIOSK_TOKEN, "emp-1", PIN))
     with pytest.raises(ValidationAppError, match="già in servizio"):
         run(service.clock_in_kiosk(KIOSK_TOKEN, "emp-1", PIN))
+
+
+def test_clock_in_kiosk_indice_univoco_blocca_la_race_condition(monkeypatch):
+    """find_open_session() poi insert() non è atomico da solo: due
+    timbrature d'ingresso simultanee potrebbero entrambe superare il
+    pre-check prima che la prima abbia scritto. Qui si simula esattamente
+    questa finestra (il pre-check non vede ancora la sessione aperta) e si
+    verifica che l'ultima linea di difesa — l'indice parziale univoco
+    MongoDB, simulato da FakeAttendanceRepo.insert — blocchi comunque il
+    doppione con ConflictError, non con una seconda sessione aperta."""
+    service, att_repo, _, _, _ = build_service(monkeypatch)
+    run(service.clock_in_kiosk(KIOSK_TOKEN, "emp-1", PIN))
+
+    async def fake_find_open_session(employee_id, user_id):
+        return None  # simula la finestra di race: il pre-check non vede la sessione già aperta
+
+    monkeypatch.setattr(att_repo, "find_open_session", fake_find_open_session)
+
+    with pytest.raises(ConflictError, match="già in servizio"):
+        run(service.clock_in_kiosk(KIOSK_TOKEN, "emp-1", PIN))
+
+    # Una sola sessione aperta è davvero rimasta, non due.
+    open_sessions = [d for d in att_repo.docs.values() if d["employee_id"] == "emp-1" and d["clock_out"] is None]
+    assert len(open_sessions) == 1
 
 
 def test_clock_out_kiosk_chiude_la_sessione_aperta(monkeypatch):

@@ -464,6 +464,21 @@ async def run_startup() -> None:
     # Copre sia find_many (elenco per dipendente, ordinato per clock_in)
     # sia find_open_session (la sessione ancora aperta, se esiste).
     await db.attendance_sessions.create_index([("employee_id", 1), ("user_id", 1), ("clock_in", -1)])
+    # Indice parziale univoco: al massimo UN documento con clock_out=null
+    # per dipendente. find_open_session() poi insert() in
+    # attendance_service.clock_in_kiosk non è atomico da solo — due
+    # timbrature d'ingresso simultanee dello stesso dipendente (es. doppio
+    # tocco sul chiosco) potrebbero entrambe superare il controllo prima
+    # che la prima abbia scritto, creando due sessioni aperte. Questo
+    # indice è l'ultima linea di difesa: la seconda insert_one fallisce con
+    # DuplicateKeyError, tradotto in ConflictError da
+    # attendance_repository.insert.
+    await db.attendance_sessions.create_index(
+        [("employee_id", 1), ("user_id", 1)],
+        unique=True,
+        partialFilterExpression={"clock_out": None},
+        name="unique_open_session_per_employee",
+    )
     await db.leads.create_index([("user_id", 1)])
     await db.appointments.create_index([("user_id", 1)])
     await db.commissions.create_index([("user_id", 1)])

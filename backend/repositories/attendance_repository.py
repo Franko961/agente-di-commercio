@@ -1,4 +1,6 @@
+from pymongo.errors import DuplicateKeyError
 from core.database import db
+from core.exceptions import ConflictError
 from typing import Optional
 
 
@@ -39,7 +41,17 @@ class AttendanceRepository:
         ).to_list(20000)
 
     async def insert(self, doc: dict) -> dict:
-        await self.collection.insert_one(doc)
+        # L'indice parziale univoco su (employee_id, user_id) con
+        # clock_out=null (vedi startup_service.run_startup) è l'ultima
+        # linea di difesa contro due sessioni aperte per lo stesso
+        # dipendente: il controllo find_open_session()+insert() in
+        # attendance_service non è atomico da solo, quindi due timbrature
+        # d'ingresso simultanee potrebbero entrambe superarlo. Qui la
+        # seconda insert_one arriva e MongoDB la rifiuta.
+        try:
+            await self.collection.insert_one(doc)
+        except DuplicateKeyError:
+            raise ConflictError("Sei già in servizio: registra prima l'uscita")
         doc.pop("_id", None)
         return doc
 
