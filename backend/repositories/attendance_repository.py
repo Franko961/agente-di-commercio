@@ -55,12 +55,20 @@ class AttendanceRepository:
         doc.pop("_id", None)
         return doc
 
-    async def update(self, sid: str, user_id: str, data: dict) -> bool:
-        res = await self.collection.update_one({"id": sid, "user_id": user_id}, {"$set": data})
+    async def update(self, sid: str, user_id: str, employee_id: str, data: dict) -> bool:
+        # Filtrato anche per employee_id, non solo sid+user_id (stesso
+        # principio di employee_document_repository.update_meta): senza,
+        # /employees/{eid}/attendance/{sid} accetterebbe una sid che
+        # appartiene a un ALTRO dipendente dello stesso utente — non una
+        # falla cross-account (user_id resta protetto), ma un'incoerenza
+        # semantica tra il percorso e la risorsa davvero modificata.
+        res = await self.collection.update_one(
+            {"id": sid, "user_id": user_id, "employee_id": employee_id}, {"$set": data}
+        )
         return res.matched_count > 0
 
-    async def delete(self, sid: str, user_id: str) -> None:
-        await self.collection.delete_one({"id": sid, "user_id": user_id})
+    async def delete(self, sid: str, user_id: str, employee_id: str) -> None:
+        await self.collection.delete_one({"id": sid, "user_id": user_id, "employee_id": employee_id})
 
 
 attendance_repository = AttendanceRepository()

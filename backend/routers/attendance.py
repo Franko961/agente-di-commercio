@@ -24,13 +24,13 @@ async def create_attendance(eid: str, payload: AttendanceCorrectionIn, user=Depe
 
 @router.patch("/{sid}", dependencies=[MODULE_DEP])
 async def correct_attendance(eid: str, sid: str, payload: AttendanceCorrectionIn, user=Depends(forbid_demo_write)):
-    await attendance_service.correct_session(user, sid, payload)
+    await attendance_service.correct_session(user, eid, sid, payload)
     return {"ok": True}
 
 
 @router.delete("/{sid}", dependencies=[MODULE_DEP])
 async def delete_attendance(eid: str, sid: str, user=Depends(forbid_demo_write)):
-    await attendance_service.delete_session(user, sid)
+    await attendance_service.delete_session(user, eid, sid)
     return {"ok": True}
 
 

@@ -187,7 +187,7 @@ class AttendanceService:
             raise ValidationAppError("Nessun ingresso registrato da chiudere")
 
         clock_out_ts = now_iso()
-        ok = await self.repo.update(existing["id"], employee["user_id"], {"clock_out": clock_out_ts})
+        ok = await self.repo.update(existing["id"], employee["user_id"], employee["id"], {"clock_out": clock_out_ts})
         if not ok:
             raise NotFoundError("Sessione non trovata")
         existing["clock_out"] = clock_out_ts
@@ -365,8 +365,8 @@ class AttendanceService:
         }
         return await self.repo.insert(doc)
 
-    async def correct_session(self, user: dict, sid: str, payload) -> None:
-        ok = await self.repo.update(sid, user["id"], {
+    async def correct_session(self, user: dict, employee_id: str, sid: str, payload) -> None:
+        ok = await self.repo.update(sid, user["id"], employee_id, {
             "clock_in": payload.clock_in,
             "clock_out": payload.clock_out,
             "note": (payload.note or "").strip(),
@@ -375,8 +375,8 @@ class AttendanceService:
         if not ok:
             raise NotFoundError("Sessione non trovata")
 
-    async def delete_session(self, user: dict, sid: str) -> None:
-        await self.repo.delete(sid, user["id"])
+    async def delete_session(self, user: dict, employee_id: str, sid: str) -> None:
+        await self.repo.delete(sid, user["id"], employee_id)
 
 
 attendance_service = AttendanceService()

@@ -138,16 +138,16 @@ class FakeAttendanceRepo:
         self.docs[doc["id"]] = dict(doc)
         return doc
 
-    async def update(self, sid, user_id, data):
+    async def update(self, sid, user_id, employee_id, data):
         d = self.docs.get(sid)
-        if not d or d["user_id"] != user_id:
+        if not d or d["user_id"] != user_id or d["employee_id"] != employee_id:
             return False
         d.update(data)
         return True
 
-    async def delete(self, sid, user_id):
+    async def delete(self, sid, user_id, employee_id):
         d = self.docs.get(sid)
-        if d and d["user_id"] == user_id:
+        if d and d["user_id"] == user_id and d["employee_id"] == employee_id:
             del self.docs[sid]
 
 
@@ -369,7 +369,7 @@ def test_correct_session_aggiorna_orari_e_marca_corretta(monkeypatch):
     service, att_repo, _, _, _ = build_service(monkeypatch)
     session = run(service.clock_in_kiosk(KIOSK_TOKEN, "emp-1", PIN))
 
-    run(service.correct_session(USER, session["id"], AttendanceCorrectionIn(
+    run(service.correct_session(USER, "emp-1", session["id"], AttendanceCorrectionIn(
         clock_in="2026-08-01T08:00:00+00:00", clock_out="2026-08-01T17:00:00+00:00", note="orario corretto",
     )))
 
@@ -382,9 +382,29 @@ def test_correct_session_aggiorna_orari_e_marca_corretta(monkeypatch):
 def test_correct_session_unknown_raises_404(monkeypatch):
     service, _, _, _, _ = build_service(monkeypatch)
     with pytest.raises(NotFoundError):
-        run(service.correct_session(USER, "does-not-exist", AttendanceCorrectionIn(
+        run(service.correct_session(USER, "emp-1", "does-not-exist", AttendanceCorrectionIn(
             clock_in="2026-08-01T08:00:00+00:00",
         )))
+
+
+def test_correct_session_rifiuta_se_leid_nellurl_non_e_il_vero_proprietario(monkeypatch):
+    """/employees/{eid}/attendance/{sid} con un sid che appartiene a un
+    ALTRO dipendente dello stesso utente: non deve modificare la sessione
+    solo perché sid+user_id combaciano, il percorso non corrisponde alla
+    risorsa reale."""
+    service, att_repo, emp_repo, _, _ = build_service(monkeypatch)
+    emp_repo.docs["emp-2"] = {"id": "emp-2", "user_id": USER["id"], "name": "Luca", "active": True, "pin_hash": None}
+    session = run(service.create_manual_session(USER, "emp-1", AttendanceCorrectionIn(
+        clock_in="2026-08-01T08:00:00+00:00",
+    )))
+
+    with pytest.raises(NotFoundError):
+        run(service.correct_session(USER, "emp-2", session["id"], AttendanceCorrectionIn(
+            clock_in="2026-08-02T08:00:00+00:00",
+        )))
+
+    # La sessione di emp-1 non deve essere stata toccata.
+    assert att_repo.docs[session["id"]]["clock_in"] == "2026-08-01T08:00:00+00:00"
 
 
 def test_delete_session_removes_it(monkeypatch):
@@ -392,7 +412,7 @@ def test_delete_session_removes_it(monkeypatch):
     session = run(service.create_manual_session(USER, "emp-1", AttendanceCorrectionIn(
         clock_in="2026-08-01T08:00:00+00:00",
     )))
-    run(service.delete_session(USER, session["id"]))
+    run(service.delete_session(USER, "emp-1", session["id"]))
     assert session["id"] not in att_repo.docs
 
 
@@ -401,7 +421,19 @@ def test_delete_session_other_user_is_noop(monkeypatch):
     session = run(service.create_manual_session(USER, "emp-1", AttendanceCorrectionIn(
         clock_in="2026-08-01T08:00:00+00:00",
     )))
-    run(service.delete_session(OTHER_USER, session["id"]))
+    run(service.delete_session(OTHER_USER, "emp-1", session["id"]))
+    assert session["id"] in att_repo.docs
+
+
+def test_delete_session_rifiuta_se_leid_nellurl_non_e_il_vero_proprietario(monkeypatch):
+    service, att_repo, emp_repo, _, _ = build_service(monkeypatch)
+    emp_repo.docs["emp-2"] = {"id": "emp-2", "user_id": USER["id"], "name": "Luca", "active": True, "pin_hash": None}
+    session = run(service.create_manual_session(USER, "emp-1", AttendanceCorrectionIn(
+        clock_in="2026-08-01T08:00:00+00:00",
+    )))
+
+    run(service.delete_session(USER, "emp-2", session["id"]))
+
     assert session["id"] in att_repo.docs
 
 
