@@ -823,6 +823,39 @@ def test_export_csv_include_assenze_approvate_del_mese(monkeypatch):
     assert rows[1] == ["Mario Rossi", "Ferie", "2026-08-10", "2026-08-12", "", "", "", "ferie estive"]
 
 
+def test_export_csv_ritaglia_lassenza_a_cavallo_tra_due_mesi(monkeypatch):
+    """Un'assenza che attraversa il confine del mese (28 luglio - 5 agosto)
+    deve comparire nel cartellino di agosto solo con la porzione di agosto
+    (1-5), non con l'intervallo originale — altrimenti il cartellino di
+    luglio E quello di agosto mostrerebbero entrambi l'intero intervallo,
+    facendo tornare male qualunque conteggio giorni per mese."""
+    service, _, _, _, leave_repo = build_service(monkeypatch)
+    leave_repo.docs.append({
+        "user_id": USER["id"], "employee_name": "Mario Rossi", "type": "ferie",
+        "date_from": "2026-07-28", "date_to": "2026-08-05", "status": "approvata",
+        "note": "", "hours": None,
+    })
+
+    response = run(service.export_csv(USER, "2026-08"))
+    rows = _rows_from_response(response)
+
+    assert rows[1] == ["Mario Rossi", "Ferie", "2026-08-01", "2026-08-05", "", "", "", ""]
+
+
+def test_export_csv_ritaglia_lassenza_che_finisce_nel_mese_successivo(monkeypatch):
+    service, _, _, _, leave_repo = build_service(monkeypatch)
+    leave_repo.docs.append({
+        "user_id": USER["id"], "employee_name": "Mario Rossi", "type": "malattia",
+        "date_from": "2026-08-28", "date_to": "2026-09-03", "status": "approvata",
+        "note": "", "hours": None,
+    })
+
+    response = run(service.export_csv(USER, "2026-08"))
+    rows = _rows_from_response(response)
+
+    assert rows[1] == ["Mario Rossi", "Malattia", "2026-08-28", "2026-08-31", "", "", "", ""]
+
+
 def test_export_csv_esclude_assenze_non_approvate(monkeypatch):
     service, _, _, _, leave_repo = build_service(monkeypatch)
     leave_repo.docs.append({

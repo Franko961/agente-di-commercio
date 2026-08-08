@@ -367,15 +367,21 @@ class AttendanceService:
                 "note": s.get("note", ""),
             })
 
-        date_from = f"{month}-01"
-        date_to_bound = f"{month}-31"  # confronto testuale ISO, stesso principio di leave_request_service.calendar
-        leave_requests = await self.leave_requests.find_overlapping(user["id"], date_from, date_to_bound, status="approvata")
+        year, mon = (int(p) for p in month.split("-"))
+        month_start = f"{month}-01"
+        month_end = f"{month}-{monthrange(year, mon)[1]:02d}"
+        leave_requests = await self.leave_requests.find_overlapping(user["id"], month_start, month_end, status="approvata")
         for r in leave_requests:
             rows.append({
                 "employee_name": r.get("employee_name", ""),
                 "type": LEAVE_TYPE_LABELS.get(r["type"], r["type"]),
-                "date": r["date_from"],
-                "date_to": r["date_to"],
+                # Solo la porzione che ricade nel mese esportato, non l'intervallo
+                # originale della richiesta: un'assenza a cavallo tra due mesi (es.
+                # 28 luglio - 5 agosto) in un cartellino di agosto deve mostrare
+                # 1-5 agosto, non l'intero intervallo — altrimenti il totale giorni
+                # per mese non tornerebbe con quello che il consulente si aspetta.
+                "date": max(r["date_from"], month_start),
+                "date_to": min(r["date_to"], month_end),
                 "clock_in": "",
                 "clock_out": "",
                 "hours": r.get("hours") if r.get("hours") is not None else "",
