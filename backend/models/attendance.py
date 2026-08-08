@@ -33,13 +33,22 @@ class AttendanceCorrectionIn(BaseModel):
 
     @model_validator(mode="after")
     def _valida_intervallo(self):
+        # clock_in va validato SEMPRE, anche per una sessione ancora
+        # aperta (clock_out assente): un valore non parsabile qui
+        # (es. digitato/manomesso a mano) passerebbe altrimenti
+        # indisturbato finché quella sessione resta aperta, per poi
+        # rompere silenziosamente calendario/export/calcolo ore nel
+        # momento in cui viene chiusa o letta altrove.
+        try:
+            ci = datetime.fromisoformat(self.clock_in.replace("Z", "+00:00"))
+        except (ValueError, AttributeError):
+            raise ValueError("Formato data/ora di ingresso non valido")
         if not self.clock_out:
             return self
         try:
-            ci = datetime.fromisoformat(self.clock_in.replace("Z", "+00:00"))
             co = datetime.fromisoformat(self.clock_out.replace("Z", "+00:00"))
         except (ValueError, AttributeError):
-            raise ValueError("Formato data/ora non valido")
+            raise ValueError("Formato data/ora di uscita non valido")
         if co <= ci:
             raise ValueError("L'uscita deve essere successiva all'ingresso")
         return self

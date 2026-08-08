@@ -730,6 +730,26 @@ def test_attendance_correction_in_accetta_senza_clock_out():
     assert corr.clock_out is None
 
 
+def test_attendance_correction_in_rifiuta_clock_in_malformato_senza_clock_out():
+    """Il bug che ha motivato il fix: prima il validatore controllava il
+    formato di clock_in SOLO se clock_out era presente, quindi una
+    sessione manuale ancora aperta poteva passare con un clock_in non
+    parsabile — che avrebbe poi rotto silenziosamente calendario/export
+    nel momento in cui la sessione veniva chiusa."""
+    with pytest.raises(ValidationError, match="ingresso non valido"):
+        AttendanceCorrectionIn(clock_in="pippo")
+
+
+def test_attendance_correction_in_rifiuta_clock_in_malformato_con_clock_out():
+    with pytest.raises(ValidationError, match="ingresso non valido"):
+        AttendanceCorrectionIn(clock_in="pippo", clock_out="2026-08-01T17:00:00+00:00")
+
+
+def test_attendance_correction_in_rifiuta_clock_out_malformato():
+    with pytest.raises(ValidationError, match="uscita non valido"):
+        AttendanceCorrectionIn(clock_in="2026-08-01T08:00:00+00:00", clock_out="pippo")
+
+
 if __name__ == "__main__":
     import pytest
     raise SystemExit(pytest.main([__file__, "-v"]))
