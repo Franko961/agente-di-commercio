@@ -262,7 +262,11 @@ class AttendanceService:
                 continue
             start_h, start_m = (int(p) for p in start.split(":"))
             end_h, end_m = (int(p) for p in end.split(":"))
-            shift_hours = round((end_h * 60 + end_m - start_h * 60 - start_m) / 60, 2)
+            # unpaid_break_minutes (es. pausa pranzo) sottratta dalla durata
+            # del turno: senza, 09:00-18:00 risulterebbe 9 ore attese invece
+            # di 8 con un'ora di pausa non retribuita (vedi models.employee).
+            break_minutes = e.get("unpaid_break_minutes") or 0
+            shift_hours = round((end_h * 60 + end_m - start_h * 60 - start_m - break_minutes) / 60, 2)
             for day in range(1, days_in_month + 1):
                 if date(year, mon, day).weekday() not in work_days:
                     continue

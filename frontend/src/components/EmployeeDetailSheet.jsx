@@ -306,7 +306,7 @@ function InfoTab({ employee, onSaved }) {
     notes: employee.notes || "", annual_vacation_days: employee.annual_vacation_days ?? 26,
     photo: employee.photo || null,
     work_days: employee.work_days || [], shift_start_time: employee.shift_start_time || "",
-    shift_end_time: employee.shift_end_time || "",
+    shift_end_time: employee.shift_end_time || "", unpaid_break_minutes: employee.unpaid_break_minutes ?? 0,
   });
   const [saving, setSaving] = useState(false);
   const fileRef = useRef(null);
@@ -434,6 +434,12 @@ function InfoTab({ employee, onSaved }) {
           <div className="max-w-[160px]">
             <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Fine turno</label>
             <input type="time" value={f.shift_end_time} onChange={(e) => setF({ ...f, shift_end_time: e.target.value })}
+              className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
+          </div>
+          <div className="max-w-[160px]">
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Pausa non retribuita (min)</label>
+            <input type="number" min="0" max="480" step="5" value={f.unpaid_break_minutes}
+              onChange={(e) => setF({ ...f, unpaid_break_minutes: e.target.value === "" ? 0 : Number(e.target.value) })}
               className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
           </div>
         </div>

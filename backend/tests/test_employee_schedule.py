@@ -100,5 +100,44 @@ def test_fine_turno_uguale_allinizio_e_rifiutato():
         EmployeeIn(**_payload(work_days=[0], shift_start_time="09:00", shift_end_time="09:00"))
 
 
+# ---------- unpaid_break_minutes ----------
+
+def test_pausa_di_default_e_zero():
+    e = EmployeeIn(**_payload())
+    assert e.unpaid_break_minutes == 0
+
+
+def test_pausa_con_turno_completo_e_valida():
+    e = EmployeeIn(**_payload(work_days=[0], shift_start_time="09:00", shift_end_time="18:00", unpaid_break_minutes=60))
+    assert e.unpaid_break_minutes == 60
+
+
+def test_pausa_senza_alcun_turno_e_valida():
+    """Non richiede shift_end_time impostato: se non c'è un turno da cui
+    sottrarla resta semplicemente inutilizzata, non un dato incoerente."""
+    e = EmployeeIn(**_payload(unpaid_break_minutes=30))
+    assert e.unpaid_break_minutes == 30
+
+
+def test_pausa_uguale_alla_durata_del_turno_e_rifiutata():
+    with pytest.raises(ValidationError, match="non può durare quanto o più dell'intero turno"):
+        EmployeeIn(**_payload(work_days=[0], shift_start_time="09:00", shift_end_time="10:00", unpaid_break_minutes=60))
+
+
+def test_pausa_maggiore_della_durata_del_turno_e_rifiutata():
+    with pytest.raises(ValidationError, match="non può durare quanto o più dell'intero turno"):
+        EmployeeIn(**_payload(work_days=[0], shift_start_time="09:00", shift_end_time="10:00", unpaid_break_minutes=90))
+
+
+def test_pausa_negativa_e_rifiutata():
+    with pytest.raises(ValidationError):
+        EmployeeIn(**_payload(unpaid_break_minutes=-1))
+
+
+def test_pausa_oltre_il_tetto_e_rifiutata():
+    with pytest.raises(ValidationError):
+        EmployeeIn(**_payload(unpaid_break_minutes=481))
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))

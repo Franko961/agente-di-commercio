@@ -63,6 +63,14 @@ class EmployeeIn(BaseModel):
     work_days: Optional[List[int]] = None  # 0=lunedì … 6=domenica (date.weekday())
     shift_start_time: Optional[str] = Field(None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
     shift_end_time: Optional[str] = Field(None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    # Sottratta da (fine - inizio) nel calcolo delle ore attese (vedi
+    # attendance_service.expected_hours): senza, un turno 09:00-18:00
+    # risulterebbe 9 ore attese invece di 8 con un'ora di pausa pranzo non
+    # retribuita. Default 0 (nessuna pausa), non richiede shift_end_time
+    # impostato — se non c'è un turno da cui sottrarla è semplicemente
+    # inutilizzata, non un dato incoerente. Tetto a 480 minuti (8h): oltre
+    # non avrebbe senso per un singolo turno giornaliero.
+    unpaid_break_minutes: int = Field(0, ge=0, le=480)
 
     @model_validator(mode="after")
     def _valida_orario_contrattuale(self):
@@ -78,6 +86,11 @@ class EmployeeIn(BaseModel):
                 raise ValueError("L'orario di fine turno richiede anche l'orario di inizio turno")
             if self.shift_end_time <= self.shift_start_time:
                 raise ValueError("L'orario di fine turno deve essere successivo a quello di inizio")
+            shift_start_h, shift_start_m = (int(p) for p in self.shift_start_time.split(":"))
+            shift_end_h, shift_end_m = (int(p) for p in self.shift_end_time.split(":"))
+            shift_minutes = (shift_end_h * 60 + shift_end_m) - (shift_start_h * 60 + shift_start_m)
+            if self.unpaid_break_minutes >= shift_minutes:
+                raise ValueError("La pausa non retribuita non può durare quanto o più dell'intero turno")
         return self
 
 

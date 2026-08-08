@@ -503,6 +503,28 @@ def test_expected_hours_calcola_la_durata_del_turno(monkeypatch):
     assert all(r["hours"] == 3.5 for r in rows)
 
 
+def test_expected_hours_sottrae_la_pausa_non_retribuita(monkeypatch):
+    """Il caso che ha motivato il fix: 09:00-18:00 con un'ora di pausa
+    pranzo deve dare 8 ore attese, non 9."""
+    service, _, emp_repo, _, _ = build_service(monkeypatch)
+    emp_repo.docs["emp-1"].update({
+        "work_days": [0], "shift_start_time": "09:00", "shift_end_time": "18:00", "unpaid_break_minutes": 60,
+    })
+
+    rows = run(service.expected_hours(USER, "2026-08"))
+
+    assert all(r["hours"] == 8.0 for r in rows)
+
+
+def test_expected_hours_senza_pausa_configurata_non_sottrae_nulla(monkeypatch):
+    service, _, emp_repo, _, _ = build_service(monkeypatch)
+    emp_repo.docs["emp-1"].update({"work_days": [0], "shift_start_time": "09:00", "shift_end_time": "18:00"})
+
+    rows = run(service.expected_hours(USER, "2026-08"))
+
+    assert all(r["hours"] == 9.0 for r in rows)
+
+
 def test_expected_hours_esclude_dipendente_senza_fine_turno(monkeypatch):
     """shift_end_time è facoltativo su models.employee (a differenza di
     work_days/shift_start_time): un dipendente che ha configurato solo
