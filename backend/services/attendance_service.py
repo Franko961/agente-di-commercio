@@ -1,5 +1,6 @@
 import secrets
-from datetime import datetime, timezone
+from calendar import monthrange
+from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
 
@@ -222,6 +223,38 @@ class AttendanceService:
             {"employee_id": employee_id, "date": date, "hours": round(hours, 2)}
             for (employee_id, date), hours in totals.items()
         ]
+
+    async def expected_hours(self, user: dict, month: str) -> list:
+        """Ore ATTESE per dipendente/giorno nel mese richiesto (AAAA-MM),
+        calcolate dall'orario contrattuale (work_days/shift_start_time/
+        shift_end_time sulla scheda dipendente) — per il confronto con le
+        ore REALI timbrate (calendar() sopra) nella griglia di gruppo.
+
+        Solo i dipendenti con tutti e tre i campi impostati vengono
+        inclusi: shift_end_time resta facoltativo su models.employee
+        apposta (per non rompere chi ha configurato solo l'avviso di
+        timbratura mancante), quindi qui semplicemente si salta chi non
+        l'ha ancora compilato — nessuna riga, non un valore a zero, per
+        distinguere "non configurato" da "zero ore attese"."""
+        employees = await self.employees.find_many(user["id"])
+        year, mon = (int(p) for p in month.split("-"))
+        days_in_month = monthrange(year, mon)[1]
+
+        out = []
+        for e in employees:
+            work_days = e.get("work_days")
+            start = e.get("shift_start_time")
+            end = e.get("shift_end_time")
+            if not work_days or not start or not end:
+                continue
+            start_h, start_m = (int(p) for p in start.split(":"))
+            end_h, end_m = (int(p) for p in end.split(":"))
+            shift_hours = round((end_h * 60 + end_m - start_h * 60 - start_m) / 60, 2)
+            for day in range(1, days_in_month + 1):
+                if date(year, mon, day).weekday() not in work_days:
+                    continue
+                out.append({"employee_id": e["id"], "date": f"{month}-{day:02d}", "hours": shift_hours})
+        return out
 
     async def export_csv(self, user: dict, month: str):
         """Cartellino del mese richiesto (AAAA-MM): una riga per ogni

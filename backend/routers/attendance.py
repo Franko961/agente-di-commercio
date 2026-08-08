@@ -48,6 +48,14 @@ async def get_attendance_calendar(month: str, user=Depends(get_current_user)):
     return await attendance_service.calendar(user, month)
 
 
+@account_router.get("/expected", dependencies=[MODULE_DEP])
+async def get_attendance_expected(month: str, user=Depends(get_current_user)):
+    """month in formato AAAA-MM. Ore ATTESE per dipendente/giorno,
+    calcolate dall'orario contrattuale — per il confronto con le ore reali
+    di GET /calendar nella griglia di gruppo, vedi attendance_service.expected_hours."""
+    return await attendance_service.expected_hours(user, month)
+
+
 @account_router.get("/export.csv", dependencies=[MODULE_DEP])
 async def export_attendance(month: str, user=Depends(get_current_user)):
     """month in formato AAAA-MM. Cartellino del mese (timbrature + assenze

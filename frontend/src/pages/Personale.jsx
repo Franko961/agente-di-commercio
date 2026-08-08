@@ -35,6 +35,7 @@ export default function Personale() {
   const [month, setMonth] = useState(monthKeyToday());
   const [calendarRows, setCalendarRows] = useState([]);
   const [hoursRows, setHoursRows] = useState([]); // [{ employee_id, date, hours }] — ore lavorate dal chiosco
+  const [expectedRows, setExpectedRows] = useState([]); // [{ employee_id, date, hours }] — ore attese da orario contrattuale
   const [newLink, setNewLink] = useState(null); // { name, token } — mostrato una sola volta dopo creazione/rigenerazione
   const [deleteTarget, setDeleteTarget] = useState(null); // dipendente per cui è aperta la scelta disattiva/elimina
   const [kioskDialogOpen, setKioskDialogOpen] = useState(false);
@@ -58,6 +59,10 @@ export default function Personale() {
     const { data } = await api.get("/attendance/calendar", { params: { month: m } });
     setHoursRows(data);
   };
+  const loadExpectedHours = async (m) => {
+    const { data } = await api.get("/attendance/expected", { params: { month: m } });
+    setExpectedRows(data);
+  };
   const loadAttendanceReminder = async () => {
     if (!automazioniEnabled) return;
     const { data } = await api.get("/automations");
@@ -66,7 +71,7 @@ export default function Personale() {
   };
 
   useEffect(() => { loadEmployees(); loadRequests(); loadAttendanceReminder(); }, []);
-  useEffect(() => { loadCalendar(month); loadHours(month); }, [month]);
+  useEffect(() => { loadCalendar(month); loadHours(month); loadExpectedHours(month); }, [month]);
 
   // Nessun campo di config oltre enabled: l'orario del controllo (1h dopo
   // l'inizio turno di ciascun dipendente) viene già dall'orario
@@ -472,7 +477,7 @@ export default function Personale() {
               <Download className="w-4 h-4" /> Esporta cartellino
             </button>
           </div>
-          <AbsenceCalendarGrid employees={employees} month={month} rows={calendarRows} hoursRows={hoursRows} />
+          <AbsenceCalendarGrid employees={employees} month={month} rows={calendarRows} hoursRows={hoursRows} expectedRows={expectedRows} />
         </div>
       )}
     </div>
@@ -501,9 +506,11 @@ function isWeekend(monthKey, day) {
 // assente quando, né segnalava sovrapposizioni. `rows` sono le richieste
 // APPROVATE del mese già filtrate dal backend (vedi
 // leave_request_service.calendar); `hoursRows` sono le ore lavorate dal
-// chiosco di timbratura nello stesso mese (vedi attendance_service.calendar)
-// — tutto il resto è calcolato qui.
-function AbsenceCalendarGrid({ employees, month, rows, hoursRows }) {
+// chiosco di timbratura nello stesso mese (vedi attendance_service.calendar);
+// `expectedRows` sono le ore ATTESE da orario contrattuale nello stesso mese
+// (vedi attendance_service.expected_hours, presenti solo per i dipendenti
+// che hanno compilato anche la fine turno) — tutto il resto è calcolato qui.
+function AbsenceCalendarGrid({ employees, month, rows, hoursRows, expectedRows }) {
   const activeEmployees = employees.filter((e) => e.active);
 
   if (activeEmployees.length === 0) {
@@ -529,6 +536,16 @@ function AbsenceCalendarGrid({ employees, month, rows, hoursRows }) {
   const hoursByKey = {};
   (hoursRows || []).forEach((r) => { hoursByKey[`${r.employee_id}|${r.date}`] = r.hours; });
 
+  // Ore ATTESE da orario contrattuale (vedi attendance_service.expected_hours):
+  // stessa mappa, usata per confrontare reale vs atteso sui giorni senza
+  // assenza. Solo i giorni odierni/passati vengono evidenziati come
+  // scostamento: un giorno futuro ha legittimamente 0 ore reali finché non
+  // arriva, non è un allarme.
+  const expectedByKey = {};
+  (expectedRows || []).forEach((r) => { expectedByKey[`${r.employee_id}|${r.date}`] = r.hours; });
+  const now = new Date();
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
   const absentCountByDay = days.map((day) => {
     const iso = dayIso(month, day);
     return activeEmployees.filter((e) => covering(e.id, iso).length > 0).length;
@@ -550,6 +567,10 @@ function AbsenceCalendarGrid({ employees, month, rows, hoursRows }) {
         <div className="flex items-center gap-1.5">
           <span className="font-mono text-[10px] text-[#52525B]">8</span>
           Ore lavorate (dal chiosco di timbratura)
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono text-[10px] text-red-600">6/8</span>
+          Ore reali/attese (se sotto l'orario contrattuale)
         </div>
       </div>
 
@@ -590,10 +611,20 @@ function AbsenceCalendarGrid({ employees, month, rows, hoursRows }) {
                   const matches = covering(emp.id, iso);
                   const weekend = isWeekend(month, day);
                   const hours = hoursByKey[`${emp.id}|${iso}`];
+                  const expected = expectedByKey[`${emp.id}|${iso}`];
                   if (matches.length === 0) {
+                    // Sotto l'orario contrattuale evidenziato in rosso SOLO
+                    // per oggi/giorni passati: un giorno futuro ha
+                    // legittimamente 0 ore reali finché non arriva, non è
+                    // uno scostamento da segnalare.
+                    const shortfall = expected != null && iso <= todayIso && (hours || 0) < expected;
+                    const content = expected != null ? `${hours || 0}/${expected}` : (hours || null);
+                    const cellTitle = expected != null ? `${hours || 0}h reali su ${expected}h attese` : undefined;
                     return (
-                      <td key={day} className={`border-b border-[#E4E4E1] w-7 h-7 text-center ${weekend ? "bg-[#F9F9F8]" : ""}`}>
-                        {hours ? <span className="font-mono text-[9px] text-[#52525B]">{hours}</span> : null}
+                      <td key={day} title={cellTitle} className={`border-b border-[#E4E4E1] w-7 h-7 text-center ${weekend ? "bg-[#F9F9F8]" : ""}`}>
+                        {content ? (
+                          <span className={`font-mono text-[9px] ${shortfall ? "text-red-600 font-bold" : "text-[#52525B]"}`}>{content}</span>
+                        ) : null}
                       </td>
                     );
                   }

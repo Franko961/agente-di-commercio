@@ -306,6 +306,7 @@ function InfoTab({ employee, onSaved }) {
     notes: employee.notes || "", annual_vacation_days: employee.annual_vacation_days ?? 26,
     photo: employee.photo || null,
     work_days: employee.work_days || [], shift_start_time: employee.shift_start_time || "",
+    shift_end_time: employee.shift_end_time || "",
   });
   const [saving, setSaving] = useState(false);
   const fileRef = useRef(null);
@@ -343,6 +344,7 @@ function InfoTab({ employee, onSaved }) {
         // aspetta o entrambi i campi valorizzati o entrambi null.
         work_days: f.work_days.length ? f.work_days : null,
         shift_start_time: f.shift_start_time || null,
+        shift_end_time: f.shift_end_time || null,
       });
       toast.success("Informazioni aggiornate");
       onSaved();
@@ -409,8 +411,9 @@ function InfoTab({ employee, onSaved }) {
       <div>
         <div className="font-mono text-[11px] uppercase tracking-widest text-[#52525B] mb-2">Orario contrattuale</div>
         <p className="text-[12px] text-[#52525B] mb-2">
-          Usato solo per segnalare una timbratura mancante (Personale → "Avvisami se un dipendente non timbra"):
-          se lasci vuoto, il dipendente non viene monitorato.
+          Giorni e inizio turno servono a segnalare una timbratura mancante (Personale → "Avvisami se un dipendente non timbra").
+          La fine turno (facoltativa) abilita anche il confronto ore attese/reali nella griglia Calendario.
+          Se lasci tutto vuoto, il dipendente non viene monitorato.
         </p>
         <div className="flex gap-1.5 mb-2">
           {WEEKDAY_LABELS.map((label, day) => (
@@ -422,10 +425,17 @@ function InfoTab({ employee, onSaved }) {
             </button>
           ))}
         </div>
-        <div className="max-w-[160px]">
-          <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Inizio turno</label>
-          <input type="time" value={f.shift_start_time} onChange={(e) => setF({ ...f, shift_start_time: e.target.value })}
-            className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
+        <div className="flex gap-3">
+          <div className="max-w-[160px]">
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Inizio turno</label>
+            <input type="time" value={f.shift_start_time} onChange={(e) => setF({ ...f, shift_start_time: e.target.value })}
+              className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
+          </div>
+          <div className="max-w-[160px]">
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Fine turno</label>
+            <input type="time" value={f.shift_end_time} onChange={(e) => setF({ ...f, shift_end_time: e.target.value })}
+              className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
+          </div>
         </div>
       </div>
 

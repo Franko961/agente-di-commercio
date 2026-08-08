@@ -413,6 +413,67 @@ def test_calendar_scoped_per_utente(monkeypatch):
     assert run(service.calendar(USER, "2026-08")) == []
 
 
+# ---------- expected_hours (ore attese da orario contrattuale) ----------
+
+def test_expected_hours_dipendente_con_orario_completo(monkeypatch):
+    service, _, emp_repo, _, _ = build_service(monkeypatch)
+    emp_repo.docs["emp-1"].update({"work_days": [0, 1, 2, 3, 4], "shift_start_time": "09:00", "shift_end_time": "17:00"})
+
+    rows = run(service.expected_hours(USER, "2026-08"))
+
+    # Agosto 2026: 21 giorni feriali (lun-ven), 8h di turno ciascuno.
+    assert len(rows) == 21
+    assert all(r["employee_id"] == "emp-1" and r["hours"] == 8.0 for r in rows)
+    assert {"employee_id": "emp-1", "date": "2026-08-03", "hours": 8.0} in rows  # lunedì
+    assert not any(r["date"] == "2026-08-01" for r in rows)  # sabato: non lavorativo
+
+
+def test_expected_hours_calcola_la_durata_del_turno(monkeypatch):
+    service, _, emp_repo, _, _ = build_service(monkeypatch)
+    emp_repo.docs["emp-1"].update({"work_days": [0], "shift_start_time": "09:30", "shift_end_time": "13:00"})
+
+    rows = run(service.expected_hours(USER, "2026-08"))
+
+    assert all(r["hours"] == 3.5 for r in rows)
+
+
+def test_expected_hours_esclude_dipendente_senza_fine_turno(monkeypatch):
+    """shift_end_time è facoltativo su models.employee (a differenza di
+    work_days/shift_start_time): un dipendente che ha configurato solo
+    l'avviso di timbratura mancante (niente fine turno) non compare qui,
+    niente riga invece di un valore a zero."""
+    service, _, emp_repo, _, _ = build_service(monkeypatch)
+    emp_repo.docs["emp-1"].update({"work_days": [0, 1, 2, 3, 4], "shift_start_time": "09:00"})
+
+    assert run(service.expected_hours(USER, "2026-08")) == []
+
+
+def test_expected_hours_esclude_dipendente_senza_orario(monkeypatch):
+    service, _, _, _, _ = build_service(monkeypatch)
+    assert run(service.expected_hours(USER, "2026-08")) == []
+
+
+def test_expected_hours_conta_solo_i_giorni_lavorativi_selezionati(monkeypatch):
+    service, _, emp_repo, _, _ = build_service(monkeypatch)
+    emp_repo.docs["emp-1"].update({"work_days": [5, 6], "shift_start_time": "10:00", "shift_end_time": "14:00"})
+
+    rows = run(service.expected_hours(USER, "2026-08"))
+
+    # Agosto 2026: 10 giorni di weekend (sabato+domenica).
+    assert len(rows) == 10
+    assert all(r["hours"] == 4.0 for r in rows)
+
+
+def test_expected_hours_scoped_per_utente(monkeypatch):
+    service, _, emp_repo, _, _ = build_service(monkeypatch)
+    emp_repo.docs["emp-2"] = {
+        "id": "emp-2", "user_id": OTHER_USER["id"], "name": "Anna", "active": True, "pin_hash": None,
+        "work_days": [0, 1, 2, 3, 4], "shift_start_time": "09:00", "shift_end_time": "17:00",
+    }
+
+    assert run(service.expected_hours(USER, "2026-08")) == []
+
+
 # ---------- export_csv (cartellino: presenze + assenze approvate) ----------
 
 def test_export_csv_include_una_riga_per_sessione_chiusa(monkeypatch):

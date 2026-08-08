@@ -41,15 +41,28 @@ class EmployeeIn(BaseModel):
     # vedi models/offer.py): niente storage a parte, va ridimensionata/
     # compressa lato client prima dell'invio.
     photo: Optional[str] = Field(None, max_length=PHOTO_MAX_LENGTH)
-    # Orario contrattuale: usato SOLO per segnalare una timbratura mancante
-    # (vedi automation_engine._eval_attendance_missing), entrambi opzionali
-    # ma legati — o impostati insieme o nessuno dei due. Un dipendente senza
-    # questi campi non viene mai monitorato apposta: introdurre la
-    # segnalazione non deve generare falsi allarmi retroattivi sui
-    # dipendenti già esistenti, che non hanno mai avuto un orario da
+    # Orario contrattuale: work_days/shift_start_time usati per segnalare una
+    # timbratura mancante (vedi automation_engine._eval_attendance_missing),
+    # entrambi opzionali ma legati — o impostati insieme o nessuno dei due.
+    # Un dipendente senza questi campi non viene mai monitorato apposta:
+    # introdurre la segnalazione non deve generare falsi allarmi retroattivi
+    # sui dipendenti già esistenti, che non hanno mai avuto un orario da
     # rispettare finché non lo si imposta esplicitamente.
+    #
+    # shift_end_time è DISACCOPPIATO apposta dalla stessa regola "insieme o
+    # niente": richiede shift_start_time (un orario di fine senza inizio non
+    # ha senso) ma NON è obbligatorio quando si impostano work_days/
+    # shift_start_time — altrimenti salvare una modifica qualsiasi su un
+    # dipendente che ha già solo l'orario di inizio (impostato prima che
+    # esistesse questo campo, per il solo avviso di timbratura mancante)
+    # fallirebbe finché non si compila anche la fine turno, un requisito che
+    # l'utente non ha chiesto di soddisfare in quel momento. Usato per il
+    # confronto ore attese/ore reali nella griglia di gruppo (vedi
+    # attendance_service.expected_hours): senza shift_end_time il confronto
+    # semplicemente non viene mostrato per quel dipendente.
     work_days: Optional[List[int]] = None  # 0=lunedì … 6=domenica (date.weekday())
     shift_start_time: Optional[str] = Field(None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    shift_end_time: Optional[str] = Field(None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
 
     @model_validator(mode="after")
     def _valida_orario_contrattuale(self):
@@ -60,6 +73,11 @@ class EmployeeIn(BaseModel):
                 raise ValueError("Seleziona almeno un giorno lavorativo")
             if any(d < 0 or d > 6 for d in self.work_days):
                 raise ValueError("Giorno lavorativo non valido")
+        if self.shift_end_time is not None:
+            if self.shift_start_time is None:
+                raise ValueError("L'orario di fine turno richiede anche l'orario di inizio turno")
+            if self.shift_end_time <= self.shift_start_time:
+                raise ValueError("L'orario di fine turno deve essere successivo a quello di inizio")
         return self
 
 
