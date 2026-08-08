@@ -1,10 +1,10 @@
 """
-Verifica services/attendance_service.py: rilevazione presenze v1 (solo
-timbratura ingresso/uscita con timestamp lato server, senza
-geolocalizzazione — vedi il docstring della classe per il perché) tramite
-il link personale del dipendente (stesso pattern pubblico di
-leave_request_service.py), più la gestione lato responsabile
-(elenco/inserimento manuale/correzione/eliminazione di una sessione).
+Verifica services/attendance_service.py: rilevazione presenze v1 tramite
+chiosco pubblico (QR uguale per tutti i dipendenti, affisso all'ingresso
+dell'azienda + PIN a 4 cifre per identificare chi timbra — vedi il
+docstring della classe per il perché niente geolocalizzazione né link
+personale), più la gestione lato responsabile (elenco/inserimento
+manuale/correzione/eliminazione di una sessione, generazione QR e PIN).
 
 Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
@@ -19,6 +19,7 @@ from pydantic import ValidationError
 sys.path.insert(0, ".")
 
 from core.exceptions import NotFoundError, ValidationAppError
+from core.security import hash_password
 from models.attendance import AttendanceCorrectionIn
 from services.attendance_service import AttendanceService
 
@@ -27,9 +28,13 @@ def run(coro):
     return asyncio.run(coro)
 
 
-USER = {"id": "user-1", "email": "manager@example.com", "enabled_extra_modules": ["personale"]}
+USER = {
+    "id": "user-1", "email": "manager@example.com", "enabled_extra_modules": ["personale"],
+    "attendance_kiosk_token_hash": "hash-del-token-azienda",
+}
 OTHER_USER = {"id": "user-2", "email": "altro@example.com", "enabled_extra_modules": ["personale"]}
-TOKEN = "il-token-del-dipendente"
+KIOSK_TOKEN = "il-token-azienda"
+PIN = "4242"
 
 
 class FakeEmployeeRepo:
@@ -38,13 +43,23 @@ class FakeEmployeeRepo:
 
     async def find_one(self, eid, user_id):
         d = self.docs.get(eid)
+        if not d or d["user_id"] != user_id:
+            return None
+        return {k: v for k, v in d.items() if k != "pin_hash"}
+
+    async def find_one_with_pin_hash(self, eid, user_id):
+        d = self.docs.get(eid)
         return d if d and d["user_id"] == user_id else None
 
-    async def find_by_token_hash(self, token_hash):
-        for d in self.docs.values():
-            if d.get("_token_hash") == token_hash:
-                return d
-        return None
+    async def find_many(self, user_id):
+        return [{k: v for k, v in d.items() if k != "pin_hash"} for d in self.docs.values() if d["user_id"] == user_id]
+
+    async def update(self, eid, user_id, data):
+        d = self.docs.get(eid)
+        if not d or d["user_id"] != user_id:
+            return False
+        d.update(data)
+        return True
 
 
 class FakeUserRepo:
@@ -53,6 +68,16 @@ class FakeUserRepo:
 
     async def find_by_id(self, uid):
         return self.docs.get(uid)
+
+    async def find_by_attendance_kiosk_token_hash(self, token_hash):
+        for d in self.docs.values():
+            if d.get("attendance_kiosk_token_hash") == token_hash:
+                return d
+        return None
+
+    async def update_by_id(self, uid, data):
+        if uid in self.docs:
+            self.docs[uid].update(data)
 
 
 class FakeAttendanceRepo:
@@ -92,103 +117,153 @@ class FakeAttendanceRepo:
             del self.docs[sid]
 
 
-def build_service(monkeypatch=None):
-    att_repo = FakeAttendanceRepo()
-    emp_repo = FakeEmployeeRepo()
-    emp_repo.docs["emp-1"] = {
-        "id": "emp-1", "user_id": USER["id"], "name": "Mario", "surname": "Rossi",
-        "active": True, "_token_hash": "hash-del-token",
-    }
-    user_repo = FakeUserRepo()
-    user_repo.docs[USER["id"]] = USER
-    user_repo.docs[OTHER_USER["id"]] = OTHER_USER
-    service = AttendanceService(repo=att_repo, employees=emp_repo, users=user_repo)
-    if monkeypatch:
-        import services.attendance_service as attendance_mod
-        monkeypatch.setattr(attendance_mod, "hash_reset_token", lambda t: "hash-del-token" if t == TOKEN else "altro")
-        monkeypatch.setattr(attendance_mod, "check_and_record", _always_ok)
-    return service, att_repo, emp_repo, user_repo
-
-
 async def _always_ok(*args, **kwargs):
     return True
 
 
-# ---------- clock_in / clock_out (pubblico via token) ----------
+def build_service(monkeypatch, with_pin=True):
+    att_repo = FakeAttendanceRepo()
+    emp_repo = FakeEmployeeRepo()
+    emp_repo.docs["emp-1"] = {
+        "id": "emp-1", "user_id": USER["id"], "name": "Mario", "surname": "Rossi", "active": True,
+        "pin_hash": hash_password(PIN) if with_pin else None,
+    }
+    user_repo = FakeUserRepo()
+    user_repo.docs[USER["id"]] = dict(USER)
+    user_repo.docs[OTHER_USER["id"]] = dict(OTHER_USER)
+    service = AttendanceService(repo=att_repo, employees=emp_repo, users=user_repo)
 
-def test_clock_in_crea_una_sessione_aperta(monkeypatch):
+    import services.attendance_service as attendance_mod
+    monkeypatch.setattr(attendance_mod, "hash_reset_token", lambda t: "hash-del-token-azienda" if t == KIOSK_TOKEN else "altro")
+    monkeypatch.setattr(attendance_mod, "check_and_record", _always_ok)
+    return service, att_repo, emp_repo, user_repo
+
+
+# ---------- QR aziendale ----------
+
+def test_get_kiosk_token_status_riflette_se_generato(monkeypatch):
+    service, _, _, user_repo = build_service(monkeypatch)
+    assert run(service.get_kiosk_token_status(USER)) == {"has_token": True}
+    assert run(service.get_kiosk_token_status(OTHER_USER)) == {"has_token": False}
+
+
+def test_regenerate_kiosk_token_salva_solo_lhash(monkeypatch):
+    service, _, _, user_repo = build_service(monkeypatch)
+    token = run(service.regenerate_kiosk_token(OTHER_USER))
+    assert token
+    stored = user_repo.docs[OTHER_USER["id"]]["attendance_kiosk_token_hash"]
+    assert stored != token  # mai salvato in chiaro
+
+
+# ---------- PIN dipendente ----------
+
+def test_set_employee_pin_genera_un_pin_verificabile(monkeypatch):
+    service, _, emp_repo, _ = build_service(monkeypatch)
+    pin = run(service.set_employee_pin(USER, "emp-1"))
+    assert len(pin) == 4 and pin.isdigit()
+    assert emp_repo.docs["emp-1"]["pin_hash"] != pin  # mai salvato in chiaro
+
+
+def test_set_employee_pin_rejects_unknown_employee(monkeypatch):
+    service, _, _, _ = build_service(monkeypatch)
+    with pytest.raises(ValidationAppError):
+        run(service.set_employee_pin(USER, "emp-does-not-exist"))
+
+
+def test_employee_has_pin_riflette_lo_stato(monkeypatch):
+    service, _, _, _ = build_service(monkeypatch, with_pin=False)
+    assert run(service.employee_has_pin(USER, "emp-1")) is False
+
+    run(service.set_employee_pin(USER, "emp-1"))
+    assert run(service.employee_has_pin(USER, "emp-1")) is True
+
+
+# ---------- list_kiosk_employees ----------
+
+def test_list_kiosk_employees_restituisce_solo_attivi_con_stato(monkeypatch):
+    service, att_repo, emp_repo, _ = build_service(monkeypatch)
+    emp_repo.docs["emp-2"] = {"id": "emp-2", "user_id": USER["id"], "name": "Luca", "active": False, "pin_hash": None}
+
+    employees = run(service.list_kiosk_employees(KIOSK_TOKEN))
+
+    assert len(employees) == 1
+    assert employees[0] == {"id": "emp-1", "name": "Mario Rossi", "clocked_in": False}
+
+
+def test_list_kiosk_employees_rifiuta_token_non_valido(monkeypatch):
+    service, _, _, _ = build_service(monkeypatch)
+    with pytest.raises(NotFoundError):
+        run(service.list_kiosk_employees("token-sbagliato"))
+
+
+# ---------- clock_in_kiosk / clock_out_kiosk ----------
+
+def test_clock_in_kiosk_con_pin_corretto_crea_sessione(monkeypatch):
     service, att_repo, _, _ = build_service(monkeypatch)
-    session = run(service.clock_in(TOKEN))
+    session = run(service.clock_in_kiosk(KIOSK_TOKEN, "emp-1", PIN))
     assert session["employee_id"] == "emp-1"
     assert session["clock_out"] is None
     assert session["corrected_by_admin"] is False
-    assert session["clock_in"] is not None
 
 
-def test_clock_in_rifiuta_se_gia_in_servizio(monkeypatch):
+def test_clock_in_kiosk_rifiuta_pin_errato(monkeypatch):
+    service, _, _, _ = build_service(monkeypatch)
+    with pytest.raises(ValidationAppError, match="PIN"):
+        run(service.clock_in_kiosk(KIOSK_TOKEN, "emp-1", "0000"))
+
+
+def test_clock_in_kiosk_rifiuta_se_dipendente_senza_pin_impostato(monkeypatch):
+    service, _, _, _ = build_service(monkeypatch, with_pin=False)
+    with pytest.raises(ValidationAppError, match="PIN"):
+        run(service.clock_in_kiosk(KIOSK_TOKEN, "emp-1", PIN))
+
+
+def test_clock_in_kiosk_rifiuta_se_gia_in_servizio(monkeypatch):
+    service, _, _, _ = build_service(monkeypatch)
+    run(service.clock_in_kiosk(KIOSK_TOKEN, "emp-1", PIN))
+    with pytest.raises(ValidationAppError, match="già in servizio"):
+        run(service.clock_in_kiosk(KIOSK_TOKEN, "emp-1", PIN))
+
+
+def test_clock_out_kiosk_chiude_la_sessione_aperta(monkeypatch):
     service, att_repo, _, _ = build_service(monkeypatch)
-    run(service.clock_in(TOKEN))
-    with pytest.raises(ValidationAppError):
-        run(service.clock_in(TOKEN))
-
-
-def test_clock_out_chiude_la_sessione_aperta(monkeypatch):
-    service, att_repo, _, _ = build_service(monkeypatch)
-    session = run(service.clock_in(TOKEN))
-    closed = run(service.clock_out(TOKEN))
+    session = run(service.clock_in_kiosk(KIOSK_TOKEN, "emp-1", PIN))
+    closed = run(service.clock_out_kiosk(KIOSK_TOKEN, "emp-1", PIN))
     assert closed["id"] == session["id"]
-    assert closed["clock_out"] is not None
     assert att_repo.docs[session["id"]]["clock_out"] is not None
 
 
-def test_clock_out_rifiuta_se_nessuna_sessione_aperta(monkeypatch):
-    service, att_repo, _, _ = build_service(monkeypatch)
+def test_clock_out_kiosk_rifiuta_se_nessuna_sessione_aperta(monkeypatch):
+    service, _, _, _ = build_service(monkeypatch)
     with pytest.raises(ValidationAppError):
-        run(service.clock_out(TOKEN))
+        run(service.clock_out_kiosk(KIOSK_TOKEN, "emp-1", PIN))
 
 
-def test_clock_in_rifiuta_token_non_valido(monkeypatch):
-    service, att_repo, _, _ = build_service(monkeypatch)
+def test_clock_in_kiosk_rifiuta_token_non_valido(monkeypatch):
+    service, _, _, _ = build_service(monkeypatch)
     with pytest.raises(NotFoundError):
-        run(service.clock_in("token-sbagliato"))
+        run(service.clock_in_kiosk("token-sbagliato", "emp-1", PIN))
 
 
-def test_clock_in_rifiuta_se_dipendente_disattivato(monkeypatch):
-    service, att_repo, emp_repo, _ = build_service(monkeypatch)
+def test_clock_in_kiosk_rifiuta_se_dipendente_disattivato(monkeypatch):
+    service, _, emp_repo, _ = build_service(monkeypatch)
     emp_repo.docs["emp-1"]["active"] = False
     with pytest.raises(NotFoundError):
-        run(service.clock_in(TOKEN))
+        run(service.clock_in_kiosk(KIOSK_TOKEN, "emp-1", PIN))
 
 
-def test_clock_in_rifiuta_se_modulo_personale_disattivato(monkeypatch):
-    service, att_repo, _, user_repo = build_service(monkeypatch)
-    user_repo.docs[USER["id"]] = {**USER, "enabled_extra_modules": []}
+def test_clock_in_kiosk_rifiuta_se_modulo_personale_disattivato(monkeypatch):
+    service, _, _, user_repo = build_service(monkeypatch)
+    user_repo.docs[USER["id"]]["enabled_extra_modules"] = []
     with pytest.raises(NotFoundError):
-        run(service.clock_in(TOKEN))
-
-
-# ---------- status ----------
-
-def test_status_riflette_la_sessione_aperta(monkeypatch):
-    service, att_repo, _, _ = build_service(monkeypatch)
-    before = run(service.status(TOKEN))
-    assert before == {"clocked_in": False, "since": None}
-
-    session = run(service.clock_in(TOKEN))
-    during = run(service.status(TOKEN))
-    assert during["clocked_in"] is True
-    assert during["since"] == session["clock_in"]
-
-    run(service.clock_out(TOKEN))
-    after = run(service.status(TOKEN))
-    assert after == {"clocked_in": False, "since": None}
+        run(service.clock_in_kiosk(KIOSK_TOKEN, "emp-1", PIN))
 
 
 # ---------- lato admin ----------
 
 def test_list_sessions_scoped_a_dipendente_e_utente(monkeypatch):
     service, att_repo, emp_repo, _ = build_service(monkeypatch)
-    emp_repo.docs["emp-2"] = {"id": "emp-2", "user_id": USER["id"], "name": "Luca", "active": True}
+    emp_repo.docs["emp-2"] = {"id": "emp-2", "user_id": USER["id"], "name": "Luca", "active": True, "pin_hash": None}
     run(service.create_manual_session(USER, "emp-1", AttendanceCorrectionIn(
         clock_in="2026-08-01T08:00:00+00:00", clock_out="2026-08-01T17:00:00+00:00",
     )))
@@ -220,7 +295,7 @@ def test_create_manual_session_rejects_unknown_employee(monkeypatch):
 
 def test_correct_session_aggiorna_orari_e_marca_corretta(monkeypatch):
     service, att_repo, _, _ = build_service(monkeypatch)
-    session = run(service.clock_in(TOKEN))
+    session = run(service.clock_in_kiosk(KIOSK_TOKEN, "emp-1", PIN))
 
     run(service.correct_session(USER, session["id"], AttendanceCorrectionIn(
         clock_in="2026-08-01T08:00:00+00:00", clock_out="2026-08-01T17:00:00+00:00", note="orario corretto",

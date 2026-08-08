@@ -62,6 +62,10 @@ async def get_employee_detail(eid: str, user=Depends(get_current_user)):
     — quest'ultimo resta None se il modulo Flotta non è in uso, senza far
     fallire la richiesta."""
     employee = await employee_service.get_employee(user, eid)
+    # Solo se un PIN è già impostato (bool), mai l'hash — vedi
+    # attendance_service.employee_has_pin. Serve alla tab Link per
+    # sapere se mostrare "Genera PIN" o "Rigenera PIN".
+    employee["has_pin"] = await attendance_service.employee_has_pin(user, eid)
     summary = await leave_request_service.employee_summary(user, employee)
     vehicle = await vehicle_service.find_assigned(user, eid)
     next_revisione = None
@@ -128,22 +132,11 @@ async def get_employee_manifest(token: str, request: Request):
     return Response(content=json.dumps(manifest), media_type="application/manifest+json")
 
 
-@router.get("/by-token/{token}/attendance-status")
-async def get_employee_attendance_status(token: str):
-    """Pubblico apposta, stesso principio delle rotte /by-token sopra: se
-    il dipendente è attualmente in servizio, per mostrare nella pagina
-    pubblica "Timbra ingresso" o "Timbra uscita". Il rate limit è dentro
-    attendance_service (per token, non solo per IP)."""
-    return await attendance_service.status(token)
-
-
-@router.post("/by-token/{token}/clock-in")
-async def employee_clock_in(token: str, request: Request):
-    ip_address = get_client_ip(request)
-    return await attendance_service.clock_in(token, ip_address=ip_address)
-
-
-@router.post("/by-token/{token}/clock-out")
-async def employee_clock_out(token: str, request: Request):
-    ip_address = get_client_ip(request)
-    return await attendance_service.clock_out(token, ip_address=ip_address)
+@router.post("/{eid}/attendance/pin", dependencies=[MODULE_DEP])
+async def regenerate_employee_pin(eid: str, user=Depends(forbid_demo_write)):
+    """Genera (o rigenera) il PIN a 4 cifre usato dal dipendente al
+    chiosco di timbratura (vedi attendance_service per il perché) — non
+    salvato in chiaro, restituito qui una sola volta perché il
+    responsabile lo comunichi al dipendente."""
+    pin = await attendance_service.set_employee_pin(user, eid)
+    return {"pin": pin}

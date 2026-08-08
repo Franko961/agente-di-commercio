@@ -4,6 +4,17 @@ from typing import Optional
 from core.validation_limits import LONG_TEXT_MAX_LENGTH
 
 
+class AttendanceKioskClockIn(BaseModel):
+    """Payload del chiosco pubblico (QR uguale per tutti i dipendenti,
+    affisso all'ingresso — vedi routers/attendance.py): il token nell'URL
+    identifica l'azienda, employee_id + pin identificano CHI sta
+    timbrando (scelto da un elenco, non digitato a mano) — il PIN serve
+    a evitare che un collega timbri al posto di un altro avendo solo
+    accesso fisico al QR."""
+    employee_id: str
+    pin: str = Field(pattern=r"^\d{4}$")
+
+
 class AttendanceCorrectionIn(BaseModel):
     """Creazione/modifica manuale di una sessione presenze da parte del
     responsabile (vedi routers/attendance.py) — a differenza della

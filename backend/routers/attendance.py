@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends
-from core.security import get_current_user, forbid_demo_write, require_module
+from fastapi import APIRouter, Depends, Request
+from core.security import get_current_user, forbid_demo_write, require_module, get_client_ip
 from services.attendance_service import attendance_service
-from models.attendance import AttendanceCorrectionIn
+from models.attendance import AttendanceCorrectionIn, AttendanceKioskClockIn
 
 # Gated da "personale", come employee_documents.py/employee_equipment.py:
 # le sessioni presenze sono un dato del dipendente, non un modulo a parte.
@@ -32,3 +32,29 @@ async def correct_attendance(eid: str, sid: str, payload: AttendanceCorrectionIn
 async def delete_attendance(eid: str, sid: str, user=Depends(forbid_demo_write)):
     await attendance_service.delete_session(user, sid)
     return {"ok": True}
+
+
+# Chiosco pubblico: QR fisico uguale per tutti i dipendenti, affisso
+# all'ingresso dell'azienda (vedi il docstring di AttendanceService per
+# il perché di questa scelta invece del link personale). Router separato,
+# senza il prefix "/api/employees/{eid}/..." sopra: qui non c'è un eid
+# nell'URL, solo il token azienda — vedi attendance_service.list_kiosk_employees
+# e clock_in_kiosk/clock_out_kiosk.
+kiosk_router = APIRouter(prefix="/api/attendance/kiosk", tags=["attendance"])
+
+
+@kiosk_router.get("/{token}/employees")
+async def list_kiosk_employees(token: str):
+    return await attendance_service.list_kiosk_employees(token)
+
+
+@kiosk_router.post("/{token}/clock-in")
+async def kiosk_clock_in(token: str, payload: AttendanceKioskClockIn, request: Request):
+    ip_address = get_client_ip(request)
+    return await attendance_service.clock_in_kiosk(token, payload.employee_id, payload.pin, ip_address=ip_address)
+
+
+@kiosk_router.post("/{token}/clock-out")
+async def kiosk_clock_out(token: str, payload: AttendanceKioskClockIn, request: Request):
+    ip_address = get_client_ip(request)
+    return await attendance_service.clock_out_kiosk(token, payload.employee_id, payload.pin, ip_address=ip_address)

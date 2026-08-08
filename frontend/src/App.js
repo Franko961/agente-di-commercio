@@ -40,6 +40,7 @@ const Automations = lazy(() => import("./pages/Automations"));
 const AIAssistant = lazy(() => import("./pages/AIAssistant"));
 const Personale = lazy(() => import("./pages/Personale"));
 const RichiediAssenza = lazy(() => import("./pages/RichiediAssenza"));
+const Timbra = lazy(() => import("./pages/Timbra"));
 const Flotta = lazy(() => import("./pages/Flotta"));
 const Subscription = lazy(() => import("./pages/Subscription"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -88,6 +89,7 @@ function App() {
               <Route path="/richiedi-demo" element={<RichiediDemo />} />
               <Route path="/richiedi-demo/grazie" element={<RichiediDemoGrazie />} />
               <Route path="/richiedi-assenza/:token" element={<RichiediAssenza />} />
+              <Route path="/timbra/:token" element={<Timbra />} />
               <Route path="/assistente-ai" element={<LandingAI />} />
               <Route path="/blog" element={<BlogIndex />} />
               <Route path="/blog/:slug" element={<BlogPost />} />

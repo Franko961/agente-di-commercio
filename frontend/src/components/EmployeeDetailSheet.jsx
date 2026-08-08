@@ -98,6 +98,7 @@ export default function EmployeeDetailSheet({ employee, requests, onClose, onEmp
   const [tab, setTab] = useState("info");
   const [detail, setDetail] = useState(null); // { employee, summary, vehicle, next_revisione }
   const [newLink, setNewLink] = useState(null); // { token } — mostrato una sola volta dopo rigenerazione
+  const [newPin, setNewPin] = useState(null); // { pin } — mostrato una sola volta dopo generazione
 
   const loadDetail = async () => {
     const { data } = await api.get(`/employees/${employee.id}/detail`);
@@ -141,6 +142,14 @@ export default function EmployeeDetailSheet({ employee, requests, onClose, onEmp
     const url = `${window.location.origin}/richiedi-assenza/${token}`;
     navigator.clipboard.writeText(url);
     toast.success("Link copiato");
+  };
+
+  const regeneratePin = async () => {
+    if (emp.has_pin && !window.confirm(`Rigenerare il PIN chiosco di "${emp.name}"? Il PIN precedente smetterà subito di funzionare.`)) return;
+    const { data } = await api.post(`/employees/${emp.id}/attendance/pin`);
+    setNewPin({ pin: data.pin });
+    toast.success("Nuovo PIN generato");
+    refreshAll();
   };
 
   return (
@@ -213,7 +222,8 @@ export default function EmployeeDetailSheet({ employee, requests, onClose, onEmp
               {tab === "ai" && <AiTab employeeId={employee.id} summary={summary} />}
               {tab === "link" && (
                 <LinkTab employee={emp} newLink={newLink} onRegenerate={regenerateToken}
-                  onToggleActive={toggleActive} onCopy={copyLink} />
+                  onToggleActive={toggleActive} onCopy={copyLink}
+                  newPin={newPin} onRegeneratePin={regeneratePin} />
               )}
               {tab === "kpi" && <KpiTab summary={summary} />}
             </div>
@@ -883,7 +893,7 @@ function PresenzeTab({ employeeId }) {
   return (
     <div>
       <p className="text-[11px] text-[#A1A1AA] mb-3">
-        Timbrature dal link personale del dipendente (orario registrato lato server) e correzioni manuali. Nessuna geolocalizzazione.
+        Timbrature dal chiosco QR aziendale (orario registrato lato server) e correzioni manuali. Nessuna geolocalizzazione.
       </p>
       <div className="flex justify-end mb-3">
         <button onClick={openNew} className="flex items-center gap-1.5 px-3 py-2 bg-[#0A192F] text-white rounded-md text-[12px] font-medium">
@@ -1266,7 +1276,7 @@ function EmployeeDocumentUploadForm({ employeeId, onDone }) {
   );
 }
 
-function LinkTab({ employee, newLink, onRegenerate, onToggleActive, onCopy }) {
+function LinkTab({ employee, newLink, onRegenerate, onToggleActive, onCopy, newPin, onRegeneratePin }) {
   const url = newLink ? `${window.location.origin}/richiedi-assenza/${newLink.token}` : null;
   return (
     <div className="space-y-4">
@@ -1294,6 +1304,23 @@ function LinkTab({ employee, newLink, onRegenerate, onToggleActive, onCopy }) {
           </button>
         </div>
       )}
+
+      <div className="bg-white border border-[#E4E4E1] rounded-md p-4 space-y-3">
+        <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">PIN chiosco presenze</div>
+        <p className="text-[12px] text-[#52525B]">
+          Usato per identificarsi al QR di timbratura affisso in azienda (Personale → QR Timbratura).{" "}
+          {employee.has_pin ? "PIN già impostato." : "Nessun PIN impostato: il dipendente non può ancora timbrare al chiosco."}
+        </p>
+        <button onClick={onRegeneratePin} className="w-full flex items-center justify-center gap-2 px-3 py-2 border border-[#E4E4E1] rounded-md text-[13px] font-medium hover:border-[#FF5A00]">
+          <RefreshCw className="w-4 h-4" /> {employee.has_pin ? "Rigenera PIN" : "Genera PIN"}
+        </button>
+        {newPin && (
+          <div className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-md p-4 text-center">
+            <p className="text-[12px] text-[#52525B] mb-2">Nuovo PIN generato: comunicalo ora al dipendente, non verrà più mostrato.</p>
+            <div className="font-cabinet font-black text-3xl tracking-[0.3em]">{newPin.pin}</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
