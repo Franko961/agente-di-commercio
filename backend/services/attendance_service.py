@@ -1,15 +1,29 @@
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import HTTPException
 
-from core.utils import gen_id, now_iso, local_date_str
+from core.utils import gen_id, now_iso, local_date_str, LOCAL_TZ
 from core.exceptions import NotFoundError, ValidationAppError
 from core.security import hash_reset_token, hash_password, verify_password, module_enabled
 from core.rate_limit import check_and_record
 from repositories.attendance_repository import attendance_repository
 from repositories.employee_repository import employee_repository
 from repositories.user_repository import user_repository
+from repositories.leave_request_repository import leave_request_repository
+from services.export_service import csv_response
+from services.leave_request_service import LEAVE_TYPE_LABELS
+
+
+def _local_time_str(iso_ts: str) -> str:
+    """Come local_date_str (core.utils), ma restituisce solo l'orario
+    'HH:MM' in ora italiana — usato dall'export CSV del cartellino, dove
+    l'orologio a muro (non l'istante UTC salvato) è quello che interessa
+    a chi elabora le buste paga."""
+    dt = datetime.fromisoformat(iso_ts.replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(LOCAL_TZ).strftime("%H:%M")
 
 
 def _generate_kiosk_token() -> tuple:
@@ -54,10 +68,12 @@ class AttendanceService:
     _employee_from_kiosk) è la difesa che conta davvero contro un
     brute-force, non la sola hashing del PIN."""
 
-    def __init__(self, repo=attendance_repository, employees=employee_repository, users=user_repository):
+    def __init__(self, repo=attendance_repository, employees=employee_repository, users=user_repository,
+                 leave_requests=leave_request_repository):
         self.repo = repo
         self.employees = employees
         self.users = users
+        self.leave_requests = leave_requests
 
     # ---------- QR aziendale (lato admin, account-level) ----------
 
@@ -206,6 +222,56 @@ class AttendanceService:
             {"employee_id": employee_id, "date": date, "hours": round(hours, 2)}
             for (employee_id, date), hours in totals.items()
         ]
+
+    async def export_csv(self, user: dict, month: str):
+        """Cartellino del mese richiesto (AAAA-MM): una riga per ogni
+        timbratura chiusa (tipo "presenza") più una riga per ogni assenza
+        APPROVATA che si sovrappone al mese (ferie/permesso/malattia) —
+        quello che serve a un consulente del lavoro per elaborare le buste
+        paga, in un unico file invece di dover incrociare due esportazioni
+        separate. Stesso rate limit di leave_request_service.export_csv
+        (bucket condiviso "csv_export": un limite complessivo di export al
+        minuto per utente ha più senso di uno per singolo tipo di file)."""
+        ok = await check_and_record("csv_export", user["id"], max_attempts=20, window_minutes=10)
+        if not ok:
+            raise HTTPException(429, "Troppe esportazioni richieste, riprova tra qualche minuto")
+
+        rows = []
+        sessions = await self.repo.find_all_closed(user["id"])
+        for s in sessions:
+            day = local_date_str(s["clock_in"])
+            if not day.startswith(month):
+                continue
+            hours = (datetime.fromisoformat(s["clock_out"]) - datetime.fromisoformat(s["clock_in"])).total_seconds() / 3600
+            rows.append({
+                "employee_name": s.get("employee_name", ""),
+                "type": "Presenza",
+                "date": day,
+                "date_to": "",
+                "clock_in": _local_time_str(s["clock_in"]),
+                "clock_out": _local_time_str(s["clock_out"]),
+                "hours": round(hours, 2),
+                "note": s.get("note", ""),
+            })
+
+        date_from = f"{month}-01"
+        date_to_bound = f"{month}-31"  # confronto testuale ISO, stesso principio di leave_request_service.calendar
+        leave_requests = await self.leave_requests.find_overlapping(user["id"], date_from, date_to_bound, status="approvata")
+        for r in leave_requests:
+            rows.append({
+                "employee_name": r.get("employee_name", ""),
+                "type": LEAVE_TYPE_LABELS.get(r["type"], r["type"]),
+                "date": r["date_from"],
+                "date_to": r["date_to"],
+                "clock_in": "",
+                "clock_out": "",
+                "hours": r.get("hours") if r.get("hours") is not None else "",
+                "note": r.get("note", ""),
+            })
+
+        rows.sort(key=lambda r: (r["employee_name"], r["date"]))
+        headers = ["employee_name", "type", "date", "date_to", "clock_in", "clock_out", "hours", "note"]
+        return csv_response(rows, headers, f"presenze_{month}.csv")
 
     async def create_manual_session(self, user: dict, employee_id: str, payload) -> dict:
         employee = await self._validate_employee(user["id"], employee_id)

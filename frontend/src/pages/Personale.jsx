@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import api from "../api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { Switch } from "../components/ui/switch";
-import { exportLeaveRequests } from "../utils/export";
+import { exportLeaveRequests, exportAttendance } from "../utils/export";
 import EmployeeDetailSheet from "../components/EmployeeDetailSheet";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -183,6 +183,18 @@ export default function Personale() {
   const exportCsv = async () => {
     try {
       await exportLeaveRequests();
+    } catch {
+      toast.error("Esportazione non riuscita");
+    }
+  };
+
+  // Cartellino del mese selezionato (timbrature + assenze approvate) per il
+  // consulente del lavoro — separato da exportCsv sopra (che esporta solo le
+  // richieste di assenza): qui serve anche il mese corrente, quindi vive
+  // nella tab Calendario invece che nella toolbar sempre visibile.
+  const exportAttendanceCsv = async () => {
+    try {
+      await exportAttendance(month);
     } catch {
       toast.error("Esportazione non riuscita");
     }
@@ -449,10 +461,16 @@ export default function Personale() {
               Attiva il modulo Automazioni per la segnalazione delle timbrature mancanti.
             </div>
           )}
-          <div className="flex items-center justify-between mb-4">
-            <button onClick={() => shiftMonth(-1)} className="p-2 border border-[#E4E4E1] rounded-md hover:border-[#0A192F]"><ChevronLeft className="w-4 h-4" /></button>
-            <span className="font-cabinet font-bold text-[15px]">{monthLabel}</span>
-            <button onClick={() => shiftMonth(1)} className="p-2 border border-[#E4E4E1] rounded-md hover:border-[#0A192F]"><ChevronRight className="w-4 h-4" /></button>
+          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <button onClick={() => shiftMonth(-1)} className="p-2 border border-[#E4E4E1] rounded-md hover:border-[#0A192F]"><ChevronLeft className="w-4 h-4" /></button>
+              <span className="font-cabinet font-bold text-[15px]">{monthLabel}</span>
+              <button onClick={() => shiftMonth(1)} className="p-2 border border-[#E4E4E1] rounded-md hover:border-[#0A192F]"><ChevronRight className="w-4 h-4" /></button>
+            </div>
+            <button onClick={exportAttendanceCsv} title="Cartellino del mese: timbrature e assenze approvate, per il consulente del lavoro"
+              className="flex items-center gap-2 px-3 py-2 border border-[#E4E4E1] rounded-md text-[13px] font-medium hover:border-[#0A192F]">
+              <Download className="w-4 h-4" /> Esporta cartellino
+            </button>
           </div>
           <AbsenceCalendarGrid employees={employees} month={month} rows={calendarRows} hoursRows={hoursRows} />
         </div>

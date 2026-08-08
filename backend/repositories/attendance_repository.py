@@ -25,13 +25,17 @@ class AttendanceRepository:
     async def find_all_closed(self, user_id: str) -> list:
         """Tutte le sessioni chiuse (clock_out valorizzato) di TUTTI i
         dipendenti dell'utente — per l'aggregazione ore/giorno della
-        griglia di gruppo (Personale → Calendario). Filtrata per mese lato
-        service, non qui: stesso principio già scelto per
+        griglia di gruppo (Personale → Calendario) e per l'export CSV del
+        cartellino (vedi attendance_service.calendar/export_csv). Filtrata
+        per mese lato service, non qui: stesso principio già scelto per
         leave_request_repository.find_many (il volume per un account di
-        piccola azienda resta gestibile senza un filtro lato query)."""
+        piccola azienda resta gestibile senza un filtro lato query).
+        employee_name/note inclusi apposta (a differenza della versione
+        precedente, usata solo per il conteggio ore): l'export CSV li
+        mostra, il calendario semplicemente li ignora."""
         return await self.collection.find(
             {"user_id": user_id, "clock_out": {"$ne": None}},
-            {"_id": 0, "employee_id": 1, "clock_in": 1, "clock_out": 1},
+            {"_id": 0, "employee_id": 1, "employee_name": 1, "clock_in": 1, "clock_out": 1, "note": 1},
         ).to_list(20000)
 
     async def insert(self, doc: dict) -> dict:

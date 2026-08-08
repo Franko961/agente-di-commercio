@@ -23,6 +23,7 @@ export const exportOffers = () => downloadCsv("/api/export/offers.csv", "offerte
 export const exportCommissions = () => downloadCsv("/api/export/commissions.csv", "provvigioni.csv");
 export const exportLeads = () => downloadCsv("/api/export/leads.csv", "lead.csv");
 export const exportLeaveRequests = () => downloadCsv("/api/leave-requests/export.csv", "assenze.csv");
+export const exportAttendance = (month) => downloadCsv(`/api/attendance/export.csv?month=${month}`, `presenze_${month}.csv`);
 
 // WhatsApp click-to-chat helper
 export function whatsappLink(phone, message = "") {
