@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { CheckCircle2, Smartphone } from "lucide-react";
+import { CheckCircle2, Smartphone, Timer } from "lucide-react";
 import api, { API_BASE } from "../api";
 import { toast } from "sonner";
 import PageMeta from "../components/PageMeta";
@@ -26,12 +26,34 @@ export default function RichiediAssenza() {
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isStandalone, setIsStandalone] = useState(false);
   const [isIos, setIsIos] = useState(false);
+  const [attendance, setAttendance] = useState(null); // { clocked_in, since } — null = caricamento
+  const [clockBusy, setClockBusy] = useState(false);
 
   useEffect(() => {
     api.get(`/employees/by-token/${token}`)
       .then(({ data }) => setEmployeeName(data.name))
       .catch(() => setEmployeeName(false));
   }, [token]);
+
+  const loadAttendance = () => {
+    api.get(`/employees/by-token/${token}/attendance-status`)
+      .then(({ data }) => setAttendance(data))
+      .catch(() => setAttendance(null));
+  };
+  useEffect(() => { if (employeeName) loadAttendance(); }, [employeeName]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleClock = async () => {
+    setClockBusy(true);
+    try {
+      await api.post(`/employees/by-token/${token}/${attendance?.clocked_in ? "clock-out" : "clock-in"}`);
+      toast.success(attendance?.clocked_in ? "Uscita registrata" : "Ingresso registrato");
+      loadAttendance();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Timbratura non riuscita, riprova tra poco");
+    } finally {
+      setClockBusy(false);
+    }
+  };
 
   // Rende installabile come "app" a sé stante QUESTA pagina (con il token
   // già nell'URL), non l'intero gestionale: il manifest statico in
@@ -151,6 +173,25 @@ export default function RichiediAssenza() {
                 Salva questo link come un'app: tocca <strong>Condividi</strong> qui sotto, poi <strong>"Aggiungi a Home"</strong>.
               </p>
             )}
+          </div>
+        )}
+
+        {employeeName && attendance && (
+          <div className="bg-white border border-[#E4E4E1] rounded-xl p-6 mb-6 text-center">
+            <Timer className={`w-8 h-8 mx-auto mb-2 ${attendance.clocked_in ? "text-emerald-500" : "text-[#A1A1AA]"}`} />
+            {attendance.clocked_in ? (
+              <p className="text-[13px] text-[#52525B] mb-4">
+                In servizio dalle <strong>{new Date(attendance.since).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}</strong>
+              </p>
+            ) : (
+              <p className="text-[13px] text-[#52525B] mb-4">Non sei in servizio.</p>
+            )}
+            <button onClick={toggleClock} disabled={clockBusy}
+              className={`px-6 py-2.5 rounded-md text-sm font-medium disabled:opacity-60 ${
+                attendance.clocked_in ? "bg-[#DC2626] text-white" : "bg-[#0A192F] text-white"
+              }`}>
+              {clockBusy ? "Attendere…" : attendance.clocked_in ? "Timbra uscita" : "Timbra ingresso"}
+            </button>
           </div>
         )}
 

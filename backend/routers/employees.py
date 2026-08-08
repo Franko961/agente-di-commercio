@@ -8,6 +8,7 @@ from services.leave_request_service import leave_request_service
 from services.vehicle_service import vehicle_service
 from services.vehicle_deadline_service import vehicle_deadline_service
 from services.employee_activity_service import employee_activity_service
+from services.attendance_service import attendance_service
 from services.ai_service import ai_service
 from models.employee import EmployeeIn, EmployeeActiveUpdate
 
@@ -125,3 +126,24 @@ async def get_employee_manifest(token: str, request: Request):
         raise HTTPException(429, "Troppe richieste da questo indirizzo, riprova più tardi.")
     manifest = await employee_service.get_manifest_for_token(token, FRONTEND_URL)
     return Response(content=json.dumps(manifest), media_type="application/manifest+json")
+
+
+@router.get("/by-token/{token}/attendance-status")
+async def get_employee_attendance_status(token: str):
+    """Pubblico apposta, stesso principio delle rotte /by-token sopra: se
+    il dipendente è attualmente in servizio, per mostrare nella pagina
+    pubblica "Timbra ingresso" o "Timbra uscita". Il rate limit è dentro
+    attendance_service (per token, non solo per IP)."""
+    return await attendance_service.status(token)
+
+
+@router.post("/by-token/{token}/clock-in")
+async def employee_clock_in(token: str, request: Request):
+    ip_address = get_client_ip(request)
+    return await attendance_service.clock_in(token, ip_address=ip_address)
+
+
+@router.post("/by-token/{token}/clock-out")
+async def employee_clock_out(token: str, request: Request):
+    ip_address = get_client_ip(request)
+    return await attendance_service.clock_out(token, ip_address=ip_address)

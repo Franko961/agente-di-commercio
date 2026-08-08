@@ -461,6 +461,9 @@ async def run_startup() -> None:
     # dashboard (get_stats/get_today_brief), filtrate per user_id: senza
     # indice, ogni query è una scansione completa della collection su TUTTI
     # gli utenti, non solo un filtro sull'utente corrente.
+    # Copre sia find_many (elenco per dipendente, ordinato per clock_in)
+    # sia find_open_session (la sessione ancora aperta, se esiste).
+    await db.attendance_sessions.create_index([("employee_id", 1), ("user_id", 1), ("clock_in", -1)])
     await db.leads.create_index([("user_id", 1)])
     await db.appointments.create_index([("user_id", 1)])
     await db.commissions.create_index([("user_id", 1)])

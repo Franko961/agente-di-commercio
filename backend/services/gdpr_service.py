@@ -47,6 +47,7 @@ USER_SCOPED_COLLECTIONS = {
     "feedback": "feedback",
     "dipendenti": "employees",
     "richieste_assenza": "leave_requests",
+    "presenze": "attendance_sessions",
     "mezzi": "vehicles",
     "scadenze_mezzi": "vehicle_deadlines",
     "costi_mezzi": "vehicle_costs",
