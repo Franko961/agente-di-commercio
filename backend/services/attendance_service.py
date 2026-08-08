@@ -246,10 +246,29 @@ class AttendanceService:
         sospeso/cessato (o disattivato) non ha ore attese, stesso criterio
         già usato da automation_engine._eval_attendance_missing e
         today_summary — altrimenti la griglia mostrerebbe uno scostamento
-        per qualcuno che non dovrebbe più lavorare."""
+        per qualcuno che non dovrebbe più lavorare.
+
+        I giorni coperti da un'assenza APPROVATA (ferie/permesso/malattia)
+        non generano ore attese: nella griglia l'effetto era già invisibile
+        (la cella colorata dell'assenza sovrascrive il confronto reale/
+        atteso), ma il dato restava semanticamente sbagliato — "erano
+        previste ore di lavoro" quando in realtà il dipendente era
+        autorizzato ad assentarsi. Rilevante per qualunque uso futuro di
+        questo numero fuori dalla griglia (es. un totale mensile
+        aggregato)."""
         employees = await self.employees.find_many(user["id"])
         year, mon = (int(p) for p in month.split("-"))
         days_in_month = monthrange(year, mon)[1]
+
+        date_from = f"{month}-01"
+        date_to_bound = f"{month}-31"  # confronto testuale ISO, stesso principio di leave_request_service.calendar
+        leave_requests = await self.leave_requests.find_overlapping(user["id"], date_from, date_to_bound, status="approvata")
+        absences_by_employee: dict = {}
+        for r in leave_requests:
+            absences_by_employee.setdefault(r["employee_id"], []).append((r["date_from"], r["date_to"]))
+
+        def _is_absent(employee_id: str, day_iso: str) -> bool:
+            return any(df <= day_iso <= dt for df, dt in absences_by_employee.get(employee_id, []))
 
         out = []
         for e in employees:
@@ -270,7 +289,10 @@ class AttendanceService:
             for day in range(1, days_in_month + 1):
                 if date(year, mon, day).weekday() not in work_days:
                     continue
-                out.append({"employee_id": e["id"], "date": f"{month}-{day:02d}", "hours": shift_hours})
+                day_iso = f"{month}-{day:02d}"
+                if _is_absent(e["id"], day_iso):
+                    continue
+                out.append({"employee_id": e["id"], "date": day_iso, "hours": shift_hours})
         return out
 
     async def today_summary(self, user: dict) -> dict:

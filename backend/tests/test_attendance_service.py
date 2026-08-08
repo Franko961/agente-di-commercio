@@ -581,6 +581,64 @@ def test_expected_hours_scoped_per_utente(monkeypatch):
     assert run(service.expected_hours(USER, "2026-08")) == []
 
 
+def test_expected_hours_esclude_giorno_con_assenza_approvata(monkeypatch):
+    service, _, emp_repo, _, leave_repo = build_service(monkeypatch)
+    emp_repo.docs["emp-1"].update({"work_days": [0, 1, 2, 3, 4], "shift_start_time": "09:00", "shift_end_time": "17:00"})
+    leave_repo.docs.append({
+        "user_id": USER["id"], "employee_id": "emp-1", "type": "ferie",
+        "date_from": "2026-08-03", "date_to": "2026-08-03", "status": "approvata",
+    })
+
+    rows = run(service.expected_hours(USER, "2026-08"))
+
+    assert not any(r["date"] == "2026-08-03" for r in rows)  # lunedì in ferie: nessuna riga
+    assert any(r["date"] == "2026-08-04" for r in rows)  # martedì, non coperto: riga normale
+
+
+def test_expected_hours_esclude_tutti_i_giorni_lavorativi_coperti_dallassenza(monkeypatch):
+    service, _, emp_repo, _, leave_repo = build_service(monkeypatch)
+    emp_repo.docs["emp-1"].update({"work_days": [0, 1, 2, 3, 4], "shift_start_time": "09:00", "shift_end_time": "17:00"})
+    leave_repo.docs.append({
+        "user_id": USER["id"], "employee_id": "emp-1", "type": "malattia",
+        "date_from": "2026-08-03", "date_to": "2026-08-07", "status": "approvata",
+    })
+
+    rows = run(service.expected_hours(USER, "2026-08"))
+
+    settimana_in_malattia = {"2026-08-03", "2026-08-04", "2026-08-05", "2026-08-06", "2026-08-07"}
+    assert not any(r["date"] in settimana_in_malattia for r in rows)
+    assert any(r["date"] == "2026-08-10" for r in rows)  # lunedì successivo, non coperto
+
+
+def test_expected_hours_non_esclude_assenza_in_attesa(monkeypatch):
+    """Solo le assenze APPROVATE tolgono ore attese — una richiesta ancora
+    in attesa di decisione non ne ha ancora diritto, stesso principio già
+    applicato ad automation_engine._eval_attendance_missing."""
+    service, _, emp_repo, _, leave_repo = build_service(monkeypatch)
+    emp_repo.docs["emp-1"].update({"work_days": [0, 1, 2, 3, 4], "shift_start_time": "09:00", "shift_end_time": "17:00"})
+    leave_repo.docs.append({
+        "user_id": USER["id"], "employee_id": "emp-1", "type": "ferie",
+        "date_from": "2026-08-03", "date_to": "2026-08-03", "status": "in_attesa",
+    })
+
+    rows = run(service.expected_hours(USER, "2026-08"))
+
+    assert any(r["date"] == "2026-08-03" for r in rows)
+
+
+def test_expected_hours_assenza_di_un_altro_dipendente_non_influisce(monkeypatch):
+    service, _, emp_repo, _, leave_repo = build_service(monkeypatch)
+    emp_repo.docs["emp-1"].update({"work_days": [0, 1, 2, 3, 4], "shift_start_time": "09:00", "shift_end_time": "17:00"})
+    leave_repo.docs.append({
+        "user_id": USER["id"], "employee_id": "emp-2", "type": "ferie",
+        "date_from": "2026-08-03", "date_to": "2026-08-03", "status": "approvata",
+    })
+
+    rows = run(service.expected_hours(USER, "2026-08"))
+
+    assert any(r["date"] == "2026-08-03" for r in rows)
+
+
 # ---------- today_summary (widget "Presenze oggi" della Dashboard) ----------
 
 def test_today_summary_dipendente_atteso_e_gia_timbrato(monkeypatch):
