@@ -51,6 +51,20 @@ const TABS = [
   ["kpi", "KPI", BarChart3],
 ];
 
+// 13 tab in un'unica riga scorrevole erano troppi da scoprire su
+// smartphone (facile non accorgersi che ce ne sono altri fuori schermo):
+// raggruppati in 5 categorie sempre visibili, ognuna con i propri
+// sotto-tab — ogni tab resta raggiungibile in al massimo 2 tocchi, stessa
+// struttura su mobile e desktop (a differenza di un menu a tendina solo
+// mobile, che avrebbe reso i due layout incoerenti).
+const TAB_GROUPS = [
+  { key: "profilo", label: "Profilo", icon: User, tabs: ["info", "ai", "link"] },
+  { key: "assenze", label: "Assenze", icon: CalendarDays, tabs: ["assenze", "ferie", "permessi", "malattie"] },
+  { key: "risorse", label: "Risorse", icon: Truck, tabs: ["mezzo", "dotazione", "documenti"] },
+  { key: "economia", label: "Economia", icon: Wallet, tabs: ["compensi", "kpi"] },
+  { key: "attivita_gruppo", label: "Attività", icon: History, tabs: ["attivita"] },
+];
+
 // Ridimensiona l'immagine lato client prima di convertirla in data URL: una
 // foto profilo non ha bisogno di essere a piena risoluzione, e mandarla
 // intera gonfierebbe inutilmente il documento MongoDB (vedi
@@ -141,15 +155,46 @@ export default function EmployeeDetailSheet({ employee, requests, onClose, onEmp
 
             {/* Contenuto a tab */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1 mb-4 border-b border-[#E4E4E1] overflow-x-auto">
-                {TABS.map(([key, label, Icon]) => (
-                  <button key={key} onClick={() => setTab(key)}
-                    className={`flex items-center gap-1.5 px-2.5 py-2 text-[12px] font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
-                      tab === key ? "border-[#FF5A00] text-[#0A192F]" : "border-transparent text-[#A1A1AA] hover:text-[#52525B]"
-                    }`}>
-                    <Icon className="w-3.5 h-3.5" /> {label}
-                  </button>
-                ))}
+              <div className="mb-4">
+                {/* Griglia a colonne fisse (non una riga scorrevole): con
+                    solo 5 categorie, tutte devono restare visibili senza
+                    scroll anche sullo schermo più stretto — è proprio
+                    l'assenza di elementi "fuori schermo" a risolvere il
+                    problema originale (13 tab in una riga scorrevole). */}
+                <div className="grid grid-cols-5 gap-0.5 border-b border-[#E4E4E1]">
+                  {TAB_GROUPS.map((group) => {
+                    const isActiveGroup = group.tabs.includes(tab);
+                    const GroupIcon = group.icon;
+                    return (
+                      <button key={group.key} onClick={() => { if (!isActiveGroup) setTab(group.tabs[0]); }}
+                        className={`flex flex-col items-center justify-end gap-1 px-1 py-2 text-[11px] font-semibold text-center leading-tight border-b-2 -mb-px transition-colors ${
+                          isActiveGroup ? "border-[#FF5A00] text-[#0A192F]" : "border-transparent text-[#A1A1AA] hover:text-[#52525B]"
+                        }`}>
+                        <GroupIcon className="w-4 h-4 shrink-0" />
+                        <span>{group.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {(() => {
+                  const activeGroup = TAB_GROUPS.find((g) => g.tabs.includes(tab)) || TAB_GROUPS[0];
+                  if (activeGroup.tabs.length < 2) return null;
+                  return (
+                    <div className="flex items-center gap-1 mt-2 overflow-x-auto">
+                      {activeGroup.tabs.map((key) => {
+                        const [, label, Icon] = TABS.find(([k]) => k === key);
+                        return (
+                          <button key={key} onClick={() => setTab(key)}
+                            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-medium whitespace-nowrap transition-colors ${
+                              tab === key ? "bg-[#0A192F] text-white" : "bg-[#F3F3F1] text-[#52525B] hover:bg-[#E4E4E1]"
+                            }`}>
+                            <Icon className="w-3 h-3" /> {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
 
               {tab === "info" && <InfoTab employee={emp} onSaved={refreshAll} />}
