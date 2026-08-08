@@ -2,9 +2,14 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Request
 from core.security import get_current_user, forbid_demo_write, require_module, get_client_ip
 from services.leave_request_service import leave_request_service
-from models.leave_request import LeaveRequestIn, LeaveRequestDecision, LeaveRequestCertificate
+from models.leave_request import LeaveRequestIn, LeaveRequestAdminIn, LeaveRequestDecision, LeaveRequestCertificate
 
 router = APIRouter(prefix="/api/leave-requests", tags=["leave-requests"])
+
+# Rotta separata perché annidata sotto /employees/{eid}, come
+# routers.attendance.router per /api/employees/{eid}/attendance — stesso
+# schema di scoping per employee_id.
+admin_router = APIRouter(prefix="/api/employees/{eid}/leave-requests", tags=["leave-requests"])
 
 MODULE_DEP = Depends(require_module("personale"))
 
@@ -51,3 +56,8 @@ async def leave_requests_calendar(month: str, user=Depends(get_current_user)):
 @router.get("/export.csv", dependencies=[MODULE_DEP])
 async def export_leave_requests(user=Depends(get_current_user)):
     return await leave_request_service.export_csv(user)
+
+
+@admin_router.post("", dependencies=[MODULE_DEP])
+async def create_leave_request_by_admin(eid: str, payload: LeaveRequestAdminIn, user=Depends(forbid_demo_write)):
+    return await leave_request_service.create_by_admin(user, eid, payload)

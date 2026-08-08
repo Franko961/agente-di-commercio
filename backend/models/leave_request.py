@@ -5,6 +5,12 @@ from core.validation_limits import LONG_TEXT_MAX_LENGTH
 
 LEAVE_TYPES = ("ferie", "permesso", "malattia")
 
+# Tipi registrabili solo dal responsabile (non dal dipendente tramite link
+# pubblico): a differenza di ferie/permesso/malattia non passano da una coda
+# di approvazione, sono fatti che il responsabile registra direttamente
+# (vedi LeaveRequestAdminIn e leave_request_service.create_by_admin).
+ADMIN_LEAVE_TYPES = ("smartworking", "trasferta", "straordinari", "reperibilita")
+
 
 class LeaveRequestIn(BaseModel):
     """Payload del form pubblico (nessun login, vedi routers/leave_requests.py):
@@ -22,6 +28,16 @@ class LeaveRequestIn(BaseModel):
     # in un solo giorno, non un'assenza a giornata intera come ferie/
     # malattia — usato per il riepilogo "ore richieste/approvate" nella
     # tab Permessi. Ignorato per gli altri tipi.
+    hours: Optional[float] = Field(None, gt=0, le=24)
+
+
+class LeaveRequestAdminIn(BaseModel):
+    """Registrazione diretta del responsabile (già approvata, nessuna
+    email): niente employee_token, l'employee_id arriva dal path."""
+    type: Literal[ADMIN_LEAVE_TYPES]
+    date_from: date
+    date_to: date
+    note: Optional[str] = Field("", max_length=LONG_TEXT_MAX_LENGTH)
     hours: Optional[float] = Field(None, gt=0, le=24)
 
 

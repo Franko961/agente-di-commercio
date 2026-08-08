@@ -31,7 +31,7 @@ sys.path.insert(0, ".")
 
 from core.exceptions import NotFoundError, ValidationAppError
 from models.employee import EmployeeIn
-from models.leave_request import LeaveRequestIn
+from models.leave_request import LeaveRequestIn, LeaveRequestAdminIn
 from services.employee_service import EmployeeService
 import services.leave_request_service as leave_request_mod
 from services.leave_request_service import LeaveRequestService
@@ -970,3 +970,61 @@ def test_leave_request_in_accetta_ore_solo_per_permesso():
 def test_leave_request_in_rifiuta_ore_fuori_range(hours):
     with pytest.raises(ValidationError):
         LeaveRequestIn(employee_token="tok", type="permesso", date_from="2026-08-01", date_to="2026-08-01", hours=hours)
+
+
+# ---------- leave_request_service.create_by_admin ----------
+
+def test_create_by_admin_registra_direttamente_approvata_senza_email(monkeypatch):
+    """A differenza di submit() (link pubblico, stato iniziale "in_attesa"),
+    create_by_admin è il responsabile che registra un fatto già avvenuto
+    (smartworking/trasferta/straordinari/reperibilita): nessuna coda di
+    approvazione, nessuna email."""
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+
+    def _fail_if_called(*a, **kw):
+        raise AssertionError("create_by_admin non deve inviare email")
+    monkeypatch.setattr(leave_request_mod, "send_email", _fail_if_called)
+
+    payload = LeaveRequestAdminIn(type="smartworking", date_from="2026-08-05", date_to="2026-08-05")
+    doc = run(service.create_by_admin(USER, employee["id"], payload))
+
+    assert doc["status"] == "approvata"
+    assert doc["type"] == "smartworking"
+    assert doc["employee_id"] == employee["id"]
+    assert repo.docs[doc["id"]]["status"] == "approvata"
+
+
+def test_create_by_admin_rifiuta_dipendente_di_un_altro_utente(monkeypatch):
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(ALTRO_USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+
+    payload = LeaveRequestAdminIn(type="trasferta", date_from="2026-08-05", date_to="2026-08-05")
+    with pytest.raises(NotFoundError):
+        run(service.create_by_admin(USER, employee["id"], payload))
+
+
+def test_create_by_admin_rifiuta_dipendente_inesistente(monkeypatch):
+    emp_service, emp_repo = build_employee_service()
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+
+    payload = LeaveRequestAdminIn(type="reperibilita", date_from="2026-08-05", date_to="2026-08-05")
+    with pytest.raises(NotFoundError):
+        run(service.create_by_admin(USER, "non-esiste", payload))
+
+
+def test_create_by_admin_rifiuta_intervallo_invertito(monkeypatch):
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+
+    payload = LeaveRequestAdminIn(type="straordinari", date_from="2026-08-05", date_to="2026-08-01", hours=1)
+    with pytest.raises(ValidationAppError):
+        run(service.create_by_admin(USER, employee["id"], payload))
+
+
+def test_create_by_admin_rifiuta_un_tipo_non_ammesso():
+    with pytest.raises(ValidationError):
+        LeaveRequestAdminIn(type="ferie", date_from="2026-08-05", date_to="2026-08-05")

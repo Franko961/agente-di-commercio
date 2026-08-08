@@ -18,7 +18,11 @@ from services.export_service import csv_response
 
 logger = logging.getLogger(__name__)
 
-LEAVE_TYPE_LABELS = {"ferie": "Ferie", "permesso": "Permesso", "malattia": "Malattia"}
+LEAVE_TYPE_LABELS = {
+    "ferie": "Ferie", "permesso": "Permesso", "malattia": "Malattia",
+    "smartworking": "Smartworking", "trasferta": "Trasferta",
+    "straordinari": "Straordinari", "reperibilita": "Reperibilità",
+}
 
 
 class LeaveRequestService:
@@ -128,6 +132,37 @@ class LeaveRequestService:
                 )
 
         return {"ok": True}
+
+    async def create_by_admin(self, user: dict, employee_id: str, payload) -> dict:
+        """Registrazione diretta del responsabile per i tipi in
+        ADMIN_LEAVE_TYPES (smartworking/trasferta/straordinari/reperibilita):
+        a differenza di submit() (link pubblico, stato iniziale "in_attesa",
+        email al responsabile) qui l'admin sta già affermando un fatto
+        avvenuto, quindi il record nasce direttamente "approvata" e non
+        genera alcuna email."""
+        employee = await self.employees.find_one(employee_id, user["id"])
+        if not employee:
+            raise NotFoundError("Dipendente non trovato")
+        if payload.date_to < payload.date_from:
+            raise ValidationAppError("La data di fine non può precedere quella di inizio")
+
+        doc = {
+            "id": gen_id(),
+            "user_id": user["id"],
+            "employee_id": employee["id"],
+            "employee_name": employee["name"],
+            "type": payload.type,
+            "date_from": payload.date_from.isoformat(),
+            "date_to": payload.date_to.isoformat(),
+            "note": (payload.note or "").strip(),
+            "hours": payload.hours,
+            "certificate_received": None,
+            "status": "approvata",
+            "created_at": now_iso(),
+            "decided_at": now_iso(),
+        }
+        await self.repo.insert(doc)
+        return doc
 
     async def list_requests(self, user: dict, status: str = None) -> list:
         requests = await self.repo.find_many(user["id"])
