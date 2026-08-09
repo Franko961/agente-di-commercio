@@ -5,6 +5,7 @@ from services.attendance_service import attendance_service
 from models.goals import GoalsIn
 from models.addresses import AddressesIn
 from models.leave_settings import LeaveSettingsIn
+from models.company_settings import CompanySettingsIn
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -37,6 +38,16 @@ async def get_leave_settings(user=Depends(get_current_user)):
 @router.put("/leave")
 async def update_leave_settings(payload: LeaveSettingsIn, user=Depends(forbid_demo_write)):
     return await settings_service.update_leave_settings(user, payload)
+
+
+@router.get("/company")
+async def get_company_settings(user=Depends(get_current_user)):
+    return await settings_service.get_company_settings(user)
+
+
+@router.put("/company")
+async def update_company_settings(payload: CompanySettingsIn, user=Depends(forbid_demo_write)):
+    return await settings_service.update_company_settings(user, payload)
 
 
 @router.get("/attendance-kiosk")

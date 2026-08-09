@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   CalendarDays, CheckCircle2, Loader2, RefreshCw, Unplug, Plug, History, Target, Save,
-  ShieldCheck, Download, Trash2, AlertTriangle, Eye, EyeOff, Home, Building2, Cookie, Star,
+  ShieldCheck, Download, Trash2, AlertTriangle, Eye, EyeOff, Home, Building2, Cookie, Star, Image,
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "../api";
@@ -10,6 +10,7 @@ import AiActionsLog from "../components/AiActionsLog";
 import LocationPicker from "../components/LocationPicker";
 import { useAuth } from "../contexts/AuthContext";
 import { useCookieConsent } from "../contexts/CookieConsentContext";
+import { resizeImageToDataUrl } from "../utils/image";
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -29,6 +30,9 @@ export default function Settings() {
 
   const [leaveSettings, setLeaveSettings] = useState(null); // null = caricamento
   const [leaveSettingsBusy, setLeaveSettingsBusy] = useState(false);
+
+  const [companyLogo, setCompanyLogo] = useState(null); // null = caricamento, "" = nessun logo impostato
+  const [companyLogoBusy, setCompanyLogoBusy] = useState(false);
 
   const [fbRating, setFbRating] = useState(0);
   const [fbText, setFbText] = useState("");
@@ -145,11 +149,53 @@ export default function Settings() {
     }
   };
 
+  const loadCompanySettings = async () => {
+    if (!personaleEnabled) return;
+    try {
+      const { data } = await api.get("/settings/company");
+      setCompanyLogo(data.logo || "");
+    } catch {
+      toast.error("Impossibile caricare il logo aziendale");
+    }
+  };
+
+  // Ridimensionato lato client con lo stesso helper già usato per la foto
+  // dipendente (vedi utils/image.js e EmployeeDetailSheet.jsx) — mostrato
+  // in testa al cartellino presenze esportato, vedi
+  // services/attendance_xlsx_export.py.
+  const saveCompanyLogo = async (file) => {
+    setCompanyLogoBusy(true);
+    try {
+      const dataUrl = await resizeImageToDataUrl(file, 300);
+      const { data } = await api.put("/settings/company", { logo: dataUrl });
+      setCompanyLogo(data.logo || "");
+      toast.success("Logo aggiornato");
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Errore nel salvataggio del logo");
+    } finally {
+      setCompanyLogoBusy(false);
+    }
+  };
+
+  const removeCompanyLogo = async () => {
+    setCompanyLogoBusy(true);
+    try {
+      const { data } = await api.put("/settings/company", { logo: null });
+      setCompanyLogo(data.logo || "");
+      toast.success("Logo rimosso");
+    } catch {
+      toast.error("Errore nella rimozione del logo");
+    } finally {
+      setCompanyLogoBusy(false);
+    }
+  };
+
   useEffect(() => {
     loadStatus();
     loadGoals();
     loadAddresses();
     loadLeaveSettings();
+    loadCompanySettings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -557,6 +603,45 @@ export default function Settings() {
                 <Save className="w-3.5 h-3.5" /> {goalsBusy ? "Salvataggio…" : "Salva obiettivi"}
               </button>
             </form>
+          )}
+
+          {personaleEnabled && (
+            <div className="mt-8">
+              <div className="mb-3">
+                <h2 className="font-cabinet text-xl font-black">Azienda</h2>
+                <p className="text-[#52525B] mt-1 text-[13px]">
+                  Logo mostrato in testa al cartellino presenze esportato (Presenze &rarr; Esporta cartellino).
+                </p>
+              </div>
+              {companyLogo === null ? (
+                <div className="flex items-center gap-2 text-[13px] text-[#A1A1AA]">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Caricamento…
+                </div>
+              ) : (
+                <div className="border border-[#E4E4E1] rounded-lg p-5 flex items-center gap-4">
+                  {companyLogo ? (
+                    <img src={companyLogo} alt="Logo aziendale" className="h-14 max-w-[200px] object-contain border border-[#E4E4E1] rounded-md p-1" />
+                  ) : (
+                    <div className="h-14 w-24 flex items-center justify-center border border-dashed border-[#E4E4E1] rounded-md text-[#A1A1AA]">
+                      <Image className="w-5 h-5" />
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <label className="px-3 py-2 border border-[#E4E4E1] rounded-md text-[13px] font-medium cursor-pointer hover:border-[#0A192F]">
+                      {companyLogo ? "Cambia logo" : "Carica logo"}
+                      <input type="file" accept="image/*" className="hidden" disabled={companyLogoBusy}
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) saveCompanyLogo(f); e.target.value = ""; }} />
+                    </label>
+                    {companyLogo && (
+                      <button onClick={removeCompanyLogo} disabled={companyLogoBusy}
+                        className="px-3 py-2 border border-[#E4E4E1] rounded-md text-[13px] font-medium text-red-600 hover:border-red-300 disabled:opacity-50">
+                        Rimuovi
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           {personaleEnabled && (

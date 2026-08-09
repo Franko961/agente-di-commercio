@@ -63,11 +63,11 @@ async def get_attendance_today_summary(user=Depends(get_current_user)):
     return await attendance_service.today_summary(user)
 
 
-@account_router.get("/export.csv", dependencies=[MODULE_DEP])
+@account_router.get("/export.xlsx", dependencies=[MODULE_DEP])
 async def export_attendance(month: str, user=Depends(get_current_user)):
     """month in formato AAAA-MM. Cartellino del mese (timbrature + assenze
-    approvate) per il consulente del lavoro, vedi attendance_service.export_csv."""
-    return await attendance_service.export_csv(user, month)
+    approvate) per il consulente del lavoro, vedi attendance_service.export_xlsx."""
+    return await attendance_service.export_xlsx(user, month)
 
 
 # Chiosco pubblico: QR fisico uguale per tutti i dipendenti, affisso

@@ -19,7 +19,7 @@ import pytest
 
 sys.path.insert(0, ".")
 
-from services.export_service import csv_response, _sanitize_csv_cell
+from services.export_service import csv_response, sanitize_cell_text
 
 
 def _rows_from_response(response):
@@ -41,7 +41,7 @@ def _rows_from_response(response):
     "@SUM(1,2)",
 ])
 def test_valore_pericoloso_viene_neutralizzato(payload):
-    assert _sanitize_csv_cell(payload) == "'" + payload
+    assert sanitize_cell_text(payload) == "'" + payload
 
 
 @pytest.mark.parametrize("payload", [
@@ -51,7 +51,7 @@ def test_valore_normale_non_viene_alterato_se_non_a_rischio(payload):
     # Nota: "+39 ..." INIZIA con '+', quindi rientra comunque nella
     # sanitizzazione — è un compromesso accettato (vedi test successivo)
     # dato che Excel nasconde comunque l'apostrofo iniziale in visualizzazione.
-    result = _sanitize_csv_cell(payload)
+    result = sanitize_cell_text(payload)
     if payload.startswith(("=", "+", "-", "@")):
         assert result == "'" + payload
     else:
@@ -61,9 +61,9 @@ def test_valore_normale_non_viene_alterato_se_non_a_rischio(payload):
 def test_numeri_non_vengono_toccati():
     """I valori numerici (importi, conteggi) non sono mai a rischio di
     formula injection e non devono essere alterati, nemmeno se negativi."""
-    assert _sanitize_csv_cell(-42.5) == -42.5
-    assert _sanitize_csv_cell(0) == 0
-    assert _sanitize_csv_cell(100) == 100
+    assert sanitize_cell_text(-42.5) == -42.5
+    assert sanitize_cell_text(0) == 0
+    assert sanitize_cell_text(100) == 100
 
 
 def test_export_clienti_neutralizza_nome_pericoloso():

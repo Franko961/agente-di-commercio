@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from fastapi import HTTPException
 
-from core.utils import gen_id, now_iso, now_local, local_date_str, LOCAL_TZ
+from core.utils import gen_id, now_iso, now_local, local_date_str
 from core.exceptions import NotFoundError, ValidationAppError
 from core.security import hash_reset_token, hash_password, verify_password, module_enabled
 from core.rate_limit import check_and_record
@@ -12,19 +12,8 @@ from repositories.attendance_repository import attendance_repository
 from repositories.employee_repository import employee_repository
 from repositories.user_repository import user_repository
 from repositories.leave_request_repository import leave_request_repository
-from services.export_service import csv_response
-from services.leave_request_service import LEAVE_TYPE_LABELS
-
-
-def _local_time_str(iso_ts: str) -> str:
-    """Come local_date_str (core.utils), ma restituisce solo l'orario
-    'HH:MM' in ora italiana — usato dall'export CSV del cartellino, dove
-    l'orologio a muro (non l'istante UTC salvato) è quello che interessa
-    a chi elabora le buste paga."""
-    dt = datetime.fromisoformat(iso_ts.replace("Z", "+00:00"))
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(LOCAL_TZ).strftime("%H:%M")
+from services.export_service import xlsx_response
+from services.attendance_xlsx_export import build_attendance_workbook
 
 
 def _generate_kiosk_token() -> tuple:
@@ -336,61 +325,38 @@ class AttendanceService:
                 clocked_today += 1
         return {"total_active": total_active, "expected_today": expected_today, "clocked_today": clocked_today}
 
-    async def export_csv(self, user: dict, month: str):
-        """Cartellino del mese richiesto (AAAA-MM): una riga per ogni
-        timbratura chiusa (tipo "presenza") più una riga per ogni assenza
-        APPROVATA che si sovrappone al mese (ferie/permesso/malattia) —
-        quello che serve a un consulente del lavoro per elaborare le buste
-        paga, in un unico file invece di dover incrociare due esportazioni
-        separate. Stesso rate limit di leave_request_service.export_csv
-        (bucket condiviso "csv_export": un limite complessivo di export al
-        minuto per utente ha più senso di uno per singolo tipo di file)."""
+    async def export_xlsx(self, user: dict, month: str):
+        """Cartellino del mese richiesto (AAAA-MM) come file Excel: foglio
+        "Cartellino" a griglia dipendenti×giorni (colorata come la pagina
+        Presenze, con logo aziendale e totali di riga) più foglio
+        "Dettaglio" a righe piatte con gli orari esatti di ogni sessione —
+        vedi services/attendance_xlsx_export.py per la costruzione del
+        workbook. Stesso rate limit degli altri export (bucket condiviso
+        "csv_export": un limite complessivo di export al minuto per utente
+        ha più senso di uno per singolo tipo di file)."""
         ok = await check_and_record("csv_export", user["id"], max_attempts=20, window_minutes=10)
         if not ok:
             raise HTTPException(429, "Troppe esportazioni richieste, riprova tra qualche minuto")
 
-        rows = []
-        sessions = await self.repo.find_all_closed(user["id"])
-        for s in sessions:
-            day = local_date_str(s["clock_in"])
-            if not day.startswith(month):
-                continue
-            hours = (datetime.fromisoformat(s["clock_out"]) - datetime.fromisoformat(s["clock_in"])).total_seconds() / 3600
-            rows.append({
-                "employee_name": s.get("employee_name", ""),
-                "type": "Presenza",
-                "date": day,
-                "date_to": "",
-                "clock_in": _local_time_str(s["clock_in"]),
-                "clock_out": _local_time_str(s["clock_out"]),
-                "hours": round(hours, 2),
-                "note": s.get("note", ""),
-            })
+        sessions = []
+        for s in await self.repo.find_all_closed(user["id"]):
+            if local_date_str(s["clock_in"]).startswith(month):
+                sessions.append(s)
 
         year, mon = (int(p) for p in month.split("-"))
         month_start = f"{month}-01"
         month_end = f"{month}-{monthrange(year, mon)[1]:02d}"
         leave_requests = await self.leave_requests.find_overlapping(user["id"], month_start, month_end, status="approvata")
-        for r in leave_requests:
-            rows.append({
-                "employee_name": r.get("employee_name", ""),
-                "type": LEAVE_TYPE_LABELS.get(r["type"], r["type"]),
-                # Solo la porzione che ricade nel mese esportato, non l'intervallo
-                # originale della richiesta: un'assenza a cavallo tra due mesi (es.
-                # 28 luglio - 5 agosto) in un cartellino di agosto deve mostrare
-                # 1-5 agosto, non l'intero intervallo — altrimenti il totale giorni
-                # per mese non tornerebbe con quello che il consulente si aspetta.
-                "date": max(r["date_from"], month_start),
-                "date_to": min(r["date_to"], month_end),
-                "clock_in": "",
-                "clock_out": "",
-                "hours": r.get("hours") if r.get("hours") is not None else "",
-                "note": r.get("note", ""),
-            })
 
-        rows.sort(key=lambda r: (r["employee_name"], r["date"]))
-        headers = ["employee_name", "type", "date", "date_to", "clock_in", "clock_out", "hours", "note"]
-        return csv_response(rows, headers, f"presenze_{month}.csv")
+        wb = build_attendance_workbook(
+            month=month,
+            company_name=user.get("name", ""),
+            company_logo=user.get("company_logo"),
+            ferie_count_mode=user.get("ferie_count_mode", "calendario"),
+            leave_requests=leave_requests,
+            sessions=sessions,
+        )
+        return xlsx_response(wb, f"presenze_{month}.xlsx")
 
     async def create_manual_session(self, user: dict, employee_id: str, payload) -> dict:
         employee = await self._validate_employee(user["id"], employee_id)

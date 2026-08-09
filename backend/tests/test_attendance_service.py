@@ -16,6 +16,7 @@ import io
 import asyncio
 
 import pytest
+import openpyxl
 from pydantic import ValidationError
 
 sys.path.insert(0, ".")
@@ -43,6 +44,28 @@ def _rows_from_response(response):
     chunks = asyncio.run(_collect())
     text = "".join(chunks).lstrip("﻿")
     return list(csv.reader(io.StringIO(text), delimiter=";"))
+
+
+def _dettaglio_rows_from_response(response):
+    """Consuma lo StreamingResponse di xlsx_response (export_xlsx) e
+    ritorna le righe del foglio "Dettaglio" (stessa struttura piatta del
+    precedente export CSV) come liste, per riusare gli stessi confronti
+    di prima nei test sotto."""
+    async def _collect():
+        chunks = []
+        async for chunk in response.body_iterator:
+            chunks.append(chunk)
+        return chunks
+    chunks = asyncio.run(_collect())
+    content = b"".join(c if isinstance(c, bytes) else c.encode() for c in chunks)
+    wb = openpyxl.load_workbook(io.BytesIO(content))
+    ws = wb["Dettaglio"]
+    rows = []
+    for row in ws.iter_rows(values_only=True):
+        if all(v is None for v in row):
+            continue
+        rows.append(["" if v is None else str(v) for v in row])
+    return rows
 
 
 USER = {
@@ -772,44 +795,53 @@ def test_today_summary_confine_del_giorno_in_ora_italiana(monkeypatch):
     assert summary_oggi_presto["clocked_today"] == 1
 
 
-# ---------- export_csv (cartellino: presenze + assenze approvate) ----------
+# ---------- export_xlsx (cartellino: presenze + assenze approvate) ----------
+# Il foglio "Dettaglio" (vedi attendance_xlsx_export.py) mantiene la stessa
+# struttura piatta del precedente export CSV, solo con intestazioni in
+# italiano — questi test riusano gli stessi scenari già coperti prima.
 
-def test_export_csv_include_una_riga_per_sessione_chiusa(monkeypatch):
+_DETTAGLIO_HEADER = ["Dipendente", "Tipo", "Data", "Data fine", "Entrata", "Uscita", "Ore", "Note"]
+
+
+def test_export_xlsx_include_una_riga_per_sessione_chiusa(monkeypatch):
     service, _, _, _, _ = build_service(monkeypatch)
     run(service.create_manual_session(USER, "emp-1", AttendanceCorrectionIn(
         clock_in="2026-08-05T08:00:00+00:00", clock_out="2026-08-05T12:00:00+00:00", note="turno mattina",
     )))
 
-    response = run(service.export_csv(USER, "2026-08"))
-    rows = _rows_from_response(response)
+    response = run(service.export_xlsx(USER, "2026-08"))
+    rows = _dettaglio_rows_from_response(response)
 
-    assert rows[0] == ["employee_name", "type", "date", "date_to", "clock_in", "clock_out", "hours", "note"]
-    assert rows[1] == ["Mario Rossi", "Presenza", "2026-08-05", "", "10:00", "14:00", "4.0", "turno mattina"]
+    assert rows[0] == _DETTAGLIO_HEADER
+    # Un numero "intero" (4.0 ore) viene riletto come "4" dopo il giro di
+    # boa xlsx: il formato non distingue int/float per un valore senza
+    # decimali, a differenza del CSV — non è una perdita di precisione.
+    assert rows[1] == ["Mario Rossi", "Presenza", "2026-08-05", "", "10:00", "14:00", "4", "turno mattina"]
 
 
-def test_export_csv_esclude_mesi_diversi(monkeypatch):
+def test_export_xlsx_esclude_mesi_diversi(monkeypatch):
     service, _, _, _, _ = build_service(monkeypatch)
     run(service.create_manual_session(USER, "emp-1", AttendanceCorrectionIn(
         clock_in="2026-07-31T08:00:00+00:00", clock_out="2026-07-31T12:00:00+00:00",
     )))
 
-    response = run(service.export_csv(USER, "2026-08"))
-    rows = _rows_from_response(response)
+    response = run(service.export_xlsx(USER, "2026-08"))
+    rows = _dettaglio_rows_from_response(response)
 
-    assert rows == [["employee_name", "type", "date", "date_to", "clock_in", "clock_out", "hours", "note"]]
+    assert rows == [_DETTAGLIO_HEADER]
 
 
-def test_export_csv_esclude_sessioni_ancora_aperte(monkeypatch):
+def test_export_xlsx_esclude_sessioni_ancora_aperte(monkeypatch):
     service, _, _, _, _ = build_service(monkeypatch)
     run(service.clock_in_kiosk(KIOSK_TOKEN, "emp-1", PIN))
 
-    response = run(service.export_csv(USER, "2026-08"))
-    rows = _rows_from_response(response)
+    response = run(service.export_xlsx(USER, "2026-08"))
+    rows = _dettaglio_rows_from_response(response)
 
-    assert rows == [["employee_name", "type", "date", "date_to", "clock_in", "clock_out", "hours", "note"]]
+    assert rows == [_DETTAGLIO_HEADER]
 
 
-def test_export_csv_include_assenze_approvate_del_mese(monkeypatch):
+def test_export_xlsx_include_assenze_approvate_del_mese(monkeypatch):
     service, _, _, _, leave_repo = build_service(monkeypatch)
     leave_repo.docs.append({
         "user_id": USER["id"], "employee_name": "Mario Rossi", "type": "ferie",
@@ -817,13 +849,13 @@ def test_export_csv_include_assenze_approvate_del_mese(monkeypatch):
         "note": "ferie estive", "hours": None,
     })
 
-    response = run(service.export_csv(USER, "2026-08"))
-    rows = _rows_from_response(response)
+    response = run(service.export_xlsx(USER, "2026-08"))
+    rows = _dettaglio_rows_from_response(response)
 
     assert rows[1] == ["Mario Rossi", "Ferie", "2026-08-10", "2026-08-12", "", "", "", "ferie estive"]
 
 
-def test_export_csv_ritaglia_lassenza_a_cavallo_tra_due_mesi(monkeypatch):
+def test_export_xlsx_ritaglia_lassenza_a_cavallo_tra_due_mesi(monkeypatch):
     """Un'assenza che attraversa il confine del mese (28 luglio - 5 agosto)
     deve comparire nel cartellino di agosto solo con la porzione di agosto
     (1-5), non con l'intervallo originale — altrimenti il cartellino di
@@ -836,13 +868,13 @@ def test_export_csv_ritaglia_lassenza_a_cavallo_tra_due_mesi(monkeypatch):
         "note": "", "hours": None,
     })
 
-    response = run(service.export_csv(USER, "2026-08"))
-    rows = _rows_from_response(response)
+    response = run(service.export_xlsx(USER, "2026-08"))
+    rows = _dettaglio_rows_from_response(response)
 
     assert rows[1] == ["Mario Rossi", "Ferie", "2026-08-01", "2026-08-05", "", "", "", ""]
 
 
-def test_export_csv_ritaglia_lassenza_che_finisce_nel_mese_successivo(monkeypatch):
+def test_export_xlsx_ritaglia_lassenza_che_finisce_nel_mese_successivo(monkeypatch):
     service, _, _, _, leave_repo = build_service(monkeypatch)
     leave_repo.docs.append({
         "user_id": USER["id"], "employee_name": "Mario Rossi", "type": "malattia",
@@ -850,13 +882,13 @@ def test_export_csv_ritaglia_lassenza_che_finisce_nel_mese_successivo(monkeypatc
         "note": "", "hours": None,
     })
 
-    response = run(service.export_csv(USER, "2026-08"))
-    rows = _rows_from_response(response)
+    response = run(service.export_xlsx(USER, "2026-08"))
+    rows = _dettaglio_rows_from_response(response)
 
     assert rows[1] == ["Mario Rossi", "Malattia", "2026-08-28", "2026-08-31", "", "", "", ""]
 
 
-def test_export_csv_esclude_assenze_non_approvate(monkeypatch):
+def test_export_xlsx_esclude_assenze_non_approvate(monkeypatch):
     service, _, _, _, leave_repo = build_service(monkeypatch)
     leave_repo.docs.append({
         "user_id": USER["id"], "employee_name": "Mario Rossi", "type": "ferie",
@@ -864,26 +896,26 @@ def test_export_csv_esclude_assenze_non_approvate(monkeypatch):
         "note": "", "hours": None,
     })
 
-    response = run(service.export_csv(USER, "2026-08"))
-    rows = _rows_from_response(response)
+    response = run(service.export_xlsx(USER, "2026-08"))
+    rows = _dettaglio_rows_from_response(response)
 
-    assert rows == [["employee_name", "type", "date", "date_to", "clock_in", "clock_out", "hours", "note"]]
+    assert rows == [_DETTAGLIO_HEADER]
 
 
-def test_export_csv_scoped_per_utente(monkeypatch):
+def test_export_xlsx_scoped_per_utente(monkeypatch):
     service, _, emp_repo, _, _ = build_service(monkeypatch)
     emp_repo.docs["emp-2"] = {"id": "emp-2", "user_id": OTHER_USER["id"], "name": "Anna", "active": True, "pin_hash": None}
     run(service.create_manual_session(OTHER_USER, "emp-2", AttendanceCorrectionIn(
         clock_in="2026-08-05T08:00:00+00:00", clock_out="2026-08-05T12:00:00+00:00",
     )))
 
-    response = run(service.export_csv(USER, "2026-08"))
-    rows = _rows_from_response(response)
+    response = run(service.export_xlsx(USER, "2026-08"))
+    rows = _dettaglio_rows_from_response(response)
 
-    assert rows == [["employee_name", "type", "date", "date_to", "clock_in", "clock_out", "hours", "note"]]
+    assert rows == [_DETTAGLIO_HEADER]
 
 
-def test_export_csv_rispetta_il_rate_limit(monkeypatch):
+def test_export_xlsx_rispetta_il_rate_limit(monkeypatch):
     service, _, _, _, _ = build_service(monkeypatch)
 
     import services.attendance_service as attendance_mod
@@ -893,7 +925,7 @@ def test_export_csv_rispetta_il_rate_limit(monkeypatch):
 
     from fastapi import HTTPException
     with pytest.raises(HTTPException):
-        run(service.export_csv(USER, "2026-08"))
+        run(service.export_xlsx(USER, "2026-08"))
 
 
 # ---------- AttendanceCorrectionIn: validazione intervallo ----------

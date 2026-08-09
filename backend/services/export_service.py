@@ -14,10 +14,12 @@ from services.commission_service import normalize_manual_commission
 # esportato — che potrebbe non essere la stessa persona che ha inserito
 # quel dato (es. l'export viene girato al proprio mandante o commercialista).
 # Vulnerabilità nota come "CSV Injection"/"Formula Injection" (OWASP).
+# Identica su un vero .xlsx (vedi sanitize_cell_text più sotto, usata anche
+# da attendance_xlsx_export.py): non è un problema specifico del CSV.
 _FORMULA_TRIGGER_CHARS = ("=", "+", "-", "@")
 
 
-def _sanitize_csv_cell(value):
+def sanitize_cell_text(value):
     """Antepone un apostrofo ai valori testuali che iniziano con un
     carattere che attiverebbe l'interpretazione come formula — la stessa
     convenzione che usa Excel per forzare un valore a essere trattato come
@@ -35,11 +37,27 @@ def csv_response(rows: List[dict], headers: List[str], filename: str) -> Streami
     writer = csv.DictWriter(buf, fieldnames=headers, delimiter=";", extrasaction="ignore")
     writer.writeheader()
     for r in rows:
-        writer.writerow({h: _sanitize_csv_cell(r.get(h, "")) for h in headers})
+        writer.writerow({h: sanitize_cell_text(r.get(h, "")) for h in headers})
     buf.seek(0)
     return StreamingResponse(
         iter([buf.getvalue()]),
         media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+def xlsx_response(wb, filename: str) -> StreamingResponse:
+    """Serializza un openpyxl Workbook già costruito (vedi
+    attendance_xlsx_export.py) in una risposta scaricabile — equivalente
+    xlsx di csv_response qui sopra. Un BytesIO passato direttamente a
+    StreamingResponse verrebbe iterato riga per riga (split su ogni byte
+    b'\\n'), corrompendo un formato binario come .xlsx: va racchiuso in un
+    iterabile a blocco unico, stesso accorgimento già usato da csv_response."""
+    buf = io.BytesIO()
+    wb.save(buf)
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 

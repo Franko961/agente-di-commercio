@@ -10,6 +10,7 @@ import {
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
 import api from "../api";
+import { resizeImageToDataUrl } from "../utils/image";
 
 const EMPLOYMENT_STATUS_LABELS = { attivo: "Attivo", sospeso: "Sospeso", cessato: "Cessato" };
 const EMPLOYMENT_STATUS_COLORS = { attivo: "#059669", sospeso: "#FF5A00", cessato: "#A1A1AA" };
@@ -84,33 +85,6 @@ function formatApiError(err, fallback = "Salvataggio non riuscito") {
     return detail.map((e) => (e?.msg || "").replace(/^Value error,\s*/, "")).filter(Boolean).join(" · ") || fallback;
   }
   return fallback;
-}
-
-// Ridimensiona l'immagine lato client prima di convertirla in data URL: una
-// foto profilo non ha bisogno di essere a piena risoluzione, e mandarla
-// intera gonfierebbe inutilmente il documento MongoDB (vedi
-// PHOTO_MAX_LENGTH in core/validation_limits.py, pensato per una miniatura
-// compressa, non per una foto originale da smartphone).
-function resizeImageToDataUrl(file, maxDim = 300) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = reject;
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = reject;
-      img.onload = () => {
-        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/jpeg", 0.8));
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
 }
 
 export default function EmployeeDetailSheet({ employee, requests, onClose, onEmployeeUpdated, onRequestsChanged }) {
