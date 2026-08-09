@@ -659,6 +659,47 @@ def test_expected_hours_non_esclude_assenza_in_attesa(monkeypatch):
     assert any(r["date"] == "2026-08-03" for r in rows)
 
 
+def test_expected_hours_non_esclude_smartworking_trasferta_straordinari_reperibilita(monkeypatch):
+    """smartworking/trasferta/straordinari/reperibilita (ADMIN_LEAVE_TYPES,
+    vedi models.leave_request) non sono assenze: il dipendente lavora
+    comunque quel giorno, solo non in sede/con un extra — a differenza di
+    ferie/permesso/malattia non devono azzerare le ore attese."""
+    service, _, emp_repo, _, leave_repo = build_service(monkeypatch)
+    emp_repo.docs["emp-1"].update({"work_days": [0, 1, 2, 3, 4], "shift_start_time": "09:00", "shift_end_time": "17:00"})
+    for i, tipo in enumerate(["smartworking", "trasferta", "straordinari", "reperibilita"]):
+        leave_repo.docs.append({
+            "user_id": USER["id"], "employee_id": "emp-1", "type": tipo,
+            "date_from": f"2026-08-0{3 + i}", "date_to": f"2026-08-0{3 + i}", "status": "approvata",
+        })
+
+    rows = run(service.expected_hours(USER, "2026-08"))
+
+    for giorno in ["2026-08-03", "2026-08-04", "2026-08-05", "2026-08-06"]:
+        assert any(r["date"] == giorno and r["hours"] == 8.0 for r in rows), giorno
+
+
+def test_expected_hours_esclude_assenza_anche_se_mescolata_ad_attivita_lavorative(monkeypatch):
+    """Una vera assenza (ferie) continua a escludere il giorno anche quando
+    lo stesso dipendente ha, in altri giorni dello stesso mese, richieste di
+    tipo smartworking/trasferta/ecc. — la distinzione è per tipo di
+    richiesta, non per dipendente."""
+    service, _, emp_repo, _, leave_repo = build_service(monkeypatch)
+    emp_repo.docs["emp-1"].update({"work_days": [0, 1, 2, 3, 4], "shift_start_time": "09:00", "shift_end_time": "17:00"})
+    leave_repo.docs.append({
+        "user_id": USER["id"], "employee_id": "emp-1", "type": "ferie",
+        "date_from": "2026-08-03", "date_to": "2026-08-03", "status": "approvata",
+    })
+    leave_repo.docs.append({
+        "user_id": USER["id"], "employee_id": "emp-1", "type": "smartworking",
+        "date_from": "2026-08-04", "date_to": "2026-08-04", "status": "approvata",
+    })
+
+    rows = run(service.expected_hours(USER, "2026-08"))
+
+    assert not any(r["date"] == "2026-08-03" for r in rows)  # ferie: nessuna riga
+    assert any(r["date"] == "2026-08-04" and r["hours"] == 8.0 for r in rows)  # smartworking: riga normale
+
+
 def test_expected_hours_assenza_di_un_altro_dipendente_non_influisce(monkeypatch):
     service, _, emp_repo, _, leave_repo = build_service(monkeypatch)
     emp_repo.docs["emp-1"].update({"work_days": [0, 1, 2, 3, 4], "shift_start_time": "09:00", "shift_end_time": "17:00"})

@@ -8,6 +8,7 @@ from core.utils import gen_id, now_iso, now_local, local_date_str
 from core.exceptions import NotFoundError, ValidationAppError
 from core.security import hash_reset_token, hash_password, verify_password, module_enabled
 from core.rate_limit import check_and_record
+from models.leave_request import LEAVE_TYPES
 from repositories.attendance_repository import attendance_repository
 from repositories.employee_repository import employee_repository
 from repositories.user_repository import user_repository
@@ -244,7 +245,13 @@ class AttendanceService:
         previste ore di lavoro" quando in realtà il dipendente era
         autorizzato ad assentarsi. Rilevante per qualunque uso futuro di
         questo numero fuori dalla griglia (es. un totale mensile
-        aggregato)."""
+        aggregato).
+
+        Solo LEAVE_TYPES (ferie/permesso/malattia) conta come assenza qui:
+        smartworking/trasferta/straordinari/reperibilita (ADMIN_LEAVE_TYPES,
+        vedi models.leave_request) NON sono assenze — il dipendente lavora
+        comunque quel giorno, solo non in sede/con un extra — quindi non
+        devono azzerare le ore attese."""
         employees = await self.employees.find_many(user["id"])
         year, mon = (int(p) for p in month.split("-"))
         days_in_month = monthrange(year, mon)[1]
@@ -254,6 +261,8 @@ class AttendanceService:
         leave_requests = await self.leave_requests.find_overlapping(user["id"], date_from, date_to_bound, status="approvata")
         absences_by_employee: dict = {}
         for r in leave_requests:
+            if r["type"] not in LEAVE_TYPES:
+                continue
             absences_by_employee.setdefault(r["employee_id"], []).append((r["date_from"], r["date_to"]))
 
         def _is_absent(employee_id: str, day_iso: str) -> bool:
