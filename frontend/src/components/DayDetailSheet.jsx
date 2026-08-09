@@ -26,6 +26,17 @@ function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 }
 
+// clock_in è salvato in UTC (vedi backend/core/utils.local_date_str, la
+// stessa conversione lato server): una timbratura delle 00:30 italiane del
+// 1° agosto è "2026-07-31T22:30:00+00:00" in UTC — un confronto con
+// .slice(0,10) sulla stringa grezza la attribuirebbe al 31 luglio invece
+// che al 1° agosto. new Date(iso) interpreta correttamente l'offset UTC e
+// getFullYear/getMonth/getDate leggono poi l'ora locale del browser.
+function localDateStr(iso) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function formatDuration(clockIn, clockOut) {
   if (!clockOut) return "in corso";
   const totalMinutes = Math.round((new Date(clockOut) - new Date(clockIn)) / 60000);
@@ -50,7 +61,7 @@ export default function DayDetailSheet({ employeeId, employeeName, date, request
 
   const loadSessions = async () => {
     const { data } = await api.get(`/employees/${employeeId}/attendance`);
-    setSessions(data.filter((s) => s.clock_in.slice(0, 10) === date));
+    setSessions(data.filter((s) => localDateStr(s.clock_in) === date));
   };
   useEffect(() => {
     loadSessions();
