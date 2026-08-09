@@ -1455,7 +1455,7 @@ def test_dipendente_con_assenza_approvata_oggi_non_genera_nulla(monkeypatch):
     }]
     employees = [_employee(work_days=[mocked_now.weekday()], shift_start_time="09:00")]
     leave_requests = [{
-        "id": "lr-1", "user_id": "user-1", "employee_id": "emp-1", "status": "approvata",
+        "id": "lr-1", "user_id": "user-1", "employee_id": "emp-1", "status": "approvata", "type": "ferie",
         "date_from": "2026-03-16", "date_to": "2026-03-16",
     }]
     engine = build_engine(automations=automations, employees=employees, leave_requests=leave_requests)
@@ -1463,6 +1463,35 @@ def test_dipendente_con_assenza_approvata_oggi_non_genera_nulla(monkeypatch):
     summary = run(engine.run_cycle())
 
     assert summary["executed"] == 0
+
+
+def test_dipendente_in_smartworking_oggi_genera_comunque_notifica(monkeypatch):
+    """smartworking/trasferta/straordinari/reperibilita (ADMIN_LEAVE_TYPES,
+    vedi models.leave_request) non sono assenze: il dipendente lavora
+    comunque, quindi la timbratura mancante resta un problema da segnalare
+    — a differenza di ferie/permesso/malattia, che escludono dal controllo
+    (vedi test sopra). Stessa distinzione già applicata ad
+    attendance_service.expected_hours."""
+    import services.automation_engine as automation_engine_mod
+    from datetime import datetime as real_datetime
+
+    mocked_now = real_datetime(2026, 3, 16, 10, 5)
+    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
+
+    automations = [{
+        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
+        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
+    }]
+    employees = [_employee(work_days=[mocked_now.weekday()], shift_start_time="09:00")]
+    leave_requests = [{
+        "id": "lr-1", "user_id": "user-1", "employee_id": "emp-1", "status": "approvata", "type": "smartworking",
+        "date_from": "2026-03-16", "date_to": "2026-03-16",
+    }]
+    engine = build_engine(automations=automations, employees=employees, leave_requests=leave_requests)
+
+    summary = run(engine.run_cycle())
+
+    assert summary["executed"] == 1
 
 
 def test_assenza_in_attesa_non_esclude_dal_controllo(monkeypatch):
@@ -1480,7 +1509,7 @@ def test_assenza_in_attesa_non_esclude_dal_controllo(monkeypatch):
     }]
     employees = [_employee(work_days=[mocked_now.weekday()], shift_start_time="09:00")]
     leave_requests = [{
-        "id": "lr-1", "user_id": "user-1", "employee_id": "emp-1", "status": "in_attesa",
+        "id": "lr-1", "user_id": "user-1", "employee_id": "emp-1", "status": "in_attesa", "type": "ferie",
         "date_from": "2026-03-16", "date_to": "2026-03-16",
     }]
     engine = build_engine(automations=automations, employees=employees, leave_requests=leave_requests)

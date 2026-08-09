@@ -53,6 +53,7 @@ from repositories.vehicle_deadline_repository import vehicle_deadline_repository
 from repositories.employee_repository import employee_repository
 from repositories.attendance_repository import attendance_repository
 from repositories.leave_request_repository import leave_request_repository
+from models.leave_request import LEAVE_TYPES
 from services.commission_service import normalize_manual_commission
 from services.email_service import send_email
 
@@ -529,7 +530,12 @@ class AutomationEngine:
         questi due campi impostati non viene mai monitorato apposta: niente
         falsi allarmi retroattivi su chi non ha mai avuto un orario da
         rispettare. Le assenze approvate (ferie/permessi/malattia) che
-        coprono la data odierna escludono il dipendente dal controllo.
+        coprono la data odierna escludono il dipendente dal controllo —
+        smartworking/trasferta/straordinari/reperibilita NO: non sono
+        assenze, il dipendente lavora comunque (vedi models.leave_request
+        LEAVE_TYPES/ADMIN_LEAVE_TYPES, stessa distinzione già applicata ad
+        attendance_service.expected_hours), quindi la timbratura mancante
+        resta un problema da segnalare anche in quei casi.
         target_id include la data odierna apposta: si ripete da solo ogni
         giorno lavorativo, senza bisogno di alcun cooldown_days."""
         now = now_local()
@@ -559,7 +565,7 @@ class AutomationEngine:
 
             leave_requests = await self.leave_request_repo.find_by_employee(e["id"])
             if any(
-                r["status"] == "approvata" and r["date_from"] <= today_str <= r["date_to"]
+                r["type"] in LEAVE_TYPES and r["status"] == "approvata" and r["date_from"] <= today_str <= r["date_to"]
                 for r in leave_requests
             ):
                 continue  # assenza approvata che copre oggi: esclusa dal controllo
