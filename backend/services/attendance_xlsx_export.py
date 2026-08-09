@@ -149,14 +149,24 @@ def build_attendance_workbook(
         for day in range(1, days_in_month + 1):
             iso = f"{month}-{day:02d}"
             d = date(year, mon, day)
+            # "straordinari" è tenuto separato dagli altri tipi: si SOMMA
+            # alle ore ordinarie del giorno (vedi extra_hours più sotto),
+            # non le sostituisce come farebbe un'assenza o una modalità di
+            # lavoro a giornata intera — un dipendente può avere 8 ore
+            # ordinarie + 2 di straordinario lo stesso giorno.
             match = None
+            extra_hours = None
             for r in requests_by_employee.get(name, []):
-                if r["date_from"] <= iso <= r["date_to"]:
+                if not (r["date_from"] <= iso <= r["date_to"]):
+                    continue
+                if r["type"] == "straordinari":
+                    extra_hours = (extra_hours or 0) + (r.get("hours") or 0)
+                    continue
+                if match is None:
                     if r["type"] == "ferie" and _is_ferie_excluded_day(ferie_count_mode, d):
                         continue
                     match = r
-                    break
-            hours = hours_by_key.get((name, iso))
+            worked_hours = hours_by_key.get((name, iso))
             cell = ws.cell(row=row, column=1 + day)
             if match:
                 color = TYPE_COLORS.get(match["type"])
@@ -168,13 +178,19 @@ def build_attendance_workbook(
                 cell.alignment = Alignment(horizontal="center")
                 if match["type"] == "ferie":
                     total_ferie_days += 1
-            elif hours:
-                cell.fill = _fill(PRESENTE_COLOR)
+            elif worked_hours or extra_hours:
+                # Presente resta il colore di base se c'è una timbratura
+                # quel giorno; lo straordinario dichiarato (senza una
+                # timbratura separata) usa il proprio colore — in entrambi
+                # i casi il valore mostrato è la SOMMA, non l'uno o l'altro.
+                cell.fill = _fill(PRESENTE_COLOR if worked_hours else TYPE_COLORS["straordinari"])
                 cell.font = Font(color="FFFFFFFF")
-                cell.value = round(hours, 2)
+                cell.value = round((worked_hours or 0) + (extra_hours or 0), 2)
                 cell.alignment = Alignment(horizontal="center")
-            if hours:
-                total_hours += hours
+            if worked_hours:
+                total_hours += worked_hours
+            if extra_hours:
+                total_hours += extra_hours
         ws.cell(row=row, column=totals_col, value=round(total_hours, 2))
         ws.cell(row=row, column=ferie_col, value=total_ferie_days)
         row += 1

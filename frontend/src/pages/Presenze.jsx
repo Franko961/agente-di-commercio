@@ -533,7 +533,16 @@ function AbsenceCalendarGrid({ employees, month, rows, hoursRows, expectedRows, 
                         }
 
                         const conflict = matches.length > 1;
-                        const title = matches.map((m) => ALL_TYPE_LABELS[m.type] || m.type).join(" + ") + (hours ? ` · ${hours}h lavorate` : "");
+                        // Gli straordinari si SOMMANO alle ore lavorate,
+                        // non le sostituiscono (vedi build_attendance_workbook
+                        // lato export): il tooltip lo rende esplicito invece
+                        // di limitarsi a elencare i tipi del giorno.
+                        const straordinariHours = matches.filter((m) => m.type === "straordinari").reduce((sum, m) => sum + (m.hours || 0), 0);
+                        const title = matches.map((m) => ALL_TYPE_LABELS[m.type] || m.type).join(" + ") + (
+                          straordinariHours && hours
+                            ? ` · ${hours}h lavorate + ${straordinariHours}h straordinari = ${hours + straordinariHours}h`
+                            : hours ? ` · ${hours}h lavorate` : ""
+                        );
 
                         // Un solo tipo di assenza e nessuna presenza quel
                         // giorno: riempimento pieno come prima (caso comune,
