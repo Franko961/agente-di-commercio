@@ -73,6 +73,17 @@ export default function Presenze() {
   useEffect(() => { loadEmployees(); loadAttendanceReminder(); loadLeaveSettings(); }, []);
   useEffect(() => { loadCalendar(month); loadHours(month); loadExpectedHours(month); }, [month]);
 
+  // Polling leggero: le timbrature dal chiosco avvengono lato server, non
+  // c'è un evento che avvisi questa pagina se resta aperta — un intervallo
+  // ogni 60s (invece di websocket/SSE, sproporzionati per poche timbrature
+  // al giorno per dipendente) tiene la griglia ragionevolmente aggiornata
+  // senza bisogno di ricaricare la pagina a mano. Si aggiorna solo lo
+  // stesso mese già visualizzato, non la lista dipendenti/impostazioni.
+  useEffect(() => {
+    const id = setInterval(() => { loadCalendar(month); loadHours(month); loadExpectedHours(month); }, 60000);
+    return () => clearInterval(id);
+  }, [month]);
+
   // Richiamato dal pannello di dettaglio giorno (DayDetailSheet) dopo
   // un'aggiunta/modifica/eliminazione: ricarica gli stessi dati già usati
   // per popolare la griglia, così il pannello e la griglia restano coerenti
