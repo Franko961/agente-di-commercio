@@ -16,6 +16,19 @@ const STATUS_COLORS = { in_attesa: "#FF5A00", approvata: "#059669", rifiutata: "
 
 const EMPTY_EMPLOYEE = { name: "", role: "", email: "" };
 
+// Stesso helper di EmployeeDetailSheet.jsx: un errore applicativo arriva come
+// stringa, ma un 422 di Pydantic (es. il @model_validator su EmployeeIn per
+// l'orario contrattuale) arriva come lista — senza questo il messaggio era
+// il fallback generico e non si capiva cosa correggere.
+function formatApiError(err, fallback = "Operazione non riuscita") {
+  const detail = err?.response?.data?.detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail) && detail.length) {
+    return detail.map((e) => (e?.msg || "").replace(/^Value error,\s*/, "")).filter(Boolean).join(" · ") || fallback;
+  }
+  return fallback;
+}
+
 export default function Personale() {
   const [tab, setTab] = useState("richieste"); // richieste | dipendenti
   const [employees, setEmployees] = useState([]);
@@ -61,11 +74,15 @@ export default function Personale() {
   };
 
   const saveEmployee = async (f) => {
-    const { data } = await api.post("/employees", f);
-    toast.success("Dipendente aggiunto");
-    setOpen(false);
-    setNewLink({ name: data.name, token: data.request_token });
-    loadEmployees();
+    try {
+      const { data } = await api.post("/employees", f);
+      toast.success("Dipendente aggiunto");
+      setOpen(false);
+      setNewLink({ name: data.name, token: data.request_token });
+      loadEmployees();
+    } catch (err) {
+      toast.error(formatApiError(err, "Salvataggio non riuscito"));
+    }
   };
 
   const deactivateFromDialog = async () => {
@@ -74,23 +91,35 @@ export default function Personale() {
   };
 
   const confirmDelete = async () => {
-    await api.delete(`/employees/${deleteTarget.id}`);
-    toast.success("Dipendente eliminato");
-    setDeleteTarget(null);
-    loadEmployees();
+    try {
+      await api.delete(`/employees/${deleteTarget.id}`);
+      toast.success("Dipendente eliminato");
+      setDeleteTarget(null);
+      loadEmployees();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Eliminazione non riuscita");
+    }
   };
 
   const regenerateToken = async (emp) => {
     if (!window.confirm(`Rigenerare il link di "${emp.name}"? Il link precedente smetterà subito di funzionare.`)) return;
-    const { data } = await api.post(`/employees/${emp.id}/regenerate-token`);
-    toast.success("Nuovo link generato");
-    setNewLink({ name: emp.name, token: data.request_token });
+    try {
+      const { data } = await api.post(`/employees/${emp.id}/regenerate-token`);
+      toast.success("Nuovo link generato");
+      setNewLink({ name: emp.name, token: data.request_token });
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Operazione non riuscita");
+    }
   };
 
   const toggleActive = async (emp) => {
-    await api.patch(`/employees/${emp.id}/active`, { active: !emp.active });
-    toast.success(emp.active ? "Dipendente disattivato" : "Dipendente riattivato");
-    loadEmployees();
+    try {
+      await api.patch(`/employees/${emp.id}/active`, { active: !emp.active });
+      toast.success(emp.active ? "Dipendente disattivato" : "Dipendente riattivato");
+      loadEmployees();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Operazione non riuscita");
+    }
   };
 
   const copyNewLink = () => {
@@ -308,11 +337,20 @@ export default function Personale() {
 
 function EmployeeForm({ initial, onSave, submitLabel = "Salva" }) {
   const [f, setF] = useState({ name: initial.name, role: initial.role || "", email: initial.email || "" });
+  const [saving, setSaving] = useState(false);
 
   return (
     <form onSubmit={async (e) => {
       e.preventDefault();
-      await onSave({ ...f, email: f.email || null });
+      setSaving(true);
+      try {
+        await onSave({ ...f, email: f.email || null });
+      } finally {
+        // Se onSave ha successo il dialog si chiude comunque (vedi
+        // saveEmployee in Personale.jsx), quindi questo setSaving(false) ha
+        // effetto solo sul caso di errore, dove il form resta visibile.
+        setSaving(false);
+      }
     }} className="space-y-3">
       <div>
         <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Nome completo *</label>
@@ -330,8 +368,8 @@ function EmployeeForm({ initial, onSave, submitLabel = "Salva" }) {
           placeholder="Per notificargli l'esito delle richieste"
           className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
       </div>
-      <button type="submit" className="w-full bg-[#0A192F] text-white py-2.5 rounded-md text-[13px] font-medium">
-        {submitLabel}
+      <button type="submit" disabled={saving} className="w-full bg-[#0A192F] text-white py-2.5 rounded-md text-[13px] font-medium disabled:opacity-60">
+        {saving ? "Salvataggio…" : submitLabel}
       </button>
     </form>
   );
