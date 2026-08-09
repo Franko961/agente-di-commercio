@@ -41,6 +41,7 @@ export default function Presenze() {
   const [kioskHasToken, setKioskHasToken] = useState(null); // null = non ancora caricato
   const [kioskToken, setKioskToken] = useState(null); // token in chiaro, mostrato una sola volta dopo generazione
   const [attendanceReminder, setAttendanceReminder] = useState(null); // automazione "attendance_missing", null finché non caricata/creata
+  const [ferieCountMode, setFerieCountMode] = useState("calendario"); // vedi Impostazioni > Ferie
 
   const loadEmployees = async () => {
     const { data } = await api.get("/employees");
@@ -64,8 +65,12 @@ export default function Presenze() {
     const existing = data.find((a) => a.trigger === "attendance_missing");
     if (existing) setAttendanceReminder(existing);
   };
+  const loadLeaveSettings = async () => {
+    const { data } = await api.get("/settings/leave");
+    setFerieCountMode(data.ferie_count_mode);
+  };
 
-  useEffect(() => { loadEmployees(); loadAttendanceReminder(); }, []);
+  useEffect(() => { loadEmployees(); loadAttendanceReminder(); loadLeaveSettings(); }, []);
   useEffect(() => { loadCalendar(month); loadHours(month); loadExpectedHours(month); }, [month]);
 
   // Richiamato dal pannello di dettaglio giorno (DayDetailSheet) dopo
@@ -215,7 +220,8 @@ export default function Presenze() {
           <Download className="w-4 h-4" /> Esporta cartellino
         </button>
       </div>
-      <AbsenceCalendarGrid employees={employees} month={month} rows={calendarRows} hoursRows={hoursRows} expectedRows={expectedRows} onChanged={refreshMonthData} />
+      <AbsenceCalendarGrid employees={employees} month={month} rows={calendarRows} hoursRows={hoursRows} expectedRows={expectedRows}
+        ferieCountMode={ferieCountMode} onChanged={refreshMonthData} />
     </div>
   );
 }
@@ -242,6 +248,43 @@ function shiftIso(iso, delta) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// Algoritmo di Gauss/Meeus per la Pasqua — stesso algoritmo di
+// backend/core/italian_holidays.py, duplicato qui apposta: pura matematica
+// sulle date, nessuna chiamata API, stesso principio già usato da
+// isWeekend() qui sopra.
+function easterSunday(year) {
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100;
+  const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(year, month - 1, day);
+}
+const ITALIAN_HOLIDAYS_FIXED = [[1, 1], [1, 6], [4, 25], [5, 1], [6, 2], [8, 15], [11, 1], [12, 8], [12, 25], [12, 26]];
+function isItalianHoliday(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (ITALIAN_HOLIDAYS_FIXED.some(([hm, hd]) => hm === m && hd === d)) return true;
+  const pasquetta = easterSunday(y);
+  pasquetta.setDate(pasquetta.getDate() + 1);
+  return pasquetta.getFullYear() === y && pasquetta.getMonth() + 1 === m && pasquetta.getDate() === d;
+}
+
+// Un giorno di FERIE non va considerato "consumato" in base a
+// ferie_count_mode dell'account (Impostazioni > Ferie, stessa logica di
+// leave_request_service._days_in_year lato backend): "lavorativi" esclude
+// sabato e domenica, "festivita" esclude solo domenica e le festività
+// nazionali italiane (sabato incluso). Non si applica ad altri tipi
+// (permesso/malattia/ecc. restano sempre a calendario pieno).
+function isFerieExcludedDay(mode, iso) {
+  if (mode === "calendario") return false;
+  const dow = new Date(`${iso}T00:00:00`).getDay(); // 0=domenica … 6=sabato
+  if (mode === "lavorativi") return dow === 0 || dow === 6;
+  return dow === 0 || isItalianHoliday(iso);
+}
+
 // Vista a griglia (dipendenti sulle righe, giorni del mese sulle colonne)
 // pensata per aziende con diversi dipendenti (es. CACI SRL, ~40): la
 // precedente semplice lista mensile non dava un colpo d'occhio su chi è
@@ -255,7 +298,7 @@ function shiftIso(iso, delta) {
 // presenti solo per i dipendenti che hanno compilato anche la fine turno) —
 // tutto il resto è calcolato qui. `onChanged` ricarica questi tre dataset
 // dopo una modifica fatta dal pannello giorno (DayDetailSheet).
-function AbsenceCalendarGrid({ employees, month, rows, hoursRows, expectedRows, onChanged }) {
+function AbsenceCalendarGrid({ employees, month, rows, hoursRows, expectedRows, ferieCountMode, onChanged }) {
   const [viewMode, setViewMode] = useState("mensile");
   const [weekOffset, setWeekOffset] = useState(0);
   const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
@@ -283,7 +326,11 @@ function AbsenceCalendarGrid({ employees, month, rows, hoursRows, expectedRows, 
     (byEmployee[r.employee_id] ||= []).push(r);
   });
   const covering = (employeeId, iso) =>
-    (byEmployee[employeeId] || []).filter((r) => r.date_from <= iso && r.date_to >= iso);
+    (byEmployee[employeeId] || []).filter((r) => {
+      if (r.date_from > iso || r.date_to < iso) return false;
+      if (r.type === "ferie" && isFerieExcludedDay(ferieCountMode, iso)) return false;
+      return true;
+    });
 
   // Ore lavorate dal chiosco di timbratura (vedi attendance_service.calendar):
   // una mappa "employeeId|data" -> ore, per un accesso O(1) per cella.

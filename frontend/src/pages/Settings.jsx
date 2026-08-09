@@ -591,6 +591,15 @@ export default function Settings() {
                       <span className="block text-[12px] text-[#A1A1AA]">Esclude sabato e domenica (es. venerdì-lunedì = 2 giorni). Non esclude le festività infrasettimanali.</span>
                     </span>
                   </label>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input type="radio" name="ferie_count_mode" className="mt-1" disabled={leaveSettingsBusy}
+                      checked={leaveSettings.ferie_count_mode === "festivita"}
+                      onChange={() => saveLeaveSettings("festivita")} />
+                    <span>
+                      <span className="block text-[13px] font-semibold">Esclude domenica e festività</span>
+                      <span className="block text-[12px] text-[#A1A1AA]">Sabato incluso, domenica e festività nazionali escluse (Capodanno, Pasquetta, Ferragosto, Natale, ecc.). Per chi lavora anche il sabato.</span>
+                    </span>
+                  </label>
                   <p className="text-[11px] text-[#A1A1AA] pt-1">Si applica solo alle Ferie: le Malattie restano sempre a giorni di calendario.</p>
                 </div>
               )}

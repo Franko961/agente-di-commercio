@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Literal
 
-FERIE_COUNT_MODES = ("calendario", "lavorativi")
+FERIE_COUNT_MODES = ("calendario", "lavorativi", "festivita")
 
 
 class LeaveSettingsIn(BaseModel):
@@ -9,7 +9,10 @@ class LeaveSettingsIn(BaseModel):
     scheda dipendente (leave_request_service.employee_summary): "calendario"
     conta ogni giorno dell'intervallo (comportamento storico), "lavorativi"
     conta solo lun-ven — non esclude le festività infrasettimanali italiane,
-    scelta deliberata per restare semplice. Si applica solo alle Ferie, non
-    alle Malattie (quelle restano sempre a giorni di calendario, come da
-    prassi INPS/certificati medici)."""
-    ferie_count_mode: Literal["calendario", "lavorativi"] = "calendario"
+    scelta deliberata per restare semplice — "festivita" conta lun-sab
+    escludendo solo domenica e le festività nazionali italiane (vedi
+    core.italian_holidays), per chi lavora anche il sabato ma vuole comunque
+    escludere Natale/Ferragosto/ecc. Si applica solo alle Ferie, non alle
+    Malattie (quelle restano sempre a giorni di calendario, come da prassi
+    INPS/certificati medici)."""
+    ferie_count_mode: Literal["calendario", "lavorativi", "festivita"] = "calendario"

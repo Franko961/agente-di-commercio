@@ -6,6 +6,7 @@ from typing import Optional
 from fastapi import HTTPException
 
 from core.utils import gen_id, now_iso, now_local
+from core.italian_holidays import is_italian_holiday
 from core.exceptions import NotFoundError, ValidationAppError
 from core.config import FRONTEND_URL
 from core.rate_limit import check_and_record
@@ -256,7 +257,7 @@ class LeaveRequestService:
         requests = await self.repo.find_many(user["id"])
         mine = [r for r in requests if r["employee_id"] == employee["id"]]
 
-        def _days_in_year(r, working_only: bool = False) -> int:
+        def _days_in_year(r, mode: str = "calendario") -> int:
             """Giorni della richiesta che ricadono davvero in `year` — non
             l'intera durata se la richiesta attraversa il capodanno (es.
             29 dicembre - 5 gennaio: 3 giorni nell'anno che finisce, 5 in
@@ -265,13 +266,14 @@ class LeaveRequestService:
             il riepilogo dell'anno vecchio (giorni mancanti) sia quello
             nuovo (la richiesta spariva del tutto).
 
-            working_only conta solo lun-ven (usato per le Ferie quando
-            l'account ha scelto il conteggio "lavorativi" invece di quello
-            di calendario predefinito — vedi settings_service.get_leave_settings
-            e models/leave_settings.py per il perché: un weekend incluso
-            nell'intervallo non era comunque un giorno di ferie "consumato").
-            Non esclude le festività infrasettimanali italiane, per restare
-            semplice — scelta deliberata, non una svista."""
+            `mode` è il ferie_count_mode dell'account (vedi
+            settings_service.get_leave_settings e models/leave_settings.py):
+            "calendario" conta ogni giorno, "lavorativi" conta solo lun-ven
+            (non esclude le festività infrasettimanali, scelta deliberata
+            per restare semplice), "festivita" conta lun-sab escludendo solo
+            domenica e le festività nazionali italiane (core.italian_holidays)
+            — per chi lavora anche il sabato ma vuole comunque escludere
+            Natale/Ferragosto/ecc."""
             d1 = datetime.strptime(r["date_from"], "%Y-%m-%d").date()
             d2 = datetime.strptime(r["date_to"], "%Y-%m-%d").date()
             overlap_start = max(d1, date(year, 1, 1))
@@ -279,9 +281,15 @@ class LeaveRequestService:
             if overlap_start > overlap_end:
                 return 0
             span = (overlap_end - overlap_start).days + 1
-            if not working_only:
+            if mode == "calendario":
                 return span
-            return sum(1 for i in range(span) if (overlap_start + timedelta(days=i)).weekday() < 5)
+            if mode == "lavorativi":
+                return sum(1 for i in range(span) if (overlap_start + timedelta(days=i)).weekday() < 5)
+            return sum(
+                1 for i in range(span)
+                if (overlap_start + timedelta(days=i)).weekday() != 6
+                and not is_italian_holiday(overlap_start + timedelta(days=i))
+            )
 
         def _in_year(r) -> bool:
             return _days_in_year(r) > 0
@@ -291,8 +299,8 @@ class LeaveRequestService:
         permessi_approvati = [r for r in permessi_anno if r["status"] == "approvata"]
         malattie_approvate = [r for r in mine if r["type"] == "malattia" and r["status"] == "approvata" and _in_year(r)]
 
-        ferie_count_working_only = user.get("ferie_count_mode", "calendario") == "lavorativi"
-        ferie_godute = sum(_days_in_year(r, working_only=ferie_count_working_only) for r in ferie_approvate)
+        ferie_count_mode = user.get("ferie_count_mode", "calendario")
+        ferie_godute = sum(_days_in_year(r, mode=ferie_count_mode) for r in ferie_approvate)
         spettanti = employee.get("annual_vacation_days", 26)
         malattia_giorni = sum(_days_in_year(r) for r in malattie_approvate)
 

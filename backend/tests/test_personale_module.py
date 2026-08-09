@@ -901,6 +901,27 @@ def test_employee_summary_ferie_conteggio_solo_lavorativi(monkeypatch):
     assert summary["ferie"]["residue"] == 24
 
 
+def test_employee_summary_ferie_conteggio_festivita_esclude_domenica_e_festivita_ma_include_sabato(monkeypatch):
+    """Con ferie_count_mode='festivita', un intervallo di due settimane
+    (14-27 agosto 2028: 2 sabati, 2 domeniche, 1 Ferragosto infrasettimanale
+    di martedì) conta 11 giorni: esclude le 2 domeniche e il Ferragosto (3
+    esclusioni), include invece entrambi i sabati — a differenza di
+    'lavorativi' (che escluderebbe anche i sabati, arrivando a 10) e di
+    'calendario' (che li conterebbe tutti, 14)."""
+    _freeze_today(monkeypatch, 2028, 8, 30)
+    emp_service, emp_repo = build_employee_service()
+    employee = run(emp_service.create_employee(USER, make_employee()))
+    service, repo = build_leave_service(monkeypatch, emp_repo)
+    user_festivita = {**USER, "ferie_count_mode": "festivita"}
+
+    run(service.submit(LeaveRequestIn(employee_token=employee["request_token"], type="ferie", date_from="2028-08-14", date_to="2028-08-27")))
+    rid = list(repo.docs.keys())[0]
+    run(service.decide(user_festivita, rid, "approvata"))
+
+    summary = run(service.employee_summary(user_festivita, employee))
+    assert summary["ferie"]["godute"] == 11
+
+
 def test_employee_summary_conteggio_lavorativi_non_influenza_le_malattie(monkeypatch):
     """Il conteggio 'solo lavorativi' si applica solo alle Ferie: le
     Malattie restano sempre a giorni di calendario (prassi INPS/certificati),
