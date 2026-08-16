@@ -35,6 +35,7 @@ USER_SCOPED_COLLECTIONS = {
     "documenti_dipendenti": "employee_documents",
     "dotazione_dipendenti": "employee_equipment",
     "compensi_dipendenti": "employee_compensation",
+    "contestazioni_disciplinari": "disciplinary_actions",
     "conversazioni_ai": "ai_logs",
     "log_azioni_ai": "ai_action_logs",
     "log_email": "email_logs",

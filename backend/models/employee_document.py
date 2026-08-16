@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Literal, Optional
 from core.validation_limits import SHORT_TEXT_MAX_LENGTH, LONG_TEXT_MAX_LENGTH
 
-EMPLOYEE_DOCUMENT_CATEGORIES = ("contratto", "documento_identita", "patente", "altro")
+EMPLOYEE_DOCUMENT_CATEGORIES = ("contratto", "documento_identita", "patente", "contestazione_disciplinare", "altro")
 
 
 class EmployeeDocumentMetaUpdate(BaseModel):

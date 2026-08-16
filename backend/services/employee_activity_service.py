@@ -4,9 +4,17 @@ from repositories.leave_request_repository import leave_request_repository
 from repositories.employee_document_repository import employee_document_repository
 from repositories.employee_equipment_repository import employee_equipment_repository
 from repositories.employee_compensation_repository import employee_compensation_repository
+from repositories.employee_disciplinary_action_repository import employee_disciplinary_action_repository
 
 _LEAVE_TYPE_LABELS = {"ferie": "Ferie", "permesso": "Permesso", "malattia": "Malattia"}
 _COMPENSATION_TYPE_LABELS = {"stipendio": "Stipendio", "bonus": "Bonus", "rimborso": "Rimborso", "altro": "Altro"}
+_DISCIPLINARY_TYPE_LABELS = {
+    "richiamo_verbale": "Richiamo verbale",
+    "lettera_richiamo": "Lettera di richiamo",
+    "contestazione_disciplinare": "Contestazione disciplinare",
+    "sospensione": "Sospensione",
+    "altro": "Altro",
+}
 
 # Numero massimo di eventi restituiti: una scheda dipendente non ha bisogno
 # di uno storico infinito a scorrimento, i più vecchi restano comunque
@@ -32,12 +40,14 @@ class EmployeeActivityService:
         documents=employee_document_repository,
         equipment=employee_equipment_repository,
         compensation=employee_compensation_repository,
+        disciplinary_actions=employee_disciplinary_action_repository,
     ):
         self.employees = employees
         self.leave_requests = leave_requests
         self.documents = documents
         self.equipment = equipment
         self.compensation = compensation
+        self.disciplinary_actions = disciplinary_actions
 
     async def get_activity(self, user: dict, employee_id: str) -> list:
         if not await self.employees.find_one(employee_id, user["id"]):
@@ -92,6 +102,14 @@ class EmployeeActivityService:
                 # backend con una convenzione diversa (punto invece di
                 # virgola decimale).
                 "detail": label,
+            })
+
+        for a in await self.disciplinary_actions.find_many(employee_id, user["id"]):
+            label = _DISCIPLINARY_TYPE_LABELS.get(a["type"], a["type"])
+            events.append({
+                "type": "contestazione_registrata",
+                "at": a["created_at"],
+                "detail": f"{label} — {a['subject']}",
             })
 
         events.sort(key=lambda e: e["at"], reverse=True)

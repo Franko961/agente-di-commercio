@@ -60,11 +60,13 @@ def build_service():
     documents = FakeListRepo()
     equipment = FakeListRepo()
     compensation = FakeListRepo()
+    disciplinary_actions = FakeListRepo()
     service = EmployeeActivityService(
         employees=employees, leave_requests=leave_requests,
         documents=documents, equipment=equipment, compensation=compensation,
+        disciplinary_actions=disciplinary_actions,
     )
-    return service, employees, leave_requests, documents, equipment, compensation
+    return service, employees, leave_requests, documents, equipment, compensation, disciplinary_actions
 
 
 def test_get_activity_rejects_unknown_employee():
@@ -121,7 +123,7 @@ def test_get_activity_include_documento_caricato():
 
 
 def test_get_activity_dotazione_consegnata_non_restituita():
-    service, _, _, _, equipment, _ = build_service()
+    service, _, _, _, equipment, *_ = build_service()
     equipment.docs.append({
         "user_id": USER["id"], "employee_id": "emp-1", "name": "Chiavi ufficio",
         "status": "consegnato", "returned_date": None, "created_at": "2026-08-01T10:00:00+00:00",
@@ -134,7 +136,7 @@ def test_get_activity_dotazione_consegnata_non_restituita():
 
 
 def test_get_activity_dotazione_restituita_include_entrambi_gli_eventi():
-    service, _, _, _, equipment, _ = build_service()
+    service, _, _, _, equipment, *_ = build_service()
     equipment.docs.append({
         "user_id": USER["id"], "employee_id": "emp-1", "name": "Divisa",
         "status": "restituito", "returned_date": "2026-08-06", "created_at": "2026-08-01T10:00:00+00:00",
@@ -152,7 +154,7 @@ def test_get_activity_dotazione_restituita_usa_updated_at_timestamp_completo():
     # eventi (created_at/decided_at), non la stringa "AAAA-MM-DD" di
     # returned_date — vedi employee_equipment_service.update_equipment,
     # che ora imposta updated_at ad ogni modifica.
-    service, _, _, _, equipment, _ = build_service()
+    service, _, _, _, equipment, *_ = build_service()
     equipment.docs.append({
         "user_id": USER["id"], "employee_id": "emp-1", "name": "Divisa",
         "status": "restituito", "returned_date": "2026-08-06",
@@ -170,7 +172,7 @@ def test_get_activity_dotazione_restituita_ricade_su_created_at_se_senza_updated
     # timestamp completo disponibile per l'evento di restituzione, meglio
     # usare created_at (comunque un timestamp completo, coerente col resto
     # della timeline) che lasciare la stringa di sola data.
-    service, _, _, _, equipment, _ = build_service()
+    service, _, _, _, equipment, *_ = build_service()
     equipment.docs.append({
         "user_id": USER["id"], "employee_id": "emp-1", "name": "Divisa",
         "status": "restituito", "returned_date": "2026-08-06", "created_at": "2026-08-01T10:00:00+00:00",
@@ -183,7 +185,7 @@ def test_get_activity_dotazione_restituita_ricade_su_created_at_se_senza_updated
 
 
 def test_get_activity_include_compenso_registrato():
-    service, _, _, _, _, compensation = build_service()
+    service, _, _, _, _, compensation, _ = build_service()
     compensation.docs.append({
         "user_id": USER["id"], "employee_id": "emp-1", "type": "bonus", "amount": 450.0,
         "created_at": "2026-08-06T10:00:00+00:00",
@@ -192,6 +194,18 @@ def test_get_activity_include_compenso_registrato():
     events = run(service.get_activity(USER, "emp-1"))
 
     assert any(e["type"] == "compenso_registrato" and e["detail"] == "Bonus" for e in events)
+
+
+def test_get_activity_include_contestazione_registrata():
+    service, _, _, _, _, _, disciplinary_actions = build_service()
+    disciplinary_actions.docs.append({
+        "user_id": USER["id"], "employee_id": "emp-1", "type": "richiamo_verbale", "subject": "Ritardo ripetuto",
+        "created_at": "2026-08-06T10:00:00+00:00",
+    })
+
+    events = run(service.get_activity(USER, "emp-1"))
+
+    assert any(e["type"] == "contestazione_registrata" and "Ritardo ripetuto" in e["detail"] for e in events)
 
 
 def test_get_activity_ordinata_dal_piu_recente():
