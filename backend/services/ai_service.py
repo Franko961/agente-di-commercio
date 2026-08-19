@@ -8,6 +8,7 @@ from typing import Dict, Optional
 
 from fastapi import HTTPException
 
+from core.exceptions import NotFoundError
 from core.utils import gen_id, now_iso, now_local, local_month_str, local_wallclock_to_utc_iso, local_month_start_utc_iso
 from core.observability import record_event
 from core.config import PLANS
@@ -28,8 +29,10 @@ from models.expense import EXPENSE_CATEGORIES
 from models.vehicle import VEHICLE_TYPES
 from models.employee import EmployeeIn
 from models.vehicle import VehicleIn
+from models.order import OrderIn, ORDER_STATUSES, PAYMENT_STATUSES
 from core.security import module_enabled
-from services.commission_service import calc_offer_total, get_commission_rate, normalize_manual_commission
+from core.validation_limits import MAX_MONETARY_TARGET, SHORT_TEXT_MAX_LENGTH, LONG_TEXT_MAX_LENGTH
+from services.commission_service import calc_offer_total, get_commission_rate, normalize_manual_commission, commission_service
 from services.order_service import order_service
 from services.dashboard_service import dashboard_service
 from services.employee_service import employee_service
@@ -110,6 +113,8 @@ CRM_WRITE_TOOLS = {
     "add_expense",
     "add_employee",
     "add_vehicle",
+    "add_order",
+    "add_commission",
 }
 
 # A quale modulo (vedi core.security.MODULE_KEYS) appartiene ciascun tool:
@@ -128,6 +133,8 @@ TOOL_MODULE = {
     "add_expense": "spese",
     "add_employee": "personale",
     "add_vehicle": "flotta",
+    "add_order": "ordini",
+    "add_commission": "provvigioni",
 }
 
 
@@ -175,6 +182,16 @@ def _validate_expense_date(value: str) -> Optional[str]:
         return datetime.strptime(value, "%Y-%m-%d").date().isoformat()
     except (TypeError, ValueError):
         return None
+
+
+def _validate_commission_period(value: str) -> Optional[str]:
+    """Valida il periodo (mese di competenza) di una provvigione manuale,
+    stesso formato AAAA-MM richiesto da ManualCommissionIn.period. Va
+    chiamata solo quando `value` non è vuoto, stesso principio di
+    _validate_expense_date."""
+    if value and re.match(r"^\d{4}-(0[1-9]|1[0-2])$", value):
+        return value
+    return None
 
 # Definizione tools CRM per l'AI
 CRM_TOOLS = [
@@ -247,7 +264,7 @@ CRM_TOOLS = [
     },
     {
         "name": "add_offer",
-        "description": "Registra una vendita/offerta per un cliente e un mandante. Usare quando l'utente chiede di registrare una vendita, un ordine o un'offerta. Se l'utente dice che la vendita è già conclusa/confermata, imposta accepted a true: in quel caso viene generata automaticamente anche la provvigione, secondo l'aliquota del mandante (che può differire tra vendite nuove e rinnovi).",
+        "description": "Registra una vendita/offerta per un cliente e un mandante. Usare quando l'utente chiede di registrare una vendita o un'offerta, anche se non ancora conclusa (una bozza/preventivo). Se l'utente dice che la vendita è già conclusa/confermata, imposta accepted a true: in quel caso viene generata automaticamente anche la provvigione, secondo l'aliquota del mandante (che può differire tra vendite nuove e rinnovi). Se l'utente parla esplicitamente di un 'ordine' già ricevuto/confermato (non di una vendita/offerta), usa invece add_order.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -260,6 +277,26 @@ CRM_TOOLS = [
                 "total_amount": {"type": "number", "description": "Importo totale della vendita, da usare solo se non si conoscono i singoli prodotti/prezzi"},
                 "accepted": {"type": "boolean", "description": "True se la vendita è già confermata/conclusa (genera anche la provvigione), false se è solo un preventivo/bozza"},
                 "sale_type": {"type": "string", "enum": ["nuovo", "rinnovo"], "description": "Tipo di vendita: 'nuovo' per un nuovo cliente/contratto, 'rinnovo' per il rinnovo di uno esistente. Determina quale aliquota di provvigione del mandante viene applicata. Default 'nuovo' se non specificato."},
+            },
+            "required": ["client_name", "mandante_name"]
+        }
+    },
+    {
+        "name": "add_order",
+        "description": "Registra un ordine per un cliente e un mandante. A differenza di add_offer, un ordine è già un fatto compiuto (non una bozza/proposta): usalo quando l'utente dice che ha ricevuto, fatto o chiuso un ordine, non per una vendita ancora da confermare (in quel caso usa add_offer). La provvigione viene generata automaticamente alla creazione, secondo l'aliquota del mandante (che può differire tra vendite nuove e rinnovi), a meno che lo stato dell'ordine sia 'annullato' o 'reso'.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "client_name": {"type": "string", "description": "Nome del cliente (per trovarlo nel CRM)"},
+                "mandante_name": {"type": "string", "description": "Nome del mandante (per trovarlo nel CRM)"},
+                "product_names": {"type": "array", "items": {"type": "string"}, "description": "Nomi dei prodotti ordinati, se noti"},
+                "quantities": {"type": "array", "items": {"type": "number"}, "description": "Quantità per ciascun prodotto, stesso ordine di product_names"},
+                "unit_prices": {"type": "array", "items": {"type": "number"}, "description": "Prezzo unitario per ciascun prodotto; se omesso viene usato il prezzo di listino del prodotto"},
+                "total_amount": {"type": "number", "description": "Importo totale dell'ordine, da usare solo se non si conoscono i singoli prodotti/prezzi"},
+                "sale_type": {"type": "string", "enum": ["nuovo", "rinnovo"], "description": "Tipo di vendita: 'nuovo' per un nuovo cliente/contratto, 'rinnovo' per il rinnovo di uno esistente. Determina quale aliquota di provvigione del mandante viene applicata. Default 'nuovo' se non specificato."},
+                "status": {"type": "string", "enum": ORDER_STATUSES, "description": "Stato dell'ordine. Default 'confermato' se non specificato."},
+                "payment_status": {"type": "string", "enum": PAYMENT_STATUSES, "description": "Stato del pagamento. Default 'non_pagato' se non specificato."},
+                "notes": {"type": "string", "description": "Note aggiuntive"},
             },
             "required": ["client_name", "mandante_name"]
         }
@@ -278,6 +315,24 @@ CRM_TOOLS = [
                 "notes": {"type": "string", "description": "Note aggiuntive"},
             },
             "required": ["category", "amount"]
+        }
+    },
+    {
+        "name": "add_commission",
+        "description": "Registra una provvigione manuale, per un accordo concluso fuori dal normale flusso ordini del CRM (es. un premio, una rettifica, un bonus concordato a parte). Non usare per una vendita/ordine normale: in quei casi la provvigione va generata automaticamente tramite add_offer (accettata) o add_order, non inserita qui a mano.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "period": {"type": "string", "description": "Mese di competenza in formato AAAA-MM (es. 2026-08). Se non specificato, usa il mese corrente."},
+                "amount": {"type": "number", "description": "Importo della provvigione in euro"},
+                "mandante_name": {"type": "string", "description": "Nome del mandante collegato, se presente (per trovarlo nel CRM)"},
+                "client_name": {"type": "string", "description": "Nome del cliente collegato, se presente (per trovarlo nel CRM)"},
+                "descrizione": {"type": "string", "description": "Breve descrizione della provvigione"},
+                "stato": {"type": "string", "enum": ["maturato", "incassato"], "description": "Stato della provvigione. Default 'maturato' se non specificato."},
+                "tipo": {"type": "string", "enum": ["ordinaria", "bonus", "rettifica"], "description": "Tipo di provvigione. Default 'ordinaria' se non specificato."},
+                "note": {"type": "string", "description": "Note aggiuntive"},
+            },
+            "required": ["amount"]
         }
     },
     {
@@ -367,10 +422,14 @@ ACTION_INTENT_KEYWORDS = {
                         "crea appuntamento", "prenota una visita", "segna appuntamento"],
     "add_lead": ["aggiungi lead", "nuovo lead", "crea lead", "aggiungi prospect"],
     "add_note_to_client": ["aggiungi nota", "segna una nota", "aggiungi una nota"],
-    "add_offer": ["registra vendita", "registra offerta", "registra ordine",
+    "add_offer": ["registra vendita", "registra offerta",
                   "aggiungi offerta", "aggiungi vendita"],
+    "add_order": ["registra ordine", "aggiungi ordine", "nuovo ordine",
+                  "crea ordine", "inserisci ordine"],
     "add_expense": ["aggiungi spesa", "registra spesa", "segna spesa", "nuova spesa",
                      "inserisci spesa", "ho speso"],
+    "add_commission": ["registra provvigione", "aggiungi provvigione", "provvigione manuale",
+                        "inserisci provvigione", "nuova provvigione"],
 }
 
 
@@ -828,21 +887,11 @@ class AiService:
             lines.append(f"... e altre {len(results) - MAX_LISTED} offerte.")
         return "\n".join(lines)
 
-    async def prepare_add_offer(self, tool_input: dict, user_id: str) -> dict:
-        """Risolve nomi cliente/mandante/prodotti e calcola il totale, SENZA
-        scrivere nulla sul DB. Usato per mostrare la scheda di conferma prima
-        di registrare una vendita/offerta."""
-        client_name = tool_input.get("client_name", "")
-        mandante_name = tool_input.get("mandante_name", "")
-
-        cli = await self.client_repo.find_by_name_regex(user_id, client_name)
-        if not cli:
-            return {"error": f"Cliente '{client_name}' non trovato nel CRM."}
-
-        mand = await self.mandante_repo.find_by_name_regex(user_id, mandante_name)
-        if not mand:
-            return {"error": f"Mandante '{mandante_name}' non trovato nel CRM."}
-
+    async def _resolve_line_items(self, tool_input: dict, user_id: str, mandante_id: str, fallback_description: str) -> list:
+        """Risolve product_names/quantities/unit_prices in righe con id
+        prodotto risolto (o una riga singola da total_amount se i prodotti
+        non sono noti). Condivisa da prepare_add_offer e prepare_add_order:
+        stessa identica logica di risoluzione, cambia solo chi la chiama."""
         product_names = tool_input.get("product_names") or []
         quantities = tool_input.get("quantities") or []
         unit_prices = tool_input.get("unit_prices") or []
@@ -850,7 +899,7 @@ class AiService:
         items = []
         if product_names:
             for i, pname in enumerate(product_names):
-                prod = await self.product_repo.find_by_name_regex(user_id, mand["id"], pname)
+                prod = await self.product_repo.find_by_name_regex(user_id, mandante_id, pname)
                 qty = _safe_float(quantities[i] if i < len(quantities) else None, 1)
                 if qty <= 0:
                     qty = 1
@@ -867,9 +916,27 @@ class AiService:
             total_amount = _safe_float(tool_input.get("total_amount"), 0)
             items.append({
                 "product_id": None,
-                "description": tool_input.get("title", "Vendita"),
+                "description": fallback_description,
                 "quantity": 1, "unit_price": total_amount, "discount": 0,
             })
+        return items
+
+    async def prepare_add_offer(self, tool_input: dict, user_id: str) -> dict:
+        """Risolve nomi cliente/mandante/prodotti e calcola il totale, SENZA
+        scrivere nulla sul DB. Usato per mostrare la scheda di conferma prima
+        di registrare una vendita/offerta."""
+        client_name = tool_input.get("client_name", "")
+        mandante_name = tool_input.get("mandante_name", "")
+
+        cli = await self.client_repo.find_by_name_regex(user_id, client_name)
+        if not cli:
+            return {"error": f"Cliente '{client_name}' non trovato nel CRM."}
+
+        mand = await self.mandante_repo.find_by_name_regex(user_id, mandante_name)
+        if not mand:
+            return {"error": f"Mandante '{mandante_name}' non trovato nel CRM."}
+
+        items = await self._resolve_line_items(tool_input, user_id, mand["id"], tool_input.get("title", "Vendita"))
 
         total = calc_offer_total(items)
         if total <= 0:
@@ -962,6 +1029,116 @@ class AiService:
             comm_amount = round(order.get("total", 0) * rate / 100, 2)
             msg += f" Ordine registrato e provvigione generata: €{comm_amount:.2f} ({rate}%)."
 
+        return msg
+
+    async def prepare_add_order(self, tool_input: dict, user_id: str) -> dict:
+        """Risolve nomi cliente/mandante/prodotti e calcola il totale, SENZA
+        scrivere nulla sul DB. Usato per mostrare la scheda di conferma prima
+        di registrare un ordine (a differenza di un'offerta, un ordine è già
+        un fatto compiuto: niente stato bozza/accettata)."""
+        client_name = tool_input.get("client_name", "")
+        mandante_name = tool_input.get("mandante_name", "")
+
+        cli = await self.client_repo.find_by_name_regex(user_id, client_name)
+        if not cli:
+            return {"error": f"Cliente '{client_name}' non trovato nel CRM."}
+
+        mand = await self.mandante_repo.find_by_name_regex(user_id, mandante_name)
+        if not mand:
+            return {"error": f"Mandante '{mandante_name}' non trovato nel CRM."}
+
+        items = await self._resolve_line_items(tool_input, user_id, mand["id"], f"Ordine {cli['company_name']}")
+
+        total = calc_offer_total(items)
+        if total <= 0:
+            return {"error": "L'importo dell'ordine deve essere maggiore di zero. Specifica un importo o dei prezzi validi."}
+
+        sale_type = tool_input.get("sale_type", "nuovo")
+        if sale_type not in ("nuovo", "rinnovo"):
+            sale_type = "nuovo"
+        status = tool_input.get("status") or "confermato"
+        if status not in ORDER_STATUSES:
+            status = "confermato"
+        payment_status = tool_input.get("payment_status") or "non_pagato"
+        if payment_status not in PAYMENT_STATUSES:
+            payment_status = "non_pagato"
+        notes = tool_input.get("notes", "")
+
+        return {
+            "tool_name": "add_order",
+            "summary": {
+                "client_name": cli["company_name"],
+                "mandante_name": mand["name"],
+                "amount": total,
+                "sale_type": sale_type,
+                "status": status,
+                "payment_status": payment_status,
+            },
+            "resolved_input": {
+                "client_id": cli["id"], "client_name": cli["company_name"],
+                "mandante_id": mand["id"], "mandante_name": mand["name"],
+                "items": items, "amount": total, "sale_type": sale_type,
+                "status": status, "payment_status": payment_status, "notes": notes,
+            },
+        }
+
+    async def _finalize_add_order(self, user_id: str, resolved: dict) -> str:
+        """Scrive davvero l'ordine sul DB, a partire da un resolved_input già
+        risolto da prepare_add_order (eventualmente modificato dall'utente
+        nella scheda di conferma). Il payload può arrivare anche direttamente
+        da /api/ai/execute-action, quindi va ri-validato qui: non ci si può
+        fidare che sia sempre passato prima da prepare_add_order."""
+        items = resolved.get("items") or []
+        items = [
+            {
+                "product_id": it.get("product_id"),
+                "description": it.get("description", "Ordine"),
+                "quantity": max(_safe_float(it.get("quantity"), 1), 0.01),
+                "unit_price": max(_safe_float(it.get("unit_price"), 0), 0),
+                "discount": max(_safe_float(it.get("discount"), 0), 0),
+            }
+            for it in items
+        ]
+        amount = resolved.get("amount")
+        client_name = resolved.get("client_name", "")
+        if amount is not None and amount != "":
+            amount_f = _safe_float(amount, None)
+            if amount_f is not None and (not items or round(calc_offer_total(items), 2) != round(amount_f, 2)):
+                items = [{"product_id": None, "description": f"Ordine {client_name}", "quantity": 1, "unit_price": amount_f, "discount": 0}]
+
+        total = calc_offer_total(items)
+        if total <= 0:
+            return "❌ L'importo deve essere maggiore di zero: ordine non registrato."
+
+        sale_type = resolved.get("sale_type", "nuovo")
+        if sale_type not in ("nuovo", "rinnovo"):
+            sale_type = "nuovo"
+        status = resolved.get("status") or "confermato"
+        if status not in ORDER_STATUSES:
+            status = "confermato"
+        payment_status = resolved.get("payment_status") or "non_pagato"
+        if payment_status not in PAYMENT_STATUSES:
+            payment_status = "non_pagato"
+
+        mand = await self.mandante_repo.find_one(resolved["mandante_id"], user_id)
+        if not mand:
+            return "❌ Mandante non più trovato nel CRM."
+
+        try:
+            order_in = OrderIn(
+                client_id=resolved["client_id"], mandante_id=resolved["mandante_id"],
+                items=items, sale_type=sale_type, notes=resolved.get("notes", ""),
+                status=status, payment_status=payment_status,
+            )
+            order = await order_service.create_order({"id": user_id}, order_in)
+        except NotFoundError:
+            return "❌ Cliente o mandante non più trovati nel CRM."
+
+        msg = f"✅ Ordine {order.get('numero_ordine','')} registrato: {client_name} - {mand['name']} - €{total:.2f} ({sale_type}), stato: {status}."
+        if status not in ("annullato", "reso"):
+            rate = get_commission_rate(mand, sale_type)
+            comm_amount = round(total * rate / 100, 2)
+            msg += f" Provvigione generata: €{comm_amount:.2f} ({rate}%)."
         return msg
 
     async def prepare_add_expense(self, tool_input: dict, user_id: str) -> dict:
@@ -1059,6 +1236,122 @@ class AiService:
             msg += f" Cliente '{resolved['client_not_found']}' non trovato: spesa registrata senza collegamento."
         return msg
 
+    async def prepare_add_commission(self, tool_input: dict, user_id: str) -> dict:
+        """Normalizza i campi di una provvigione manuale SENZA scrivere sul
+        DB. Usato per mostrare la scheda di conferma: una provvigione manuale
+        è sempre un record economico (non solo un tracciamento come una
+        spesa), quindi richiede sempre conferma, indipendentemente
+        dall'importo — vedi requires_confirmation.
+
+        Mandante e cliente sono entrambi opzionali (stesso principio di
+        prepare_add_expense per il cliente): se indicati ma non trovati, la
+        provvigione viene comunque preparata senza il collegamento, con un
+        avviso nel messaggio finale."""
+        amount = _safe_float(tool_input.get("amount"), 0)
+        if amount <= 0:
+            return {"error": "L'importo della provvigione deve essere maggiore di zero."}
+        if amount > MAX_MONETARY_TARGET:
+            return {"error": "L'importo della provvigione supera il massimo consentito."}
+
+        raw_period = tool_input.get("period")
+        if raw_period:
+            period = _validate_commission_period(raw_period)
+            if period is None:
+                return {"error": "Periodo non valido: usa il formato AAAA-MM."}
+        else:
+            period = now_local().strftime("%Y-%m")
+
+        stato = tool_input.get("stato") or "maturato"
+        if stato not in ("maturato", "incassato"):
+            stato = "maturato"
+        tipo = tool_input.get("tipo") or "ordinaria"
+        if tipo not in ("ordinaria", "bonus", "rettifica"):
+            tipo = "ordinaria"
+        descrizione = (tool_input.get("descrizione") or "")[:SHORT_TEXT_MAX_LENGTH]
+        note = (tool_input.get("note") or "")[:LONG_TEXT_MAX_LENGTH]
+
+        mandante_id = None
+        mandante_name = None
+        mandante_not_found = None
+        requested_mandante_name = tool_input.get("mandante_name")
+        if requested_mandante_name:
+            mand = await self.mandante_repo.find_by_name_regex(user_id, requested_mandante_name)
+            if mand:
+                mandante_id = mand["id"]
+                mandante_name = mand["name"]
+            else:
+                mandante_not_found = requested_mandante_name
+
+        client_id = None
+        client_name = None
+        client_not_found = None
+        requested_client_name = tool_input.get("client_name")
+        if requested_client_name:
+            cli = await self.client_repo.find_by_name_regex(user_id, requested_client_name)
+            if cli:
+                client_id = cli["id"]
+                client_name = cli["company_name"]
+            else:
+                client_not_found = requested_client_name
+
+        return {
+            "tool_name": "add_commission",
+            "summary": {
+                "period": period, "amount": amount, "stato": stato, "tipo": tipo,
+                "descrizione": descrizione, "mandante_name": mandante_name, "client_name": client_name,
+            },
+            "resolved_input": {
+                "period": period, "amount": amount, "stato": stato, "tipo": tipo,
+                "descrizione": descrizione, "note": note,
+                "mandante_id": mandante_id, "mandante_name": mandante_name, "mandante_not_found": mandante_not_found,
+                "client_id": client_id, "client_name": client_name, "client_not_found": client_not_found,
+            },
+        }
+
+    async def _finalize_add_commission(self, user_id: str, resolved: dict) -> str:
+        """Scrive davvero la provvigione manuale sul DB, a partire da un
+        resolved_input già preparato da prepare_add_commission (eventualmente
+        modificato dall'utente sulla scheda di conferma). Il payload può
+        arrivare anche direttamente da /api/ai/execute-action, quindi va
+        ri-validato qui, non solo in prepare_add_commission."""
+        amount = _safe_float(resolved.get("amount"), 0)
+        if amount <= 0:
+            return "❌ L'importo deve essere maggiore di zero: provvigione non registrata."
+        if amount > MAX_MONETARY_TARGET:
+            return "❌ L'importo supera il massimo consentito: provvigione non registrata."
+
+        raw_period = resolved.get("period")
+        period = _validate_commission_period(raw_period) if raw_period else None
+        if period is None:
+            period = now_local().strftime("%Y-%m")
+
+        stato = resolved.get("stato") or "maturato"
+        if stato not in ("maturato", "incassato"):
+            stato = "maturato"
+        tipo = resolved.get("tipo") or "ordinaria"
+        if tipo not in ("ordinaria", "bonus", "rettifica"):
+            tipo = "ordinaria"
+        descrizione = (resolved.get("descrizione") or "")[:SHORT_TEXT_MAX_LENGTH]
+        note = (resolved.get("note") or "")[:LONG_TEXT_MAX_LENGTH]
+
+        fields = {
+            "period": period, "amount": amount, "mandante_id": resolved.get("mandante_id"),
+            "client_id": resolved.get("client_id"), "descrizione": descrizione,
+            "stato": stato, "note": note, "tipo": tipo,
+        }
+        await commission_service.create_manual_commission({"id": user_id}, fields)
+
+        msg = f"✅ Provvigione manuale registrata per {period}: €{amount:.2f} ({tipo}, {stato})."
+        if resolved.get("mandante_name"):
+            msg += f" Collegata al mandante {resolved['mandante_name']}."
+        elif resolved.get("mandante_not_found"):
+            msg += f" Mandante '{resolved['mandante_not_found']}' non trovato: provvigione registrata senza collegamento."
+        if resolved.get("client_name"):
+            msg += f" Cliente collegato: {resolved['client_name']}."
+        elif resolved.get("client_not_found"):
+            msg += f" Cliente '{resolved['client_not_found']}' non trovato: provvigione registrata senza collegamento."
+        return msg
+
     # Campi che la scheda di conferma (AIActionConfirm.jsx) permette davvero
     # di modificare per ciascun tool economico — riflette esattamente cosa
     # espone l'interfaccia (importo/stato per le offerte; importo/categoria/
@@ -1071,19 +1364,23 @@ class AiService:
     # visto sulla scheda.
     ALLOWED_CONFIRM_EDITS = {
         "add_offer": {"amount", "accepted", "sale_type"},
+        "add_order": {"amount", "sale_type", "status"},
         "add_expense": {"amount", "category", "date", "description"},
+        "add_commission": {"amount", "stato", "tipo", "descrizione", "period"},
     }
 
     def requires_confirmation(self, tool_name: str, tool_input: dict, channel: str = "chat") -> bool:
         """True se il tool genera un record economico e va sempre mostrato
         come scheda di conferma prima di essere eseguito davvero: le vendite/
-        offerte sempre, le spese solo sopra EXPENSE_CONFIRM_THRESHOLD (le
-        piccole spese di routine, es. un rifornimento, restano immediate) —
-        tranne quando il comando arriva dal canale vocale, dove una
-        trascrizione imprecisa dell'importo può creare una spesa senza che
-        l'utente l'abbia davvero rivista: in quel caso la conferma è sempre
-        richiesta, indipendentemente dall'importo."""
-        if tool_name == "add_offer":
+        offerte, gli ordini e le provvigioni manuali sempre (un ordine genera
+        automaticamente una provvigione, e una provvigione manuale lo è già
+        di per sé); le spese solo sopra EXPENSE_CONFIRM_THRESHOLD (le piccole
+        spese di routine, es. un rifornimento, restano immediate) — tranne
+        quando il comando arriva dal canale vocale, dove una trascrizione
+        imprecisa dell'importo può creare una spesa senza che l'utente
+        l'abbia davvero rivista: in quel caso la conferma è sempre richiesta,
+        indipendentemente dall'importo."""
+        if tool_name in ("add_offer", "add_order", "add_commission"):
             return True
         if tool_name == "add_expense":
             amount = _safe_float(tool_input.get("amount"), 0)
@@ -1117,7 +1414,7 @@ class AiService:
         browser_input = payload.get("resolved_input") or {}
         log_id = payload.get("log_id")
 
-        if tool_name not in ("add_offer", "add_expense"):
+        if tool_name not in ("add_offer", "add_expense", "add_order", "add_commission"):
             raise HTTPException(400, "Tipo di azione non valido o non richiede conferma.")
         if not log_id:
             raise HTTPException(400, "Azione non tracciata: log_id mancante.")
@@ -1150,7 +1447,7 @@ class AiService:
             if key in browser_input:
                 resolved[key] = browser_input[key]
 
-        if tool_name == "add_offer" and (not resolved.get("client_id") or not resolved.get("mandante_id")):
+        if tool_name in ("add_offer", "add_order") and (not resolved.get("client_id") or not resolved.get("mandante_id")):
             await self.action_log_repo.update_by_id(log_id, user["id"], {
                 "status": "fallita",
                 "result": "Dati mancanti per registrare la vendita.",
@@ -1160,6 +1457,10 @@ class AiService:
 
         if tool_name == "add_offer":
             message = await self._finalize_offer(user["id"], resolved)
+        elif tool_name == "add_order":
+            message = await self._finalize_add_order(user["id"], resolved)
+        elif tool_name == "add_commission":
+            message = await self._finalize_add_commission(user["id"], resolved)
         else:
             message = await self._finalize_expense(user["id"], resolved)
 
@@ -1218,8 +1519,8 @@ class AiService:
             "Sei un assistente commerciale italiano per agenti di commercio. "
             "Aiuti l'agente a decidere quali clienti visitare, analizzare le vendite, "
             "suggerire azioni concrete. Puoi anche modificare il CRM: aggiungere clienti, "
-            "appuntamenti, lead, note, vendite/offerte e spese personali/aziendali "
-            "(carburante, INPS, ENASARCO, assicurazione auto, commercialista, ecc.). "
+            "appuntamenti, lead, note, vendite/offerte, ordini, provvigioni manuali e spese "
+            "personali/aziendali (carburante, INPS, ENASARCO, assicurazione auto, commercialista, ecc.). "
             "Quando l'utente ti chiede di fare "
             "un'azione sul CRM, usa i tool disponibili. Se l'utente chiede informazioni "
             "aggiornate o esterne al CRM (es. un'azienda, un prezzo, una notizia recente), "
@@ -1232,13 +1533,13 @@ class AiService:
             "eseguire un'azione richiesta, esegui prima la ricerca e poi, nella stessa "
             "conversazione, richiama SEMPRE il tool CRM appropriato con i dati raccolti, "
             "prima di confermare il completamento. Se non riesci a completare l'azione, dillo onestamente.\n\n"
-            "REGOLA SU VENDITE/OFFERTE E SPESE ELEVATE: i tool add_offer e (per importi "
-            "elevati) add_expense NON vengono eseguiti subito quando li chiami: l'operazione "
-            "viene solo preparata e mostrata all'utente in una scheda di conferma, per evitare "
-            "che un importo frainteso (specialmente da un comando vocale) venga registrato senza "
-            "controllo. Dopo aver chiamato uno di questi tool, NON dire che l'operazione è stata "
-            "'registrata' o 'creata': di' che è pronta ed è in attesa della conferma dell'utente "
-            "nella scheda che vedrà a schermo.\n\n"
+            "REGOLA SU VENDITE/OFFERTE, ORDINI, PROVVIGIONI E SPESE ELEVATE: i tool add_offer, "
+            "add_order, add_commission e (per importi elevati) add_expense NON vengono eseguiti "
+            "subito quando li chiami: l'operazione viene solo preparata e mostrata all'utente in "
+            "una scheda di conferma, per evitare che un importo frainteso (specialmente da un "
+            "comando vocale) venga registrato senza controllo. Dopo aver chiamato uno di questi "
+            "tool, NON dire che l'operazione è stata 'registrata' o 'creata': di' che è pronta ed "
+            "è in attesa della conferma dell'utente nella scheda che vedrà a schermo.\n\n"
             "REGOLA SU RICERCHE E FILTRI: i DATI ATTUALI qui sotto sono un riassunto parziale "
             "(i primi 20 clienti, le ultime 10 offerte): non bastano per rispondere con precisione "
             "quando l'utente chiede di elencare, contare o filtrare clienti o offerte con un criterio "
@@ -1311,6 +1612,10 @@ class AiService:
                             elif self.requires_confirmation(block.name, block.input, channel):
                                 if block.name == "add_offer":
                                     prepared = await self.prepare_add_offer(block.input, user["id"])
+                                elif block.name == "add_order":
+                                    prepared = await self.prepare_add_order(block.input, user["id"])
+                                elif block.name == "add_commission":
+                                    prepared = await self.prepare_add_commission(block.input, user["id"])
                                 else:
                                     prepared = await self.prepare_add_expense(block.input, user["id"])
                                 if "error" in prepared:

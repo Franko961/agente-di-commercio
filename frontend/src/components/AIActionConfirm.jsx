@@ -8,20 +8,31 @@ export const EXPENSE_CATEGORY_LABELS = {
   commercialista: "Commercialista", altro: "Altro",
 };
 
+export const ORDER_STATUS_LABELS = {
+  confermato: "Confermato", in_evasione: "In evasione", spedito: "Spedito",
+  consegnato: "Consegnato", annullato: "Annullato", reso: "Reso",
+};
+
+export const SALE_TYPE_LABELS = { nuovo: "Nuovo", rinnovo: "Rinnovo" };
+
+export const COMMISSION_STATO_LABELS = { maturato: "Maturato", incassato: "Incassato" };
+
+export const COMMISSION_TIPO_LABELS = { ordinaria: "Ordinaria", bonus: "Bonus", rettifica: "Rettifica" };
+
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
 
 /**
  * Scheda di conferma mostrata prima di registrare un'operazione economica
- * (vendita/offerta, o spesa di importo elevato) proposta dall'AI — sia dalla
- * chat completa che dal pulsante microfono globale. L'operazione NON è ancora
- * stata scritta sul CRM quando questa scheda appare: viene scritta solo se
- * l'utente preme "Conferma".
+ * (vendita/offerta, ordine, provvigione manuale, o spesa di importo elevato)
+ * proposta dall'AI — sia dalla chat completa che dal pulsante microfono
+ * globale. L'operazione NON è ancora stata scritta sul CRM quando questa
+ * scheda appare: viene scritta solo se l'utente preme "Conferma".
  */
 export default function AIActionConfirm({ action, onConfirm, onCancel, busy }) {
   const [mode, setMode] = useState("review"); // review | edit
   const [fields, setFields] = useState(() => ({ ...action.resolved_input }));
 
-  const isOffer = action.tool_name === "add_offer";
+  const tool = action.tool_name;
 
   const handleConfirm = () => onConfirm(fields);
 
@@ -33,7 +44,7 @@ export default function AIActionConfirm({ action, onConfirm, onCancel, busy }) {
 
       {mode === "review" ? (
         <div className="space-y-1.5 text-[13px]">
-          {isOffer ? (
+          {tool === "add_offer" && (
             <>
               <Row label="Cliente" value={fields.client_name} />
               <Row label="Mandante" value={fields.mandante_name} />
@@ -41,7 +52,17 @@ export default function AIActionConfirm({ action, onConfirm, onCancel, busy }) {
               <Row label="Importo" value={<span className="font-cabinet font-bold">{fmt(fields.amount)}</span>} />
               <Row label="Stato" value={fields.accepted ? "accettata" : "bozza"} />
             </>
-          ) : (
+          )}
+          {tool === "add_order" && (
+            <>
+              <Row label="Cliente" value={fields.client_name} />
+              <Row label="Mandante" value={fields.mandante_name} />
+              <Row label="Importo" value={<span className="font-cabinet font-bold">{fmt(fields.amount)}</span>} />
+              <Row label="Tipo vendita" value={SALE_TYPE_LABELS[fields.sale_type] || fields.sale_type} />
+              <Row label="Stato" value={ORDER_STATUS_LABELS[fields.status] || fields.status} />
+            </>
+          )}
+          {tool === "add_expense" && (
             <>
               <Row label="Categoria" value={EXPENSE_CATEGORY_LABELS[fields.category] || fields.category} />
               <Row label="Importo" value={<span className="font-cabinet font-bold">{fmt(fields.amount)}</span>} />
@@ -53,10 +74,27 @@ export default function AIActionConfirm({ action, onConfirm, onCancel, busy }) {
               )}
             </>
           )}
+          {tool === "add_commission" && (
+            <>
+              <Row label="Periodo" value={fields.period} />
+              <Row label="Importo" value={<span className="font-cabinet font-bold">{fmt(fields.amount)}</span>} />
+              <Row label="Tipo" value={COMMISSION_TIPO_LABELS[fields.tipo] || fields.tipo} />
+              <Row label="Stato" value={COMMISSION_STATO_LABELS[fields.stato] || fields.stato} />
+              {fields.descrizione && <Row label="Descrizione" value={fields.descrizione} />}
+              {fields.mandante_name && <Row label="Mandante" value={fields.mandante_name} />}
+              {!fields.mandante_name && fields.mandante_not_found && (
+                <Row label="Mandante" value={<span className="text-[#A1A1AA]">'{fields.mandante_not_found}' non trovato</span>} />
+              )}
+              {fields.client_name && <Row label="Cliente" value={fields.client_name} />}
+              {!fields.client_name && fields.client_not_found && (
+                <Row label="Cliente" value={<span className="text-[#A1A1AA]">'{fields.client_not_found}' non trovato</span>} />
+              )}
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-2.5">
-          {isOffer ? (
+          {tool === "add_offer" && (
             <>
               <div className="text-[12px] text-[#52525B]">
                 Cliente: <span className="font-medium text-[#0A0A0A]">{fields.client_name}</span> · Mandante:{" "}
@@ -74,7 +112,32 @@ export default function AIActionConfirm({ action, onConfirm, onCancel, busy }) {
                 </select>
               </div>
             </>
-          ) : (
+          )}
+          {tool === "add_order" && (
+            <>
+              <div className="text-[12px] text-[#52525B]">
+                Cliente: <span className="font-medium text-[#0A0A0A]">{fields.client_name}</span> · Mandante:{" "}
+                <span className="font-medium text-[#0A0A0A]">{fields.mandante_name}</span>
+              </div>
+              <EditField label="Importo (€)" type="number" value={fields.amount}
+                onChange={(v) => setFields({ ...fields, amount: parseFloat(v) || 0 })} />
+              <div>
+                <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1">Tipo vendita</label>
+                <select value={fields.sale_type} onChange={(e) => setFields({ ...fields, sale_type: e.target.value })}
+                  className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]">
+                  {Object.entries(SALE_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1">Stato</label>
+                <select value={fields.status} onChange={(e) => setFields({ ...fields, status: e.target.value })}
+                  className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]">
+                  {Object.entries(ORDER_STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+            </>
+          )}
+          {tool === "add_expense" && (
             <>
               <EditField label="Importo (€)" type="number" value={fields.amount}
                 onChange={(v) => setFields({ ...fields, amount: parseFloat(v) || 0 })} />
@@ -87,6 +150,29 @@ export default function AIActionConfirm({ action, onConfirm, onCancel, busy }) {
               </div>
               <EditField label="Data" type="date" value={fields.date} onChange={(v) => setFields({ ...fields, date: v })} />
               <EditField label="Descrizione" type="text" value={fields.description} onChange={(v) => setFields({ ...fields, description: v })} />
+            </>
+          )}
+          {tool === "add_commission" && (
+            <>
+              <EditField label="Importo (€)" type="number" value={fields.amount}
+                onChange={(v) => setFields({ ...fields, amount: parseFloat(v) || 0 })} />
+              <EditField label="Periodo" type="month" value={fields.period}
+                onChange={(v) => setFields({ ...fields, period: v })} />
+              <div>
+                <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1">Stato</label>
+                <select value={fields.stato} onChange={(e) => setFields({ ...fields, stato: e.target.value })}
+                  className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]">
+                  {Object.entries(COMMISSION_STATO_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1">Tipo</label>
+                <select value={fields.tipo} onChange={(e) => setFields({ ...fields, tipo: e.target.value })}
+                  className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]">
+                  {Object.entries(COMMISSION_TIPO_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+              <EditField label="Descrizione" type="text" value={fields.descrizione} onChange={(v) => setFields({ ...fields, descrizione: v })} />
             </>
           )}
         </div>
