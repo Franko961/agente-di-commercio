@@ -11,8 +11,9 @@ import { article as speseDeducibili } from "./articles/spese-deducibili-agente-d
 import { article as multiMandante } from "./articles/gestire-piu-mandanti-crm";
 import { article as crmMobile } from "./articles/crm-mobile-agenti-di-commercio";
 import { article as crmDaTelefono } from "./articles/usare-crm-da-telefono-dai-clienti";
+import { article as salesflyVsHubspot } from "./articles/salesfly-vs-hubspot-agenti-di-commercio";
 
-const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono];
+const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot];
 
 export const articles = [...allArticles].sort(
   (a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)
