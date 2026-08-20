@@ -1,5 +1,8 @@
 from fastapi import APIRouter, Depends, Response, Request, HTTPException
-from core.security import get_current_user, forbid_demo_write, get_client_ip, create_access_token
+from core.security import (
+    get_current_user, forbid_demo_write, get_client_ip, create_access_token,
+    set_auth_cookie, clear_auth_cookie,
+)
 from repositories.user_repository import user_repository
 from services.auth_service import auth_service
 from services.admin_service import admin_service
@@ -12,8 +15,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 async def register(payload: RegisterIn, response: Response, request: Request):
     ip_address = get_client_ip(request)
     token, out = await auth_service.register(payload, ip_address=ip_address)
-    response.set_cookie("access_token", token, httponly=True, secure=True,
-                         samesite="none", max_age=7 * 24 * 3600, path="/")
+    set_auth_cookie(response, token)
     return out
 
 
@@ -21,14 +23,13 @@ async def register(payload: RegisterIn, response: Response, request: Request):
 async def login(payload: LoginIn, response: Response, request: Request):
     ip_address = get_client_ip(request)
     token, out = await auth_service.login(payload, ip_address=ip_address)
-    response.set_cookie("access_token", token, httponly=True, secure=True,
-                         samesite="none", max_age=7 * 24 * 3600, path="/")
+    set_auth_cookie(response, token)
     return out
 
 
 @router.post("/logout")
 async def logout(response: Response):
-    response.delete_cookie("access_token", path="/", secure=True, samesite="none")
+    clear_auth_cookie(response)
     return {"ok": True}
 
 
@@ -62,8 +63,7 @@ async def exit_impersonation(response: Response, user=Depends(get_current_user))
     if admin_user.get("role") != "admin":
         raise HTTPException(403, "I permessi di amministratore non sono più validi: effettua un nuovo login")
     token = create_access_token(admin_user["id"], admin_user["email"])
-    response.set_cookie("access_token", token, httponly=True, secure=True,
-                         samesite="none", max_age=7 * 24 * 3600, path="/")
+    set_auth_cookie(response, token)
     await admin_service.record_impersonation_exit(
         admin_user["email"], user["id"], user.get("email"),
         user.get("impersonation_mode", "view"), user.get("impersonation_started_at"),

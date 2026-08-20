@@ -73,6 +73,29 @@ def create_access_token(user_id: str, email: str) -> str:
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
 
 
+ACCESS_TOKEN_TTL_SECONDS = 7 * 24 * 3600
+
+
+def set_auth_cookie(response, token: str, max_age: int = ACCESS_TOKEN_TTL_SECONDS) -> None:
+    """Imposta il cookie di sessione con gli stessi attributi ovunque venga
+    emesso (login/registrazione/exit-impersonation/impersonate). SameSite=Lax
+    e non "none": il frontend chiama sempre /api/* con URL relativo (mai
+    l'host Railway diretto), e in produzione quel percorso passa dal proxy
+    Netlify configurato in frontend/public/_redirects — dal punto di vista
+    del browser la richiesta è quindi sempre same-site (stesso vale in
+    locale, dove localhost:3000/localhost:8000 condividono lo stesso
+    "registrable domain"). "none" serviva per un'ipotesi di chiamata diretta
+    cross-site che non corrisponde a come il frontend chiama davvero
+    l'API, e avrebbe richiesto una vera protezione CSRF (assente oggi) per
+    essere sicura sul serio."""
+    response.set_cookie("access_token", token, httponly=True, secure=True,
+                         samesite="lax", max_age=max_age, path="/")
+
+
+def clear_auth_cookie(response) -> None:
+    response.delete_cookie("access_token", path="/", secure=True, samesite="lax")
+
+
 # Più breve dei 7 giorni del token normale apposta: una sessione di
 # impersonificazione dimenticata aperta (es. una scheda del browser mai
 # chiusa) deve scadere da sola in tempi brevi, non restare valida per una

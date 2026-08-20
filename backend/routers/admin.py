@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Body, Request, Response
-from core.security import require_admin, get_client_ip, IMPERSONATION_TOKEN_TTL_MINUTES
+from core.security import require_admin, get_client_ip, IMPERSONATION_TOKEN_TTL_MINUTES, set_auth_cookie
 from services.admin_service import admin_service
 from services.health_service import health_service
 from models.admin import ImpersonateIn
@@ -61,6 +61,5 @@ async def admin_impersonate_user(uid: str, response: Response, payload: Imperson
     token, target_email = await admin_service.impersonate_user(
         uid, admin, mode=payload.mode, reason=payload.reason, category=payload.category,
     )
-    response.set_cookie("access_token", token, httponly=True, secure=True,
-                         samesite="none", max_age=IMPERSONATION_TOKEN_TTL_MINUTES * 60, path="/")
+    set_auth_cookie(response, token, max_age=IMPERSONATION_TOKEN_TTL_MINUTES * 60)
     return {"ok": True, "email": target_email}

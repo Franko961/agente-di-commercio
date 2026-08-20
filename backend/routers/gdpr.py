@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Body, Response
-from core.security import get_current_user, forbid_demo_write
+from core.security import get_current_user, forbid_demo_write, clear_auth_cookie
 from services.gdpr_service import gdpr_service
 
 router = APIRouter(prefix="/api/privacy", tags=["privacy"])
@@ -22,5 +22,5 @@ async def delete_my_account(response: Response, payload: dict = Body(...), user=
     (art. 17 GDPR). Richiede la password corrente come conferma."""
     await gdpr_service.delete_account(user, payload.get("password", ""))
     # Come il logout: la sessione non ha più senso dato che l'account non esiste più.
-    response.delete_cookie("access_token", path="/", secure=True, samesite="none")
+    clear_auth_cookie(response)
     return {"ok": True}
