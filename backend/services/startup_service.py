@@ -560,7 +560,30 @@ async def run_startup() -> None:
 
     # Indici usati dal motore automazioni: dedup/retry per (automation_id,
     # target_id) e lettura notifiche per utente ordinate per data.
-    await db.automation_runs.create_index([("automation_id", 1), ("target_id", 1)], unique=True)
+    #
+    # L'indice univoco include anche user_id (non solo automation_id,
+    # target_id): non cambia quali documenti vengono considerati duplicati
+    # (automation_id è già globalmente univoco — gen_id() — quindi non può
+    # comparire con due user_id diversi), ma rende esplicito nel modello
+    # dati che l'isolamento tra utenti fa parte della chiave, invece di
+    # dipendere solo dalla disciplina del codice applicativo (vedi il fix in
+    # automation_run_repository.delete_by_automation). automation_id resta
+    # il PRIMO campo dell'indice, non user_id: find_one/find_many_by_automation/
+    # delete_by_automation filtrano tutte per automation_id (a volte da solo,
+    # a volte con altri campi), e un indice composto è utile per una query
+    # solo se i suoi campi iniziali coincidono con quelli del filtro — con
+    # user_id in testa, quelle query smetterebbero di usare l'indice.
+    #
+    # drop_index in un try: un database nuovo (o dove è già stato aggiornato)
+    # non ha il vecchio indice a 2 campi da rimuovere, non deve bloccare
+    # l'avvio dell'app (stesso principio già usato sotto per manual_commissions).
+    try:
+        await db.automation_runs.drop_index([("automation_id", 1), ("target_id", 1)])
+    except Exception:
+        pass
+    await db.automation_runs.create_index(
+        [("automation_id", 1), ("user_id", 1), ("target_id", 1)], unique=True
+    )
     await db.automation_notifications.create_index([("user_id", 1), ("created_at", -1)])
 
     await backfill_manual_commission_ids()
