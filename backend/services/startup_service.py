@@ -448,8 +448,20 @@ async def run_startup() -> None:
         logger.error(f"Storage init error: {e}")
 
     await db.users.create_index("email", unique=True)
-    await db.clients.create_index([("user_id", 1)])
-    await db.offers.create_index([("user_id", 1)])
+    # clients/offers: l'indice su solo (user_id) creato qui in passato viene
+    # sostituito più sotto da uno composto (user_id, mandante_id/mandante_ids)
+    # — un indice composto serve già da solo anche le query che filtrano solo
+    # su user_id (prefisso), quindi il vecchio va tolto esplicitamente invece
+    # di lasciarlo duplicato e inutile in produzione (stesso principio già
+    # usato per manual_commissions/automation_runs più sotto in questo file).
+    try:
+        await db.clients.drop_index([("user_id", 1)])
+    except Exception:
+        pass
+    try:
+        await db.offers.drop_index([("user_id", 1)])
+    except Exception:
+        pass
     await db.documents.create_index([("user_id", 1), ("is_deleted", 1)])
     # Non filtrato per user_id: usato dal ciclo periodico di pulizia cestino
     # (_document_trash_cleanup_loop), che scansiona i documenti soft-deleted
@@ -497,9 +509,39 @@ async def run_startup() -> None:
     await db.vehicles.create_index([("user_id", 1), ("plate", 1)], unique=True)
     await db.leads.create_index([("user_id", 1)])
     await db.appointments.create_index([("user_id", 1)])
-    await db.commissions.create_index([("user_id", 1)])
-    await db.expenses.create_index([("user_id", 1)])
-    await db.orders.create_index([("user_id", 1)])
+    # commissions/expenses/orders: stesso principio di clients/offers sopra
+    # — il vecchio indice su solo (user_id) va tolto, un indice composto più
+    # sotto lo sostituisce e lo serve già come prefisso.
+    try:
+        await db.commissions.drop_index([("user_id", 1)])
+    except Exception:
+        pass
+    try:
+        await db.expenses.drop_index([("user_id", 1)])
+    except Exception:
+        pass
+    try:
+        await db.orders.drop_index([("user_id", 1)])
+    except Exception:
+        pass
+    # Filtro per mandante attivo: clients/offers/commissions/orders sono
+    # tutte interrogate anche con {"user_id": ..., "mandante_id"/"mandante_ids": ...}
+    # quando l'utente ha selezionato un mandante specifico nella barra
+    # laterale (non solo "Tutti i mandanti") — sia dalle pagine di elenco
+    # (Clienti/Offerte/Provvigioni/Ordini) sia da dashboard_service. Con il
+    # solo indice su (user_id), quella query filtra ancora per mandante in
+    # memoria dopo aver caricato TUTTI i documenti dell'utente. mandante_ids
+    # su clients è un array (relazione molti-a-molti cliente↔mandante): un
+    # indice composto su un campo array è comunque valido in MongoDB
+    # (multikey index), copre lo stesso caso d'uso.
+    await db.clients.create_index([("user_id", 1), ("mandante_ids", 1)])
+    await db.offers.create_index([("user_id", 1), ("mandante_id", 1)])
+    await db.commissions.create_index([("user_id", 1), ("mandante_id", 1)])
+    await db.orders.create_index([("user_id", 1), ("mandante_id", 1)])
+    # find_many() filtra sempre per user_id, opzionalmente per categoria e/o
+    # intervallo di date, e ordina sempre per date desc — questo indice copre
+    # sia il filtro sulla data sia il sort, non solo l'uguaglianza su user_id.
+    await db.expenses.create_index([("user_id", 1), ("date", -1)])
     # Indice univoco su (user_id, numero_ordine): next_order_number() (vedi
     # repositories/order_repository.py) è già atomico via $inc e non collide
     # mai da solo, ma numero_ordine resta un campo modificabile a mano da
