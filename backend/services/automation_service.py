@@ -25,7 +25,7 @@ class AutomationService:
         await self.repo.delete(aid, user["id"])
         # Ripulisce anche lo storico esecuzioni legato a questa automazione,
         # altrimenti resterebbero record orfani in automation_runs.
-        await self.run_repo.delete_by_automation(aid)
+        await self.run_repo.delete_by_automation(aid, user["id"])
 
     # ------------------------------------------------------------------
     # Notifiche in-app generate dal motore (automation_engine)

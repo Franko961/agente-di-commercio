@@ -106,10 +106,14 @@ class AutomationRunRepository:
         return await self.collection.find({"automation_id": automation_id}, {"_id": 0}) \
             .sort("updated_at", -1).to_list(limit)
 
-    async def delete_by_automation(self, automation_id: str) -> None:
+    async def delete_by_automation(self, automation_id: str, user_id: str) -> None:
         """Ripulisce lo storico esecuzioni quando l'automazione stessa viene
-        cancellata, per non lasciare record orfani in questa collection."""
-        await self.collection.delete_many({"automation_id": automation_id})
+        cancellata, per non lasciare record orfani in questa collection.
+        Filtrato anche per user_id: automation_id da solo non basta a
+        isolare i tenant, un id valido per un altro account non deve poter
+        cancellare le sue esecuzioni (stesso principio già applicato al
+        repository automation_repository.delete)."""
+        await self.collection.delete_many({"automation_id": automation_id, "user_id": user_id})
 
 
 automation_run_repository = AutomationRunRepository()

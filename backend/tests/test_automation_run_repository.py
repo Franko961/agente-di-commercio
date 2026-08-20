@@ -41,6 +41,11 @@ class _UpdateResult:
         self.matched_count = matched_count
 
 
+class _DeleteResult:
+    def __init__(self, deleted_count):
+        self.deleted_count = deleted_count
+
+
 class FakeMongoCollection:
     """Replica le due operazioni MongoDB usate da try_claim, comprese le
     garanzie di cui la logica si fida: insert_one solleva DuplicateKeyError
@@ -82,6 +87,12 @@ class FakeMongoCollection:
 
         existing.update(update["$set"])
         return _UpdateResult(matched_count=1)
+
+    async def delete_many(self, query):
+        to_delete = [k for k, v in self.docs.items() if all(v.get(f) == val for f, val in query.items())]
+        for k in to_delete:
+            del self.docs[k]
+        return _DeleteResult(deleted_count=len(to_delete))
 
 
 def build_repo():
@@ -191,6 +202,38 @@ def test_prenotazioni_su_target_diversi_sono_indipendenti():
     b = run(repo.try_claim("auto-1", "user-1", "offer", "target-2"))
     assert a is True
     assert b is True
+
+
+def test_delete_by_automation_rimuove_solo_le_esecuzioni_dello_stesso_utente():
+    """Bug di isolamento multi-tenant: automation_id da solo non basta a
+    filtrare la cancellazione. Se un id di automazione (magari indovinato o
+    riusato per collisione) corrisponde anche a un'esecuzione di un ALTRO
+    utente, quella non deve essere toccata — solo user_id="user-1" deve
+    perdere i propri record per "auto-1"."""
+    repo = build_repo()
+    repo.collection.docs[("auto-1", "target-1")] = {
+        "automation_id": "auto-1", "target_id": "target-1", "user_id": "user-1", "status": "ok",
+    }
+    repo.collection.docs[("auto-1", "target-2")] = {
+        "automation_id": "auto-1", "target_id": "target-2", "user_id": "user-2", "status": "ok",
+    }
+
+    run(repo.delete_by_automation("auto-1", "user-1"))
+
+    remaining = list(repo.collection.docs.values())
+    assert len(remaining) == 1
+    assert remaining[0]["user_id"] == "user-2"
+
+
+def test_delete_by_automation_con_user_id_sbagliato_non_cancella_nulla():
+    repo = build_repo()
+    repo.collection.docs[("auto-1", "target-1")] = {
+        "automation_id": "auto-1", "target_id": "target-1", "user_id": "user-1", "status": "ok",
+    }
+
+    run(repo.delete_by_automation("auto-1", "user-di-un-altro-account"))
+
+    assert len(repo.collection.docs) == 1
 
 
 if __name__ == "__main__":

@@ -118,8 +118,8 @@ class FakeRunRepo:
     async def find_many_by_automation(self, automation_id, limit=200):
         return [dict(d) for d in self.docs.values() if d["automation_id"] == automation_id]
 
-    async def delete_by_automation(self, automation_id):
-        self.docs = {k: v for k, v in self.docs.items() if v["automation_id"] != automation_id}
+    async def delete_by_automation(self, automation_id, user_id):
+        self.docs = {k: v for k, v in self.docs.items() if not (v["automation_id"] == automation_id and v["user_id"] == user_id)}
 
 
 class FakeNotificationRepo:
