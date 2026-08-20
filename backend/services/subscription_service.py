@@ -169,6 +169,24 @@ class SubscriptionService:
             await self.repo.update_by_stripe_subscription_id(
                 sub["id"], {"subscription_status": "cancelled", "cancel_at": None}
             )
+        elif event["type"] == "customer.subscription.updated":
+            # Un rinnovo che fallisce (carta scaduta, fondi insufficienti) NON
+            # genera checkout.session.completed né customer.subscription.deleted
+            # (quest'ultimo arriva solo se/quando Stripe esaurisce i tentativi
+            # di recupero automatici — anche settimane dopo): senza gestire
+            # anche questo evento, un rinnovo fallito restava invisibile
+            # all'app e l'utente manteneva l'accesso mentre l'incasso non
+            # arrivava. Rispecchia direttamente lo status che Stripe riporta
+            # (active/past_due/unpaid/...) invece di inventare una logica di
+            # grace period nostra: i tentativi di recupero restano quelli
+            # configurati su Stripe (Smart Retries), e quando un tentativo
+            # successivo va a buon fine questo stesso evento torna a status
+            # "active", riattivando l'accesso automaticamente.
+            sub = event["data"]["object"]
+            stripe_status = sub.get("status")
+            if stripe_status:
+                mapped = "cancelled" if stripe_status == "canceled" else stripe_status
+                await self.repo.update_by_stripe_subscription_id(sub["id"], {"subscription_status": mapped})
         return {"ok": True}
 
     # ---- Helper PayPal ---------------------------------------------------
@@ -344,8 +362,19 @@ class SubscriptionService:
             await self.repo.update_by_paypal_subscription_id(subscription_id, {"subscription_status": "expired"})
         elif event_type == "PAYMENT.SALE.DENIED":
             await self.repo.update_by_paypal_subscription_id(subscription_id, {"subscription_status": "payment_failed"})
-        # PAYMENT.SALE.COMPLETED: rinnovo riuscito, nessun cambio di stato necessario
-        # oltre a restare "active"; loggato per audit tramite paypal_webhook_events.
+        elif event_type == "PAYMENT.SALE.COMPLETED":
+            # Un addebito riuscito dopo un tentativo precedente fallito
+            # (PAYMENT.SALE.DENIED sopra) deve ripristinare l'accesso: senza
+            # questo, un cliente che ha pagato regolarmente al secondo
+            # tentativo restava bloccato con subscription_status ancora
+            # "payment_failed", perché nessun altro evento lo riportava ad
+            # "active". Tocca solo chi era davvero in payment_failed: un
+            # abbonamento già attivo, sospeso o cancellato non va toccato da
+            # un evento di pagamento riuscito che potrebbe riferirsi a un
+            # rinnovo qualunque, non necessariamente un recupero.
+            existing_user = await self.repo.find_by_paypal_subscription_id(subscription_id)
+            if existing_user and existing_user.get("subscription_status") == "payment_failed":
+                await self.repo.update_by_paypal_subscription_id(subscription_id, {"subscription_status": "active"})
 
         return {"ok": True}
 
