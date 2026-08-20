@@ -49,7 +49,7 @@ export default function Pricing() {
             <div className="mb-6">
               <span className="font-cabinet font-black text-4xl">€{base.price_eur}</span>
               <span className="text-[#52525B] text-[14px]">/mese</span>
-              <div className="text-[12px] text-[#A1A1AA] mt-1">€{(base.price_eur * 12).toFixed(0)}/anno · IVA esclusa</div>
+              <div className="text-[12px] text-[#A1A1AA] mt-1">€{(base.price_eur * 12).toFixed(0)}/anno · IVA non dovuta (regime forfettario)</div>
             </div>
             <button onClick={() => navigate("/richiedi-demo")}
               className="w-full py-3 border-2 border-[#0A192F] text-[#0A192F] rounded-lg text-[14px] font-bold mb-6 hover:bg-[#0A192F] hover:text-white transition-colors">
@@ -78,7 +78,7 @@ export default function Pricing() {
             <div className="mb-6">
               <span className="font-cabinet font-black text-4xl">€{pro.price_eur}</span>
               <span className="text-white/60 text-[14px]">/mese</span>
-              <div className="text-[12px] text-white/40 mt-1">€{(pro.price_eur * 12).toFixed(0)}/anno · IVA esclusa</div>
+              <div className="text-[12px] text-white/40 mt-1">€{(pro.price_eur * 12).toFixed(0)}/anno · IVA non dovuta (regime forfettario)</div>
             </div>
             <button onClick={() => navigate("/richiedi-demo")}
               className="w-full py-3 bg-[#FF5A00] text-white rounded-lg text-[14px] font-bold mb-6 hover:bg-[#e04e00] transition-colors">
