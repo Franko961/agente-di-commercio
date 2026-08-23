@@ -7,7 +7,6 @@ import { CookieConsentProvider } from "./contexts/CookieConsentContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import ModuleGuard from "./components/ModuleGuard";
-import Layout from "./components/Layout";
 import AnalyticsRouteGuard from "./components/AnalyticsRouteGuard";
 import CookieConsentBanner from "./components/CookieConsentBanner";
 import OfflineBanner from "./components/OfflineBanner";
@@ -20,7 +19,16 @@ import { Toaster } from "./components/ui/sonner";
 // homepage o un articolo del blog — non userà mai. Un bundle enorme
 // rallenta il primo caricamento (Core Web Vitals, fattore di ranking
 // Google) e aumenta l'abbandono prima ancora che la pagina sia pronta.
+//
+// Layout (sidebar/header dell'app autenticata, con menu e notifiche —
+// componenti Radix UI) era l'unico import ancora eager: finiva nel bundle
+// condiviso caricato anche da chi visita solo la homepage pubblica,
+// gonfiandolo di codice mai eseguito lì (verificato con Lighthouse: ~54%
+// del bundle principale inutilizzato sulla home). Già dentro il confine
+// <Suspense> qui sotto, che copre tutte le rotte — nessuna modifica
+// ulteriore necessaria per renderlo lazy in sicurezza.
 const Landing = lazy(() => import("./pages/Landing"));
+const Layout = lazy(() => import("./components/Layout"));
 const Login = lazy(() => import("./pages/Login"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Clients = lazy(() => import("./pages/Clients"));
