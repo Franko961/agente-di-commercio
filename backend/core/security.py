@@ -42,15 +42,32 @@ def get_client_ip(request: Request) -> Optional[str]:
     chiave, un limite di "5 richieste" varrebbe per TUTTI gli utenti messi
     insieme, non per singolo visitatore.
 
-    X-Forwarded-For viene però scritto lungo la catena da chiunque si
-    connetta, incluso un chiamante diretto e malevolo che può impostarlo a
-    piacere: fidarsi ciecamente della prima voce permetterebbe di aggirare
-    il rate limit a piacimento (basta cambiare valore ad ogni richiesta).
-    L'unica voce non falsificabile è quella aggiunta dal proxy con cui
-    l'app comunica DIRETTAMENTE — Railway, l'unico modo in cui una
-    richiesta può fisicamente raggiungere il container — quindi si prende
+    Verificato dal vivo (GET /api/debug/my-ip) che per il traffico via
+    salesfly.it/Netlify l'IP reale del visitatore NON compare affatto in
+    X-Forwarded-For (che porta solo la catena interna Netlify→Railway,
+    stabile e uguale per ogni visitatore — il rate limit trattava quindi
+    tutti i visitatori del sito come un unico IP): Netlify lo espone invece
+    in x-nf-client-connection-ip, header dedicato esattamente a questo
+    scopo. Va preferito quando presente. Nota: è in teoria falsificabile da
+    chi bypassa Netlify chiamando Railway direttamente con l'header
+    forgiato — rischio accettato consapevolmente (rate limiting su
+    login/registrazione/richieste demo, non una decisione di
+    autorizzazione), Netlify offrirebbe anche un JWT firmato
+    (x-nf-netlify-proxy) per una verifica più solida se in futuro servisse.
+
+    In sua assenza (chiamata diretta a Railway, es. i webhook Stripe/
+    PayPal che non passano da Netlify), si ricade sulla logica precedente:
+    X-Forwarded-For viene scritto lungo la catena da chiunque si connetta,
+    incluso un chiamante diretto e malevolo che può impostarlo a piacere —
+    fidarsi ciecamente della prima voce permetterebbe di aggirare il rate
+    limit a piacimento. L'unica voce non falsificabile è quella aggiunta dal
+    proxy con cui l'app comunica DIRETTAMENTE — Railway — quindi si prende
     l'N-esima voce da destra, dove N = TRUSTED_PROXY_HOPS (vedi
     core/config.py), mai la prima della lista."""
+    nf_client_ip = request.headers.get("x-nf-client-connection-ip")
+    if nf_client_ip:
+        return nf_client_ip.strip()
+
     xff = request.headers.get("x-forwarded-for")
     if xff:
         hops = [h.strip() for h in xff.split(",") if h.strip()]

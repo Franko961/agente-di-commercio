@@ -95,6 +95,31 @@ def test_nessun_client_e_nessun_header_ritorna_none():
     assert get_client_ip(request) is None
 
 
+# ---------- x-nf-client-connection-ip (traffico via Netlify/salesfly.it) ----------
+
+def test_x_nf_client_connection_ip_ha_priorita_su_x_forwarded_for(monkeypatch):
+    """Verificato dal vivo (GET /api/debug/my-ip) che per il traffico via
+    salesfly.it l'IP reale del visitatore non compare affatto in
+    X-Forwarded-For (che porta solo la catena interna Netlify→Railway,
+    stabile e identica per ogni visitatore) — Netlify lo espone invece in
+    questo header dedicato, che va usato quando presente."""
+    monkeypatch.setattr(security_mod, "TRUSTED_PROXY_HOPS", 1)
+    request = FakeRequest(headers={
+        "x-nf-client-connection-ip": "93.35.124.64",
+        "x-forwarded-for": "35.247.84.164, 152.233.76.11",
+    })
+    assert get_client_ip(request) == "93.35.124.64"
+
+
+def test_x_nf_client_connection_ip_assente_ricade_su_x_forwarded_for(monkeypatch):
+    """Chiamata diretta a Railway (es. i webhook Stripe/PayPal, che non
+    passano da Netlify): nessun header Netlify, si ricade sulla logica
+    esistente basata su X-Forwarded-For."""
+    monkeypatch.setattr(security_mod, "TRUSTED_PROXY_HOPS", 1)
+    request = FakeRequest(headers={"x-forwarded-for": "1.2.3.4, 203.0.113.9"})
+    assert get_client_ip(request) == "203.0.113.9"
+
+
 if __name__ == "__main__":
     import pytest
     raise SystemExit(pytest.main([__file__, "-v"]))
