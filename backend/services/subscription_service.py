@@ -543,5 +543,88 @@ class SubscriptionService:
             await self.repo.update_by_id(user["id"], {"subscription_status": "cancelled"})
         return {"ok": True}
 
+    # ---- Storico pagamenti (area abbonamento) ----------------------------
+
+    async def get_payment_history(self, user: dict) -> dict:
+        """Storico pagamenti unificato Stripe + PayPal per l'utente. Se un
+        provider configurato non risponde, l'altro viene comunque
+        restituito: meglio uno storico parziale che nessuno."""
+        u = await self.repo.find_by_id(user["id"])
+        items = []
+
+        if u.get("stripe_customer_id") and STRIPE_SECRET_KEY:
+            items.extend(await self._stripe_payment_history(u["stripe_customer_id"]))
+
+        if u.get("paypal_subscription_id") and PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET:
+            items.extend(await self._paypal_payment_history(u["paypal_subscription_id"]))
+
+        items.sort(key=lambda it: it["date"], reverse=True)
+        return {"items": items}
+
+    async def _stripe_payment_history(self, customer_id: str) -> list:
+        import stripe
+        stripe.api_key = STRIPE_SECRET_KEY
+
+        def _list():
+            return stripe.Invoice.list(customer=customer_id, limit=24)
+
+        try:
+            invoices = await asyncio.to_thread(_list)
+        except Exception as e:
+            logger.warning(f"Errore recupero storico pagamenti Stripe: {e}")
+            return []
+
+        return [
+            {
+                "provider": "stripe",
+                "date": datetime.fromtimestamp(inv["created"], tz=timezone.utc).isoformat(),
+                "amount": (inv.get("amount_paid") or inv.get("amount_due") or 0) / 100,
+                "currency": (inv.get("currency") or "eur").upper(),
+                "status": inv.get("status"),
+                "receipt_url": inv.get("hosted_invoice_url"),
+            }
+            for inv in invoices.get("data", [])
+        ]
+
+    async def _paypal_payment_history(self, subscription_id: str) -> list:
+        # PayPal richiede sempre start_time/end_time e non accetta un
+        # intervallo superiore a 1 anno per chiamata: copriamo gli ultimi 12
+        # mesi, lo storico rilevante per l'utente nell'area abbonamento.
+        from datetime import timedelta
+        now = datetime.now(timezone.utc)
+        start_time = (now - timedelta(days=365)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        end_time = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        token = await self._paypal_token()
+
+        def _fetch():
+            return requests.get(
+                f"{PAYPAL_API_BASE}/v1/billing/subscriptions/{subscription_id}/transactions",
+                headers={"Authorization": f"Bearer {token}"},
+                params={"start_time": start_time, "end_time": end_time},
+                timeout=10,
+            )
+
+        try:
+            resp = await asyncio.to_thread(_fetch)
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as e:
+            logger.warning(f"Errore recupero storico pagamenti PayPal: {e}")
+            return []
+
+        items = []
+        for tx in data.get("transactions", []):
+            gross = tx.get("amount_with_breakdown", {}).get("gross_amount", {})
+            items.append({
+                "provider": "paypal",
+                "date": tx.get("time"),
+                "amount": float(gross.get("value", 0)),
+                "currency": gross.get("currency_code", "EUR"),
+                "status": tx.get("status"),
+                "receipt_url": None,
+            })
+        return items
+
 
 subscription_service = SubscriptionService()

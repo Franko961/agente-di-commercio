@@ -1,8 +1,17 @@
 import { useEffect, useState } from "react";
 import api from "../api";
 import usePlans from "../hooks/usePlans";
-import { CheckCircle, XCircle, CreditCard, AlertTriangle, ExternalLink } from "lucide-react";
+import { CheckCircle, XCircle, CreditCard, AlertTriangle, ExternalLink, Receipt } from "lucide-react";
 import { toast } from "sonner";
+
+// Etichette leggibili per gli stati grezzi restituiti dai provider (Stripe
+// usa "paid"/"open"/..., PayPal "COMPLETED"/"DECLINED"/...) — non c'è
+// sovrapposizione tra i due insiemi, un'unica mappa basta.
+const PAYMENT_STATUS_LABELS = {
+  paid: "Pagato", open: "In sospeso", void: "Annullato", uncollectible: "Non incassato", draft: "Bozza",
+  COMPLETED: "Completato", DECLINED: "Rifiutato", PENDING: "In sospeso", REFUNDED: "Rimborsato", FAILED: "Fallito",
+};
+const PROVIDER_LABELS = { stripe: "Stripe", paypal: "PayPal" };
 
 export default function Subscription() {
   const { plansById, loading: plansLoading } = usePlans();
@@ -10,11 +19,20 @@ export default function Subscription() {
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [confirmingPaypal, setConfirmingPaypal] = useState(false);
+  const [paymentHistory, setPaymentHistory] = useState([]);
 
   const load = async () => {
     const { data } = await api.get("/subscription/status");
     setStatus(data);
     setLoading(false);
+    // Non critico per la pagina: se fallisce, la sezione storico resta
+    // semplicemente vuota invece di bloccare tutto il resto.
+    try {
+      const { data: history } = await api.get("/subscription/payment-history");
+      setPaymentHistory(history.items || []);
+    } catch {
+      setPaymentHistory([]);
+    }
   };
 
   useEffect(() => {
@@ -212,6 +230,49 @@ export default function Subscription() {
           <button onClick={cancelSub} className="px-4 py-2 border border-red-300 text-red-500 rounded-md text-[13px] hover:bg-red-50 transition-colors">
             Cancella abbonamento
           </button>
+        </div>
+      )}
+
+      {/* Storico pagamenti */}
+      {paymentHistory.length > 0 && (
+        <div className="bg-white border border-[#E4E4E1] rounded-md p-5 mt-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Receipt className="w-4 h-4 text-[#52525B]" />
+            <div className="font-cabinet font-bold">Storico pagamenti</div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-widest text-[#A1A1AA] border-b border-[#E4E4E1]">
+                  <th className="pb-2 pr-4 font-normal">Data</th>
+                  <th className="pb-2 pr-4 font-normal">Metodo</th>
+                  <th className="pb-2 pr-4 font-normal">Importo</th>
+                  <th className="pb-2 pr-4 font-normal">Stato</th>
+                  <th className="pb-2 font-normal"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {paymentHistory.map((item, i) => (
+                  <tr key={i} className="border-b border-[#F4F4F3] last:border-0">
+                    <td className="py-2.5 pr-4 text-[#52525B]">
+                      {new Date(item.date).toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" })}
+                    </td>
+                    <td className="py-2.5 pr-4">{PROVIDER_LABELS[item.provider] || item.provider}</td>
+                    <td className="py-2.5 pr-4 font-medium">€{item.amount.toFixed(2)}</td>
+                    <td className="py-2.5 pr-4 text-[#52525B]">{PAYMENT_STATUS_LABELS[item.status] || item.status}</td>
+                    <td className="py-2.5">
+                      {item.receipt_url && (
+                        <a href={item.receipt_url} target="_blank" rel="noopener noreferrer"
+                          className="text-[#FF5A00] hover:underline text-[12px]">
+                          Ricevuta
+                        </a>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

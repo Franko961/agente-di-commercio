@@ -53,3 +53,8 @@ async def paypal_webhook(request: Request):
 @router.post("/cancel")
 async def cancel_subscription(user=Depends(forbid_demo_write)):
     return await subscription_service.cancel_subscription(user)
+
+
+@router.get("/payment-history")
+async def payment_history(user=Depends(get_current_user)):
+    return await subscription_service.get_payment_history(user)
