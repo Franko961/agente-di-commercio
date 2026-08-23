@@ -13,8 +13,9 @@ import { article as crmMobile } from "./articles/crm-mobile-agenti-di-commercio"
 import { article as crmDaTelefono } from "./articles/usare-crm-da-telefono-dai-clienti";
 import { article as salesflyVsHubspot } from "./articles/salesfly-vs-hubspot-agenti-di-commercio";
 import { article as migliorCrmVenditori } from "./articles/migliori-crm-per-venditori-italiani";
+import { article as crmAiVenditori } from "./articles/crm-intelligenza-artificiale-per-venditori";
 
-const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot, migliorCrmVenditori];
+const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot, migliorCrmVenditori, crmAiVenditori];
 
 export const articles = [...allArticles].sort(
   (a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)
