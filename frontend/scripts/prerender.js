@@ -159,8 +159,11 @@ function renderPage(template, route) {
     // React non la renderizza (esiste solo dopo il JS, non nell'HTML
     // iniziale), partendo a caricarla 1,5s+ dopo il resto della pagina —
     // verificato con Lighthouse come causa principale di un LCP di ~7s.
+    // hero-skyline-bg.webp, non hero-skyline.png: versione ridotta e
+    // compressa pensata solo per questo sfondo (vedi il commento in
+    // Landing.jsx sul perché il .png originale resta invariato altrove).
     ...(route.path === "/" ? [
-      `<link rel="preload" as="image" href="${SITE_URL}/hero-skyline.png" fetchpriority="high" />`,
+      `<link rel="preload" as="image" href="${SITE_URL}/hero-skyline-bg.webp" fetchpriority="high" />`,
     ] : []),
     ...(route.type === "article" ? [buildArticleJsonLd(route)] : []),
   ].join("\n        ");

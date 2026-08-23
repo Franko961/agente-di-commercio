@@ -275,18 +275,19 @@ export default function Landing() {
       {/* Hero */}
       <main>
         <section className="relative overflow-hidden px-6 pt-16 pb-16">
-          {/* Sfondo decorativo apposta come background-image CSS, non <img>: i
-          browser non considerano mai uno sfondo CSS come candidato per il
-          Largest Contentful Paint, mentre un <img> sì — e qui, non essendo
-          scopribile nell'HTML iniziale (esiste solo dopo il render di React),
-          arrivava a caricarsi 1,5s dopo il resto della pagina, facendo
-          risultare l'LCP la parte più lenta di tutta la homepage per
-          un'immagine puramente decorativa (verificato con Lighthouse). */}
+          {/* Sfondo decorativo come background-image CSS, non <img>: più
+          semplice da precaricare in modo mirato (vedi prerender.js) per la
+          sola homepage. hero-skyline-bg.webp è una versione ridimensionata e
+          compressa (WebP, ~6KB contro i 404KB del PNG originale) pensata
+          SOLO per questo sfondo — hero-skyline.png resta invariato perché
+          è anche l'immagine di condivisione social di default (vedi
+          DEFAULT_OG_IMAGE in content/pageMeta.js), dove serve risoluzione
+          piena e un formato universalmente supportato dai crawler social. */}
           <div
             aria-hidden="true"
             className="pointer-events-none select-none absolute inset-x-0 top-0 w-full h-[480px] bg-cover bg-top"
             style={{
-              backgroundImage: "url(/hero-skyline.png)",
+              backgroundImage: "url(/hero-skyline-bg.webp)",
               maskImage: "linear-gradient(to bottom, black 0%, black 78%, transparent 100%)",
               WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 78%, transparent 100%)",
             }}
