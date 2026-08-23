@@ -1,6 +1,6 @@
 import api from "../api";
 
-const FILE_BASE = process.env.REACT_APP_BACKEND_URL;
+const FILE_BASE = import.meta.env.VITE_BACKEND_URL;
 
 export async function downloadCsv(path, filename) {
   const res = await fetch(`${FILE_BASE}${path}`, {

@@ -50,7 +50,4 @@ const article = {
   ],
 };
 
-// CommonJS apposta: leggibile sia da webpack/Babel che da Node in
-// scripts/prerender.js senza transpilazione — vedi il commento in
-// calcolo-provvigioni-agente-di-commercio.js per il perché.
-module.exports = { article };
+export { article };

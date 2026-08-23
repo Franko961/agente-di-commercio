@@ -4,9 +4,9 @@
 // non lo fanno, es. Facebook/LinkedIn/Twitter): un'unica fonte, così le due
 // versioni non possono disallinearsi nel tempo.
 //
-// CommonJS apposta (non "export const"): deve essere leggibile sia da
-// webpack/Babel (import ... from "...") sia direttamente da Node in
-// scripts/prerender.js (require(...)), senza bisogno di transpilazione.
+// export ESM standard: letto sia da webpack/Vite (import ... from "...")
+// sia da scripts/prerender.js (import() dinamico, non require() — vedi il
+// commento lì sul perché dopo la migrazione a Vite).
 //
 // Le descrizioni evitano deliberatamente numeri che vivono altrove (es. i
 // prezzi dei piani, che arrivano da un'API) per non doverli tenere
@@ -91,4 +91,4 @@ const PAGES = {
 // identici, quindi una costante sola invece di un campo per file).
 const BLOG_ARTICLE_SITEMAP_DEFAULTS = { changefreq: "monthly", priority: "0.6" };
 
-module.exports = { PAGES, DEFAULT_OG_IMAGE, BLOG_ARTICLE_SITEMAP_DEFAULTS };
+export { PAGES, DEFAULT_OG_IMAGE, BLOG_ARTICLE_SITEMAP_DEFAULTS };

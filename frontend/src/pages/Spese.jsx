@@ -14,7 +14,7 @@ const todayIso = () => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 };
-const FILE_BASE = process.env.REACT_APP_BACKEND_URL;
+const FILE_BASE = import.meta.env.VITE_BACKEND_URL;
 
 async function downloadReceipt(documentId, label) {
   try {

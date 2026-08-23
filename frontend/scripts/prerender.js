@@ -40,32 +40,47 @@
  */
 const fs = require("fs");
 const path = require("path");
-const { PAGES, DEFAULT_OG_IMAGE, BLOG_ARTICLE_SITEMAP_DEFAULTS } = require("../src/content/pageMeta");
+const { pathToFileURL } = require("url");
 
 const SITE_URL = "https://salesfly.it";
 const BUILD_DIR = path.join(__dirname, "..", "build");
 const ARTICLES_DIR = path.join(__dirname, "..", "src", "content", "blog", "articles");
 
-// require() reale (non regex sul testo del file): ogni file articolo ora
-// esporta in CommonJS (vedi il commento in un file articolo qualunque, es.
+// import() dinamico (non require()): dopo la migrazione a Vite, pageMeta.js
+// e ogni file articolo esportano in ESM vero (necessario per essere
+// caricati nel browser senza bundler in dev) — require(), essendo
+// CommonJS, non sa più leggerli. pathToFileURL: su Windows import() con un
+// percorso assoluto letterale (backslash) può fallire, un file:// URL
+// funziona sempre in modo affidabile su ogni piattaforma.
+async function loadPageMeta() {
+  const mod = await import(pathToFileURL(path.join(__dirname, "..", "src", "content", "pageMeta.js")).href);
+  return mod;
+}
+
+// import() reale (non regex sul testo del file): ogni file articolo esporta
+// un modulo vero (vedi il commento in un file articolo qualunque, es.
 // calcolo-provvigioni-agente-di-commercio.js), quindi Node può caricarlo
-// come modulo vero — qualunque forma JS valida funziona (template literal,
+// come tale — qualunque forma JS valida funziona (template literal,
 // stringhe multilinea, apostrofi, valori importati o costruiti a runtime),
 // non solo lo schema testuale che una regex sapeva riconoscere. Prima
 // versione: leggeva il file come testo e ne estraeva slug/title/ecc. con
 // espressioni regolari — fragile per costruzione, si era già rotta una
 // volta (un articolo scomparso dal prerendering per una riga di commento
 // che citava "draft: true" come esempio).
-function loadBlogArticles() {
+async function loadBlogArticles() {
   if (!fs.existsSync(ARTICLES_DIR)) return [];
-  return fs
-    .readdirSync(ARTICLES_DIR)
-    .filter((f) => f.endsWith(".js"))
-    .map((f) => require(path.join(ARTICLES_DIR, f)).article)
+  const files = fs.readdirSync(ARTICLES_DIR).filter((f) => f.endsWith(".js"));
+  const modules = await Promise.all(
+    files.map((f) => import(pathToFileURL(path.join(ARTICLES_DIR, f)).href)),
+  );
+  return modules
+    .map((mod) => mod.article)
     .filter((a) => a && a.slug && a.title && !a.draft);
 }
 
-function buildRoutes() {
+async function buildRoutes() {
+  const { PAGES, DEFAULT_OG_IMAGE, BLOG_ARTICLE_SITEMAP_DEFAULTS } = await loadPageMeta();
+
   const routes = Object.entries(PAGES).map(([routePath, meta]) => ({
     path: routePath,
     title: meta.title,
@@ -77,7 +92,7 @@ function buildRoutes() {
     priority: meta.priority,
   }));
 
-  for (const article of loadBlogArticles()) {
+  for (const article of await loadBlogArticles()) {
     routes.push({
       path: `/blog/${article.slug}`,
       title: `${article.title} — SALESFLY`,
@@ -238,9 +253,9 @@ ${articleLines}
 `;
 }
 
-function main() {
+async function main() {
   if (!fs.existsSync(BUILD_DIR)) {
-    console.error("[prerender] build/ non trovata: esegui prima `craco build`.");
+    console.error("[prerender] build/ non trovata: esegui prima `vite build`.");
     process.exit(1);
   }
   const templatePath = path.join(BUILD_DIR, "index.html");
@@ -255,7 +270,7 @@ function main() {
   // come erano prima di questo script.
   fs.writeFileSync(path.join(BUILD_DIR, "app-shell.html"), template);
 
-  const routes = buildRoutes();
+  const routes = await buildRoutes();
   for (const route of routes) {
     const html = renderPage(template, route);
     // "/" resta build/index.html (il file richiesto per servire la root);
@@ -275,4 +290,7 @@ function main() {
   console.log(`[prerender] sitemap.xml e llms.txt rigenerate (${routes.length} URL).`);
 }
 
-main();
+main().catch((err) => {
+  console.error("[prerender] errore:", err);
+  process.exit(1);
+});

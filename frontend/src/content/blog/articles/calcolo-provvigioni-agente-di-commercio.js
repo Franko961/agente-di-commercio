@@ -47,11 +47,11 @@ const article = {
   ],
 };
 
-// CommonJS apposta (non "export const"): deve essere leggibile sia da
-// webpack/Babel (import { article } from "./articles/...") sia
-// direttamente da Node in scripts/prerender.js (require(...)), senza
-// bisogno di transpilazione — stesso motivo/pattern di content/pageMeta.js.
-// Prima prerender.js leggeva questo file con delle regex invece che con un
-// require() reale, fragile verso template literal, stringhe multilinea,
+// export ESM standard (non più CommonJS dopo la migrazione a Vite, che
+// richiede moduli ESM nativi nel browser): letto sia da webpack/Vite
+// (import { article } from "./articles/...") sia da scripts/prerender.js
+// (import() dinamico, non require() — vedi il commento lì). Prima
+// prerender.js leggeva questo file con delle regex invece che con un
+// import reale, fragile verso template literal, stringhe multilinea,
 // apostrofi al posto delle virgolette doppie o valori non letterali.
-module.exports = { article };
+export { article };

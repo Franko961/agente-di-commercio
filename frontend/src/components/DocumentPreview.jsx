@@ -4,7 +4,7 @@ import { Download, ExternalLink, FileText, Video, FileSpreadsheet, FileImage, Fi
 import mammoth from "mammoth";
 import api from "../api";
 
-const FILE_BASE = process.env.REACT_APP_BACKEND_URL;
+const FILE_BASE = import.meta.env.VITE_BACKEND_URL;
 
 function detectKind(doc) {
   const ct = (doc?.content_type || "").toLowerCase();
