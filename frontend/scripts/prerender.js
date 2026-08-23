@@ -205,6 +205,39 @@ ${urls}
 `;
 }
 
+// llms.txt (bozza di standard informale, vedi llmstxt.org): un riassunto in
+// Markdown del sito pensato per gli agenti/LLM che lo consultano, con
+// un'intestazione H1 e link alle pagine principali — esattamente i due
+// requisiti che PageSpeed Insights segnalava mancanti (il file non esisteva
+// affatto: /llms.txt ricadeva sul fallback SPA generico). Generato dagli
+// stessi route di sitemap.xml, stesso motivo: nessuna lista da tenere
+// allineata a mano quando si aggiunge una pagina o un articolo.
+function generateLlmsTxt(routes) {
+  const pageLines = routes
+    .filter((r) => r.type !== "article")
+    .map((r) => {
+      const label = r.path === "/" ? "Home" : r.title.split(" — ")[0];
+      return `- [${label}](${SITE_URL}${r.path}): ${r.description}`;
+    })
+    .join("\n");
+
+  const articleLines = routes
+    .filter((r) => r.type === "article")
+    .map((r) => `- [${r.articleTitle}](${SITE_URL}${r.path}): ${r.description}`)
+    .join("\n");
+
+  return `# SALESFLY
+
+> CRM verticale per agenti di commercio plurimandatari: clienti, agenda, provvigioni calcolate per mandante e offerte, con un assistente AI che può scrivere direttamente nel CRM (sempre dietro conferma esplicita dell'utente per le azioni economiche), non solo rispondere a domande.
+
+## Prodotto
+${pageLines}
+
+## Blog
+${articleLines}
+`;
+}
+
 function main() {
   if (!fs.existsSync(BUILD_DIR)) {
     console.error("[prerender] build/ non trovata: esegui prima `craco build`.");
@@ -236,9 +269,10 @@ function main() {
   }
 
   fs.writeFileSync(path.join(BUILD_DIR, "sitemap.xml"), generateSitemapXml(routes));
+  fs.writeFileSync(path.join(BUILD_DIR, "llms.txt"), generateLlmsTxt(routes));
 
   console.log(`[prerender] Generate ${routes.length} pagine: ${routes.map((r) => r.path).join(", ")}`);
-  console.log(`[prerender] sitemap.xml rigenerata (${routes.length} URL).`);
+  console.log(`[prerender] sitemap.xml e llms.txt rigenerate (${routes.length} URL).`);
 }
 
 main();
