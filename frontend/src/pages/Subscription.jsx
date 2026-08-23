@@ -190,6 +190,9 @@ export default function Subscription() {
               </div>
             ))}
           </div>
+          <div className="text-[12px] text-[#A1A1AA] mt-3">
+            L'abbonamento si rinnova automaticamente ogni mese finché non lo disdici dall'area abbonamento; nessun vincolo contrattuale.
+          </div>
         </div>
       )}
 

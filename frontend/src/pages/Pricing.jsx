@@ -34,6 +34,9 @@ export default function Pricing() {
           <p className="text-[16px] text-[#52525B] max-w-xl mx-auto">
             {trialDays} giorni di prova gratuita su tutti i piani. Nessuna carta di credito richiesta.
           </p>
+          <p className="text-[13px] text-[#A1A1AA] max-w-xl mx-auto mt-2">
+            Dopo la prova, l'abbonamento si rinnova automaticamente ogni mese finché non lo disdici: nessun vincolo contrattuale.
+          </p>
         </div>
 
         {/* Cards */}
