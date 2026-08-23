@@ -154,6 +154,14 @@ function renderPage(template, route) {
     // vedi il commento analogo in PageMeta.jsx.
     `<meta name="twitter:title" content="${title}" />`,
     `<meta name="twitter:description" content="${ogDescription}" />`,
+    // Preload dell'immagine di sfondo dell'hero SOLO sulla home (l'unica
+    // pagina che la usa): senza questo, il browser non la scopre finché
+    // React non la renderizza (esiste solo dopo il JS, non nell'HTML
+    // iniziale), partendo a caricarla 1,5s+ dopo il resto della pagina —
+    // verificato con Lighthouse come causa principale di un LCP di ~7s.
+    ...(route.path === "/" ? [
+      `<link rel="preload" as="image" href="${SITE_URL}/hero-skyline.png" fetchpriority="high" />`,
+    ] : []),
     ...(route.type === "article" ? [buildArticleJsonLd(route)] : []),
   ].join("\n        ");
   // \s*\/?> (non " />" letterale): la build di produzione minifica
