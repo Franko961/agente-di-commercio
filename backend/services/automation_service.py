@@ -43,7 +43,7 @@ class AutomationService:
         automation = next((a for a in await self.repo.find_many(user["id"]) if a["id"] == aid), None)
         if not automation:
             return []
-        return await self.run_repo.find_many_by_automation(aid)
+        return await self.run_repo.find_many_by_automation(aid, user["id"])
 
 
 automation_service = AutomationService()

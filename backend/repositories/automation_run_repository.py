@@ -102,8 +102,14 @@ class AutomationRunRepository:
             upsert=True,
         )
 
-    async def find_many_by_automation(self, automation_id: str, limit: int = 200) -> list:
-        return await self.collection.find({"automation_id": automation_id}, {"_id": 0}) \
+    async def find_many_by_automation(self, automation_id: str, user_id: str, limit: int = 200) -> list:
+        # Filtrato anche per user_id: automation_id da solo non basta a
+        # isolare i tenant (stesso principio già applicato a
+        # delete_by_automation sopra) — il service verifica già che
+        # l'automazione appartenga al chiamante, ma questo repository deve
+        # restare tenant-scoped di per sé, non solo per merito di chi lo
+        # chiama.
+        return await self.collection.find({"automation_id": automation_id, "user_id": user_id}, {"_id": 0}) \
             .sort("updated_at", -1).to_list(limit)
 
     async def delete_by_automation(self, automation_id: str, user_id: str) -> None:

@@ -94,6 +94,22 @@ class FakeMongoCollection:
             del self.docs[k]
         return _DeleteResult(deleted_count=len(to_delete))
 
+    def find(self, query, _projection=None):
+        matches = [dict(v) for v in self.docs.values() if all(v.get(f) == val for f, val in query.items())]
+        return _FindCursor(matches)
+
+
+class _FindCursor:
+    def __init__(self, docs):
+        self.docs = docs
+
+    def sort(self, field, direction=-1):
+        self.docs = sorted(self.docs, key=lambda d: d.get(field) or "", reverse=(direction == -1))
+        return self
+
+    async def to_list(self, limit):
+        return self.docs[:limit]
+
 
 def build_repo():
     repo = AutomationRunRepository()
@@ -234,6 +250,40 @@ def test_delete_by_automation_con_user_id_sbagliato_non_cancella_nulla():
     run(repo.delete_by_automation("auto-1", "user-di-un-altro-account"))
 
     assert len(repo.collection.docs) == 1
+
+
+def test_find_many_by_automation_filtra_anche_per_user_id():
+    """Bug di isolamento multi-tenant: automation_id da solo non basta a
+    filtrare la lettura dello storico esecuzioni. Se un automation_id
+    (magari indovinato o riusato per collisione) corrisponde anche a
+    un'esecuzione di un ALTRO utente, quella non deve comparire nel
+    risultato — solo le esecuzioni di user_id="user-1" per "auto-1"."""
+    repo = build_repo()
+    repo.collection.docs[("auto-1", "target-1")] = {
+        "automation_id": "auto-1", "target_id": "target-1", "user_id": "user-1",
+        "status": "ok", "updated_at": "2026-01-01T00:00:00+00:00",
+    }
+    repo.collection.docs[("auto-1", "target-2")] = {
+        "automation_id": "auto-1", "target_id": "target-2", "user_id": "user-2",
+        "status": "ok", "updated_at": "2026-01-02T00:00:00+00:00",
+    }
+
+    result = run(repo.find_many_by_automation("auto-1", "user-1"))
+
+    assert len(result) == 1
+    assert result[0]["user_id"] == "user-1"
+
+
+def test_find_many_by_automation_con_user_id_sbagliato_non_trova_nulla():
+    repo = build_repo()
+    repo.collection.docs[("auto-1", "target-1")] = {
+        "automation_id": "auto-1", "target_id": "target-1", "user_id": "user-1",
+        "status": "ok", "updated_at": "2026-01-01T00:00:00+00:00",
+    }
+
+    result = run(repo.find_many_by_automation("auto-1", "user-di-un-altro-account"))
+
+    assert result == []
 
 
 if __name__ == "__main__":
