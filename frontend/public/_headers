@@ -1,0 +1,22 @@
+# Header di sicurezza applicati da Netlify a ogni risposta. Costruiti con un
+# audit completo di ogni dominio esterno davvero referenziato in src/ (font
+# Fontshare/Google, tile OpenStreetMap, immagine Unsplash di Login.jsx,
+# script GA/PostHog caricati dinamicamente da analytics.js) — niente qui è
+# per tentativi, ogni voce corrisponde a un uso reale verificato nel codice.
+#
+# Pagamenti (Stripe/PayPal) non compaiono: il checkout è sempre un redirect
+# a pagina intera verso l'hosted checkout del provider (create_stripe_session/
+# create_paypal_subscription restituiscono un url a cui reindirizzare), mai
+# uno script/iframe caricato in pagina — nessuna eccezione CSP necessaria.
+#
+# Documenti (Documents.jsx, DocumentPreview.jsx): il download passa sempre
+# dal backend stesso (storage_service.py, mai un URL S3/R2 presigned dato
+# direttamente al browser), il contenuto arriva come blob: — da qui
+# frame-src include blob: per l'anteprima PDF.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://us-assets.i.posthog.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com https://cdn.fontshare.com; img-src 'self' data: blob: https://images.unsplash.com https://*.tile.openstreetmap.org; connect-src 'self' https://us.i.posthog.com https://us-assets.i.posthog.com https://www.google-analytics.com https://*.google-analytics.com https://analytics.google.com; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests
+  X-Frame-Options: SAMEORIGIN
+  Cross-Origin-Opener-Policy: same-origin
+  Strict-Transport-Security: max-age=63072000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
