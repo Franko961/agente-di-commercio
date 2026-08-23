@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
 import L from "leaflet";
 import { Link } from "react-router-dom";
@@ -301,7 +301,7 @@ export default function MapView() {
     <div className="flex flex-col h-[calc(100vh-64px-80px)] md:h-screen">
       <div className="p-4 md:p-8 border-b border-[#E4E4E1] bg-white flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-1">Geolocalizzazione</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-1">Geolocalizzazione</div>
           <h1 className="font-cabinet font-black text-2xl md:text-3xl tracking-tight">Mappa Clienti</h1>
           <p className="text-[13px] text-[#52525B] mt-1">{clients.length} clienti geolocalizzati</p>
         </div>
@@ -322,7 +322,7 @@ export default function MapView() {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             {routeLine && (
-              <Polyline positions={routeLine} pathOptions={{ color: "#FF5A00", weight: 3, dashArray: "6 6" }} />
+              <Polyline positions={routeLine} pathOptions={{ color: "#B23E00", weight: 3, dashArray: "6 6" }} />
             )}
             {plan?.origin && (
               <Marker position={[plan.origin.lat, plan.origin.lng]} icon={originIcon}>
@@ -341,7 +341,7 @@ export default function MapView() {
                     <div className="font-cabinet font-bold text-[14px]">{c.company_name}</div>
                     <div className="text-[11px] text-[#52525B] mt-1">{c.city} ({c.province})</div>
                     <div className="text-[11px] text-[#52525B]">{c.sector}</div>
-                    <Link to={`/app/clienti/${c.id}`} className="block mt-2 text-[11px] font-mono uppercase tracking-widest text-[#FF5A00]">Apri scheda →</Link>
+                    <Link to={`/app/clienti/${c.id}`} className="block mt-2 text-[11px] font-mono uppercase tracking-widest text-[#B23E00]">Apri scheda →</Link>
                   </Popup>
                 </Marker>
               );
@@ -353,9 +353,9 @@ export default function MapView() {
           <div data-testid="route-planner-panel" className="w-full sm:w-[380px] shrink-0 min-h-0 bg-white border-l border-[#E4E4E1] flex flex-col">
             <div className="p-4 border-b border-[#E4E4E1] flex items-center justify-between">
               <div className="font-cabinet font-bold text-[15px] flex items-center gap-2">
-                <Route className="w-4 h-4 text-[#FF5A00]" /> Pianifica giornata
+                <Route className="w-4 h-4 text-[#B23E00]" /> Pianifica giornata
               </div>
-              <button onClick={() => setPlanOpen(false)} className="text-[#A1A1AA] hover:text-[#0A0A0A]">
+              <button onClick={() => setPlanOpen(false)} className="text-[#6B6B72] hover:text-[#0A0A0A]">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -376,11 +376,11 @@ export default function MapView() {
                           onChange={() => toggleSelected(c.id)}
                         />
                         <span className="truncate">{c.company_name}</span>
-                        <span className="text-[11px] text-[#A1A1AA] ml-auto shrink-0">{c.city}</span>
+                        <span className="text-[11px] text-[#6B6B72] ml-auto shrink-0">{c.city}</span>
                       </label>
                     ))}
                     {clients.length === 0 && (
-                      <div className="px-3 py-4 text-[12px] text-[#A1A1AA]">Nessun cliente geolocalizzato</div>
+                      <div className="px-3 py-4 text-[12px] text-[#6B6B72]">Nessun cliente geolocalizzato</div>
                     )}
                   </div>
                 </div>
@@ -400,8 +400,8 @@ export default function MapView() {
                     <option value="custom">Indirizzo personalizzato</option>
                   </select>
                   {(startMode === "home" && !homeReady) || (startMode === "office" && !officeReady) ? (
-                    <div className="text-[11px] text-[#A1A1AA] mt-1">
-                      Configura l'indirizzo in <Link to="/app/impostazioni" className="text-[#FF5A00] underline">Impostazioni → Punti di partenza</Link>.
+                    <div className="text-[11px] text-[#6B6B72] mt-1">
+                      Configura l'indirizzo in <Link to="/app/impostazioni" className="text-[#B23E00] underline">Impostazioni → Punti di partenza</Link>.
                     </div>
                   ) : null}
 
@@ -440,7 +440,7 @@ export default function MapView() {
                               onClick={() => pickCustomAddress(r)}
                               className="w-full text-left px-3 py-2 text-[12px] hover:bg-[#F3F3F1] border-b border-[#E4E4E1] last:border-b-0 flex items-start gap-2"
                             >
-                              <MapPin className="w-3.5 h-3.5 text-[#FF5A00] shrink-0 mt-0.5" />
+                              <MapPin className="w-3.5 h-3.5 text-[#B23E00] shrink-0 mt-0.5" />
                               <span>{r.display_name}</span>
                             </button>
                           ))}
@@ -484,7 +484,7 @@ export default function MapView() {
                   data-testid="optimize-route-submit"
                   onClick={optimize}
                   disabled={busy || geoBusy}
-                  className="w-full flex items-center justify-center gap-2 bg-[#FF5A00] hover:bg-[#E04F00] text-white py-2.5 rounded-md text-[13px] font-medium disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-2 bg-[#B23E00] hover:bg-[#E04F00] text-white py-2.5 rounded-md text-[13px] font-medium disabled:opacity-50"
                 >
                   {(busy || geoBusy) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Navigation className="w-4 h-4" />}
                   {geoBusy ? "Rilevamento posizione…" : busy ? "Calcolo in corso…" : "Ottimizza giro"}
@@ -507,15 +507,15 @@ export default function MapView() {
                   <div className="grid grid-cols-3 gap-2 text-center mb-3">
                     <div>
                       <div className="font-cabinet font-black text-lg">{plan.total_distance_km}</div>
-                      <div className="font-mono text-[9px] uppercase tracking-widest text-[#A1A1AA]">km</div>
+                      <div className="font-mono text-[9px] uppercase tracking-widest text-[#6B6B72]">km</div>
                     </div>
                     <div>
                       <div className="font-cabinet font-black text-lg">{plan.total_travel_minutes}</div>
-                      <div className="font-mono text-[9px] uppercase tracking-widest text-[#A1A1AA]">min. viaggio</div>
+                      <div className="font-mono text-[9px] uppercase tracking-widest text-[#6B6B72]">min. viaggio</div>
                     </div>
                     <div>
                       <div className="font-cabinet font-black text-lg">{plan.estimated_end_time}</div>
-                      <div className="font-mono text-[9px] uppercase tracking-widest text-[#A1A1AA]">fine stimata</div>
+                      <div className="font-mono text-[9px] uppercase tracking-widest text-[#6B6B72]">fine stimata</div>
                     </div>
                   </div>
                   <div>
@@ -524,13 +524,13 @@ export default function MapView() {
                       <span data-testid="route-progress-count">{completedIds.length} / {plan.stops.length}</span>
                     </div>
                     <div className="h-1.5 bg-[#E4E4E1] rounded-full overflow-hidden">
-                      <div className="h-full bg-[#FF5A00] transition-all" style={{ width: `${(completedIds.length / plan.stops.length) * 100}%` }} />
+                      <div className="h-full bg-[#B23E00] transition-all" style={{ width: `${(completedIds.length / plan.stops.length) * 100}%` }} />
                     </div>
                   </div>
                 </div>
 
                 {!plan.used_real_routing && (
-                  <div className="px-4 py-2 text-[11px] text-[#A1A1AA] bg-[#F9F9F8] border-b border-[#E4E4E1]">
+                  <div className="px-4 py-2 text-[11px] text-[#6B6B72] bg-[#F9F9F8] border-b border-[#E4E4E1]">
                     Km e tempi sono una stima in linea d'aria (nessun servizio di routing configurato), non distanze reali su strada.
                   </div>
                 )}
@@ -547,7 +547,7 @@ export default function MapView() {
                     const isCurrent = s.client_id === currentStopId;
                     return (
                       <div key={s.client_id} data-testid={`route-stop-${s.client_id}`}
-                           className={`p-4 flex gap-3 ${s.suspicious_distance ? "bg-[#DC2626]/5" : isCurrent ? "bg-[#FF5A00]/5 border-l-4 border-[#FF5A00]" : ""} ${isDone ? "opacity-50" : ""}`}>
+                           className={`p-4 flex gap-3 ${s.suspicious_distance ? "bg-[#DC2626]/5" : isCurrent ? "bg-[#B23E00]/5 border-l-4 border-[#B23E00]" : ""} ${isDone ? "opacity-50" : ""}`}>
                         <div className={`w-6 h-6 rounded-full text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5 ${isDone ? "bg-[#059669]" : "bg-[#0A192F]"}`}>
                           {isDone ? <CheckCircle2 className="w-3.5 h-3.5" /> : i + 1}
                         </div>
@@ -555,7 +555,7 @@ export default function MapView() {
                           <div className="flex items-center gap-2">
                             <div className={`font-cabinet font-bold text-[13px] truncate ${isDone ? "line-through" : ""}`}>{s.company_name}</div>
                             {isCurrent && !isDone && (
-                              <span className="font-mono text-[9px] uppercase tracking-widest text-[#FF5A00] shrink-0">prossima tappa</span>
+                              <span className="font-mono text-[9px] uppercase tracking-widest text-[#B23E00] shrink-0">prossima tappa</span>
                             )}
                           </div>
                           <div className="text-[11px] text-[#52525B] flex items-center gap-1 mt-0.5">

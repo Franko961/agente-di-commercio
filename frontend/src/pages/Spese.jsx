@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+﻿import { useEffect, useMemo, useState, useRef } from "react";
 import api from "../api";
 import { Plus, Trash2, Pencil, Fuel, UtensilsCrossed, BedDouble, ParkingCircle, Package, Receipt, Landmark, PiggyBank, Car, Calculator, Paperclip, Upload, X, Loader2, ChevronDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
@@ -160,7 +160,7 @@ export default function Spese() {
     <div className="p-4 md:p-8">
       <div className="flex items-end justify-between border-b border-[#E4E4E1] pb-6 mb-6">
         <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Note spese</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-2">Note spese</div>
           <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Spese</h1>
         </div>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) clearDraft(); }}>
@@ -251,7 +251,7 @@ export default function Spese() {
                 className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-[#F3F3F1] hover:bg-[#EDEDEA] transition-colors text-left"
               >
                 <span className="flex items-center gap-2 font-cabinet font-bold text-[14px]">
-                  <ChevronDown className={`w-4 h-4 text-[#A1A1AA] shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`w-4 h-4 text-[#6B6B72] shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                   {group.label}
                 </span>
                 <span className="font-mono text-[11px] uppercase tracking-widest text-[#52525B]">
@@ -272,7 +272,7 @@ export default function Spese() {
           );
         })}
         {monthGroups.length === 0 && (
-          <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#A1A1AA] text-[13px]">Nessuna spesa registrata.</div>
+          <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#6B6B72] text-[13px]">Nessuna spesa registrata.</div>
         )}
       </div>
     </div>
@@ -292,16 +292,16 @@ function ExpenseRow({ e, onEdit, onDelete }) {
     <div data-testid={`expense-${e.id}`} className="grid grid-cols-2 md:grid-cols-7 gap-2 px-4 py-3 border-b border-[#E4E4E1] items-center text-[13px]">
       <div className="font-mono text-[12px]">{e.date}</div>
       <div className="text-[#52525B] flex items-center gap-1.5">
-        <meta.icon className="w-3.5 h-3.5 text-[#A1A1AA]" />{meta.label}
+        <meta.icon className="w-3.5 h-3.5 text-[#6B6B72]" />{meta.label}
       </div>
       <div className="col-span-2 truncate flex items-center gap-1.5">
         <span className="truncate">{e.description || "—"}</span>
         {readonlySource && (
-          <span title={`Generata automaticamente dal modulo ${readonlySource}`} className="shrink-0 font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-[#F3F3F1] text-[#A1A1AA]">{readonlySource}</span>
+          <span title={`Generata automaticamente dal modulo ${readonlySource}`} className="shrink-0 font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-[#F3F3F1] text-[#6B6B72]">{readonlySource}</span>
         )}
         {e.receipt_document_id && (
           <button onClick={() => downloadReceipt(e.receipt_document_id, e.description)} title="Vedi scontrino" aria-label="Vedi scontrino"
-            className="shrink-0 p-1 text-[#A1A1AA] hover:text-[#FF5A00] hover:bg-[#F3F3F1] rounded transition-colors">
+            className="shrink-0 p-1 text-[#6B6B72] hover:text-[#B23E00] hover:bg-[#F3F3F1] rounded transition-colors">
             <Paperclip className="w-3.5 h-3.5" />
           </button>
         )}
@@ -309,13 +309,13 @@ function ExpenseRow({ e, onEdit, onDelete }) {
       <div className="text-right font-cabinet font-bold">{fmt(e.amount)}</div>
       <div className="col-span-2 flex justify-end gap-1">
         {readonlySource ? (
-          <span className="text-[11px] text-[#A1A1AA] italic px-1.5" title={`Modificala dal modulo ${readonlySource}`}>Da {readonlySource}</span>
+          <span className="text-[11px] text-[#6B6B72] italic px-1.5" title={`Modificala dal modulo ${readonlySource}`}>Da {readonlySource}</span>
         ) : (
           <>
-            <button onClick={() => onEdit(e)} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica" aria-label="Modifica spesa">
+            <button onClick={() => onEdit(e)} className="p-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica" aria-label="Modifica spesa">
               <Pencil className="w-4 h-4" />
             </button>
-            <button onClick={() => onDelete(e.id, e.description)} className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors" title="Elimina" aria-label="Elimina spesa">
+            <button onClick={() => onDelete(e.id, e.description)} className="p-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded transition-colors" title="Elimina" aria-label="Elimina spesa">
               <Trash2 className="w-4 h-4" />
             </button>
           </>
@@ -379,7 +379,7 @@ function ExpenseForm({ initial, onSave, onDraftChange, submitLabel = "Salva" }) 
               <Paperclip className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{f.receipt_filename || "Allegato caricato"}</span>
             </span>
             <button type="button" onClick={() => setF({ ...f, receipt_document_id: null, receipt_filename: null })}
-              className="shrink-0 p-1 text-[#A1A1AA] hover:text-red-500 rounded">
+              className="shrink-0 p-1 text-[#6B6B72] hover:text-red-500 rounded">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>

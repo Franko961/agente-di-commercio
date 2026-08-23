@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { Search, Loader2, MapPin } from "lucide-react";
@@ -111,14 +111,14 @@ export default function LocationPicker({ address, city, province, lat, lng, onCh
               onClick={() => pick(r)}
               className="w-full text-left px-3 py-2 text-[12px] hover:bg-[#F3F3F1] border-b border-[#E4E4E1] last:border-b-0 flex items-start gap-2"
             >
-              <MapPin className="w-3.5 h-3.5 text-[#FF5A00] shrink-0 mt-0.5" />
+              <MapPin className="w-3.5 h-3.5 text-[#B23E00] shrink-0 mt-0.5" />
               <span>{r.display_name}</span>
             </button>
           ))}
         </div>
       )}
       {searched && results.length === 0 && !searching && (
-        <div className="mb-2 text-[12px] text-[#A1A1AA]">
+        <div className="mb-2 text-[12px] text-[#6B6B72]">
           Nessun indirizzo trovato — prova a semplificarlo, oppure posiziona il pin direttamente sulla mappa qui sotto.
         </div>
       )}
@@ -142,7 +142,7 @@ export default function LocationPicker({ address, city, province, lat, lng, onCh
           )}
         </MapContainer>
       </div>
-      <div className="text-[11px] text-[#A1A1AA] font-mono mt-1">
+      <div className="text-[11px] text-[#6B6B72] font-mono mt-1">
         {hasPosition
           ? <>Clicca sulla mappa o trascina il pin per correggere · {lat.toFixed(5)}, {lng.toFixed(5)}</>
           : "Clicca sulla mappa per posizionare il pin"}

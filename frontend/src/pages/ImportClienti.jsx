@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import { Upload, FileSpreadsheet, ArrowLeft, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
@@ -148,7 +148,7 @@ export default function ImportClienti() {
       </button>
 
       <div className="border-b border-[#E4E4E1] pb-6 mb-6">
-        <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Anagrafiche</div>
+        <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-2">Anagrafiche</div>
         <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Importa clienti</h1>
         <p className="text-[#52525B] text-[14px] mt-2">
           Carica un file CSV o Excel con l'elenco dei tuoi clienti. Puoi verificare e correggere la corrispondenza delle colonne prima di importare.
@@ -156,20 +156,20 @@ export default function ImportClienti() {
       </div>
 
       {!rows.length ? (
-        <label className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-[#E4E4E1] rounded-lg p-12 cursor-pointer hover:border-[#FF5A00] transition-colors bg-white">
-          <Upload className="w-8 h-8 text-[#A1A1AA]" />
+        <label className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-[#E4E4E1] rounded-lg p-12 cursor-pointer hover:border-[#B23E00] transition-colors bg-white">
+          <Upload className="w-8 h-8 text-[#6B6B72]" />
           <div className="text-[14px] font-medium">Clicca per scegliere un file .csv, .xlsx o .xls</div>
-          <div className="text-[12px] text-[#A1A1AA]">La prima riga deve contenere le intestazioni delle colonne</div>
+          <div className="text-[12px] text-[#6B6B72]">La prima riga deve contenere le intestazioni delle colonne</div>
           <input type="file" accept=".csv,.xlsx,.xls" onChange={handleFile} className="hidden" />
         </label>
       ) : (
         <div className="space-y-5">
           <div className="flex items-center gap-2 text-[13px] text-[#52525B]">
-            <FileSpreadsheet className="w-4 h-4 text-[#FF5A00]" />
+            <FileSpreadsheet className="w-4 h-4 text-[#B23E00]" />
             <span className="font-medium">{fileName}</span>
             <span>· {rows.length} righe trovate</span>
             <button onClick={() => { setRows([]); setHeaders([]); setMapping({}); setResult(null); }}
-                    className="ml-auto text-[12px] font-mono uppercase tracking-widest text-[#A1A1AA] hover:text-[#DC2626]">
+                    className="ml-auto text-[12px] font-mono uppercase tracking-widest text-[#6B6B72] hover:text-[#DC2626]">
               cambia file
             </button>
           </div>
@@ -208,7 +208,7 @@ export default function ImportClienti() {
             <div className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] mb-3">Anteprima (prime 5 righe)</div>
             <table className="w-full text-[12px]">
               <thead>
-                <tr className="text-left text-[#A1A1AA] font-mono text-[10px] uppercase">
+                <tr className="text-left text-[#6B6B72] font-mono text-[10px] uppercase">
                   {headers.map((h) => <th key={h} className="pb-2 pr-4 whitespace-nowrap">{mapping[h] ? FIELDS.find(f => f.key === mapping[h])?.label : h}</th>)}
                 </tr>
               </thead>
@@ -236,7 +236,7 @@ export default function ImportClienti() {
               <div className="flex items-center gap-2 mb-2">
                 <CheckCircle2 className="w-4 h-4 text-[#059669]" />
                 <span className="font-cabinet font-bold text-[15px]">{result.imported} clienti importati</span>
-                <span className="text-[12px] text-[#A1A1AA]">su {result.total} righe totali</span>
+                <span className="text-[12px] text-[#6B6B72]">su {result.total} righe totali</span>
               </div>
               {result.skipped.length > 0 && (
                 <div className="mt-3">
@@ -246,16 +246,16 @@ export default function ImportClienti() {
                   <div className="max-h-48 overflow-y-auto space-y-1">
                     {result.skipped.map((s, i) => (
                       <div key={i} className="text-[12px] text-[#52525B] flex items-center gap-2">
-                        <span className="font-mono text-[10px] text-[#A1A1AA]">riga {s.row}</span>
+                        <span className="font-mono text-[10px] text-[#6B6B72]">riga {s.row}</span>
                         <span className="font-medium">{s.company_name || "(senza nome)"}</span>
-                        <span className="text-[#A1A1AA]">— {s.reason}</span>
+                        <span className="text-[#6B6B72]">— {s.reason}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
               {result.imported > 0 && (
-                <button onClick={() => navigate("/app/clienti")} className="mt-4 text-[12px] font-mono uppercase tracking-widest text-[#FF5A00]">
+                <button onClick={() => navigate("/app/clienti")} className="mt-4 text-[12px] font-mono uppercase tracking-widest text-[#B23E00]">
                   Vai all'elenco clienti →
                 </button>
               )}

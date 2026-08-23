@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
@@ -13,13 +13,13 @@ import api from "../api";
 import { resizeImageToDataUrl } from "../utils/image";
 
 const EMPLOYMENT_STATUS_LABELS = { attivo: "Attivo", sospeso: "Sospeso", cessato: "Cessato" };
-const EMPLOYMENT_STATUS_COLORS = { attivo: "#059669", sospeso: "#FF5A00", cessato: "#A1A1AA" };
+const EMPLOYMENT_STATUS_COLORS = { attivo: "#059669", sospeso: "#B23E00", cessato: "#6B6B72" };
 const CURRENT_STATUS_LABELS = { in_ferie: "In ferie", in_malattia: "In malattia" };
-const CURRENT_STATUS_COLORS = { in_ferie: "#FF5A00", in_malattia: "#DC2626" };
+const CURRENT_STATUS_COLORS = { in_ferie: "#B23E00", in_malattia: "#DC2626" };
 const LEAVE_TYPE_LABELS = { ferie: "Ferie", permesso: "Permesso", malattia: "Malattia" };
-const LEAVE_TYPE_COLORS = { ferie: "#FF5A00", permesso: "#0A192F", malattia: "#DC2626" };
+const LEAVE_TYPE_COLORS = { ferie: "#B23E00", permesso: "#0A192F", malattia: "#DC2626" };
 const REQUEST_STATUS_LABELS = { in_attesa: "In attesa", approvata: "Approvata", rifiutata: "Rifiutata" };
-const REQUEST_STATUS_COLORS = { in_attesa: "#FF5A00", approvata: "#059669", rifiutata: "#DC2626" };
+const REQUEST_STATUS_COLORS = { in_attesa: "#B23E00", approvata: "#059669", rifiutata: "#DC2626" };
 const DOCUMENT_CATEGORY_LABELS = { contratto: "Contratto", documento_identita: "Documento d'identità", patente: "Patente", contestazione_disciplinare: "Contestazione disciplinare", altro: "Altro" };
 const FILE_BASE = process.env.REACT_APP_BACKEND_URL;
 const DOCUMENT_MAX_MB = 50;
@@ -34,8 +34,8 @@ const CONTESTAZIONE_OUTCOME_LABELS = {
   sanzione_confermata: "Sanzione confermata", altro: "Altro",
 };
 const CONTESTAZIONE_OUTCOME_COLORS = {
-  in_attesa: "#FF5A00", archiviata: "#A1A1AA", accolta: "#059669",
-  sanzione_confermata: "#DC2626", altro: "#A1A1AA",
+  in_attesa: "#B23E00", archiviata: "#6B6B72", accolta: "#059669",
+  sanzione_confermata: "#DC2626", altro: "#6B6B72",
 };
 // Indice 0=lunedì … 6=domenica, coerente con date.weekday() lato backend
 // (vedi models.employee.work_days e automation_engine._eval_attendance_missing).
@@ -48,7 +48,7 @@ const ACTIVITY_META = {
   assenza_rifiutata: { label: "Richiesta di assenza rifiutata", icon: X, color: "#DC2626" },
   documento_caricato: { label: "Documento caricato", icon: FileText, color: "#0A192F" },
   dotazione_aggiunta: { label: "Dotazione assegnata", icon: Package, color: "#0A192F" },
-  dotazione_restituita: { label: "Dotazione restituita", icon: Package, color: "#A1A1AA" },
+  dotazione_restituita: { label: "Dotazione restituita", icon: Package, color: "#6B6B72" },
   compenso_registrato: { label: "Compenso registrato", icon: Wallet, color: "#0A192F" },
   contestazione_registrata: { label: "Contestazione disciplinare registrata", icon: AlertTriangle, color: "#DC2626" },
 };
@@ -186,7 +186,7 @@ export default function EmployeeDetailSheet({ employee, requests, onClose, onEmp
                     return (
                       <button key={group.key} onClick={() => { if (!isActiveGroup) setTab(group.tabs[0]); }}
                         className={`flex flex-col items-center justify-end gap-1 px-1 py-2 text-[11px] font-semibold text-center leading-tight border-b-2 -mb-px transition-colors ${
-                          isActiveGroup ? "border-[#FF5A00] text-[#0A192F]" : "border-transparent text-[#A1A1AA] hover:text-[#52525B]"
+                          isActiveGroup ? "border-[#B23E00] text-[#0A192F]" : "border-transparent text-[#6B6B72] hover:text-[#52525B]"
                         }`}>
                         <GroupIcon className="w-4 h-4 shrink-0" />
                         <span>{group.label}</span>
@@ -279,7 +279,7 @@ function EmployeeSidebar({ employee, summary, vehicle }) {
 function SidebarStat({ label, value }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-[#A1A1AA]">{label}</span>
+      <span className="text-[#6B6B72]">{label}</span>
       <span className="font-medium text-[#0A192F]">{value}</span>
     </div>
   );
@@ -358,7 +358,7 @@ function InfoTab({ employee, onSaved }) {
         {f.photo ? (
           <img src={f.photo} alt="" className="w-14 h-14 rounded-full object-cover border border-[#E4E4E1]" />
         ) : (
-          <div className="w-14 h-14 rounded-full bg-[#F3F3F1] flex items-center justify-center text-[#A1A1AA]">
+          <div className="w-14 h-14 rounded-full bg-[#F3F3F1] flex items-center justify-center text-[#6B6B72]">
             <Camera className="w-5 h-5" />
           </div>
         )}
@@ -502,21 +502,21 @@ function AssenzeTab({ requests, summary, onDeleted }) {
                 <span className="w-2 h-2 rounded-full" style={{ background: LEAVE_TYPE_COLORS[r.type] }} />
                 <span className="font-medium">{LEAVE_TYPE_LABELS[r.type]}</span>
                 <span className="text-[#52525B]">{r.date_from} → {r.date_to}</span>
-                {r.hours && <span className="text-[#A1A1AA]">({r.hours} h)</span>}
+                {r.hours && <span className="text-[#6B6B72]">({r.hours} h)</span>}
               </div>
               <div className="flex items-center gap-2">
                 <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: REQUEST_STATUS_COLORS[r.status] }}>
                   {REQUEST_STATUS_LABELS[r.status]}
                 </span>
                 <button onClick={() => deleteRequest(r)} title="Elimina" aria-label="Elimina richiesta"
-                  className="p-1 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
+                  className="p-1 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
             </div>
             {r.note && <div className="text-[12px] text-[#52525B] mt-1 italic">"{r.note}"</div>}
           </div>
         ))}
         {filtered.length === 0 && (
-          <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#A1A1AA] text-[13px]">Nessuna richiesta.</div>
+          <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#6B6B72] text-[13px]">Nessuna richiesta.</div>
         )}
       </div>
     </div>
@@ -527,7 +527,7 @@ function MiniStat({ label, value }) {
   return (
     <div className="bg-white border border-[#E4E4E1] rounded-md p-3 text-center">
       <div className="font-cabinet font-black text-xl">{value}</div>
-      <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-0.5">{label}</div>
+      <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mt-0.5">{label}</div>
     </div>
   );
 }
@@ -536,7 +536,7 @@ function FerieTab({ summary }) {
   if (!summary) return null;
   const { spettanti, godute, residue } = summary.ferie;
   const data = [
-    { name: "Godute", value: godute, color: "#FF5A00" },
+    { name: "Godute", value: godute, color: "#B23E00" },
     { name: "Residue", value: Math.max(residue, 0), color: "#E4E4E1" },
   ];
   return (
@@ -574,12 +574,12 @@ function MalattieTab({ summary, onSetCertificate }) {
   return (
     <div>
       <div className="mb-4"><MiniStat label="Giorni malattia (anno)" value={summary.malattie.giorni} /></div>
-      <div className="text-[11px] text-[#A1A1AA] mb-3">Nessun dato sanitario: solo date, giorni e conferma di ricezione del certificato.</div>
+      <div className="text-[11px] text-[#6B6B72] mb-3">Nessun dato sanitario: solo date, giorni e conferma di ricezione del certificato.</div>
       <div className="space-y-2">
         {summary.malattie.richieste.map((r) => (
           <div key={r.id} className="bg-white border border-[#E4E4E1] rounded-md p-3 flex items-center justify-between gap-2 flex-wrap text-[13px]">
             <div>
-              <div>{r.date_from} → {r.date_to} <span className="text-[#A1A1AA]">({r.giorni} gg)</span></div>
+              <div>{r.date_from} → {r.date_to} <span className="text-[#6B6B72]">({r.giorni} gg)</span></div>
               <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: REQUEST_STATUS_COLORS[r.status] }}>
                 {REQUEST_STATUS_LABELS[r.status]}
               </span>
@@ -593,7 +593,7 @@ function MalattieTab({ summary, onSetCertificate }) {
           </div>
         ))}
         {summary.malattie.richieste.length === 0 && (
-          <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#A1A1AA] text-[13px]">Nessuna richiesta di malattia quest'anno.</div>
+          <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#6B6B72] text-[13px]">Nessuna richiesta di malattia quest'anno.</div>
         )}
       </div>
     </div>
@@ -602,7 +602,7 @@ function MalattieTab({ summary, onSetCertificate }) {
 
 function MezzoTab({ vehicle, nextRevisione }) {
   if (!vehicle) {
-    return <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#A1A1AA] text-[13px]">Nessun mezzo assegnato (o modulo Flotta non attivo).</div>;
+    return <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#6B6B72] text-[13px]">Nessun mezzo assegnato (o modulo Flotta non attivo).</div>;
   }
   return (
     <div className="space-y-2">
@@ -613,7 +613,7 @@ function MezzoTab({ vehicle, nextRevisione }) {
         {nextRevisione ? (
           <div className="text-[13px] text-[#52525B] mt-1">Prossima revisione: {nextRevisione.due_date}</div>
         ) : (
-          <div className="text-[13px] text-[#A1A1AA] mt-1">Nessuna revisione in programma</div>
+          <div className="text-[13px] text-[#6B6B72] mt-1">Nessuna revisione in programma</div>
         )}
       </div>
     </div>
@@ -661,14 +661,14 @@ function DotazioneTab({ employeeId }) {
           <div key={it.id} className="bg-white border border-[#E4E4E1] rounded-md p-3 flex items-center justify-between gap-2 flex-wrap text-[13px]">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <Package className="w-4 h-4 text-[#A1A1AA] shrink-0" />
+                <Package className="w-4 h-4 text-[#6B6B72] shrink-0" />
                 <span className="font-medium truncate">{it.name}</span>
                 <span className="font-mono text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded-full shrink-0"
-                  style={{ background: it.status === "restituito" ? "#F3F3F1" : "#05966920", color: it.status === "restituito" ? "#A1A1AA" : "#059669" }}>
+                  style={{ background: it.status === "restituito" ? "#F3F3F1" : "#05966920", color: it.status === "restituito" ? "#6B6B72" : "#059669" }}>
                   {EQUIPMENT_STATUS_LABELS[it.status]}
                 </span>
               </div>
-              <div className="text-[11px] text-[#A1A1AA] mt-0.5">
+              <div className="text-[11px] text-[#6B6B72] mt-0.5">
                 {it.delivered_date ? `Consegnata il ${it.delivered_date}` : "Data consegna non indicata"}
                 {it.returned_date ? ` · Restituita il ${it.returned_date}` : ""}
                 {it.notes ? ` · ${it.notes}` : ""}
@@ -676,14 +676,14 @@ function DotazioneTab({ employeeId }) {
             </div>
             <div className="flex gap-1 shrink-0">
               <button onClick={() => openEdit(it)} title="Modifica" aria-label="Modifica dotazione"
-                className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
+                className="p-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
               <button onClick={() => remove(it)} title="Elimina" aria-label="Elimina dotazione"
-                className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+                className="p-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
             </div>
           </div>
         ))}
         {items && items.length === 0 && !formOpen && (
-          <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#A1A1AA] text-[13px]">Nessuna dotazione assegnata.</div>
+          <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#6B6B72] text-[13px]">Nessuna dotazione assegnata.</div>
         )}
       </div>
     </div>
@@ -813,23 +813,23 @@ function CompensiTab({ employeeId }) {
           <div key={it.id} className="bg-white border border-[#E4E4E1] rounded-md p-3 flex items-center justify-between gap-2 flex-wrap text-[13px]">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <Wallet className="w-4 h-4 text-[#A1A1AA] shrink-0" />
+                <Wallet className="w-4 h-4 text-[#6B6B72] shrink-0" />
                 <span className="font-medium">{COMPENSATION_TYPE_LABELS[it.type] || it.type}</span>
                 <span className="text-[#52525B]">{it.date}</span>
               </div>
-              {it.notes && <div className="text-[11px] text-[#A1A1AA] mt-0.5">{it.notes}</div>}
+              {it.notes && <div className="text-[11px] text-[#6B6B72] mt-0.5">{it.notes}</div>}
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <span className="font-cabinet font-bold">{fmtEur(it.amount)}</span>
               <button onClick={() => openEdit(it)} title="Modifica" aria-label="Modifica compenso"
-                className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
+                className="p-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
               <button onClick={() => remove(it)} title="Elimina" aria-label="Elimina compenso"
-                className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+                className="p-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
             </div>
           </div>
         ))}
         {items && items.length === 0 && !formOpen && (
-          <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#A1A1AA] text-[13px]">Nessun compenso registrato.</div>
+          <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#6B6B72] text-[13px]">Nessun compenso registrato.</div>
         )}
       </div>
     </div>
@@ -889,7 +889,7 @@ function CompensationForm({ employeeId, initial, onDone, onCancel }) {
       </div>
       <input value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} placeholder="Note (opzionale)"
         className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
-      <p className="text-[11px] text-[#A1A1AA]">Genera automaticamente una spesa collegata, visibile in Spese.</p>
+      <p className="text-[11px] text-[#6B6B72]">Genera automaticamente una spesa collegata, visibile in Spese.</p>
       <div className="flex gap-2">
         <button type="submit" disabled={saving} className="flex-1 bg-[#0A192F] text-white py-2 rounded-md text-[12px] font-medium disabled:opacity-60">
           {saving ? "Salvataggio…" : initial ? "Aggiorna" : "Aggiungi"}
@@ -965,7 +965,7 @@ function ContestazioniTab({ employeeId }) {
         <div className="overflow-x-auto border border-[#E4E4E1] rounded-md">
           <table className="w-full text-[13px]">
             <thead>
-              <tr className="bg-[#F9F9F8] text-left font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">
+              <tr className="bg-[#F9F9F8] text-left font-mono text-[10px] uppercase tracking-widest text-[#6B6B72]">
                 <th className="px-3 py-2">Data</th>
                 <th className="px-3 py-2">Tipo</th>
                 <th className="px-3 py-2">Oggetto</th>
@@ -989,15 +989,15 @@ function ContestazioniTab({ employeeId }) {
                   <td className="px-3 py-2 whitespace-nowrap">
                     {it.document_id ? (
                       <button onClick={() => download(it)} title="Scarica documento" aria-label="Scarica documento"
-                        className="p-1 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><FileText className="w-4 h-4" /></button>
-                    ) : <span className="text-[#A1A1AA]">—</span>}
+                        className="p-1 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><FileText className="w-4 h-4" /></button>
+                    ) : <span className="text-[#6B6B72]">—</span>}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     <div className="flex gap-1 justify-end">
                       <button onClick={() => openEdit(it)} title="Modifica" aria-label="Modifica contestazione"
-                        className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
+                        className="p-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
                       <button onClick={() => remove(it)} title="Elimina" aria-label="Elimina contestazione"
-                        className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+                        className="p-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </td>
                 </tr>
@@ -1007,7 +1007,7 @@ function ContestazioniTab({ employeeId }) {
         </div>
       )}
       {items && items.length === 0 && !formOpen && (
-        <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#A1A1AA] text-[13px]">Nessuna contestazione registrata.</div>
+        <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#6B6B72] text-[13px]">Nessuna contestazione registrata.</div>
       )}
     </div>
   );
@@ -1153,7 +1153,7 @@ function ContestazioneForm({ employeeId, initial, onDone, onCancel }) {
       <div>
         <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={(e) => onPick(e.target.files?.[0])} />
         <button type="button" onClick={() => fileRef.current?.click()}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 border border-dashed border-[#E4E4E1] rounded-md text-[12px] font-medium hover:border-[#FF5A00]">
+          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 border border-dashed border-[#E4E4E1] rounded-md text-[12px] font-medium hover:border-[#B23E00]">
           <Upload className="w-4 h-4" />
           {file ? file.name : initial?.document_id ? "Sostituisci PDF allegato" : "Allega PDF (opzionale)"}
         </button>
@@ -1208,7 +1208,7 @@ function PresenzeTab({ employeeId }) {
 
   return (
     <div>
-      <p className="text-[11px] text-[#A1A1AA] mb-3">
+      <p className="text-[11px] text-[#6B6B72] mb-3">
         Timbrature dal chiosco QR aziendale (orario registrato lato server) e correzioni manuali. Nessuna geolocalizzazione.
       </p>
       <div className="flex justify-end mb-3">
@@ -1224,29 +1224,29 @@ function PresenzeTab({ employeeId }) {
           <div key={it.id} className="bg-white border border-[#E4E4E1] rounded-md p-3 flex items-center justify-between gap-2 flex-wrap text-[13px]">
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <Timer className="w-4 h-4 text-[#A1A1AA] shrink-0" />
+                <Timer className="w-4 h-4 text-[#6B6B72] shrink-0" />
                 <span className="font-medium">{new Date(it.clock_in).toLocaleDateString("it-IT")}</span>
                 <span className="text-[#52525B]">{fmtTime(it.clock_in)} → {it.clock_out ? fmtTime(it.clock_out) : "in corso"}</span>
                 {!it.clock_out && (
                   <span className="font-mono text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-[#05966920] text-[#059669]">In servizio</span>
                 )}
                 {it.corrected_by_admin && (
-                  <span className="font-mono text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-[#F3F3F1] text-[#A1A1AA]">Corretta</span>
+                  <span className="font-mono text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-[#F3F3F1] text-[#6B6B72]">Corretta</span>
                 )}
               </div>
-              {it.note && <div className="text-[11px] text-[#A1A1AA] mt-0.5">{it.note}</div>}
+              {it.note && <div className="text-[11px] text-[#6B6B72] mt-0.5">{it.note}</div>}
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <span className="font-cabinet font-bold">{formatDuration(it.clock_in, it.clock_out)}</span>
               <button onClick={() => openEdit(it)} title="Modifica" aria-label="Modifica sessione"
-                className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
+                className="p-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
               <button onClick={() => remove(it)} title="Elimina" aria-label="Elimina sessione"
-                className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+                className="p-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
             </div>
           </div>
         ))}
         {items && items.length === 0 && !formOpen && (
-          <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#A1A1AA] text-[13px]">Nessuna sessione registrata.</div>
+          <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#6B6B72] text-[13px]">Nessuna sessione registrata.</div>
         )}
       </div>
     </div>
@@ -1333,7 +1333,7 @@ function AttivitaTab({ employeeId }) {
 
   return (
     <div>
-      <p className="text-[11px] text-[#A1A1AA] mb-3">
+      <p className="text-[11px] text-[#6B6B72] mb-3">
         Cronologia sola lettura: assenze, documenti, dotazione e compensi. Non include modifiche all'anagrafica o rigenerazioni del link.
       </p>
       <div className="space-y-2">
@@ -1348,13 +1348,13 @@ function AttivitaTab({ employeeId }) {
               <div className="min-w-0">
                 <div className="font-medium">{meta.label}</div>
                 <div className="text-[#52525B] truncate">{ev.detail}</div>
-                <div className="text-[11px] text-[#A1A1AA] mt-0.5">{formatActivityDate(ev.at)}</div>
+                <div className="text-[11px] text-[#6B6B72] mt-0.5">{formatActivityDate(ev.at)}</div>
               </div>
             </div>
           );
         })}
         {events && events.length === 0 && (
-          <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#A1A1AA] text-[13px]">Nessuna attività registrata.</div>
+          <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#6B6B72] text-[13px]">Nessuna attività registrata.</div>
         )}
       </div>
     </div>
@@ -1404,22 +1404,22 @@ function AiTab({ employeeId, summary }) {
   return (
     <div className="space-y-3">
       <div className="bg-white border border-[#E4E4E1] rounded-md p-4">
-        <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-2">Riepilogo</div>
+        <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mb-2">Riepilogo</div>
         <p className="text-[13px] text-[#0A192F] leading-relaxed">{localSummaryText(summary)}</p>
       </div>
 
       {!aiSummary && !loading && !error && (
         <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center">
-          <Sparkles className="w-6 h-6 text-[#A1A1AA] mx-auto mb-2" />
+          <Sparkles className="w-6 h-6 text-[#6B6B72] mx-auto mb-2" />
           <p className="text-[13px] text-[#52525B] mb-1">Genera un riepilogo in linguaggio naturale della situazione di questo dipendente.</p>
-          <p className="text-[11px] text-[#A1A1AA] mb-4">Invia questi valori a un servizio AI esterno (Anthropic) per generare il testo.</p>
+          <p className="text-[11px] text-[#6B6B72] mb-4">Invia questi valori a un servizio AI esterno (Anthropic) per generare il testo.</p>
           <button onClick={generate} className="px-4 py-2.5 bg-[#0A192F] text-white rounded-md text-[13px] font-medium">
             Genera riepilogo AI
           </button>
         </div>
       )}
       {loading && (
-        <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#A1A1AA] text-[13px]">Generazione in corso…</div>
+        <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#6B6B72] text-[13px]">Generazione in corso…</div>
       )}
       {error && !loading && (
         <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center">
@@ -1429,7 +1429,7 @@ function AiTab({ employeeId, summary }) {
       )}
       {aiSummary && !loading && (
         <div className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-md p-4">
-          <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-2">
+          <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mb-2">
             <Sparkles className="w-3 h-3" /> Riepilogo AI
           </div>
           <p className="text-[13px] text-[#0A192F] leading-relaxed">{aiSummary}</p>
@@ -1497,22 +1497,22 @@ function DocumentiTab({ employeeId }) {
           <div key={d.id} className="bg-white border border-[#E4E4E1] rounded-md p-3 flex items-center justify-between gap-2 flex-wrap text-[13px]">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-[#A1A1AA] shrink-0" />
+                <FileText className="w-4 h-4 text-[#6B6B72] shrink-0" />
                 <span className="font-medium truncate">{d.name}</span>
-                <span className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] shrink-0">{DOCUMENT_CATEGORY_LABELS[d.category] || d.category}</span>
+                <span className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] shrink-0">{DOCUMENT_CATEGORY_LABELS[d.category] || d.category}</span>
               </div>
-              <div className="text-[11px] text-[#A1A1AA] mt-0.5">{new Date(d.created_at).toLocaleDateString("it-IT")}{d.notes ? ` · ${d.notes}` : ""}</div>
+              <div className="text-[11px] text-[#6B6B72] mt-0.5">{new Date(d.created_at).toLocaleDateString("it-IT")}{d.notes ? ` · ${d.notes}` : ""}</div>
             </div>
             <div className="flex gap-1 shrink-0">
               <button onClick={() => download(d)} title="Scarica" aria-label="Scarica documento"
-                className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Download className="w-4 h-4" /></button>
+                className="p-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Download className="w-4 h-4" /></button>
               <button onClick={() => remove(d)} title="Elimina" aria-label="Elimina documento"
-                className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+                className="p-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
             </div>
           </div>
         ))}
         {docs && docs.length === 0 && !showUpload && (
-          <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#A1A1AA] text-[13px]">Nessun documento caricato.</div>
+          <div className="bg-white border border-[#E4E4E1] rounded-md p-6 text-center text-[#6B6B72] text-[13px]">Nessun documento caricato.</div>
         )}
       </div>
     </div>
@@ -1562,7 +1562,7 @@ function EmployeeDocumentUploadForm({ employeeId, onDone }) {
     <form onSubmit={submit} className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-md p-3 space-y-2.5 mb-3">
       <input ref={fileRef} type="file" className="hidden" onChange={(e) => onPick(e.target.files?.[0])} />
       <button type="button" onClick={() => fileRef.current?.click()}
-        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 border border-dashed border-[#E4E4E1] rounded-md text-[12px] font-medium hover:border-[#FF5A00]">
+        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 border border-dashed border-[#E4E4E1] rounded-md text-[12px] font-medium hover:border-[#B23E00]">
         <Upload className="w-4 h-4" /> {file ? file.name : "Scegli file (PDF, immagine, Word, Excel)"}
       </button>
       <div className="grid grid-cols-2 gap-2">
@@ -1587,11 +1587,11 @@ function LinkTab({ employee, newLink, onRegenerate, onToggleActive, onCopy, newP
   return (
     <div className="space-y-4">
       <div className="bg-white border border-[#E4E4E1] rounded-md p-4 space-y-2 text-[13px]">
-        <div className="flex justify-between"><span className="text-[#A1A1AA]">Stato</span><span className="font-medium">{employee.active ? "Attivo" : "Disattivato"}</span></div>
-        <div className="flex justify-between"><span className="text-[#A1A1AA]">Ultimo utilizzo</span><span className="font-medium">{employee.last_used_at ? new Date(employee.last_used_at).toLocaleString("it-IT") : "Mai"}</span></div>
+        <div className="flex justify-between"><span className="text-[#6B6B72]">Stato</span><span className="font-medium">{employee.active ? "Attivo" : "Disattivato"}</span></div>
+        <div className="flex justify-between"><span className="text-[#6B6B72]">Ultimo utilizzo</span><span className="font-medium">{employee.last_used_at ? new Date(employee.last_used_at).toLocaleString("it-IT") : "Mai"}</span></div>
       </div>
       <div className="flex gap-2">
-        <button onClick={onRegenerate} className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 border border-[#E4E4E1] rounded-md text-[13px] font-medium hover:border-[#FF5A00]">
+        <button onClick={onRegenerate} className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 border border-[#E4E4E1] rounded-md text-[13px] font-medium hover:border-[#B23E00]">
           <RefreshCw className="w-4 h-4" /> Rigenera
         </button>
         <button onClick={onToggleActive} className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 border border-[#E4E4E1] rounded-md text-[13px] font-medium hover:border-[#0A192F]">
@@ -1612,12 +1612,12 @@ function LinkTab({ employee, newLink, onRegenerate, onToggleActive, onCopy, newP
       )}
 
       <div className="bg-white border border-[#E4E4E1] rounded-md p-4 space-y-3">
-        <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">PIN chiosco presenze</div>
+        <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72]">PIN chiosco presenze</div>
         <p className="text-[12px] text-[#52525B]">
           Usato per identificarsi al QR di timbratura affisso in azienda (Personale → QR Timbratura).{" "}
           {employee.has_pin ? "PIN già impostato." : "Nessun PIN impostato: il dipendente non può ancora timbrare al chiosco."}
         </p>
-        <button onClick={onRegeneratePin} className="w-full flex items-center justify-center gap-2 px-3 py-2 border border-[#E4E4E1] rounded-md text-[13px] font-medium hover:border-[#FF5A00]">
+        <button onClick={onRegeneratePin} className="w-full flex items-center justify-center gap-2 px-3 py-2 border border-[#E4E4E1] rounded-md text-[13px] font-medium hover:border-[#B23E00]">
           <RefreshCw className="w-4 h-4" /> {employee.has_pin ? "Rigenera PIN" : "Genera PIN"}
         </button>
         {newPin && (

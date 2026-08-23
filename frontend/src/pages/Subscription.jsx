@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import api from "../api";
 import usePlans from "../hooks/usePlans";
 import { CheckCircle, XCircle, CreditCard, AlertTriangle, ExternalLink, Receipt } from "lucide-react";
@@ -120,7 +120,7 @@ export default function Subscription() {
     );
   }
 
-  if (loading || plansLoading) return <div className="p-8 text-center text-[#A1A1AA]">Caricamento…</div>;
+  if (loading || plansLoading) return <div className="p-8 text-center text-[#6B6B72]">Caricamento…</div>;
 
   const plan = plansById[status?.plan] || plansById.base || { name: "", price_eur: 0, color: "#0A192F" };
   const isActive = status?.active;
@@ -141,7 +141,7 @@ export default function Subscription() {
   return (
     <div className="p-4 md:p-8 max-w-3xl">
       <div className="border-b border-[#E4E4E1] pb-6 mb-6">
-        <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Account</div>
+        <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-2">Account</div>
         <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Il tuo abbonamento</h1>
       </div>
 
@@ -149,23 +149,23 @@ export default function Subscription() {
       <div className="bg-white border border-[#E4E4E1] rounded-md p-6 mb-6">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-1">Piano attivo</div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mb-1">Piano attivo</div>
             <div className="font-cabinet font-black text-2xl" style={{ color: plan.color }}>{plan.name}</div>
             <div className="text-[14px] text-[#52525B] mt-1">€{plan.price_eur}/mese</div>
           </div>
           <div className="flex items-center gap-2">
             {isActive && !isTrial && !cancelAt && <CheckCircle className="w-5 h-5 text-[#059669]" />}
-            {isTrial && <AlertTriangle className="w-5 h-5 text-[#FF5A00]" />}
+            {isTrial && <AlertTriangle className="w-5 h-5 text-[#B23E00]" />}
             {(isCancelled || cancelAt) && <XCircle className="w-5 h-5 text-red-500" />}
             <span className="font-mono text-[11px] uppercase tracking-widest"
-              style={{ color: isTrial ? "#FF5A00" : (isCancelled || cancelAt) ? "#DC2626" : "#059669" }}>
+              style={{ color: isTrial ? "#B23E00" : (isCancelled || cancelAt) ? "#DC2626" : "#059669" }}>
               {isTrial ? `Prova (${trialDaysLeft}gg rimasti)` : cancelAt ? "In scadenza" : isCancelled ? "Cancellato" : "Attivo"}
             </span>
           </div>
         </div>
 
         {isTrial && (
-          <div className="bg-[#FF5A0010] border border-[#FF5A0030] rounded-md p-4 text-[13px] text-[#FF5A00]">
+          <div className="bg-[#B23E0010] border border-[#B23E0030] rounded-md p-4 text-[13px] text-[#B23E00]">
             La tua prova gratuita scade tra <strong>{trialDaysLeft} giorni</strong>. Attiva un abbonamento per continuare ad usare SALESFLY.
           </div>
         )}
@@ -189,7 +189,7 @@ export default function Subscription() {
           <h2 className="font-cabinet font-bold text-lg mb-4">Attiva abbonamento</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {Object.entries(plansById).map(([id, p]) => (
-              <div key={id} className={`bg-white border-2 rounded-md p-5 ${id === "pro" ? "border-[#FF5A00]" : "border-[#E4E4E1]"}`}>
+              <div key={id} className={`bg-white border-2 rounded-md p-5 ${id === "pro" ? "border-[#B23E00]" : "border-[#E4E4E1]"}`}>
                 <div className="font-cabinet font-black text-xl mb-1" style={{ color: p.color }}>{p.name}</div>
                 <div className="font-cabinet font-black text-3xl mb-4">€{p.price_eur}<span className="text-[14px] font-normal text-[#52525B]">/mese</span></div>
 
@@ -200,7 +200,7 @@ export default function Subscription() {
                 </button>
 
                 {/* PayPal */}
-                <div className="text-center text-[11px] text-[#A1A1AA] mb-2">oppure</div>
+                <div className="text-center text-[11px] text-[#6B6B72] mb-2">oppure</div>
                 <button onClick={() => startPaypal(id)} disabled={paying}
                   className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#FFC439] text-[#003087] rounded-md text-[13px] font-bold disabled:opacity-50">
                   <ExternalLink className="w-4 h-4" /> Paga con PayPal
@@ -208,7 +208,7 @@ export default function Subscription() {
               </div>
             ))}
           </div>
-          <div className="text-[12px] text-[#A1A1AA] mt-3">
+          <div className="text-[12px] text-[#6B6B72] mt-3">
             L'abbonamento si rinnova automaticamente ogni mese finché non lo disdici dall'area abbonamento; nessun vincolo contrattuale.
           </div>
         </div>
@@ -243,7 +243,7 @@ export default function Subscription() {
           <div className="overflow-x-auto">
             <table className="w-full text-[13px]">
               <thead>
-                <tr className="text-left text-[11px] uppercase tracking-widest text-[#A1A1AA] border-b border-[#E4E4E1]">
+                <tr className="text-left text-[11px] uppercase tracking-widest text-[#6B6B72] border-b border-[#E4E4E1]">
                   <th className="pb-2 pr-4 font-normal">Data</th>
                   <th className="pb-2 pr-4 font-normal">Metodo</th>
                   <th className="pb-2 pr-4 font-normal">Importo</th>
@@ -263,7 +263,7 @@ export default function Subscription() {
                     <td className="py-2.5">
                       {item.receipt_url && (
                         <a href={item.receipt_url} target="_blank" rel="noopener noreferrer"
-                          className="text-[#FF5A00] hover:underline text-[12px]">
+                          className="text-[#B23E00] hover:underline text-[12px]">
                           Ricevuta
                         </a>
                       )}

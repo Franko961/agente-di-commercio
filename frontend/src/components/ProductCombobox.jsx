@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "./ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "./ui/command";
@@ -16,7 +16,7 @@ export default function ProductCombobox({ products, value, onSelect, className =
         <button
           type="button"
           className={`flex items-center justify-between gap-1 bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[12px] text-left ${
-            selected ? "text-[#0A192F]" : "text-[#A1A1AA]"
+            selected ? "text-[#0A192F]" : "text-[#6B6B72]"
           } ${className}`}
         >
           <span className="truncate">{selected ? selected.name : "prodotto"}</span>
@@ -45,7 +45,7 @@ export default function ProductCombobox({ products, value, onSelect, className =
                   <Check className={`mr-2 h-3.5 w-3.5 shrink-0 ${value === p.id ? "opacity-100" : "opacity-0"}`} />
                   <div className="flex flex-col overflow-hidden">
                     <span className="truncate">{p.name}</span>
-                    {p.sku ? <span className="text-[10px] text-[#A1A1AA] font-mono">{p.sku}</span> : null}
+                    {p.sku ? <span className="text-[10px] text-[#6B6B72] font-mono">{p.sku}</span> : null}
                   </div>
                 </CommandItem>
               ))}

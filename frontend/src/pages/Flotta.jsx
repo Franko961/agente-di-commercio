@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import {
   Plus, Trash2, Pencil, Truck, CalendarClock, Coins, Package,
   Power, PowerOff, AlertTriangle, Search, FileSignature, Eraser,
@@ -13,7 +13,7 @@ const VEHICLE_TYPE_LABELS = { furgone: "Furgone", camion: "Camion", auto: "Auto"
 const DEADLINE_TYPE_LABELS = { assicurazione: "Assicurazione", revisione: "Revisione", bollo: "Bollo", altro: "Altro" };
 const COST_CATEGORY_LABELS = { carburante: "Carburante", manutenzione: "Manutenzione", riparazione: "Riparazione", altro: "Altro" };
 const CARGO_STATUS_LABELS = { programmato: "Programmato", in_transito: "In transito", consegnato: "Consegnato", non_consegnato: "Non consegnato" };
-const CARGO_STATUS_COLORS = { programmato: "#52525B", in_transito: "#FF5A00", consegnato: "#059669", non_consegnato: "#DC2626" };
+const CARGO_STATUS_COLORS = { programmato: "#52525B", in_transito: "#B23E00", consegnato: "#059669", non_consegnato: "#DC2626" };
 const REMINDER_DAY_OPTIONS = [7, 15, 30];
 
 const EMPTY_VEHICLE = { plate: "", model: "", type: "furgone", assigned_driver: "", notes: "" };
@@ -48,7 +48,7 @@ function daysUntil(dateStr) {
 function deadlineUrgency(days) {
   if (days < 0) return { color: "#DC2626", label: `Scaduta da ${Math.abs(days)} giorni` };
   if (days === 0) return { color: "#DC2626", label: "Scade oggi" };
-  if (days <= 30) return { color: "#FF5A00", label: `Scade tra ${days} giorni` };
+  if (days <= 30) return { color: "#B23E00", label: `Scade tra ${days} giorni` };
   return { color: "#52525B", label: `Scade tra ${days} giorni` };
 }
 
@@ -246,7 +246,7 @@ export default function Flotta() {
     <div className="p-4 md:p-8">
       <div className="flex items-end justify-between border-b border-[#E4E4E1] pb-6 mb-6 flex-wrap gap-3">
         <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Gestione Flotta</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-2">Gestione Flotta</div>
           <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Flotta</h1>
         </div>
       </div>
@@ -260,10 +260,10 @@ export default function Flotta() {
         ].map(([key, label, Icon, badge]) => (
           <button key={key} onClick={() => setTab(key)}
             className={`flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
-              tab === key ? "border-[#FF5A00] text-[#0A192F]" : "border-transparent text-[#A1A1AA] hover:text-[#52525B]"
+              tab === key ? "border-[#B23E00] text-[#0A192F]" : "border-transparent text-[#6B6B72] hover:text-[#52525B]"
             }`}>
             <Icon className="w-3.5 h-3.5" /> {label}
-            {badge > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[#FF5A00] text-white text-[10px] font-bold">{badge}</span>}
+            {badge > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[#B23E00] text-white text-[10px] font-bold">{badge}</span>}
           </button>
         ))}
       </div>
@@ -273,7 +273,7 @@ export default function Flotta() {
           <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
             <div className="flex items-center gap-2 flex-wrap">
               <div className="relative">
-                <Search className="w-4 h-4 text-[#A1A1AA] absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-[#6B6B72] absolute left-3 top-1/2 -translate-y-1/2" />
                 <input value={vehicleSearch} onChange={(e) => setVehicleSearch(e.target.value)}
                   placeholder="Cerca per targa o modello"
                   className="pl-9 pr-3 py-2.5 border border-[#E4E4E1] rounded-md text-[13px] w-56 focus:outline-none focus:border-[#0A192F]" />
@@ -310,28 +310,28 @@ export default function Flotta() {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-cabinet font-bold text-[14px]">{v.plate}</span>
-                    <span className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">{VEHICLE_TYPE_LABELS[v.type]}</span>
+                    <span className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72]">{VEHICLE_TYPE_LABELS[v.type]}</span>
                     {!v.active && (
-                      <span className="font-mono text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-[#F3F3F1] text-[#A1A1AA]">Disattivato</span>
+                      <span className="font-mono text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-[#F3F3F1] text-[#6B6B72]">Disattivato</span>
                     )}
                   </div>
                   <div className="text-[12px] text-[#52525B]">{v.model || "—"}{assignedLabel(v, employees) ? ` · Assegnato a ${assignedLabel(v, employees)}` : ""}</div>
-                  {v.notes && <div className="text-[12px] text-[#A1A1AA] mt-0.5 italic">{v.notes}</div>}
+                  {v.notes && <div className="text-[12px] text-[#6B6B72] mt-0.5 italic">{v.notes}</div>}
                 </div>
                 <div className="flex gap-1">
                   <button onClick={() => toggleVehicleActive(v)} title={v.active ? "Disattiva" : "Riattiva"} aria-label={v.active ? "Disattiva mezzo" : "Riattiva mezzo"}
-                    className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded">
+                    className="p-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded">
                     {v.active ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
                   </button>
                   <button onClick={() => setVehicleEditTarget(v)} title="Modifica" aria-label="Modifica mezzo"
-                    className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
+                    className="p-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
                   <button onClick={() => deleteVehicle(v)} title="Elimina" aria-label="Elimina mezzo"
-                    className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+                    className="p-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
             ))}
             {filteredVehicles.length === 0 && (
-              <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#A1A1AA] text-[13px]">
+              <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#6B6B72] text-[13px]">
                 {vehicles.length === 0 ? "Nessun mezzo ancora registrato." : "Nessun mezzo corrisponde alla ricerca."}
               </div>
             )}
@@ -352,7 +352,7 @@ export default function Flotta() {
               ))}
             </div>
           ) : (
-            <div className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-md p-4 mb-4 text-[13px] text-[#A1A1AA]">
+            <div className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-md p-4 mb-4 text-[13px] text-[#6B6B72]">
               Attiva il modulo Automazioni per i promemoria automatici delle scadenze.
             </div>
           )}
@@ -385,7 +385,7 @@ export default function Flotta() {
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-cabinet font-bold text-[14px]">{d.vehicle_plate}</span>
-                      <span className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">{DEADLINE_TYPE_LABELS[d.type]}</span>
+                      <span className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72]">{DEADLINE_TYPE_LABELS[d.type]}</span>
                     </div>
                     <div className="text-[12px] text-[#52525B] mt-1">{d.due_date}</div>
                     {d.note && <div className="text-[12px] text-[#52525B] mt-1 italic">"{d.note}"</div>}
@@ -396,15 +396,15 @@ export default function Flotta() {
                   </div>
                   <div className="flex gap-1">
                     <button onClick={() => setDeadlineEditTarget(d)} title="Modifica" aria-label="Modifica scadenza"
-                      className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
+                      className="p-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
                     <button onClick={() => deleteDeadline(d.id)} title="Elimina" aria-label="Elimina scadenza"
-                      className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+                      className="p-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 </div>
               );
             })}
             {deadlines.length === 0 && (
-              <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#A1A1AA] text-[13px]">Nessuna scadenza registrata.</div>
+              <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#6B6B72] text-[13px]">Nessuna scadenza registrata.</div>
             )}
           </div>
         </div>
@@ -412,7 +412,7 @@ export default function Flotta() {
 
       {tab === "costi" && (
         <div>
-          <div className="text-[12px] text-[#A1A1AA] mb-3">Ogni costo genera automaticamente una voce nel modulo Spese, così dashboard, AI e report restano coerenti.</div>
+          <div className="text-[12px] text-[#6B6B72] mb-3">Ogni costo genera automaticamente una voce nel modulo Spese, così dashboard, AI e report restano coerenti.</div>
           <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
             <div className="text-[13px] text-[#52525B]">Totale: <span className="font-cabinet font-bold text-[15px] text-[#0A192F]">{fmtEuro(totalCosts)}</span></div>
             <Dialog open={costOpen} onOpenChange={setCostOpen}>
@@ -440,7 +440,7 @@ export default function Flotta() {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-cabinet font-bold text-[14px]">{c.vehicle_plate}</span>
-                    <span className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">{COST_CATEGORY_LABELS[c.category]}</span>
+                    <span className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72]">{COST_CATEGORY_LABELS[c.category]}</span>
                   </div>
                   <div className="text-[12px] text-[#52525B] mt-1">{c.date}{c.description ? ` · ${c.description}` : ""}</div>
                 </div>
@@ -448,15 +448,15 @@ export default function Flotta() {
                   <span className="font-cabinet font-bold text-[15px]">{fmtEuro(c.amount)}</span>
                   <div className="flex gap-1">
                     <button onClick={() => setCostEditTarget(c)} title="Modifica" aria-label="Modifica costo"
-                      className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
+                      className="p-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
                     <button onClick={() => deleteCost(c.id)} title="Elimina" aria-label="Elimina costo"
-                      className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+                      className="p-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 </div>
               </div>
             ))}
             {costs.length === 0 && (
-              <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#A1A1AA] text-[13px]">Nessun costo ancora registrato.</div>
+              <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#6B6B72] text-[13px]">Nessun costo ancora registrato.</div>
             )}
           </div>
         </div>
@@ -513,7 +513,7 @@ export default function Flotta() {
                       ].filter(Boolean).join(" · ")}
                     </div>
                   )}
-                  {l.notes && <div className="text-[12px] text-[#A1A1AA] mt-0.5 italic">{l.notes}</div>}
+                  {l.notes && <div className="text-[12px] text-[#6B6B72] mt-0.5 italic">{l.notes}</div>}
                   {l.signed_at && (
                     <div className="text-[12px] text-[#059669] mt-1">Firmato da {l.signer_name} il {new Date(l.signed_at).toLocaleString("it-IT")}</div>
                   )}
@@ -521,17 +521,17 @@ export default function Flotta() {
                 <div className="flex gap-1">
                   {!l.signed_at && (
                     <button onClick={() => setSignTarget(l)} title="Firma consegna" aria-label="Firma consegna"
-                      className="p-1.5 text-[#A1A1AA] hover:text-[#059669] hover:bg-green-50 rounded"><FileSignature className="w-4 h-4" /></button>
+                      className="p-1.5 text-[#6B6B72] hover:text-[#059669] hover:bg-green-50 rounded"><FileSignature className="w-4 h-4" /></button>
                   )}
                   <button onClick={() => setLoadEditTarget(l)} title="Modifica" aria-label="Modifica carico"
-                    className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
+                    className="p-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
                   <button onClick={() => deleteLoad(l.id)} title="Elimina" aria-label="Elimina carico"
-                    className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+                    className="p-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
             ))}
             {loads.length === 0 && (
-              <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#A1A1AA] text-[13px]">Nessun carico ancora registrato.</div>
+              <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#6B6B72] text-[13px]">Nessun carico ancora registrato.</div>
             )}
           </div>
         </div>
@@ -796,7 +796,7 @@ function CargoSignatureForm({ load, onSign, onClose }) {
   return (
     <div className="space-y-4">
       <div className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-md p-4">
-        <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-1">Consegna</div>
+        <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mb-1">Consegna</div>
         <div className="font-cabinet font-bold text-[15px] leading-tight">{load.description}</div>
         <div className="text-[12px] text-[#52525B] mt-1">{load.vehicle_plate} · {load.date}{load.destination ? ` · ${load.destination}` : ""}</div>
       </div>
@@ -810,7 +810,7 @@ function CargoSignatureForm({ load, onSign, onClose }) {
       <div>
         <div className="flex items-center justify-between mb-1.5">
           <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B]">Firma qui sotto</label>
-          <button onClick={clear} type="button" className="flex items-center gap-1 text-[11px] font-mono uppercase tracking-widest text-[#A1A1AA] hover:text-[#DC2626]">
+          <button onClick={clear} type="button" className="flex items-center gap-1 text-[11px] font-mono uppercase tracking-widest text-[#6B6B72] hover:text-[#DC2626]">
             <Eraser className="w-3 h-3" /> pulisci
           </button>
         </div>

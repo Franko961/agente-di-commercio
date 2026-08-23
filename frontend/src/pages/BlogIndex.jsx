@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+﻿import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { getPublishedArticles } from "@/content/blog";
 import PublicHeader from "@/components/PublicHeader";
@@ -16,7 +16,7 @@ export default function BlogIndex() {
 
       <main className="flex-1 px-6 py-16 max-w-3xl mx-auto w-full">
         <div className="text-center mb-12">
-          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-3">Blog</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-3">Blog</div>
           <h1 className="font-cabinet font-black text-4xl tracking-tight mb-4">
             Blog per agenti di commercio
           </h1>
@@ -26,7 +26,7 @@ export default function BlogIndex() {
         </div>
 
         {articles.length === 0 ? (
-          <p className="text-center text-[14px] text-[#A1A1AA]">Presto nuovi contenuti.</p>
+          <p className="text-center text-[14px] text-[#6B6B72]">Presto nuovi contenuti.</p>
         ) : (
           <div className="space-y-4">
             {articles.map((a) => (
@@ -37,7 +37,7 @@ export default function BlogIndex() {
               >
                 <div className="font-cabinet font-bold text-lg mb-2">{a.title}</div>
                 <p className="text-[14px] text-[#52525B] mb-3">{a.description}</p>
-                <span className="inline-flex items-center gap-1 text-[13px] text-[#FF5A00] font-medium">
+                <span className="inline-flex items-center gap-1 text-[13px] text-[#B23E00] font-medium">
                   Leggi <ArrowRight className="w-3.5 h-3.5" />
                 </span>
               </Link>

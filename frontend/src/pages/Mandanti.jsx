@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import api from "../api";
 import { Plus, Trash2, Pencil, Target, Trophy, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
@@ -38,7 +38,7 @@ export default function Mandanti() {
     <div className="p-4 md:p-8">
       <div className="flex items-end justify-between border-b border-[#E4E4E1] pb-6 mb-6">
         <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Multi-mandato</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-2">Multi-mandato</div>
           <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Mandanti</h1>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
@@ -72,18 +72,18 @@ export default function Mandanti() {
                   <span className="text-white font-cabinet font-black text-lg">{m.name[0]}</span>
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => setEditTarget({ ...m, bonus_tiers: m.bonus_tiers || [] })} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica" aria-label="Modifica mandante">
+                  <button onClick={() => setEditTarget({ ...m, bonus_tiers: m.bonus_tiers || [] })} className="p-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica" aria-label="Modifica mandante">
                     <Pencil className="w-4 h-4" />
                   </button>
-                  <button onClick={() => remove(m.id)} className="p-1.5 text-[#A1A1AA] hover:text-[#DC2626] hover:bg-red-50 rounded transition-colors" title="Elimina" aria-label="Elimina mandante">
+                  <button onClick={() => remove(m.id)} className="p-1.5 text-[#6B6B72] hover:text-[#DC2626] hover:bg-red-50 rounded transition-colors" title="Elimina" aria-label="Elimina mandante">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
               <div className="font-cabinet font-bold text-lg leading-tight">{m.name}</div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-2">Provvigione standard</div>
-              <div className="font-cabinet font-black text-2xl text-[#FF5A00]">{m.commission_rate}%</div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mt-2">Provvigione standard</div>
+              <div className="font-cabinet font-black text-2xl text-[#B23E00]">{m.commission_rate}%</div>
               {(m.commission_rate_new != null || m.commission_rate_renewal != null) && (
                 <div className="flex gap-4 mt-1.5">
                   {m.commission_rate_new != null && (
@@ -101,9 +101,9 @@ export default function Mandanti() {
                     <Target className="w-3 h-3" /> Obiettivi
                   </div>
                   <div className="space-y-1">
-                    {m.target_monthly && <div className="flex justify-between text-[12px]"><span className="text-[#A1A1AA]">Mensile</span><span className="font-cabinet font-bold">{fmt(m.target_monthly)}</span></div>}
-                    {m.target_yearly && <div className="flex justify-between text-[12px]"><span className="text-[#A1A1AA]">Annuale</span><span className="font-cabinet font-bold">{fmt(m.target_yearly)}</span></div>}
-                    {m.target_clients && <div className="flex justify-between text-[12px]"><span className="text-[#A1A1AA]">Clienti target</span><span className="font-cabinet font-bold">{m.target_clients}</span></div>}
+                    {m.target_monthly && <div className="flex justify-between text-[12px]"><span className="text-[#6B6B72]">Mensile</span><span className="font-cabinet font-bold">{fmt(m.target_monthly)}</span></div>}
+                    {m.target_yearly && <div className="flex justify-between text-[12px]"><span className="text-[#6B6B72]">Annuale</span><span className="font-cabinet font-bold">{fmt(m.target_yearly)}</span></div>}
+                    {m.target_clients && <div className="flex justify-between text-[12px]"><span className="text-[#6B6B72]">Clienti target</span><span className="font-cabinet font-bold">{m.target_clients}</span></div>}
                   </div>
                   {m.target_notes && <div className="text-[11px] text-[#52525B] mt-2 italic">{m.target_notes}</div>}
                 </div>
@@ -112,16 +112,16 @@ export default function Mandanti() {
               {hasTiers && (
                 <div className="mt-3 pt-3 border-t border-[#E4E4E1]">
                   <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-[#52525B] mb-2">
-                    <Trophy className="w-3 h-3 text-[#FF5A00]" /> Scala premi ({m.bonus_tiers.length} scaglioni)
+                    <Trophy className="w-3 h-3 text-[#B23E00]" /> Scala premi ({m.bonus_tiers.length} scaglioni)
                   </div>
                   <div className="space-y-1">
                     {[...m.bonus_tiers].sort((a, b) => a.threshold - b.threshold).slice(0, 3).map((t, i) => (
                       <div key={i} className="flex justify-between text-[12px]">
-                        <span className="text-[#A1A1AA]">da {fmt(t.threshold)}</span>
+                        <span className="text-[#6B6B72]">da {fmt(t.threshold)}</span>
                         <span className="font-cabinet font-bold text-[#059669]">+{fmt(t.bonus)}</span>
                       </div>
                     ))}
-                    {m.bonus_tiers.length > 3 && <div className="text-[11px] text-[#A1A1AA]">+{m.bonus_tiers.length - 3} altri scaglioni…</div>}
+                    {m.bonus_tiers.length > 3 && <div className="text-[11px] text-[#6B6B72]">+{m.bonus_tiers.length - 3} altri scaglioni…</div>}
                   </div>
                 </div>
               )}
@@ -181,11 +181,11 @@ function MandanteForm({ initial, onSave, submitLabel = "Salva" }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Field label="Aliquota nuovi % (opz.)" v={f.commission_rate_new} on={(v) => setF({ ...f, commission_rate_new: v === "" ? "" : parseFloat(v) || 0 })} type="number" />
-              <div className="text-[11px] text-[#A1A1AA] mt-1">Se vuota, usa l'aliquota standard</div>
+              <div className="text-[11px] text-[#6B6B72] mt-1">Se vuota, usa l'aliquota standard</div>
             </div>
             <div>
               <Field label="Aliquota rinnovi % (opz.)" v={f.commission_rate_renewal} on={(v) => setF({ ...f, commission_rate_renewal: v === "" ? "" : parseFloat(v) || 0 })} type="number" />
-              <div className="text-[11px] text-[#A1A1AA] mt-1">Se vuota, usa l'aliquota standard</div>
+              <div className="text-[11px] text-[#6B6B72] mt-1">Se vuota, usa l'aliquota standard</div>
             </div>
           </div>
           <div>
@@ -224,8 +224,8 @@ function MandanteForm({ initial, onSave, submitLabel = "Salva" }) {
           stesso pattern in Ordini.jsx/Offers.jsx. */}
           {f.bonus_tiers.length > 0 && (
             <div className="grid grid-cols-[1fr_1fr_auto] sm:grid-cols-9 gap-2 px-1">
-              <div className="sm:col-span-4 font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">Fatturato minimo (€)</div>
-              <div className="sm:col-span-4 font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">Premio (€)</div>
+              <div className="sm:col-span-4 font-mono text-[10px] uppercase tracking-widest text-[#6B6B72]">Fatturato minimo (€)</div>
+              <div className="sm:col-span-4 font-mono text-[10px] uppercase tracking-widest text-[#6B6B72]">Premio (€)</div>
               <div />
             </div>
           )}
@@ -244,7 +244,7 @@ function MandanteForm({ initial, onSave, submitLabel = "Salva" }) {
                   onChange={(e) => updateTier(i, "bonus", e.target.value)}
                   className="sm:col-span-4 w-full min-w-0 bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
                 />
-                <button type="button" onClick={() => removeTier(i)} className="sm:col-span-1 text-[#A1A1AA] hover:text-red-500 transition-colors flex justify-center p-1.5">
+                <button type="button" onClick={() => removeTier(i)} className="sm:col-span-1 text-[#6B6B72] hover:text-red-500 transition-colors flex justify-center p-1.5">
                   <X className="w-4 h-4" />
                 </button>
               </div>

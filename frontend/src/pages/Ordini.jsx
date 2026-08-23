@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import api from "../api";
 import { Search, ShoppingCart, Building, Trash2, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
@@ -113,13 +113,13 @@ export default function Ordini() {
   return (
     <div className="p-4 md:p-8">
       <div className="border-b border-[#E4E4E1] pb-6 mb-6">
-        <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Vendite</div>
+        <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-2">Vendite</div>
         <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Ordini</h1>
         <p className="text-[#52525B] text-[14px] mt-2">Seleziona un cliente per registrare o rivedere i suoi ordini.</p>
       </div>
 
       <div className="relative mb-4">
-        <Search className="w-4 h-4 text-[#A1A1AA] absolute left-3 top-1/2 -translate-y-1/2" />
+        <Search className="w-4 h-4 text-[#6B6B72] absolute left-3 top-1/2 -translate-y-1/2" />
         <input
           data-testid="orders-client-search"
           value={query}
@@ -142,7 +142,7 @@ export default function Ordini() {
               className="text-left bg-white border border-[#E4E4E1] hover:border-[#0A192F] rounded-md p-4 transition-colors relative"
             >
               {pendingCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-[#FF5A00] text-white text-[10px] font-mono font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                <span className="absolute -top-2 -right-2 bg-[#B23E00] text-white text-[10px] font-mono font-bold w-5 h-5 rounded-full flex items-center justify-center">
                   {pendingCount}
                 </span>
               )}
@@ -151,10 +151,10 @@ export default function Ordini() {
                   <div className="font-cabinet font-bold text-[15px] truncate">{c.company_name}</div>
                   <div className="text-[12px] text-[#52525B] truncate">{c.contact_name || c.city || "—"}</div>
                 </div>
-                <ShoppingCart className="w-4 h-4 text-[#A1A1AA] shrink-0" />
+                <ShoppingCart className="w-4 h-4 text-[#6B6B72] shrink-0" />
               </div>
               <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#E4E4E1]">
-                <span className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">
+                <span className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72]">
                   {clientOrders.length} {clientOrders.length === 1 ? "ordine" : "ordini"}
                 </span>
                 <span className="font-cabinet font-bold text-[14px]">{fmt(totale)}</span>
@@ -164,7 +164,7 @@ export default function Ordini() {
         })}
       </div>
       {filteredClients.length === 0 && (
-        <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#A1A1AA] text-[13px]">
+        <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#6B6B72] text-[13px]">
           Nessun cliente trovato.
         </div>
       )}
@@ -173,7 +173,7 @@ export default function Ordini() {
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-cabinet flex items-center gap-2">
-              <Building className="w-4 h-4 text-[#FF5A00]" />
+              <Building className="w-4 h-4 text-[#B23E00]" />
               {activeClient?.company_name}
             </DialogTitle>
           </DialogHeader>
@@ -182,7 +182,7 @@ export default function Ordini() {
             <div className="space-y-6">
               {pendingOffersForClient(activeClient.id).length > 0 && (
                 <div>
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00] mb-2">Preventivi in attesa</div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#B23E00] mb-2">Preventivi in attesa</div>
                   <div className="space-y-2">
                     {pendingOffersForClient(activeClient.id).map((o) => {
                       const mand = mandanti.find((m) => m.id === o.mandante_id);
@@ -190,7 +190,7 @@ export default function Ordini() {
                         <div key={o.id} data-testid={`pending-offer-row-${o.id}`} className="bg-[#FFF3EC] border border-[#FFD8C2] rounded-md p-3 flex items-center justify-between gap-3">
                           <div className="min-w-0">
                             <div className="font-medium text-[13px] truncate">{o.title}</div>
-                            <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-1">
+                            <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mt-1">
                               {mand && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: mand.brand_color }} />}
                               {mand?.name || "—"} · {o.status} · {o.sale_type}
                             </div>
@@ -217,7 +217,7 @@ export default function Ordini() {
                 <div className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] mb-2">Storico ordini</div>
                 <div className="space-y-2">
                   {ordersForClient(activeClient.id).length === 0 && (
-                    <div className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-md p-4 text-center text-[#A1A1AA] text-[12px]">
+                    <div className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-md p-4 text-center text-[#6B6B72] text-[12px]">
                       Nessun ordine registrato per questo cliente.
                     </div>
                   )}
@@ -231,27 +231,27 @@ export default function Ordini() {
                             <div className="flex items-center gap-1.5 text-[12px] font-medium">
                               {mand && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: mand.brand_color }} />}
                               {mand?.name || "—"}
-                              {o.numero_ordine && <span className="text-[#A1A1AA] font-mono text-[11px]">· {o.numero_ordine}</span>}
+                              {o.numero_ordine && <span className="text-[#6B6B72] font-mono text-[11px]">· {o.numero_ordine}</span>}
                             </div>
-                            <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-1">
+                            <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mt-1">
                               {format(parseISO(o.created_at), "d MMM yyyy", { locale: it })} · {o.items?.length || 0} righe · {o.sale_type}
-                              {o.source_offer_id && <span className="text-[#FF5A00]"> · da offerta</span>}
+                              {o.source_offer_id && <span className="text-[#B23E00]"> · da offerta</span>}
                               {o.commission && <span> · provvigione {fmt(o.commission.amount)}</span>}
                             </div>
                             {o.expected_delivery_date && (
-                              <div className="font-mono text-[10px] text-[#A1A1AA] mt-0.5">
+                              <div className="font-mono text-[10px] text-[#6B6B72] mt-0.5">
                                 Consegna prevista: {format(parseISO(o.expected_delivery_date), "d MMM yyyy", { locale: it })}
                                 {o.delivery_date && <> · consegnato il {format(parseISO(o.delivery_date), "d MMM yyyy", { locale: it })}</>}
                               </div>
                             )}
                           </div>
                           <div className="flex items-center gap-3 shrink-0">
-                            <div className={`font-cabinet font-bold text-[15px] ${cancelled ? "line-through text-[#A1A1AA]" : ""}`}>{fmt(o.total)}</div>
+                            <div className={`font-cabinet font-bold text-[15px] ${cancelled ? "line-through text-[#6B6B72]" : ""}`}>{fmt(o.total)}</div>
                             <button
                               type="button"
                               data-testid={`edit-order-${o.id}`}
                               onClick={() => setEditingOrder(o)}
-                              className="text-[#A1A1AA] hover:text-[#0A192F] p-1"
+                              className="text-[#6B6B72] hover:text-[#0A192F] p-1"
                               title="Modifica ordine"
                               aria-label="Modifica ordine"
                             >
@@ -261,7 +261,7 @@ export default function Ordini() {
                               type="button"
                               data-testid={`delete-order-${o.id}`}
                               onClick={() => deleteOrder(o)}
-                              className="text-[#A1A1AA] hover:text-[#DC2626] p-1"
+                              className="text-[#6B6B72] hover:text-[#DC2626] p-1"
                               title="Elimina ordine (e la provvigione collegata)"
                               aria-label="Elimina ordine (e la provvigione collegata)"
                             >
@@ -307,7 +307,7 @@ export default function Ordini() {
                       type="button"
                       data-testid="show-new-order-form-button"
                       onClick={() => setShowNewOrderForm(true)}
-                      className="text-[12px] font-mono uppercase tracking-widest text-[#FF5A00]"
+                      className="text-[12px] font-mono uppercase tracking-widest text-[#B23E00]"
                     >
                       + registra manualmente
                     </button>
@@ -331,7 +331,7 @@ export default function Ordini() {
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-cabinet flex items-center gap-2">
-              <Pencil className="w-4 h-4 text-[#FF5A00]" />
+              <Pencil className="w-4 h-4 text-[#B23E00]" />
               Modifica ordine {editingOrder?.numero_ordine ? `· ${editingOrder.numero_ordine}` : ""}
             </DialogTitle>
           </DialogHeader>
@@ -478,7 +478,7 @@ function OrderForm({ client, order, mandanti, products, onSave }) {
             </div>
           ))}
         </div>
-        <button type="button" onClick={addItem} className="mt-2 text-[12px] font-mono uppercase tracking-widest text-[#FF5A00]">+ aggiungi riga</button>
+        <button type="button" onClick={addItem} className="mt-2 text-[12px] font-mono uppercase tracking-widest text-[#B23E00]">+ aggiungi riga</button>
       </div>
 
       <div>

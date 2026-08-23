@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+﻿import { Link, useNavigate } from "react-router-dom";
 import {
   Sparkles, ArrowRight, ShieldCheck, UserPlus, CalendarPlus, KanbanSquare,
   StickyNote, FileText, Receipt, Search, Mic, CheckCircle2, Lock,
@@ -64,7 +64,7 @@ export default function LandingAI() {
             </button>
             <button
               onClick={() => navigate("/richiedi-demo")}
-              className="px-4 py-2 bg-[#FF5A00] text-white rounded-md text-[13px] font-bold hover:bg-[#e04e00] transition-colors"
+              className="px-4 py-2 bg-[#B23E00] text-white rounded-md text-[13px] font-bold hover:bg-[#e04e00] transition-colors"
             >
               Prova gratis
             </button>
@@ -76,7 +76,7 @@ export default function LandingAI() {
         {/* Hero */}
         <section className="px-6 pt-14 pb-14 text-center">
           <div className="max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-1.5 font-mono text-[12px] font-bold uppercase tracking-[0.15em] text-[#FF5A00] bg-[#FF5A00]/10 border border-[#FF5A00]/20 rounded-full px-4 py-1.5 mb-6">
+            <div className="inline-flex items-center gap-1.5 font-mono text-[12px] font-bold uppercase tracking-[0.15em] text-[#B23E00] bg-[#B23E00]/10 border border-[#B23E00]/20 rounded-full px-4 py-1.5 mb-6">
               <Sparkles className="w-3.5 h-3.5" /> Assistente AI
             </div>
             <h1 className="font-cabinet font-black text-4xl md:text-5xl tracking-tight mb-5">
@@ -90,12 +90,12 @@ export default function LandingAI() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
                 onClick={() => navigate("/richiedi-demo")}
-                className="w-full sm:w-auto px-6 py-3.5 bg-[#FF5A00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-6 py-3.5 bg-[#B23E00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors flex items-center justify-center gap-2"
               >
                 Prova gratis {trialDays} giorni <ArrowRight className="w-4 h-4" />
               </button>
             </div>
-            <div className="font-mono text-[11px] uppercase tracking-widest text-[#A1A1AA] mt-4">
+            <div className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B72] mt-4">
               Nessuna carta di credito richiesta
             </div>
           </div>
@@ -159,7 +159,7 @@ export default function LandingAI() {
             </p>
             <button
               onClick={() => navigate("/richiedi-demo")}
-              className="px-7 py-3.5 bg-[#FF5A00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors inline-flex items-center gap-2"
+              className="px-7 py-3.5 bg-[#B23E00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors inline-flex items-center gap-2"
             >
               Inizia gratis <ArrowRight className="w-4 h-4" />
             </button>

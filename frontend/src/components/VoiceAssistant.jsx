@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Mic, MicOff, Loader2, X, Volume2, VolumeX, Sparkles } from "lucide-react";
 import api from "../api";
@@ -202,10 +202,10 @@ export default function VoiceAssistant() {
           className="mb-3 w-[340px] max-w-[88vw] bg-white border border-[#E4E4E1] rounded-md shadow-xl p-4 fade-up"
         >
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-[#FF5A00]">
+            <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-[#B23E00]">
               <Sparkles className="w-3.5 h-3.5" /> Salesfly
             </div>
-            <button onClick={close} className="p-1 text-[#A1A1AA] hover:text-[#0A0A0A] rounded" title="Chiudi" aria-label="Chiudi assistente vocale">
+            <button onClick={close} className="p-1 text-[#6B6B72] hover:text-[#0A0A0A] rounded" title="Chiudi" aria-label="Chiudi assistente vocale">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -231,7 +231,7 @@ export default function VoiceAssistant() {
 
           {status === "result" && (
             <div className="space-y-2">
-              {question && <div className="text-[12px] text-[#A1A1AA] italic">"{question}"</div>}
+              {question && <div className="text-[12px] text-[#6B6B72] italic">"{question}"</div>}
               <div className="text-[13px] text-[#0A0A0A] whitespace-pre-line">{answer}</div>
               {pendingActions.map((action, idx) => (
                 <AIActionConfirm
@@ -252,7 +252,7 @@ export default function VoiceAssistant() {
                 </button>
                 <button
                   onClick={startListening}
-                  className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-widest text-[#FF5A00]"
+                  className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-widest text-[#B23E00]"
                 >
                   <Mic className="w-3.5 h-3.5" /> Nuova domanda
                 </button>
@@ -265,7 +265,7 @@ export default function VoiceAssistant() {
               <div className="text-[13px] text-red-600">{errorMsg}</div>
               <button
                 onClick={startListening}
-                className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-widest text-[#FF5A00]"
+                className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-widest text-[#B23E00]"
               >
                 <Mic className="w-3.5 h-3.5" /> Riprova
               </button>

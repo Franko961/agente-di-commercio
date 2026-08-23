@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Download, ExternalLink, FileText, Video, FileSpreadsheet, FileImage, File as FileIcon } from "lucide-react";
 import mammoth from "mammoth";
@@ -87,13 +87,13 @@ export default function DocumentPreview({ document: doc, open, onClose }) {
             <span className="truncate">{doc.name}</span>
           </DialogTitle>
           <div className="flex items-center justify-between gap-3 mt-1">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] truncate">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] truncate">
               {doc.original_filename}
             </div>
             <button
               data-testid="preview-download-button"
               onClick={triggerDownload}
-              className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-widest text-[#FF5A00] hover:underline shrink-0"
+              className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-widest text-[#B23E00] hover:underline shrink-0"
             >
               <Download className="w-3 h-3" /> scarica
             </button>
@@ -101,7 +101,7 @@ export default function DocumentPreview({ document: doc, open, onClose }) {
         </DialogHeader>
 
         <div className="bg-[#0A0A0A] flex items-center justify-center min-h-[60vh] max-h-[80vh] overflow-auto">
-          {busy && <div className="font-mono text-sm text-[#A1A1AA]">caricamento anteprima…</div>}
+          {busy && <div className="font-mono text-sm text-[#6B6B72]">caricamento anteprima…</div>}
           {err && <div className="font-mono text-sm text-[#DC2626]">{err}</div>}
           {!busy && !err && blobUrl && kind === "pdf" && (
             <iframe data-testid="preview-pdf" src={blobUrl} title={doc.name}
@@ -127,11 +127,11 @@ export default function DocumentPreview({ document: doc, open, onClose }) {
           )}
           {!busy && !err && kind === "other" && (
             <div className="text-center p-10">
-              <FileIcon className="w-12 h-12 text-[#A1A1AA] mx-auto mb-3" />
+              <FileIcon className="w-12 h-12 text-[#6B6B72] mx-auto mb-3" />
               <div className="text-white font-medium mb-2">Anteprima non disponibile per questo tipo di file</div>
-              <div className="font-mono text-[11px] text-[#A1A1AA]">{doc.content_type}</div>
+              <div className="font-mono text-[11px] text-[#6B6B72]">{doc.content_type}</div>
               <button onClick={triggerDownload}
-                      className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[#FF5A00] hover:bg-[#E04F00] text-white rounded-md text-[13px] font-medium">
+                      className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[#B23E00] hover:bg-[#E04F00] text-white rounded-md text-[13px] font-medium">
                 <Download className="w-4 h-4" /> Scarica per aprire
               </button>
             </div>

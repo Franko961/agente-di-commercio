@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+﻿import { useEffect, useState, useRef, useCallback } from "react";
 import api from "../api";
 import { Sparkles, Send, Lightbulb, Trash2, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 import { cleanForSpeech } from "../utils/speechClean";
@@ -276,8 +276,8 @@ export default function AIAssistant() {
       <div className="border-b border-[#E4E4E1] pb-6 mb-6 flex items-end justify-between">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="w-4 h-4 text-[#FF5A00]" />
-            <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00]">Analisi Previsionale & Suggerimenti</span>
+            <Sparkles className="w-4 h-4 text-[#B23E00]" />
+            <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00]">Analisi Previsionale & Suggerimenti</span>
           </div>
           <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Assistente AI</h1>
           <p className="text-[14px] text-[#52525B] mt-2">Powered by Claude · Risponde in italiano sui tuoi dati.</p>
@@ -285,11 +285,11 @@ export default function AIAssistant() {
   <div className="flex items-center gap-2">
           {/* Toggle audio output */}
           <button onClick={() => { setVoiceEnabled(v => !v); stopSpeaking(); }}
-            className={`p-2 rounded-md border transition-colors ${voiceEnabled ? "border-[#0A192F] text-[#0A192F]" : "border-[#E4E4E1] text-[#A1A1AA]"}`}
+            className={`p-2 rounded-md border transition-colors ${voiceEnabled ? "border-[#0A192F] text-[#0A192F]" : "border-[#E4E4E1] text-[#6B6B72]"}`}
             title={voiceEnabled ? "Disattiva voce AI" : "Attiva voce AI"}>
             {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>
-          <button onClick={clearHistory} className="flex items-center gap-2 px-3 py-2 border border-[#E4E4E1] hover:border-red-300 hover:text-red-500 rounded-md text-[12px] text-[#A1A1AA] transition-colors">
+          <button onClick={clearHistory} className="flex items-center gap-2 px-3 py-2 border border-[#E4E4E1] hover:border-red-300 hover:text-red-500 rounded-md text-[12px] text-[#6B6B72] transition-colors">
             <Trash2 className="w-3.5 h-3.5" /> Cancella chat
           </button>
         </div>
@@ -300,11 +300,11 @@ export default function AIAssistant() {
         <div className="bg-white border border-[#E4E4E1] rounded-md flex flex-col min-h-[60vh]">
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
             {loading && (
-              <div className="text-center text-[12px] text-[#A1A1AA] py-4">Caricamento cronologia…</div>
+              <div className="text-center text-[12px] text-[#6B6B72] py-4">Caricamento cronologia…</div>
             )}
             {messages.map((m, i) => (
               <div key={i} data-testid={`msg-${i}`} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
-                <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${m.role === "user" ? "bg-[#0A192F]" : "bg-[#FF5A00]"}`}>
+                <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${m.role === "user" ? "bg-[#0A192F]" : "bg-[#B23E00]"}`}>
                   {m.role === "user" ? <span className="text-white text-[12px] font-bold">TU</span> : <Sparkles className="w-3.5 h-3.5 text-white" />}
                 </div>
                 <div className={`max-w-[80%] flex flex-col gap-2 ${m.role === "user" ? "items-end" : "items-start"}`}>
@@ -326,8 +326,8 @@ export default function AIAssistant() {
             ))}
             {listening && (
               <div className="flex gap-3">
-                <div className="w-7 h-7 rounded-md flex items-center justify-center bg-[#FF5A00]"><Mic className="w-3.5 h-3.5 text-white animate-pulse" /></div>
-                <div className="bg-[#FF5A0010] border border-[#FF5A0030] rounded-md p-3 font-mono text-[13px] text-[#FF5A00]">In ascolto… parla ora</div>
+                <div className="w-7 h-7 rounded-md flex items-center justify-center bg-[#B23E00]"><Mic className="w-3.5 h-3.5 text-white animate-pulse" /></div>
+                <div className="bg-[#B23E0010] border border-[#B23E0030] rounded-md p-3 font-mono text-[13px] text-[#B23E00]">In ascolto… parla ora</div>
               </div>
             )}
             {speaking && !listening && (
@@ -338,8 +338,8 @@ export default function AIAssistant() {
             )}
             {busy && (
               <div className="flex gap-3">
-                <div className="w-7 h-7 rounded-md flex items-center justify-center bg-[#FF5A00]"><Sparkles className="w-3.5 h-3.5 text-white animate-pulse" /></div>
-                <div className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-md p-3 font-mono text-[13px] text-[#A1A1AA]">sto analizzando i tuoi dati…</div>
+                <div className="w-7 h-7 rounded-md flex items-center justify-center bg-[#B23E00]"><Sparkles className="w-3.5 h-3.5 text-white animate-pulse" /></div>
+                <div className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-md p-3 font-mono text-[13px] text-[#6B6B72]">sto analizzando i tuoi dati…</div>
               </div>
             )}
             <div ref={endRef} />
@@ -348,7 +348,7 @@ export default function AIAssistant() {
           {/* Quick prompts */}
           <div className="border-t border-[#E4E4E1] p-3 flex flex-wrap gap-2">
             {quickPrompts.map(p => (
-              <button key={p} onClick={() => send(p)} className="text-[11px] font-mono uppercase tracking-widest border border-[#E4E4E1] px-2 py-1 rounded hover:border-[#FF5A00] hover:text-[#FF5A00]">{p}</button>
+              <button key={p} onClick={() => send(p)} className="text-[11px] font-mono uppercase tracking-widest border border-[#E4E4E1] px-2 py-1 rounded hover:border-[#B23E00] hover:text-[#B23E00]">{p}</button>
             ))}
           </div>
 
@@ -356,10 +356,10 @@ export default function AIAssistant() {
           <form onSubmit={(e) => { e.preventDefault(); send(input); }} className="border-t border-[#E4E4E1] p-3 flex gap-2">
             <input data-testid="ai-input" value={input} onChange={(e) => setInput(e.target.value)}
               placeholder={listening ? "Sto ascoltando…" : "Chiedi all'assistente o usa il microfono…"}
-              className={`flex-1 bg-white border rounded-md px-3 py-2 text-[13px] focus:outline-none transition-colors ${listening ? "border-[#FF5A00] bg-[#FF5A0005]" : "border-[#E4E4E1] focus:border-[#0A192F]"}`} />
+              className={`flex-1 bg-white border rounded-md px-3 py-2 text-[13px] focus:outline-none transition-colors ${listening ? "border-[#B23E00] bg-[#B23E0005]" : "border-[#E4E4E1] focus:border-[#0A192F]"}`} />
             {/* Bottone microfono */}
             <button type="button" onClick={toggleListening}
-              className={`px-3 py-2 rounded-md text-[13px] font-medium transition-all ${listening ? "bg-[#FF5A00] text-white animate-pulse" : "border border-[#E4E4E1] text-[#52525B] hover:border-[#FF5A00] hover:text-[#FF5A00]"}`}
+              className={`px-3 py-2 rounded-md text-[13px] font-medium transition-all ${listening ? "bg-[#B23E00] text-white animate-pulse" : "border border-[#E4E4E1] text-[#52525B] hover:border-[#B23E00] hover:text-[#B23E00]"}`}
               title={listening ? "Clicca per fermare" : "Parla con l'AI"}>
               {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
             </button>
@@ -380,17 +380,17 @@ export default function AIAssistant() {
         {/* Suggestions panel */}
         <div className="bg-white border border-[#E4E4E1] rounded-md p-4 h-fit">
           <div className="flex items-center gap-2 mb-3">
-            <Lightbulb className="w-4 h-4 text-[#FF5A00]" />
+            <Lightbulb className="w-4 h-4 text-[#B23E00]" />
             <div className="font-mono text-[10px] uppercase tracking-widest text-[#52525B]">Clienti suggeriti</div>
           </div>
-          {suggestions.length === 0 && <div className="text-[12px] text-[#A1A1AA] py-4 text-center">Generazione suggerimenti…</div>}
+          {suggestions.length === 0 && <div className="text-[12px] text-[#6B6B72] py-4 text-center">Generazione suggerimenti…</div>}
           <div className="space-y-3">
             {suggestions.map((s, i) => (
               <div key={i} className="border border-[#E4E4E1] rounded-md p-3">
                 <div className="flex items-center justify-between mb-1">
                   <div className="font-cabinet font-bold text-[13px] flex-1 min-w-0 truncate">{s.client}</div>
                   <span className="font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded ml-2 shrink-0"
-                    style={{ background: s.priority === "alta" ? "#FF5A0020" : "#F3F3F1", color: s.priority === "alta" ? "#FF5A00" : "#52525B" }}>
+                    style={{ background: s.priority === "alta" ? "#B23E0020" : "#F3F3F1", color: s.priority === "alta" ? "#B23E00" : "#52525B" }}>
                     {s.priority}
                   </span>
                 </div>

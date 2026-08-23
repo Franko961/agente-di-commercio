@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import PublicHeader from "@/components/PublicHeader";
@@ -19,7 +19,7 @@ function WelcomeScreen({ onStart }) {
       <button
         onClick={onStart}
         data-testid="tour-start-button"
-        className="px-7 py-3.5 bg-[#FF5A00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors inline-flex items-center gap-2"
+        className="px-7 py-3.5 bg-[#B23E00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors inline-flex items-center gap-2"
       >
         Inizia <ArrowRight className="w-4 h-4" />
       </button>
@@ -33,7 +33,7 @@ function TourStep({ step, index, total, onNext, onPrev, onSkip, isLast }) {
     <div className="w-full max-w-4xl mx-auto">
       <div className="flex items-center justify-center gap-2 mb-10">
         {STEPS.map((_, i) => (
-          <div key={i} className={`h-1.5 rounded-full transition-all ${i === index ? "w-8 bg-[#FF5A00]" : "w-1.5 bg-[#E4E4E1]"}`} />
+          <div key={i} className={`h-1.5 rounded-full transition-all ${i === index ? "w-8 bg-[#B23E00]" : "w-1.5 bg-[#E4E4E1]"}`} />
         ))}
       </div>
 
@@ -42,7 +42,7 @@ function TourStep({ step, index, total, onNext, onPrev, onSkip, isLast }) {
           <Visual />
         </div>
         <div className="order-1 md:order-2 text-center md:text-left">
-          <div className="font-mono text-[11px] uppercase tracking-widest text-[#FF5A00] mb-2">
+          <div className="font-mono text-[11px] uppercase tracking-widest text-[#B23E00] mb-2">
             {index + 1} di {total}
           </div>
           <h2 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight mb-4">{step.title}</h2>
@@ -60,13 +60,13 @@ function TourStep({ step, index, total, onNext, onPrev, onSkip, isLast }) {
             <button
               onClick={onNext}
               data-testid="tour-next-button"
-              className="px-5 py-2.5 bg-[#FF5A00] text-white rounded-lg text-[14px] font-bold hover:bg-[#e04e00] transition-colors flex items-center gap-2"
+              className="px-5 py-2.5 bg-[#B23E00] text-white rounded-lg text-[14px] font-bold hover:bg-[#e04e00] transition-colors flex items-center gap-2"
             >
               {isLast ? "Inizia gratis" : "Avanti"} <ArrowRight className="w-4 h-4" />
             </button>
           </div>
           {!isLast && (
-            <button onClick={onSkip} className="mt-4 text-[13px] text-[#A1A1AA] hover:text-[#52525B] underline">
+            <button onClick={onSkip} className="mt-4 text-[13px] text-[#6B6B72] hover:text-[#52525B] underline">
               Salta il tour
             </button>
           )}

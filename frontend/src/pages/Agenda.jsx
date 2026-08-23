@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import api from "../api";
 import { Plus, Trash2, MapPin, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
@@ -43,7 +43,7 @@ export default function Agenda() {
     <div className="p-4 md:p-8">
       <div className="flex items-end justify-between border-b border-[#E4E4E1] pb-6 mb-6">
         <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Pianificazione</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-2">Pianificazione</div>
           <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Agenda & Visite</h1>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
@@ -89,26 +89,26 @@ export default function Agenda() {
           const dayAppts = appts.filter(a => isSameDay(parseISO(a.start), d));
           const isToday = isSameDay(d, new Date());
           return (
-            <div key={i} ref={isToday ? todayColRef : null} data-testid={`day-col-${format(d, "yyyy-MM-dd")}`} className={`bg-white border rounded-md p-3 min-h-[140px] ${isToday ? "border-[#FF5A00]" : "border-[#E4E4E1]"}`}>
+            <div key={i} ref={isToday ? todayColRef : null} data-testid={`day-col-${format(d, "yyyy-MM-dd")}`} className={`bg-white border rounded-md p-3 min-h-[140px] ${isToday ? "border-[#B23E00]" : "border-[#E4E4E1]"}`}>
               <div className="mb-3 pb-2 border-b border-[#E4E4E1]">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">{format(d, "EEEE", { locale: it })}</div>
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72]">{format(d, "EEEE", { locale: it })}</div>
                 <div className="font-cabinet font-black text-2xl">{format(d, "d")}</div>
               </div>
               <div className="space-y-2">
-                {dayAppts.length === 0 && <div className="text-[11px] text-[#A1A1AA]">—</div>}
+                {dayAppts.length === 0 && <div className="text-[11px] text-[#6B6B72]">—</div>}
                 {dayAppts.map((a) => {
                   const cli = clients.find(c => c.id === a.client_id);
                   return (
-                    <div key={a.id} data-testid={`appt-${a.id}`} className="bg-[#F9F9F8] border-l-2 border-[#FF5A00] p-2 rounded-r-md">
-                      <div className="font-mono text-[10px] text-[#FF5A00] font-bold">{format(parseISO(a.start), "HH:mm")}</div>
+                    <div key={a.id} data-testid={`appt-${a.id}`} className="bg-[#F9F9F8] border-l-2 border-[#B23E00] p-2 rounded-r-md">
+                      <div className="font-mono text-[10px] text-[#B23E00] font-bold">{format(parseISO(a.start), "HH:mm")}</div>
                       <div className="text-[12px] font-medium leading-tight mt-0.5">{a.title}</div>
                       {cli && <div className="text-[10px] text-[#52525B] mt-1 flex items-center gap-1"><MapPin className="w-2.5 h-2.5" />{cli.company_name}</div>}
                       <div className="flex gap-2 mt-1.5">
                         <button onClick={() => setEditTarget({ ...a, start: format(parseISO(a.start), "yyyy-MM-dd'T'HH:mm") })}
-                          className="text-[10px] text-[#A1A1AA] hover:text-[#0A192F] flex items-center gap-0.5">
+                          className="text-[10px] text-[#6B6B72] hover:text-[#0A192F] flex items-center gap-0.5">
                           <Pencil className="w-2.5 h-2.5" /> modifica
                         </button>
-                        <button onClick={() => deleteAppt(a.id)} className="text-[10px] text-[#A1A1AA] hover:text-red-500 flex items-center gap-0.5">
+                        <button onClick={() => deleteAppt(a.id)} className="text-[10px] text-[#6B6B72] hover:text-red-500 flex items-center gap-0.5">
                           <Trash2 className="w-2.5 h-2.5" /> elimina
                         </button>
                       </div>

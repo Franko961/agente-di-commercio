@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+﻿import { Link } from "react-router-dom";
 import { useCookieConsent } from "../contexts/CookieConsentContext";
 
 export default function CookieConsentBanner() {
@@ -24,7 +24,7 @@ export default function CookieConsentBanner() {
           {alreadyDecided && (
             <button
               onClick={closePreferences}
-              className="px-3 py-2 text-[13px] font-medium text-[#A1A1AA] hover:text-[#52525B]"
+              className="px-3 py-2 text-[13px] font-medium text-[#6B6B72] hover:text-[#52525B]"
             >
               Chiudi
             </button>

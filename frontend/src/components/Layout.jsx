@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Outlet, useLocation, NavLink, useNavigate, Link } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import MobileNav from "./MobileNav";
@@ -103,8 +103,8 @@ export default function Layout() {
         <header className="md:hidden sticky top-0 z-30 bg-white border-b border-[#E4E4E1] px-4 py-3 flex items-center justify-between">
           <div>
             <div className="font-cabinet font-black text-[15px] leading-none">{baseTitle}</div>
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-1 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: active?.brand_color || "#FF5A00" }} />
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mt-1 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: active?.brand_color || "#B23E00" }} />
               {active?.name || "Tutti i mandanti"}
             </div>
           </div>
@@ -116,14 +116,14 @@ export default function Layout() {
                 const next = ids[(ids.indexOf(activeMandante) + 1) % ids.length];
                 setActiveMandante(next);
               }}
-              className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00] border border-[#E4E4E1] px-2 py-1.5 rounded-md"
+              className="font-mono text-[10px] uppercase tracking-widest text-[#B23E00] border border-[#E4E4E1] px-2 py-1.5 rounded-md"
             >
               cambia
             </button>
             <Link
               to="/app/aiuto"
               data-testid="mobile-help-center-link"
-              className="w-8 h-8 flex items-center justify-center rounded-md text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-md text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] transition-colors"
             >
               <HelpCircle className="w-4 h-4" strokeWidth={1.75} />
             </Link>
@@ -141,7 +141,7 @@ export default function Layout() {
             <div className="flex flex-col h-full">
               <div className="px-5 py-4 border-b border-[#E4E4E1]">
                 <div className="font-cabinet font-black text-[15px]">Menu completo</div>
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-1">{user?.name}</div>
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mt-1">{user?.name}</div>
               </div>
               <nav className="flex-1 overflow-y-auto py-2">
                 {fullNav.filter(({ module, extra }) => {
@@ -157,7 +157,7 @@ export default function Layout() {
                     className={({ isActive }) =>
                       `flex items-center gap-3 px-5 py-3 text-sm border-l-2 ${
                         isActive
-                          ? "border-[#FF5A00] bg-[#F3F3F1] text-[#0A0A0A] font-semibold"
+                          ? "border-[#B23E00] bg-[#F3F3F1] text-[#0A0A0A] font-semibold"
                           : "border-transparent text-[#52525B]"
                       }`
                     }
@@ -168,7 +168,7 @@ export default function Layout() {
                 ))}
               </nav>
               {isAdmin && (
-                <NavLink to="/app/admin" onClick={() => setDrawerOpen(false)} className="mx-4 mb-1 flex items-center gap-2 px-3 py-2.5 bg-[#FF5A00] text-white rounded-md text-sm font-medium">
+                <NavLink to="/app/admin" onClick={() => setDrawerOpen(false)} className="mx-4 mb-1 flex items-center gap-2 px-3 py-2.5 bg-[#B23E00] text-white rounded-md text-sm font-medium">
                   <ShieldCheck className="w-4 h-4" /> Admin
                 </NavLink>
               )}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import api from "../api";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -54,7 +54,7 @@ function PresenzeWidget() {
     <Link to="/app/presenze" data-testid="presenze-widget"
       className="bg-white border border-[#E4E4E1] rounded-md p-5 flex items-center justify-between gap-4 hover:border-[#0A192F] transition-colors fade-up">
       <div>
-        <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-1">Presenze oggi</div>
+        <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mb-1">Presenze oggi</div>
         {summary.expected_today > 0 ? (
           <div className="font-cabinet font-black text-2xl text-[#0A0A0A]">
             {summary.clocked_today}/{summary.expected_today}
@@ -64,7 +64,7 @@ function PresenzeWidget() {
           <div className="text-[14px] text-[#52525B]">Nessun dipendente in turno oggi</div>
         )}
       </div>
-      <ArrowRight className="w-4 h-4 text-[#FF5A00] shrink-0" />
+      <ArrowRight className="w-4 h-4 text-[#B23E00] shrink-0" />
     </Link>
   );
 }
@@ -73,7 +73,7 @@ function ExtraModulesHome({ user, enabledExtraModules }) {
   return (
     <div className="p-4 md:p-8">
       <div className="border-b border-[#E4E4E1] pb-6 mb-6">
-        <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">
+        <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-2">
           Cruscotto · {format(new Date(), "EEEE d MMMM yyyy", { locale: it })}
         </div>
         <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Buongiorno{user?.name ? `, ${user.name.split(" ")[0]}` : ""}.</h1>
@@ -100,7 +100,7 @@ function ExtraModulesHome({ user, enabledExtraModules }) {
         })}
       </div>
       {enabledExtraModules.length === 0 && (
-        <p className="text-[13px] text-[#A1A1AA]">Nessun modulo attivo per questo account al momento.</p>
+        <p className="text-[13px] text-[#6B6B72]">Nessun modulo attivo per questo account al momento.</p>
       )}
     </div>
   );
@@ -115,18 +115,18 @@ const EXPENSE_CATEGORY_LABELS = {
 };
 // Colore fisso per categoria, coerente tra grafico mensile e grafico a torta
 const EXPENSE_CATEGORY_COLORS = {
-  carburante: "#FF5A00", vitto: "#059669", alloggio: "#7C3AED",
+  carburante: "#B23E00", vitto: "#059669", alloggio: "#7C3AED",
   pedaggio_parcheggio: "#0EA5E9", materiali: "#DC2626",
   inps: "#0A192F", enasarco: "#B45309", assicurazione_auto: "#DB2777",
-  commercialista: "#65A30D", altro: "#A1A1AA",
+  commercialista: "#65A30D", altro: "#6B6B72",
 };
 
 function KPICard({ label, value, sublabel, icon: Icon, accent }) {
   return (
     <div data-testid={`kpi-${label.toLowerCase().replace(/ /g, "-")}`} className="bg-white border border-[#E4E4E1] rounded-md p-5 fade-up">
       <div className="flex items-start justify-between mb-3">
-        <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">{label}</div>
-        <Icon className="w-4 h-4 text-[#A1A1AA]" strokeWidth={1.5} />
+        <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72]">{label}</div>
+        <Icon className="w-4 h-4 text-[#6B6B72]" strokeWidth={1.5} />
       </div>
       <div className="font-cabinet font-black text-3xl text-[#0A0A0A] tracking-tight">{value}</div>
       {sublabel && <div className={`mt-2 text-[12px] ${accent === "success" ? "text-[#059669]" : "text-[#52525B]"}`}>{sublabel}</div>}
@@ -190,7 +190,7 @@ function GoalRow({ label, current, target, pct, highlight }) {
     <div>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          {highlight && <Target className="w-4 h-4 text-[#FF5A00]" />}
+          {highlight && <Target className="w-4 h-4 text-[#B23E00]" />}
           <span className="font-mono text-[10px] uppercase tracking-widest text-[#52525B]">{label}</span>
         </div>
         <div className="font-mono text-[12px] text-[#0A0A0A] font-semibold">{safePct}%</div>
@@ -200,7 +200,7 @@ function GoalRow({ label, current, target, pct, highlight }) {
         <div className="text-[12px] text-[#52525B]">target {target}</div>
       </div>
       <div className="h-2 bg-[#F3F3F1] rounded-full overflow-hidden">
-        <div className="h-full bg-[#FF5A00] transition-all duration-500" style={{ width: `${Math.min(100, safePct)}%` }} />
+        <div className="h-full bg-[#B23E00] transition-all duration-500" style={{ width: `${Math.min(100, safePct)}%` }} />
       </div>
     </div>
   );
@@ -230,26 +230,26 @@ export default function Dashboard() {
 
   if (noCoreModules) return <ExtraModulesHome user={user} enabledExtraModules={enabledExtraModules} />;
 
-  if (!data) return <div className="p-8 font-mono text-sm text-[#A1A1AA]">caricamento dashboard…</div>;
+  if (!data) return <div className="p-8 font-mono text-sm text-[#6B6B72]">caricamento dashboard…</div>;
 
   const { kpi, by_zone, monthly, upcoming_appointments, pipeline, by_sector, expenses_monthly, expenses_by_category } = data;
   const pipelineData = Object.entries(pipeline).map(([k, v]) => ({ name: k, value: v }));
   const sectorData = (by_sector || []).filter(s => s.sector !== "Non specificato");
   const expenseCatData = (expenses_by_category || []).map(e => ({ ...e, label: EXPENSE_CATEGORY_LABELS[e.category] || e.category }));
   const expenseCategoriesPresent = (expenses_by_category || []).map(e => e.category);
-  const PIE_COLORS = ["#0A192F", "#172A45", "#52525B", "#FF5A00", "#059669", "#DC2626"];
+  const PIE_COLORS = ["#0A192F", "#172A45", "#52525B", "#B23E00", "#059669", "#DC2626"];
 
   return (
     <div className="p-4 md:p-8 space-y-6">
       {/* Header */}
       <div className="hidden md:flex items-end justify-between border-b border-[#E4E4E1] pb-6">
         <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Cruscotto · {format(new Date(), "EEEE d MMMM yyyy", { locale: it })}</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-2">Cruscotto · {format(new Date(), "EEEE d MMMM yyyy", { locale: it })}</div>
           <h1 className="font-cabinet font-black text-4xl tracking-tight">Buongiorno, agente.</h1>
           <p className="text-[14px] text-[#52525B] mt-2">Una panoramica viva del tuo portafoglio commerciale.</p>
         </div>
         <Link to="/app/ai" data-testid="dashboard-ai-cta" className="hidden md:flex items-center gap-2 px-4 py-2.5 bg-[#0A192F] hover:bg-[#172A45] text-white rounded-md text-[13px] font-medium transition-all">
-          Apri assistente AI <ArrowUpRight className="w-4 h-4 text-[#FF5A00]" />
+          Apri assistente AI <ArrowUpRight className="w-4 h-4 text-[#B23E00]" />
         </Link>
       </div>
 
@@ -257,7 +257,7 @@ export default function Dashboard() {
       {today && (
         <div className="bg-white border border-[#E4E4E1] rounded-md fade-up">
           <div className="px-5 pt-5 flex items-center justify-between">
-            <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00]">
+            <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00]">
               Oggi · {format(new Date(), "EEEE d MMMM", { locale: it })}
             </div>
           </div>
@@ -271,15 +271,15 @@ export default function Dashboard() {
           </div>
           {(focusClientSentence(today.focus_client) || projectionSentence(today)) && (
             <div className="mx-4 mb-4 mt-1 flex items-start gap-2.5 bg-[#FFF7ED] border border-[#FED7AA] rounded-md px-4 py-3">
-              <Sparkles className="w-4 h-4 text-[#FF5A00] shrink-0 mt-0.5" />
+              <Sparkles className="w-4 h-4 text-[#B23E00] shrink-0 mt-0.5" />
               <div className="text-[13px] text-[#0A0A0A] leading-snug space-y-1">
-                <span className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00] block mb-1">Suggerimento AI</span>
+                <span className="font-mono text-[10px] uppercase tracking-widest text-[#B23E00] block mb-1">Suggerimento AI</span>
                 {focusClientSentence(today.focus_client) && <div>{focusClientSentence(today.focus_client)}</div>}
                 {projectionSentence(today) && <div>{projectionSentence(today)}</div>}
               </div>
               {today.focus_client?.client_id && (
                 <Link to={`/app/clienti/${today.focus_client.client_id}`} className="ml-auto shrink-0 mt-0.5">
-                  <ArrowRight className="w-4 h-4 text-[#FF5A00]" />
+                  <ArrowRight className="w-4 h-4 text-[#B23E00]" />
                 </Link>
               )}
             </div>
@@ -332,7 +332,7 @@ export default function Dashboard() {
           />
         )}
         {(kpi.commissions_goal == null || kpi.new_clients_goal == null || kpi.visits_goal == null) && (
-          <Link to="/app/impostazioni" className="block text-[11px] text-[#A1A1AA] hover:text-[#FF5A00] font-mono">
+          <Link to="/app/impostazioni" className="block text-[11px] text-[#6B6B72] hover:text-[#B23E00] font-mono">
             + Imposta altri obiettivi (provvigioni, nuovi clienti, visite) →
           </Link>
         )}
@@ -343,7 +343,7 @@ export default function Dashboard() {
         <div className="lg:col-span-2 bg-white border border-[#E4E4E1] rounded-md p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">Andamento mensile</div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72]">Andamento mensile</div>
               <div className="font-cabinet font-bold text-lg mt-1">Fatturato per mese</div>
             </div>
           </div>
@@ -351,10 +351,10 @@ export default function Dashboard() {
             <ResponsiveContainer>
               <LineChart data={monthly}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E4E4E1" />
-                <XAxis dataKey="month" stroke="#A1A1AA" fontSize={11} />
-                <YAxis stroke="#A1A1AA" fontSize={11} tickFormatter={(v) => `€${(v/1000).toFixed(0)}k`} />
+                <XAxis dataKey="month" stroke="#6B6B72" fontSize={11} />
+                <YAxis stroke="#6B6B72" fontSize={11} tickFormatter={(v) => `€${(v/1000).toFixed(0)}k`} />
                 <Tooltip contentStyle={{ background: "white", border: "1px solid #E4E4E1", borderRadius: "6px" }} formatter={(v) => fmt(v)} />
-                <Line type="monotone" dataKey="revenue" stroke="#FF5A00" strokeWidth={2.5} dot={{ fill: "#0A192F", r: 4 }} />
+                <Line type="monotone" dataKey="revenue" stroke="#B23E00" strokeWidth={2.5} dot={{ fill: "#0A192F", r: 4 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -362,7 +362,7 @@ export default function Dashboard() {
 
         {/* Pipeline */}
         <div className="bg-white border border-[#E4E4E1] rounded-md p-5">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-1">Lead pipeline</div>
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mb-1">Lead pipeline</div>
           <div className="font-cabinet font-bold text-lg mb-3">Per stato</div>
           <div className="h-44">
             <ResponsiveContainer>
@@ -391,14 +391,14 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* By zone */}
         <div className="bg-white border border-[#E4E4E1] rounded-md p-5">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-1">Geografia</div>
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mb-1">Geografia</div>
           <div className="font-cabinet font-bold text-lg mb-3">Fatturato per zona</div>
           <div className="h-48">
             <ResponsiveContainer>
               <BarChart data={by_zone}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E4E4E1" />
-                <XAxis dataKey="zone" stroke="#A1A1AA" fontSize={11} />
-                <YAxis stroke="#A1A1AA" fontSize={11} tickFormatter={(v) => `€${(v/1000).toFixed(0)}k`} />
+                <XAxis dataKey="zone" stroke="#6B6B72" fontSize={11} />
+                <YAxis stroke="#6B6B72" fontSize={11} tickFormatter={(v) => `€${(v/1000).toFixed(0)}k`} />
                 <Tooltip contentStyle={{ background: "white", border: "1px solid #E4E4E1", borderRadius: "6px" }} formatter={(v) => fmt(v)} />
                 <Bar dataKey="revenue" fill="#0A192F" radius={[2, 2, 0, 0]} />
               </BarChart>
@@ -410,18 +410,18 @@ export default function Dashboard() {
         <div className="bg-white border border-[#E4E4E1] rounded-md p-5">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">Prossimi 7 giorni</div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72]">Prossimi 7 giorni</div>
               <div className="font-cabinet font-bold text-lg mt-1">Visite in agenda</div>
             </div>
-            <Link to="/app/agenda" className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00]">Vedi tutto</Link>
+            <Link to="/app/agenda" className="font-mono text-[10px] uppercase tracking-widest text-[#B23E00]">Vedi tutto</Link>
           </div>
           <div className="space-y-2">
-            {upcoming_appointments.length === 0 && <div className="text-[13px] text-[#A1A1AA] py-6 text-center">Nessuna visita pianificata.</div>}
+            {upcoming_appointments.length === 0 && <div className="text-[13px] text-[#6B6B72] py-6 text-center">Nessuna visita pianificata.</div>}
             {upcoming_appointments.map((a) => (
               <div key={a.id} data-testid={`upcoming-appt-${a.id}`} className="flex items-center gap-3 p-3 border border-[#E4E4E1] rounded-md hover:border-[#0A192F] transition-colors">
                 <div className="w-12 text-center shrink-0">
                   <div className="font-cabinet font-black text-lg leading-none">{format(parseISO(a.start), "d")}</div>
-                  <div className="font-mono text-[9px] uppercase tracking-widest text-[#A1A1AA] mt-0.5">{format(parseISO(a.start), "MMM", { locale: it })}</div>
+                  <div className="font-mono text-[9px] uppercase tracking-widest text-[#6B6B72] mt-0.5">{format(parseISO(a.start), "MMM", { locale: it })}</div>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-[13px] truncate">{a.title}</div>
@@ -435,7 +435,7 @@ export default function Dashboard() {
         {/* Grafico settori merceologici */}
         {sectorData.length > 0 && (
           <div className="bg-white border border-[#E4E4E1] rounded-md p-5">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-4">Clienti per settore</div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mb-4">Clienti per settore</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
@@ -463,7 +463,7 @@ export default function Dashboard() {
         {/* Spese: andamento mensile per categoria (barre impilate) */}
         <div className="bg-white border border-[#E4E4E1] rounded-md p-5">
           <div className="flex items-center justify-between mb-1">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">Note spese</div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72]">Note spese</div>
             <div className="font-mono text-[11px] text-[#52525B]">questo mese: <span className="font-cabinet font-bold text-[#0A0A0A]">{fmt(kpi.current_month_expenses)}</span></div>
           </div>
           <div className="font-cabinet font-bold text-lg mb-3">Spese per mese, per categoria</div>
@@ -471,14 +471,14 @@ export default function Dashboard() {
             <ResponsiveContainer>
               <BarChart data={expenses_monthly}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E4E4E1" />
-                <XAxis dataKey="month" stroke="#A1A1AA" fontSize={11} />
-                <YAxis stroke="#A1A1AA" fontSize={11} tickFormatter={(v) => `€${(v/1000).toFixed(1)}k`} />
+                <XAxis dataKey="month" stroke="#6B6B72" fontSize={11} />
+                <YAxis stroke="#6B6B72" fontSize={11} tickFormatter={(v) => `€${(v/1000).toFixed(1)}k`} />
                 <Tooltip
                   contentStyle={{ background: "white", border: "1px solid #E4E4E1", borderRadius: "6px" }}
                   formatter={(v, name) => [fmt(v), EXPENSE_CATEGORY_LABELS[name] || name]}
                 />
                 {expenseCategoriesPresent.map((cat) => (
-                  <Bar key={cat} dataKey={cat} stackId="spese" fill={EXPENSE_CATEGORY_COLORS[cat] || "#A1A1AA"} radius={[0, 0, 0, 0]} />
+                  <Bar key={cat} dataKey={cat} stackId="spese" fill={EXPENSE_CATEGORY_COLORS[cat] || "#6B6B72"} radius={[0, 0, 0, 0]} />
                 ))}
               </BarChart>
             </ResponsiveContainer>
@@ -486,7 +486,7 @@ export default function Dashboard() {
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
             {expenseCategoriesPresent.map((cat) => (
               <div key={cat} className="flex items-center gap-1.5 text-[11px] text-[#52525B]">
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: EXPENSE_CATEGORY_COLORS[cat] || "#A1A1AA" }} />
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: EXPENSE_CATEGORY_COLORS[cat] || "#6B6B72" }} />
                 {EXPENSE_CATEGORY_LABELS[cat] || cat}
               </div>
             ))}
@@ -496,12 +496,12 @@ export default function Dashboard() {
         {/* Spese per categoria */}
         {expenseCatData.length > 0 && (
           <div className="bg-white border border-[#E4E4E1] rounded-md p-5">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-4">Spese per categoria</div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mb-4">Spese per categoria</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie data={expenseCatData} dataKey="amount" nameKey="label" innerRadius={45} outerRadius={80} paddingAngle={2}>
-                    {expenseCatData.map((e) => <Cell key={e.category} fill={EXPENSE_CATEGORY_COLORS[e.category] || "#A1A1AA"} />)}
+                    {expenseCatData.map((e) => <Cell key={e.category} fill={EXPENSE_CATEGORY_COLORS[e.category] || "#6B6B72"} />)}
                   </Pie>
                   <Tooltip formatter={(v) => fmt(v)} />
                 </PieChart>
@@ -510,7 +510,7 @@ export default function Dashboard() {
                 {expenseCatData.map((e) => (
                   <div key={e.category} className="flex items-center justify-between text-[12px]">
                     <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: EXPENSE_CATEGORY_COLORS[e.category] || "#A1A1AA" }} />
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: EXPENSE_CATEGORY_COLORS[e.category] || "#6B6B72" }} />
                       <span className="text-[#52525B]">{e.label}</span>
                     </div>
                     <span className="font-cabinet font-bold">{fmt(e.amount)}</span>

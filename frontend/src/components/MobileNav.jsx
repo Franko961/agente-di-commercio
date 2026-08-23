@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+﻿import { NavLink } from "react-router-dom";
 import { LayoutDashboard, Users, CalendarDays, FileText, Menu } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -29,7 +29,7 @@ export default function MobileNav({ onMenu }) {
           data-testid={`mobile-nav-${to.replace("/", "") || "home"}`}
           className={({ isActive }) =>
             `flex-1 flex flex-col items-center justify-center gap-1 py-2.5 transition-colors duration-150 ${
-              isActive ? "text-[#0A192F]" : "text-[#A1A1AA]"
+              isActive ? "text-[#0A192F]" : "text-[#6B6B72]"
             }`
           }
         >
@@ -37,7 +37,7 @@ export default function MobileNav({ onMenu }) {
             <>
               <Icon className="w-5 h-5" strokeWidth={1.75} />
               <span className="text-[10px] font-medium tracking-wide">{label}</span>
-              {isActive && <span className="absolute bottom-0 w-8 h-0.5 bg-[#FF5A00]" />}
+              {isActive && <span className="absolute bottom-0 w-8 h-0.5 bg-[#B23E00]" />}
             </>
           )}
         </NavLink>
@@ -45,7 +45,7 @@ export default function MobileNav({ onMenu }) {
       <button
         onClick={onMenu}
         data-testid="mobile-menu-button"
-        className="flex-1 flex flex-col items-center justify-center gap-1 py-2.5 text-[#A1A1AA]"
+        className="flex-1 flex flex-col items-center justify-center gap-1 py-2.5 text-[#6B6B72]"
       >
         <Menu className="w-5 h-5" strokeWidth={1.75} />
         <span className="text-[10px] font-medium tracking-wide">Menu</span>

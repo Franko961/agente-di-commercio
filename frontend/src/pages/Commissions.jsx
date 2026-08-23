@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import api from "../api";
 import { Coins, Download, Trash2, Pencil, Trophy, ChevronRight, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
@@ -214,7 +214,7 @@ const periodGroups = useMemo(
     <div className="p-4 md:p-8">
       <div className="border-b border-[#E4E4E1] pb-6 mb-6 flex items-end justify-between">
         <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Guadagni</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-2">Guadagni</div>
           <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Provvigioni</h1>
         </div>
         <button
@@ -229,17 +229,17 @@ const periodGroups = useMemo(
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <div className="bg-white border border-[#E4E4E1] rounded-md p-5">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-2">Maturato</div>
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mb-2">Maturato</div>
           <div className="font-cabinet font-black text-3xl">{fmt(accrued + manualAccrued)}</div>
           <div className="text-[11px] text-[#52525B] mt-2">In attesa di incasso</div>
         </div>
         <div className="bg-white border border-[#E4E4E1] rounded-md p-5">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-2">Incassato</div>
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mb-2">Incassato</div>
           <div className="font-cabinet font-black text-3xl text-[#059669]">{fmt(collected + manualCollected)}</div>
           <div className="text-[11px] text-[#52525B] mt-2">Già ricevuto</div>
         </div>
         <div className="bg-[#0A192F] text-white rounded-md p-5 col-span-2 lg:col-span-1">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00] mb-2">Totale generato</div>
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#B23E00] mb-2">Totale generato</div>
           <div className="font-cabinet font-black text-3xl">{fmt(accrued + collected + manualTotal)}</div>
           <div className="text-[11px] text-white/60 mt-2">
             {commissions.length} provvigioni totali
@@ -257,13 +257,13 @@ const periodGroups = useMemo(
       <div className="bg-white border border-[#E4E4E1] rounded-md p-5 mb-6">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Coins className="w-4 h-4 text-[#FF5A00]" />
+            <Coins className="w-4 h-4 text-[#B23E00]" />
             <span className="font-mono text-[11px] uppercase tracking-widest text-[#52525B]">
               {editingManualId ? "Modifica provvigione manuale" : "Nuova provvigione manuale"}
             </span>
           </div>
           {editingManualId && (
-            <button onClick={startNewManualEntry} className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] hover:text-[#0A192F]">
+            <button onClick={startNewManualEntry} className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] hover:text-[#0A192F]">
               Annulla modifica
             </button>
           )}
@@ -372,7 +372,7 @@ const periodGroups = useMemo(
       {bonusSummary.length > 0 && (
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
-            <Trophy className="w-4 h-4 text-[#FF5A00]" />
+            <Trophy className="w-4 h-4 text-[#B23E00]" />
             <span className="font-mono text-[11px] uppercase tracking-widest text-[#52525B]">Scala premi maturati</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -395,7 +395,7 @@ const periodGroups = useMemo(
                       <span className="font-cabinet font-bold text-[15px]">{b.mandante_name}</span>
                     </div>
                     <div className="text-right">
-                      <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">Bonus totale</div>
+                      <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72]">Bonus totale</div>
                       <div className="font-cabinet font-black text-xl text-[#059669]">{fmt(b.total_bonus)}</div>
                     </div>
                   </div>
@@ -407,11 +407,11 @@ const periodGroups = useMemo(
                       <span className="font-cabinet font-bold">{fmt(b.fatturato)}</span>
                     </div>
                     <div className="w-full bg-[#F3F3F1] rounded-full h-2">
-                      <div className="h-2 rounded-full bg-[#FF5A00] transition-all"
+                      <div className="h-2 rounded-full bg-[#B23E00] transition-all"
                         style={{ width: `${progress}%` }} />
                     </div>
                     {b.next_tier && (
-                      <div className="text-[11px] text-[#A1A1AA] mt-1.5 flex items-center gap-1">
+                      <div className="text-[11px] text-[#6B6B72] mt-1.5 flex items-center gap-1">
                         <ChevronRight className="w-3 h-3" />
                         Mancano {fmt(toNext)} per il prossimo premio di {fmt(b.next_tier.bonus)}
                       </div>
@@ -431,7 +431,7 @@ const periodGroups = useMemo(
                             <div className={`w-2 h-2 rounded-full ${reached ? "bg-[#059669]" : "bg-[#E4E4E1]"}`} />
                             <span className="text-[#52525B]">≥ {fmt(t.threshold)}</span>
                           </div>
-                          <span className={`font-cabinet font-bold ${reached ? "text-[#059669]" : "text-[#A1A1AA]"}`}>
+                          <span className={`font-cabinet font-bold ${reached ? "text-[#059669]" : "text-[#6B6B72]"}`}>
                             +{fmt(t.bonus)}
                           </span>
                         </div>
@@ -486,7 +486,7 @@ const periodGroups = useMemo(
                 className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-[#F3F3F1] hover:bg-[#EDEDEA] transition-colors text-left"
               >
                 <span className="flex items-center gap-2 font-cabinet font-bold text-[14px]">
-                  <ChevronDown className={`w-4 h-4 text-[#A1A1AA] shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`w-4 h-4 text-[#6B6B72] shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                   {group.label}
                 </span>
                 <span className="font-mono text-[11px] uppercase tracking-widest text-[#52525B]">
@@ -509,31 +509,31 @@ const periodGroups = useMemo(
                       <div className="font-mono">{entry.period}</div>
                       <div className="col-span-2 font-medium text-[#52525B] flex flex-col gap-0.5">
                         <span className="flex items-center gap-1.5">
-                          <Coins className="w-3.5 h-3.5 text-[#FF5A00]" /> Inserita manualmente
+                          <Coins className="w-3.5 h-3.5 text-[#B23E00]" /> Inserita manualmente
                         </span>
                         {(manualClientName || entry.descrizione) && (
-                          <span className="text-[11px] text-[#A1A1AA] pl-5">
+                          <span className="text-[11px] text-[#6B6B72] pl-5">
                             {[manualClientName, entry.descrizione].filter(Boolean).join(" · ")}
                           </span>
                         )}
                       </div>
-                      <div className="text-[#A1A1AA]">{manualMandanteName || "—"}</div>
-                      <div className="font-mono text-[#A1A1AA] capitalize">{entry.tipo || "ordinaria"}</div>
+                      <div className="text-[#6B6B72]">{manualMandanteName || "—"}</div>
+                      <div className="font-mono text-[#6B6B72] capitalize">{entry.tipo || "ordinaria"}</div>
                       <div className="text-right">
                         <div className="font-cabinet font-bold">{fmt(entry.amount)}</div>
                         <div className="font-mono text-[10px] uppercase tracking-widest mt-1"
-                          style={{ color: entry.stato === "incassato" ? "#059669" : "#FF5A00" }}>
+                          style={{ color: entry.stato === "incassato" ? "#059669" : "#B23E00" }}>
                           {entry.stato || "maturato"}
                         </div>
                       </div>
                       <div className="flex justify-end gap-1">
                         <button onClick={() => startEditManualEntry(entry)}
-                          className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors"
+                          className="p-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors"
                           title="Modifica" aria-label="Modifica provvigione manuale">
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button onClick={() => removeManualCommission(entry.id, entry.period)}
-                          className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                          className="p-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded transition-colors"
                           title="Rimuovi provvigione manuale" aria-label="Rimuovi provvigione manuale">
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -547,7 +547,7 @@ const periodGroups = useMemo(
           );
         })}
         {periodGroups.length === 0 && (
-          <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#A1A1AA] text-[13px]">Nessuna provvigione.</div>
+          <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#6B6B72] text-[13px]">Nessuna provvigione.</div>
         )}
       </div>
     </div>
@@ -564,19 +564,19 @@ function CommissionRow({ c, clients, mandanti, onToggleStatus, onDelete }) {
       <div className="text-[#52525B]">{m?.name || "—"}</div>
       <div className="font-mono">
         {c.rate}%
-        {c.sale_type && <span className="text-[#A1A1AA] ml-1">({c.sale_type})</span>}
+        {c.sale_type && <span className="text-[#6B6B72] ml-1">({c.sale_type})</span>}
       </div>
       <div className="text-right">
         <div className="font-cabinet font-bold">{fmt(c.amount)}</div>
         <button onClick={() => onToggleStatus(c.id, c.status === "maturato" ? "incassato" : "maturato")}
           className="font-mono text-[10px] uppercase tracking-widest mt-1"
-          style={{ color: c.status === "incassato" ? "#059669" : "#FF5A00" }}>
+          style={{ color: c.status === "incassato" ? "#059669" : "#B23E00" }}>
           {c.status} ↻
         </button>
       </div>
       <div className="flex justify-end">
         <button onClick={() => onDelete(c.id)}
-          className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+          className="p-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded transition-colors"
           title="Elimina provvigione" aria-label="Elimina provvigione">
           <Trash2 className="w-4 h-4" />
         </button>

@@ -1,4 +1,4 @@
-import { NavLink, Link, useNavigate } from "react-router-dom";
+﻿import { NavLink, Link, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, KanbanSquare, CalendarDays, Map, FileText, ShoppingCart,
   Coins, Building2, Package, Folder, Sparkles, Zap, LogOut, ArrowLeftRight, ShieldCheck, CreditCard, Settings as SettingsIcon, Receipt,
@@ -60,7 +60,7 @@ export default function Sidebar({ collapsed, onToggle }) {
           </div>
           <div className="min-w-0">
             <div className="font-cabinet font-black text-[15px] leading-none">SALESFLY.</div>
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-0.5">gestionale</div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mt-0.5">gestionale</div>
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -69,7 +69,7 @@ export default function Sidebar({ collapsed, onToggle }) {
             data-testid="help-center-link"
             title="Centro assistenza"
             aria-label="Centro assistenza"
-            className="w-8 h-8 flex items-center justify-center rounded-md text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-md text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] transition-colors"
           >
             <HelpCircle className="w-4 h-4" strokeWidth={1.75} />
           </Link>
@@ -79,7 +79,7 @@ export default function Sidebar({ collapsed, onToggle }) {
 
       {/* Mandante switcher */}
       <div className="px-4 py-4 border-b border-[#E4E4E1]">
-        <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-2">Mandante attivo</div>
+        <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mb-2">Mandante attivo</div>
         <button
           data-testid="mandante-switcher"
           onClick={() => {
@@ -90,10 +90,10 @@ export default function Sidebar({ collapsed, onToggle }) {
           className="w-full flex items-center justify-between px-3 py-2 border border-[#E4E4E1] hover:border-[#0A192F] rounded-md transition-all duration-200"
         >
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-2 h-2 rounded-full shrink-0" style={{ background: active?.brand_color || "#FF5A00" }} />
+            <div className="w-2 h-2 rounded-full shrink-0" style={{ background: active?.brand_color || "#B23E00" }} />
             <span className="font-medium text-[13px] truncate">{active?.name || "Tutti i mandanti"}</span>
           </div>
-          <ArrowLeftRight className="w-3.5 h-3.5 text-[#A1A1AA]" />
+          <ArrowLeftRight className="w-3.5 h-3.5 text-[#6B6B72]" />
         </button>
       </div>
 
@@ -111,7 +111,7 @@ export default function Sidebar({ collapsed, onToggle }) {
             className={({ isActive }) =>
               `flex items-center gap-3 px-6 py-2.5 text-[13px] transition-all duration-150 border-l-2 ${
                 isActive
-                  ? "border-[#FF5A00] bg-[#F3F3F1] text-[#0A0A0A] font-semibold"
+                  ? "border-[#B23E00] bg-[#F3F3F1] text-[#0A0A0A] font-semibold"
                   : "border-transparent text-[#52525B] hover:bg-[#F9F9F8] hover:text-[#0A0A0A]"
               }`
             }
@@ -125,17 +125,21 @@ export default function Sidebar({ collapsed, onToggle }) {
       {/* User */}
       <div className="p-4 border-t border-[#E4E4E1]">
         <div className="flex items-center gap-3 mb-3">
+          {/* FF5A00 originale, non B23E00: qui è testo arancione su sfondo
+          blu scuro, non su chiaro — la versione scurita ridurrebbe il
+          contrasto invece di migliorarlo (verificato: 5.63:1 con
+          l'originale contro 3.0:1 con la versione scurita). */}
           <div className="w-9 h-9 rounded-full bg-[#0A192F] text-[#FF5A00] flex items-center justify-center font-cabinet font-bold text-sm">
             {user?.name?.[0] || "A"}
           </div>
           <div className="min-w-0 flex-1">
             <div className="font-medium text-[13px] truncate">{user?.name}</div>
-            <div className="font-mono text-[10px] text-[#A1A1AA] truncate">{user?.email}</div>
+            <div className="font-mono text-[10px] text-[#6B6B72] truncate">{user?.email}</div>
           </div>
         </div>
         {isAdmin && (
           <NavLink to="/app/admin"
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-[#FF5A00] text-white rounded-md text-[12px] font-medium mb-2"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-[#B23E00] text-white rounded-md text-[12px] font-medium mb-2"
           >
             <ShieldCheck className="w-3.5 h-3.5" /> Admin
           </NavLink>
@@ -143,7 +147,7 @@ export default function Sidebar({ collapsed, onToggle }) {
         <Link to="/app/abbonamento" className="mx-1 mb-2 flex items-center justify-between px-3 py-2 bg-[#F3F3F1] hover:bg-[#E4E4E1] rounded-md transition-colors">
           <span className="font-mono text-[10px] uppercase tracking-widest text-[#52525B]">Abbonamento</span>
           <span className="font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded"
-            style={{ background: user?.plan === "pro" ? "#FF5A0020" : "#0A192F15", color: user?.plan === "pro" ? "#FF5A00" : "#0A192F" }}>
+            style={{ background: user?.plan === "pro" ? "#B23E0020" : "#0A192F15", color: user?.plan === "pro" ? "#B23E00" : "#0A192F" }}>
             {user?.plan || "base"}
           </span>
         </Link>

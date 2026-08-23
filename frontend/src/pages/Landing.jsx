@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Users, KanbanSquare, CalendarDays, Map, FileText, Coins,
@@ -49,14 +49,14 @@ function PhoneMockupScreen() {
   return (
     <div className="h-full w-full bg-[#F9F9F8] overflow-hidden text-[#0A0A0A] flex flex-col">
       <div className="px-3.5 pt-7 pb-3">
-        <div className="font-mono text-[6px] uppercase tracking-[0.2em] text-[#FF5A00] mb-1">
+        <div className="font-mono text-[6px] uppercase tracking-[0.2em] text-[#B23E00] mb-1">
           Cruscotto · Lunedì 27 Luglio
         </div>
         <div className="font-cabinet font-black text-[15px] tracking-tight leading-none">Buongiorno, agente.</div>
       </div>
 
       <div className="mx-3 bg-white border border-[#E4E4E1] rounded-md overflow-hidden shrink-0">
-        <div className="px-2.5 pt-2 font-mono text-[6px] uppercase tracking-[0.15em] text-[#FF5A00]">Oggi</div>
+        <div className="px-2.5 pt-2 font-mono text-[6px] uppercase tracking-[0.15em] text-[#B23E00]">Oggi</div>
         <div className="grid grid-cols-3 gap-y-1.5 px-2 py-2">
           {stats.map(({ icon: Icon, value, label }) => (
             <div key={label} className="flex items-center gap-1">
@@ -71,9 +71,9 @@ function PhoneMockupScreen() {
           ))}
         </div>
         <div className="mx-2 mb-2 flex items-start gap-1 bg-[#FFF7ED] border border-[#FED7AA] rounded px-1.5 py-1.5">
-          <Sparkles className="w-2 h-2 text-[#FF5A00] shrink-0 mt-0.5" />
+          <Sparkles className="w-2 h-2 text-[#B23E00] shrink-0 mt-0.5" />
           <div className="text-[5px] text-[#0A0A0A] leading-snug">
-            <div className="font-mono text-[4px] uppercase tracking-widest text-[#FF5A00] mb-0.5">Suggerimento AI</div>
+            <div className="font-mono text-[4px] uppercase tracking-widest text-[#B23E00] mb-0.5">Suggerimento AI</div>
             Visita prima Rossi Spa: l'offerta scade venerdì.
           </div>
         </div>
@@ -85,7 +85,7 @@ function PhoneMockupScreen() {
           { label: "Provvigioni", value: 3313 },
         ].map(({ label, value }) => (
           <div key={label} className="bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5">
-            <div className="font-mono text-[4px] uppercase tracking-widest text-[#A1A1AA]">{label}</div>
+            <div className="font-mono text-[4px] uppercase tracking-widest text-[#6B6B72]">{label}</div>
             <div className="font-cabinet font-black text-[9px] mt-0.5">
               <CountUp end={value} prefix="€" />
             </div>
@@ -96,13 +96,13 @@ function PhoneMockupScreen() {
       <div className="mx-3 mt-2 bg-white border border-[#E4E4E1] rounded-md px-2.5 py-2 shrink-0">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-1">
-            <Target className="w-2 h-2 text-[#FF5A00]" />
+            <Target className="w-2 h-2 text-[#B23E00]" />
             <span className="font-mono text-[4.5px] uppercase tracking-widest text-[#52525B]">Fatturato del mese</span>
           </div>
           <span className="font-mono text-[6px] font-semibold">100%</span>
         </div>
         <div className="h-1 bg-[#F3F3F1] rounded-full overflow-hidden">
-          <div className="h-full bg-[#FF5A00] rounded-full" style={{ width: "100%" }} />
+          <div className="h-full bg-[#B23E00] rounded-full" style={{ width: "100%" }} />
         </div>
       </div>
 
@@ -129,8 +129,8 @@ function PhoneMockupScreen() {
           { icon: FileText, label: "Offerte" },
         ].map(({ icon: Icon, label, active }) => (
           <div key={label} className="flex flex-col items-center gap-0.5 px-1">
-            <Icon className="w-2.5 h-2.5" strokeWidth={active ? 2.5 : 1.75} color={active ? "#FF5A00" : "#A1A1AA"} />
-            <span className={`text-[3.5px] font-mono uppercase tracking-widest ${active ? "text-[#FF5A00]" : "text-[#A1A1AA]"}`}>{label}</span>
+            <Icon className="w-2.5 h-2.5" strokeWidth={active ? 2.5 : 1.75} color={active ? "#B23E00" : "#6B6B72"} />
+            <span className={`text-[3.5px] font-mono uppercase tracking-widest ${active ? "text-[#B23E00]" : "text-[#6B6B72]"}`}>{label}</span>
           </div>
         ))}
       </div>
@@ -148,7 +148,7 @@ function PhoneMockup() {
         </div>
       </div>
       {/* Ombra/riflesso decorativo dietro il telefono */}
-      <div className="absolute -z-10 -inset-6 bg-gradient-to-br from-[#FF5A00]/10 to-[#0A192F]/10 rounded-[3rem] blur-2xl" />
+      <div className="absolute -z-10 -inset-6 bg-gradient-to-br from-[#B23E00]/10 to-[#0A192F]/10 rounded-[3rem] blur-2xl" />
     </div>
   );
 }
@@ -297,7 +297,7 @@ export default function Landing() {
               <PhoneMockup />
             </div>
             <div className="order-2 text-center">
-              <div className="inline-block font-mono text-[12px] font-bold uppercase tracking-[0.15em] text-[#FF5A00] bg-[#FF5A00]/10 border border-[#FF5A00]/20 rounded-full px-4 py-1.5 mb-5">
+              <div className="inline-block font-mono text-[12px] font-bold uppercase tracking-[0.15em] text-[#B23E00] bg-[#B23E00]/10 border border-[#B23E00]/20 rounded-full px-4 py-1.5 mb-5">
                 Il CRM per agenti plurimandatari
               </div>
               <h1 className="font-cabinet font-black text-4xl md:text-5xl tracking-tight mb-6">
@@ -318,7 +318,7 @@ export default function Landing() {
                     key={label}
                     className="flex items-center gap-1.5 bg-white border border-[#E4E4E1] rounded-full px-3.5 py-1.5 text-[13px] font-medium text-[#3F3F46]"
                   >
-                    <Icon className="w-3.5 h-3.5 text-[#FF5A00]" />
+                    <Icon className="w-3.5 h-3.5 text-[#B23E00]" />
                     {label}
                   </div>
                 ))}
@@ -326,7 +326,7 @@ export default function Landing() {
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button
                   onClick={() => navigate("/richiedi-demo")}
-                  className="w-full sm:w-auto px-6 py-3.5 bg-[#FF5A00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto px-6 py-3.5 bg-[#B23E00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors flex items-center justify-center gap-2"
                 >
                   Prova gratis {trialDays} giorni <ArrowRight className="w-4 h-4" />
                 </button>
@@ -337,7 +337,7 @@ export default function Landing() {
                   Vedi i prezzi
                 </button>
               </div>
-              <div className="font-mono text-[11px] uppercase tracking-widest text-[#A1A1AA] mt-5">
+              <div className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B72] mt-5">
                 Nessuna carta di credito richiesta
               </div>
             </div>
@@ -381,7 +381,7 @@ export default function Landing() {
               ["03", "Vendi e monitora", "Registra offerte e vendite: provvigioni e bonus si calcolano da soli."],
             ].map(([n, t, d], i) => (
               <Reveal key={n} delay={i * 100}>
-                <div className="font-cabinet font-black text-3xl text-[#FF5A00] mb-3">{n}</div>
+                <div className="font-cabinet font-black text-3xl text-[#B23E00] mb-3">{n}</div>
                 <div className="font-cabinet font-bold text-[16px] mb-2">{t}</div>
                 <p className="text-[13px] text-[#52525B] leading-relaxed">{d}</p>
               </Reveal>
@@ -403,7 +403,7 @@ export default function Landing() {
                   <Reveal key={i} delay={(i % 3) * 80} className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-xl p-5">
                     <div className="flex items-center gap-0.5 mb-3">
                       {[1, 2, 3, 4, 5].map((n) => (
-                        <Star key={n} className={`w-4 h-4 ${n <= t.rating ? "fill-[#FF5A00] text-[#FF5A00]" : "text-[#E4E4E1]"}`} />
+                        <Star key={n} className={`w-4 h-4 ${n <= t.rating ? "fill-[#B23E00] text-[#B23E00]" : "text-[#E4E4E1]"}`} />
                       ))}
                     </div>
                     {t.text && <p className="text-[14px] text-[#3F3F46] leading-relaxed mb-3">"{t.text}"</p>}
@@ -426,7 +426,7 @@ export default function Landing() {
             </p>
             <button
               onClick={() => navigate("/richiedi-demo")}
-              className="px-7 py-3.5 bg-[#FF5A00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors inline-flex items-center gap-2"
+              className="px-7 py-3.5 bg-[#B23E00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors inline-flex items-center gap-2"
             >
               Inizia gratis <ArrowRight className="w-4 h-4" />
             </button>
@@ -454,14 +454,14 @@ export default function Landing() {
             <button onClick={openPreferences} className="hover:text-[#0A192F]">Cookie</button>
             <Link to="/login" className="hover:text-[#0A192F]">Accedi</Link>
           </nav>
-          <div className="flex items-center gap-3 text-[12px] text-[#A1A1AA]">
+          <div className="flex items-center gap-3 text-[12px] text-[#6B6B72]">
             <span>© 2026 SALESFLY. · Gestionale per agenti di commercio</span>
             <a
               href="https://www.facebook.com/salesflycrm"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="SalesFly su Facebook"
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-[#0A192F] text-white hover:bg-[#FF5A00] transition-colors shrink-0"
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-[#0A192F] text-white hover:bg-[#B23E00] transition-colors shrink-0"
             >
               <Facebook className="w-4 h-4" />
             </a>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import api from "../api";
 import { Plus, Trash2, Zap, Clock, CheckCircle2, AlertTriangle, History, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
@@ -79,7 +79,7 @@ export default function Automations() {
     <div className="p-4 md:p-8">
       <div className="flex items-end justify-between border-b border-[#E4E4E1] pb-6 mb-6">
         <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Produttività</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-2">Produttività</div>
           <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Automazioni</h1>
           <p className="text-[14px] text-[#52525B] mt-2">Riduci il lavoro manuale con regole automatiche.</p>
         </div>
@@ -100,24 +100,24 @@ export default function Automations() {
         {items.map(a => (
           <div key={a.id} data-testid={`automation-${a.id}`} className="bg-white border border-[#E4E4E1] rounded-md p-5">
             <div className="flex items-center gap-4">
-              <div className={`w-10 h-10 rounded-md flex items-center justify-center shrink-0 ${a.enabled ? "bg-[#FF5A00]" : "bg-[#F3F3F1]"}`}>
-                <Zap className={`w-5 h-5 ${a.enabled ? "text-white" : "text-[#A1A1AA]"}`} />
+              <div className={`w-10 h-10 rounded-md flex items-center justify-center shrink-0 ${a.enabled ? "bg-[#B23E00]" : "bg-[#F3F3F1]"}`}>
+                <Zap className={`w-5 h-5 ${a.enabled ? "text-white" : "text-[#6B6B72]"}`} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-cabinet font-bold text-[15px]">{a.name}</div>
                 <div className="text-[12px] text-[#52525B] mt-1">
-                  <span className="font-mono uppercase tracking-widest text-[10px] text-[#FF5A00]">quando</span> {TRIGGERS[a.trigger] || a.trigger} →
+                  <span className="font-mono uppercase tracking-widest text-[10px] text-[#B23E00]">quando</span> {TRIGGERS[a.trigger] || a.trigger} →
                   <span className="font-mono uppercase tracking-widest text-[10px] text-[#0A192F] ml-1">allora</span> {ACTIONS[a.action] || a.action}
                 </div>
                 <ConfigSummary automation={a} />
               </div>
               <Switch checked={a.enabled} onCheckedChange={() => toggle(a)} data-testid={`toggle-automation-${a.id}`} />
               <button onClick={() => setEditing(a)} data-testid={`edit-automation-${a.id}`} title="Modifica" aria-label="Modifica automazione"
-                className="p-1.5 -m-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors">
+                className="p-1.5 -m-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors">
                 <Pencil className="w-4 h-4" />
               </button>
               <button onClick={async () => { await api.delete(`/automations/${a.id}`); load(); }} title="Elimina automazione" aria-label="Elimina automazione"
-                className="p-1.5 -m-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors">
+                className="p-1.5 -m-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded transition-colors">
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
@@ -126,7 +126,7 @@ export default function Automations() {
           </div>
         ))}
         {items.length === 0 && (
-          <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[13px] text-[#A1A1AA]">
+          <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[13px] text-[#6B6B72]">
             Nessuna automazione configurata.
           </div>
         )}
@@ -164,7 +164,7 @@ function ConfigSummary({ automation: a }) {
   const isCommissionsDigest = a.trigger === "commissions_below_target_mid_month";
   if (daysValue == null && !cooldown && !runAt && !hasCustomEmail && !isTask && !isCommissionsDigest) return null;
   return (
-    <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-1">
+    <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mt-1">
       {daysValue != null && `${daysValue} giorni`}
       {isCommissionsDigest && `giorno ${a.config?.check_day ?? 15} · sotto il ${a.config?.threshold_pct ?? 50}%`}
       {cooldown ? ` · si ripete ogni ${cooldown} giorni` : ""}
@@ -178,7 +178,7 @@ function ConfigSummary({ automation: a }) {
 function LastRunSummary({ automation: a, onShowHistory }) {
   if (!a.last_run_at) {
     return (
-      <div className="mt-3 pt-3 border-t border-[#F3F3F1] text-[11px] text-[#A1A1AA] font-mono uppercase tracking-widest">
+      <div className="mt-3 pt-3 border-t border-[#F3F3F1] text-[11px] text-[#6B6B72] font-mono uppercase tracking-widest">
         Ancora nessuna esecuzione — la regola verrà valutata al prossimo ciclo (ogni 10 minuti)
       </div>
     );
@@ -229,9 +229,9 @@ function RunHistoryDialog({ automation, onClose }) {
         </DialogHeader>
 
         <div className="max-h-[60vh] overflow-y-auto -mx-1 px-1">
-          {runs === null && <div className="text-[13px] text-[#A1A1AA] py-6 text-center">caricamento…</div>}
+          {runs === null && <div className="text-[13px] text-[#6B6B72] py-6 text-center">caricamento…</div>}
           {runs && runs.length === 0 && (
-            <div className="text-[13px] text-[#A1A1AA] py-6 text-center">Nessuna esecuzione registrata per questa regola.</div>
+            <div className="text-[13px] text-[#6B6B72] py-6 text-center">Nessuna esecuzione registrata per questa regola.</div>
           )}
           {runs && runs.length > 0 && (
             <div className="space-y-2">
@@ -239,11 +239,11 @@ function RunHistoryDialog({ automation, onClose }) {
                 <div key={`${r.automation_id}-${r.target_id}`} data-testid={`run-${r.target_id}`}
                      className="border border-[#E4E4E1] rounded-md p-3 text-[12px]">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono uppercase tracking-widest text-[10px] text-[#A1A1AA]">{r.target_type}</span>
+                    <span className="font-mono uppercase tracking-widest text-[10px] text-[#6B6B72]">{r.target_type}</span>
                     <span className={`font-mono uppercase tracking-widest text-[10px] px-1.5 py-0.5 rounded ${
                       r.status === "ok" ? "bg-[#05966915] text-[#059669]"
                         : r.status === "failed_permanent" ? "bg-[#DC262615] text-[#DC2626]"
-                        : "bg-[#FF5A0015] text-[#FF5A00]"
+                        : "bg-[#B23E0015] text-[#B23E00]"
                     }`}>
                       {r.status === "ok" ? "riuscita" : r.status === "failed_permanent" ? "fallita definitivamente" : "in errore"}
                     </span>
@@ -317,7 +317,7 @@ function AutoForm({ initial, onSave }) {
         <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Nome regola *</label>
         <input required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })}
                className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
-        <p className="text-[11px] text-[#A1A1AA] mt-1">
+        <p className="text-[11px] text-[#6B6B72] mt-1">
           {sendsEmail && !f.config?.email_subject
             ? "Usato anche come oggetto dell'email, se non imposti un oggetto personalizzato qui sotto."
             : ""}
@@ -372,7 +372,7 @@ function AutoForm({ initial, onSave }) {
               className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
             />
           </div>
-          <p className="text-[11px] text-[#A1A1AA] col-span-2">
+          <p className="text-[11px] text-[#6B6B72] col-span-2">
             Segnala solo se, al giorno indicato, le provvigioni totali del mese (maturate + incassate) sono sotto questa percentuale del tuo obiettivo mensile (impostato in Impostazioni). Richiede un obiettivo provvigioni configurato.
           </p>
         </div>
@@ -428,7 +428,7 @@ function AutoForm({ initial, onSave }) {
               className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
             />
           </div>
-          <p className="text-[11px] text-[#A1A1AA] col-span-2">
+          <p className="text-[11px] text-[#6B6B72] col-span-2">
             Il task viene piazzato a quest'ora (fuso orario italiano), i giorni di ritardo dopo il rilevamento della condizione.
           </p>
         </div>
@@ -460,7 +460,7 @@ function AutoForm({ initial, onSave }) {
               placeholder="es. Ciao {nome}, non ti vediamo da un po'…"
               className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
             />
-            <p className="text-[11px] text-[#A1A1AA] mt-1">
+            <p className="text-[11px] text-[#6B6B72] mt-1">
               Puoi usare <code>{"{nome}"}</code>{f.trigger === "offer_expiring" ? <>, <code>{"{scadenza}"}</code></> : <>, <code>{"{citta}"}</code></>} — vengono sostituiti con i dati reali.
             </p>
           </div>
@@ -476,7 +476,7 @@ function AutoForm({ initial, onSave }) {
           onChange={(e) => setConfigText("run_at", e.target.value)}
           className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]"
         />
-        <p className="text-[11px] text-[#A1A1AA] mt-1">
+        <p className="text-[11px] text-[#6B6B72] mt-1">
           Se impostato, la regola viene valutata una volta al giorno a quest'ora invece che ad ogni ciclo (ogni 10 minuti).
         </p>
       </div>

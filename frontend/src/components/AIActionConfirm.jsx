@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { ShieldAlert, Check, Pencil, X, Loader2 } from "lucide-react";
 
 export const EXPENSE_CATEGORY_LABELS = {
@@ -38,7 +38,7 @@ export default function AIActionConfirm({ action, onConfirm, onCancel, busy }) {
 
   return (
     <div data-testid="ai-action-confirm" className="border border-[#FED7AA] bg-[#FFF7ED] rounded-md p-4 space-y-3">
-      <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-[#FF5A00]">
+      <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-[#B23E00]">
         <ShieldAlert className="w-3.5 h-3.5" /> Operazione da registrare
       </div>
 
@@ -70,7 +70,7 @@ export default function AIActionConfirm({ action, onConfirm, onCancel, busy }) {
               {fields.description && <Row label="Descrizione" value={fields.description} />}
               {fields.client_name && <Row label="Cliente" value={fields.client_name} />}
               {!fields.client_name && fields.client_not_found && (
-                <Row label="Cliente" value={<span className="text-[#A1A1AA]">'{fields.client_not_found}' non trovato</span>} />
+                <Row label="Cliente" value={<span className="text-[#6B6B72]">'{fields.client_not_found}' non trovato</span>} />
               )}
             </>
           )}
@@ -83,11 +83,11 @@ export default function AIActionConfirm({ action, onConfirm, onCancel, busy }) {
               {fields.descrizione && <Row label="Descrizione" value={fields.descrizione} />}
               {fields.mandante_name && <Row label="Mandante" value={fields.mandante_name} />}
               {!fields.mandante_name && fields.mandante_not_found && (
-                <Row label="Mandante" value={<span className="text-[#A1A1AA]">'{fields.mandante_not_found}' non trovato</span>} />
+                <Row label="Mandante" value={<span className="text-[#6B6B72]">'{fields.mandante_not_found}' non trovato</span>} />
               )}
               {fields.client_name && <Row label="Cliente" value={fields.client_name} />}
               {!fields.client_name && fields.client_not_found && (
-                <Row label="Cliente" value={<span className="text-[#A1A1AA]">'{fields.client_not_found}' non trovato</span>} />
+                <Row label="Cliente" value={<span className="text-[#6B6B72]">'{fields.client_not_found}' non trovato</span>} />
               )}
             </>
           )}
@@ -203,7 +203,7 @@ export default function AIActionConfirm({ action, onConfirm, onCancel, busy }) {
           data-testid="ai-action-cancel-btn"
           onClick={onCancel}
           disabled={busy}
-          className="flex items-center gap-1.5 px-3 py-2 text-[#A1A1AA] hover:text-red-500 rounded-md text-[12px] font-medium disabled:opacity-50 ml-auto"
+          className="flex items-center gap-1.5 px-3 py-2 text-[#6B6B72] hover:text-red-500 rounded-md text-[12px] font-medium disabled:opacity-50 ml-auto"
         >
           <X className="w-3.5 h-3.5" /> Annulla
         </button>

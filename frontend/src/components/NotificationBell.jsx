@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+﻿import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Bell, CheckCheck } from "lucide-react";
 import { formatDistanceToNow, parseISO } from "date-fns";
@@ -61,7 +61,7 @@ export default function NotificationBell() {
           {unread.length > 0 && (
             <span
               data-testid="notification-unread-count"
-              className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[#FF5A00] text-white text-[9px] font-mono font-bold flex items-center justify-center"
+              className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[#B23E00] text-white text-[9px] font-mono font-bold flex items-center justify-center"
             >
               {unread.length > 9 ? "9+" : unread.length}
             </span>
@@ -75,7 +75,7 @@ export default function NotificationBell() {
             <button
               onClick={markAllRead}
               data-testid="mark-all-read-button"
-              className="flex items-center gap-1 text-[11px] font-mono uppercase tracking-widest text-[#FF5A00] hover:underline"
+              className="flex items-center gap-1 text-[11px] font-mono uppercase tracking-widest text-[#B23E00] hover:underline"
             >
               <CheckCheck className="w-3 h-3" /> segna tutte lette
             </button>
@@ -83,21 +83,21 @@ export default function NotificationBell() {
         </div>
         <div className="overflow-y-auto divide-y divide-[#E4E4E1]">
           {notifications.length === 0 && (
-            <div className="px-4 py-8 text-center text-[12px] text-[#A1A1AA]">Nessuna notifica</div>
+            <div className="px-4 py-8 text-center text-[12px] text-[#6B6B72]">Nessuna notifica</div>
           )}
           {notifications.slice(0, 20).map((n) => (
             <button
               key={n.id}
               data-testid={`notification-${n.id}`}
               onClick={() => !n.read && markRead(n.id)}
-              className={`w-full text-left px-4 py-3 hover:bg-[#F9F9F8] transition-colors ${!n.read ? "bg-[#FF5A00]/5" : ""}`}
+              className={`w-full text-left px-4 py-3 hover:bg-[#F9F9F8] transition-colors ${!n.read ? "bg-[#B23E00]/5" : ""}`}
             >
               <div className="flex items-start gap-2">
-                {!n.read && <span className="w-1.5 h-1.5 rounded-full bg-[#FF5A00] shrink-0 mt-1.5" />}
+                {!n.read && <span className="w-1.5 h-1.5 rounded-full bg-[#B23E00] shrink-0 mt-1.5" />}
                 <div className={`min-w-0 flex-1 ${n.read ? "pl-3.5" : ""}`}>
                   <div className={`text-[12px] ${!n.read ? "font-semibold" : "font-medium text-[#52525B]"} truncate`}>{n.title}</div>
                   <div className="text-[11px] text-[#52525B] mt-0.5 line-clamp-2">{n.message}</div>
-                  <div className="font-mono text-[9px] uppercase tracking-widest text-[#A1A1AA] mt-1">
+                  <div className="font-mono text-[9px] uppercase tracking-widest text-[#6B6B72] mt-1">
                     {n.created_at && formatDistanceToNow(parseISO(n.created_at), { addSuffix: true, locale: it })}
                   </div>
                 </div>

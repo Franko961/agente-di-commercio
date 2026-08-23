@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import api from "../api";
 
 // Colori puramente visivi per piano — non sono dati di business, restano qui
 // invece che nel backend. Se aggiungi un piano nuovo, aggiungi anche il colore.
 const PLAN_COLORS = {
   base: "#0A192F",
-  pro: "#FF5A00",
+  pro: "#B23E00",
 };
 
 // Cache a livello di modulo: più pagine usano questo hook nella stessa sessione

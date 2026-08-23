@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import api from "../api";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
@@ -31,7 +31,7 @@ export default function Products() {
     <div className="p-4 md:p-8">
       <div className="flex items-end justify-between border-b border-[#E4E4E1] pb-6 mb-6">
         <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Catalogo</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-2">Catalogo</div>
           <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Prodotti & Listini</h1>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
@@ -80,27 +80,27 @@ export default function Products() {
             <div key={p.id} data-testid={`product-${p.id}`} className="grid grid-cols-2 md:grid-cols-8 gap-2 px-4 py-3 border-b border-[#E4E4E1] items-center text-[13px]">
               <div className="col-span-2">
                 <div className="font-medium">{p.name}</div>
-                <div className="font-mono text-[10px] text-[#A1A1AA]">{p.category}</div>
+                <div className="font-mono text-[10px] text-[#6B6B72]">{p.category}</div>
               </div>
               <div className="font-mono text-[12px]">{p.sku || "—"}</div>
               <div className="text-[#52525B] flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: mand?.brand_color || "#A1A1AA" }} />
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: mand?.brand_color || "#6B6B72" }} />
                 {mand?.name}
               </div>
               <div className="text-right font-cabinet font-bold">{fmt(p.price)}</div>
               <div className="text-right font-mono text-[12px] text-[#059669]">{margin}%</div>
               <div className="col-span-2 flex justify-end gap-1">
-                <button onClick={() => setEditTarget(p)} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica" aria-label="Modifica prodotto">
+                <button onClick={() => setEditTarget(p)} className="p-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica" aria-label="Modifica prodotto">
                   <Pencil className="w-4 h-4" />
                 </button>
-                <button onClick={() => deleteProduct(p.id, p.name)} className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors" title="Elimina" aria-label="Elimina prodotto">
+                <button onClick={() => deleteProduct(p.id, p.name)} className="p-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded transition-colors" title="Elimina" aria-label="Elimina prodotto">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
             </div>
           );
         })}
-        {filtered.length === 0 && <div className="p-8 text-center text-[#A1A1AA] text-[13px]">Nessun prodotto.</div>}
+        {filtered.length === 0 && <div className="p-8 text-center text-[#6B6B72] text-[13px]">Nessun prodotto.</div>}
       </div>
     </div>
   );

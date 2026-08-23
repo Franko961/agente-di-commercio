@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+﻿import { useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { Eraser, Check, Download } from "lucide-react";
 import { jsPDF } from "jspdf";
@@ -130,7 +130,7 @@ export default function SignaturePad({ offer, client, mandante, onSign, onClose 
   return (
     <div className="space-y-4">
       <div className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-md p-4">
-        <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-1">Stai firmando</div>
+        <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mb-1">Stai firmando</div>
         <div className="font-cabinet font-bold text-lg leading-tight">{offer.title}</div>
         <div className="text-[12px] text-[#52525B] mt-1">{client?.company_name} · {fmt(offer.total)}</div>
       </div>
@@ -148,7 +148,7 @@ export default function SignaturePad({ offer, client, mandante, onSign, onClose 
       <div>
         <div className="flex items-center justify-between mb-1.5">
           <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B]">Firma qui sotto</label>
-          <button onClick={clear} type="button" className="flex items-center gap-1 text-[11px] font-mono uppercase tracking-widest text-[#A1A1AA] hover:text-[#DC2626]">
+          <button onClick={clear} type="button" className="flex items-center gap-1 text-[11px] font-mono uppercase tracking-widest text-[#6B6B72] hover:text-[#DC2626]">
             <Eraser className="w-3 h-3" /> pulisci
           </button>
         </div>
@@ -163,7 +163,7 @@ export default function SignaturePad({ offer, client, mandante, onSign, onClose 
             }}
           />
         </div>
-        <div className="font-mono text-[10px] text-[#A1A1AA] mt-2">Usa il dito o il mouse per firmare. Verrà generato un PDF con la firma.</div>
+        <div className="font-mono text-[10px] text-[#6B6B72] mt-2">Usa il dito o il mouse per firmare. Verrà generato un PDF con la firma.</div>
       </div>
 
       <div className="flex justify-end gap-2 pt-2 border-t border-[#E4E4E1]">
@@ -173,7 +173,7 @@ export default function SignaturePad({ offer, client, mandante, onSign, onClose 
           onClick={submit} disabled={busy}
           className="px-4 py-2 bg-[#0A192F] hover:bg-[#172A45] text-white rounded-md text-[13px] font-medium flex items-center gap-2 disabled:opacity-50"
         >
-          <Check className="w-4 h-4 text-[#FF5A00]" />
+          <Check className="w-4 h-4 text-[#B23E00]" />
           {busy ? "Firma in corso…" : "Firma e genera PDF"}
         </button>
       </div>

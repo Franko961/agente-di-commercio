@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+﻿import { useEffect, useState, useRef } from "react";
 import api from "../api";
 import { Plus, FileText, Trash2, Upload, Download, FileSpreadsheet, Video, FileImage, File as FileIcon, X, Eye, Tag, Loader2, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "../components/ui/dialog";
@@ -8,7 +8,7 @@ import { it } from "date-fns/locale";
 import DocumentPreview from "../components/DocumentPreview";
 import { compressVideo, formatBytes } from "../utils/videoCompress";
 
-const CAT_COLORS = { contratto: "#0A192F", offerta: "#FF5A00", fattura: "#059669", listino: "#6B2C2C", video: "#7C3AED", scontrino: "#B45309", altro: "#52525B" };
+const CAT_COLORS = { contratto: "#0A192F", offerta: "#B23E00", fattura: "#059669", listino: "#6B2C2C", video: "#7C3AED", scontrino: "#B45309", altro: "#52525B" };
 const FILE_BASE = process.env.REACT_APP_BACKEND_URL;
 const MAX_MB = 50;
 const VIDEO_COMPRESS_THRESHOLD = 8 * 1024 * 1024; // 8 MB
@@ -29,7 +29,7 @@ function fileTypeColor(contentType, filename) {
   if (ct.startsWith("video/") || ["mp4", "mov", "webm"].includes(ext)) return "#7C3AED";
   if (ct.includes("spreadsheet") || ct.includes("excel") || ["xls", "xlsx", "csv"].includes(ext)) return "#059669";
   if (ct.includes("pdf") || ext === "pdf") return "#DC2626";
-  if (ct.startsWith("image/")) return "#FF5A00";
+  if (ct.startsWith("image/")) return "#B23E00";
   return "#52525B";
 }
 
@@ -94,20 +94,20 @@ export default function Documents() {
     <div className="p-4 md:p-8">
       <div className="flex items-end justify-between border-b border-[#E4E4E1] pb-6 mb-6">
         <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Archivio</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-2">Archivio</div>
           <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Documenti</h1>
           <p className="text-[14px] text-[#52525B] mt-2 hidden md:block">PDF, Excel, video con anteprima inline e tag personalizzati.</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <button data-testid="new-doc-button" className="flex items-center gap-2 px-4 py-2.5 bg-[#0A192F] hover:bg-[#172A45] text-white rounded-md text-[13px] font-medium">
-              <Upload className="w-4 h-4 text-[#FF5A00]" /> Carica documento
+              <Upload className="w-4 h-4 text-[#B23E00]" /> Carica documento
             </button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle className="font-cabinet">Nuovo documento</DialogTitle>
-              <DialogDescription className="text-[12px] text-[#A1A1AA]">PDF · Excel · Word · Video · Immagini fino a {MAX_MB} MB.</DialogDescription>
+              <DialogDescription className="text-[12px] text-[#6B6B72]">PDF · Excel · Word · Video · Immagini fino a {MAX_MB} MB.</DialogDescription>
             </DialogHeader>
             <UploadForm
               clients={clients}
@@ -134,15 +134,15 @@ export default function Documents() {
       {/* Tag filter chips */}
       {allTags.length > 0 && (
         <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <Tag className="w-3 h-3 text-[#A1A1AA]" />
+          <Tag className="w-3 h-3 text-[#6B6B72]" />
           <button onClick={() => setTagFilter("")} data-testid="tag-filter-all"
-                  className={`px-2 py-1 rounded text-[11px] font-mono uppercase tracking-widest ${tagFilter === "" ? "bg-[#FF5A00] text-white" : "bg-white border border-[#E4E4E1] text-[#52525B]"}`}>
+                  className={`px-2 py-1 rounded text-[11px] font-mono uppercase tracking-widest ${tagFilter === "" ? "bg-[#B23E00] text-white" : "bg-white border border-[#E4E4E1] text-[#52525B]"}`}>
             tutti i tag
           </button>
           {allTags.map(t => (
             <button key={t} onClick={() => setTagFilter(tagFilter === t ? "" : t)}
                     data-testid={`tag-filter-${t}`}
-                    className={`px-2 py-1 rounded text-[11px] font-mono lowercase ${tagFilter === t ? "bg-[#FF5A00] text-white" : "bg-white border border-[#E4E4E1] text-[#52525B] hover:border-[#FF5A00]"}`}>
+                    className={`px-2 py-1 rounded text-[11px] font-mono lowercase ${tagFilter === t ? "bg-[#B23E00] text-white" : "bg-white border border-[#E4E4E1] text-[#52525B] hover:border-[#B23E00]"}`}>
               #{t}
             </button>
           ))}
@@ -164,13 +164,13 @@ export default function Documents() {
                   <Icon className="w-5 h-5" style={{ color }} />
                 </button>
                 <button data-testid={`delete-doc-${d.id}`} onClick={() => remove(d.id)} title="Elimina documento" aria-label="Elimina documento"
-                  className="p-1.5 -m-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                  className="p-1.5 -m-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
               <div className="font-cabinet font-bold text-[14px] leading-tight flex-1">{d.name}</div>
-              {d.original_filename && <div className="font-mono text-[10px] text-[#A1A1AA] mt-1 truncate">{d.original_filename}</div>}
+              {d.original_filename && <div className="font-mono text-[10px] text-[#6B6B72] mt-1 truncate">{d.original_filename}</div>}
               <div className="flex items-center justify-between mt-2">
                 <div className="font-mono text-[10px] uppercase tracking-widest" style={{ color: CAT_COLORS[d.category] || "#52525B" }}>{d.category}</div>
-                {d.size && <div className="font-mono text-[10px] text-[#A1A1AA]">{formatBytes(d.size)}</div>}
+                {d.size && <div className="font-mono text-[10px] text-[#6B6B72]">{formatBytes(d.size)}</div>}
               </div>
               {d.tags?.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
@@ -180,7 +180,7 @@ export default function Documents() {
                 </div>
               )}
               {cli && <div className="text-[12px] text-[#52525B] mt-3 pt-3 border-t border-[#E4E4E1] truncate">{cli.company_name}</div>}
-              <div className="text-[10px] text-[#A1A1AA] font-mono mt-1">
+              <div className="text-[10px] text-[#6B6B72] font-mono mt-1">
                 {d.created_at ? format(parseISO(d.created_at), "d MMM yyyy", { locale: it }) : ""}
               </div>
               <div className="grid grid-cols-2 gap-1 mt-3">
@@ -202,9 +202,9 @@ export default function Documents() {
         })}
         {filtered.length === 0 && (
           <div className="md:col-span-3 bg-white border border-[#E4E4E1] rounded-md p-12 text-center">
-            <Upload className="w-8 h-8 text-[#A1A1AA] mx-auto mb-3" />
+            <Upload className="w-8 h-8 text-[#6B6B72] mx-auto mb-3" />
             <div className="text-[14px] font-medium text-[#0A0A0A]">Nessun documento</div>
-            <div className="text-[12px] text-[#A1A1AA] mt-1">Carica il primo file (PDF, Excel, video, immagini fino a {MAX_MB} MB).</div>
+            <div className="text-[12px] text-[#6B6B72] mt-1">Carica il primo file (PDF, Excel, video, immagini fino a {MAX_MB} MB).</div>
           </div>
         )}
       </div>
@@ -319,7 +319,7 @@ function UploadForm({ clients, existingTags, onDone }) {
         onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
         onDragLeave={() => setDrag(false)}
         onDrop={(e) => { e.preventDefault(); setDrag(false); onPick(e.dataTransfer.files[0]); }}
-        className={`border-2 border-dashed rounded-md p-6 text-center cursor-pointer transition-colors ${drag ? "border-[#FF5A00] bg-[#FF5A00]/5" : "border-[#E4E4E1] hover:border-[#0A192F] bg-[#F9F9F8]"}`}
+        className={`border-2 border-dashed rounded-md p-6 text-center cursor-pointer transition-colors ${drag ? "border-[#B23E00] bg-[#B23E00]/5" : "border-[#E4E4E1] hover:border-[#0A192F] bg-[#F9F9F8]"}`}
       >
         <input
           ref={fileInputRef} type="file"
@@ -331,7 +331,7 @@ function UploadForm({ clients, existingTags, onDone }) {
         {file ? (
           <div>
             <div className="font-cabinet font-bold text-[14px]">{file.name}</div>
-            <div className="font-mono text-[11px] text-[#A1A1AA] mt-1">{formatBytes(file.size)}</div>
+            <div className="font-mono text-[11px] text-[#6B6B72] mt-1">{formatBytes(file.size)}</div>
             {willCompress && (
               <div className="mt-2 inline-flex items-center gap-1.5 bg-[#7C3AED]/10 text-[#7C3AED] text-[10px] font-mono uppercase tracking-widest px-2 py-1 rounded">
                 <Sparkles className="w-3 h-3" /> sarà compresso in webm
@@ -345,9 +345,9 @@ function UploadForm({ clients, existingTags, onDone }) {
           </div>
         ) : (
           <div>
-            <Upload className="w-7 h-7 text-[#A1A1AA] mx-auto mb-2" />
+            <Upload className="w-7 h-7 text-[#6B6B72] mx-auto mb-2" />
             <div className="text-[13px] font-medium">Trascina un file o clicca per selezionarlo</div>
-            <div className="font-mono text-[10px] text-[#A1A1AA] mt-1 uppercase tracking-widest">PDF · Excel · Word · Video · Immagini · max {MAX_MB} MB</div>
+            <div className="font-mono text-[10px] text-[#6B6B72] mt-1 uppercase tracking-widest">PDF · Excel · Word · Video · Immagini · max {MAX_MB} MB</div>
           </div>
         )}
       </div>
@@ -387,7 +387,7 @@ function UploadForm({ clients, existingTags, onDone }) {
         <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Tag personalizzati</label>
         <div className="bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 flex flex-wrap items-center gap-1 focus-within:border-[#0A192F] transition-colors">
           {tags.map(t => (
-            <span key={t} data-testid={`tag-chip-${t}`} className="flex items-center gap-1 bg-[#FF5A00]/10 text-[#FF5A00] text-[11px] font-mono lowercase px-2 py-0.5 rounded">
+            <span key={t} data-testid={`tag-chip-${t}`} className="flex items-center gap-1 bg-[#B23E00]/10 text-[#B23E00] text-[11px] font-mono lowercase px-2 py-0.5 rounded">
               #{t}
               <button type="button" onClick={() => setTags(tags.filter(x => x !== t))} className="hover:text-[#DC2626]">
                 <X className="w-3 h-3" />
@@ -406,9 +406,9 @@ function UploadForm({ clients, existingTags, onDone }) {
         </div>
         {existingTags?.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
-            <span className="font-mono text-[10px] text-[#A1A1AA] uppercase tracking-widest">suggeriti:</span>
+            <span className="font-mono text-[10px] text-[#6B6B72] uppercase tracking-widest">suggeriti:</span>
             {existingTags.filter(t => !tags.includes(t)).slice(0, 8).map(t => (
-              <button key={t} type="button" onClick={() => addTag(t)} className="text-[10px] font-mono lowercase text-[#52525B] hover:text-[#FF5A00]">#{t}</button>
+              <button key={t} type="button" onClick={() => addTag(t)} className="text-[10px] font-mono lowercase text-[#52525B] hover:text-[#B23E00]">#{t}</button>
             ))}
           </div>
         )}
@@ -430,14 +430,14 @@ function UploadForm({ clients, existingTags, onDone }) {
             <span>{progress}%</span>
           </div>
           <div className="bg-[#F3F3F1] rounded-full h-1.5 overflow-hidden">
-            <div className="h-full bg-[#FF5A00] transition-all" style={{ width: `${progress}%` }} />
+            <div className="h-full bg-[#B23E00] transition-all" style={{ width: `${progress}%` }} />
           </div>
         </div>
       )}
 
       <button data-testid="save-doc-button" type="submit" disabled={busy || !file}
               className="w-full bg-[#0A192F] hover:bg-[#172A45] text-white py-2.5 rounded-md text-[13px] font-medium disabled:opacity-50 flex items-center justify-center gap-2">
-        <Upload className="w-4 h-4 text-[#FF5A00]" />
+        <Upload className="w-4 h-4 text-[#B23E00]" />
         {busy ? `${phase === "compressing" ? "Compressione" : "Caricamento"} ${progress}%…` : "Carica documento"}
       </button>
     </form>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import api from "../api";
 import { Plus, Trash2, FileText, Send, Check, X, Download, PenLine } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
@@ -13,7 +13,7 @@ import { useMandante } from "../contexts/MandanteContext";
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
 
 const STATUS_COLORS = {
-  bozza: "#A1A1AA", inviata: "#FF5A00", accettata: "#059669", rifiutata: "#DC2626", scaduta: "#52525B"
+  bozza: "#6B6B72", inviata: "#B23E00", accettata: "#059669", rifiutata: "#DC2626", scaduta: "#52525B"
 };
 
 export default function Offers() {
@@ -52,7 +52,7 @@ export default function Offers() {
     <div className="p-4 md:p-8">
       <div className="flex items-end justify-between border-b border-[#E4E4E1] pb-6 mb-6">
         <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Trattative</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-2">Trattative</div>
           <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Offerte & Preventivi</h1>
         </div>
         <div className="flex items-center gap-2">
@@ -87,18 +87,18 @@ export default function Offers() {
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div className="font-mono text-[10px] uppercase tracking-widest" style={{ color: STATUS_COLORS[o.status] }}>{o.status}</div>
                 <button onClick={async () => { await api.delete(`/offers/${o.id}`); load(); }} title="Elimina offerta" aria-label="Elimina offerta"
-                  className="p-1.5 -m-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                  className="p-1.5 -m-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
               <div className="font-cabinet font-bold text-[15px] leading-tight mb-2">{o.title}</div>
               {o.sale_type && (
-                <div className={`inline-block font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded mb-2 ${o.sale_type === "rinnovo" ? "bg-[#F3F3F1] text-[#52525B]" : "bg-[#FFF3EC] text-[#FF5A00]"}`}>
+                <div className={`inline-block font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded mb-2 ${o.sale_type === "rinnovo" ? "bg-[#F3F3F1] text-[#52525B]" : "bg-[#FFF3EC] text-[#B23E00]"}`}>
                   {o.sale_type === "rinnovo" ? "rinnovo" : "nuovo"}
                 </div>
               )}
               <div className="text-[12px] text-[#52525B]">{cli?.company_name}</div>
-              {mand && <div className="flex items-center gap-1.5 text-[11px] text-[#A1A1AA] mt-1"><span className="w-1.5 h-1.5 rounded-full" style={{ background: mand.brand_color }} />{mand.name}</div>}
+              {mand && <div className="flex items-center gap-1.5 text-[11px] text-[#6B6B72] mt-1"><span className="w-1.5 h-1.5 rounded-full" style={{ background: mand.brand_color }} />{mand.name}</div>}
               <div className="font-cabinet font-black text-2xl mt-3">{fmt(o.total)}</div>
-              <div className="font-mono text-[10px] text-[#A1A1AA] mt-1">{o.items?.length || 0} righe</div>
+              <div className="font-mono text-[10px] text-[#6B6B72] mt-1">{o.items?.length || 0} righe</div>
               {o.expires_at && (
                 <div className={`font-mono text-[10px] uppercase tracking-widest mt-2 ${expired ? "text-[#DC2626]" : "text-[#52525B]"}`}>
                   scade {format(parseISO(o.expires_at), "d MMM yyyy", { locale: it })}
@@ -114,14 +114,14 @@ export default function Offers() {
                 onClick={() => setSignOffer(o)}
                 className="mt-2 w-full flex items-center justify-center gap-1.5 text-[11px] font-mono uppercase tracking-widest bg-[#0A192F] hover:bg-[#172A45] text-white py-2 rounded"
               >
-                <PenLine className="w-3 h-3 text-[#FF5A00]" />
+                <PenLine className="w-3 h-3 text-[#B23E00]" />
                 {o.signature ? "ri-firma & PDF" : "firma & PDF"}
               </button>
             </div>
           );
         })}
       </div>
-      {offers.length === 0 && <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#A1A1AA] text-[13px]">Nessuna offerta. Creane una.</div>}
+      {offers.length === 0 && <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#6B6B72] text-[13px]">Nessuna offerta. Creane una.</div>}
 
       {/* Signature dialog */}
       <Dialog open={!!signOffer} onOpenChange={(v) => !v && setSignOffer(null)}>
@@ -225,7 +225,7 @@ function OfferForm({ clients, mandanti, products, onSave }) {
             </div>
           ))}
         </div>
-        <button type="button" onClick={addItem} className="mt-2 text-[12px] font-mono uppercase tracking-widest text-[#FF5A00]">+ aggiungi riga</button>
+        <button type="button" onClick={addItem} className="mt-2 text-[12px] font-mono uppercase tracking-widest text-[#B23E00]">+ aggiungi riga</button>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>

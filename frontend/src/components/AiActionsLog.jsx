@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { History, RefreshCw, Loader2, Mic, MessageSquare } from "lucide-react";
 import api from "../api";
 import { EXPENSE_CATEGORY_LABELS } from "./AIActionConfirm";
@@ -15,8 +15,8 @@ const TOOL_LABELS = {
 const STATUS_STYLE = {
   eseguita: { label: "Eseguita", bg: "#DCFCE7", fg: "#16A34A" },
   confermata: { label: "Confermata", bg: "#DCFCE7", fg: "#16A34A" },
-  in_attesa: { label: "In attesa", bg: "#FFF7ED", fg: "#FF5A00" },
-  in_esecuzione: { label: "In esecuzione", bg: "#FFF7ED", fg: "#FF5A00" },
+  in_attesa: { label: "In attesa", bg: "#FFF7ED", fg: "#B23E00" },
+  in_esecuzione: { label: "In esecuzione", bg: "#FFF7ED", fg: "#B23E00" },
   annullata: { label: "Annullata", bg: "#F3F3F1", fg: "#52525B" },
   fallita: { label: "Fallita", bg: "#FEE2E2", fg: "#DC2626" },
 };
@@ -81,7 +81,7 @@ export default function AiActionsLog() {
   return (
     <div>
       <div className="mb-6">
-        <div className="font-mono text-[11px] uppercase tracking-widest text-[#FF5A00] mb-1">Impostazioni</div>
+        <div className="font-mono text-[11px] uppercase tracking-widest text-[#B23E00] mb-1">Impostazioni</div>
         <h1 className="font-cabinet text-3xl font-black">Registro AI</h1>
         <p className="text-[#52525B] mt-1">
           Ogni azione compiuta dall'assistente sul CRM — chi l'ha chiesta, con quale comando, con quali dati e con quale esito.
@@ -123,9 +123,9 @@ export default function AiActionsLog() {
 
       <div className="border border-[#E4E4E1] rounded-lg overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-[13px] text-[#A1A1AA]">Caricamento…</div>
+          <div className="p-8 text-center text-[13px] text-[#6B6B72]">Caricamento…</div>
         ) : logs.length === 0 ? (
-          <div className="p-8 text-center text-[13px] text-[#A1A1AA] flex flex-col items-center gap-2">
+          <div className="p-8 text-center text-[13px] text-[#6B6B72] flex flex-col items-center gap-2">
             <History className="w-5 h-5" /> Nessuna azione registrata con questi filtri.
           </div>
         ) : (

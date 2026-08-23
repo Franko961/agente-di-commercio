@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useNavigate, Navigate, useSearchParams, Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
@@ -104,17 +104,17 @@ export default function Login() {
             </div>
             <div>
               <div className="font-cabinet font-black text-[16px] leading-none">SALESFLY.</div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-0.5">gestionale per agenti di commercio</div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mt-0.5">gestionale per agenti di commercio</div>
             </div>
           </div>
-          <Link to="/prezzi" className="text-[12px] font-mono uppercase tracking-widest text-[#FF5A00] hover:underline hidden sm:block">
+          <Link to="/prezzi" className="text-[12px] font-mono uppercase tracking-widest text-[#B23E00] hover:underline hidden sm:block">
             Piani & Prezzi →
           </Link>
         </header>
 
         <div className="flex-1 flex items-center">
           <div className="w-full max-w-md fade-up">
-            <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#FF5A00] mb-3">
+            <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#B23E00] mb-3">
               01 — Accesso
             </div>
             <h1 className="font-cabinet font-black text-4xl sm:text-5xl tracking-tight text-[#0A0A0A] mb-3">
@@ -125,7 +125,7 @@ export default function Login() {
             </p>
 
             {paywall && (
-              <div data-testid="trial-expired-paywall" className="bg-white border-2 border-[#FF5A00] rounded-lg p-6 mb-6">
+              <div data-testid="trial-expired-paywall" className="bg-white border-2 border-[#B23E00] rounded-lg p-6 mb-6">
                 <h2 className="font-cabinet font-black text-xl mb-2">Il tuo periodo di prova è scaduto</h2>
                 <p className="text-[13px] text-[#52525B] mb-5">
                   I {trialDays} giorni di prova gratuita per <strong>{email}</strong> sono terminati.
@@ -133,7 +133,7 @@ export default function Login() {
                 </p>
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   {Object.entries(plansById).map(([id, p]) => (
-                    <div key={id} className={`border-2 rounded-md p-4 ${id === "pro" ? "border-[#FF5A00]" : "border-[#E4E4E1]"}`}>
+                    <div key={id} className={`border-2 rounded-md p-4 ${id === "pro" ? "border-[#B23E00]" : "border-[#E4E4E1]"}`}>
                       <div className="font-cabinet font-black text-lg">{p.name}</div>
                       <div className="font-cabinet font-black text-2xl mb-3">€{p.price_eur}<span className="text-[12px] font-normal text-[#52525B]">/mese</span></div>
                       <button type="button" onClick={() => startCheckout(id)} disabled={checkingOut}
@@ -163,7 +163,7 @@ export default function Login() {
                   <input data-testid="login-password-input" type={show ? "text" : "password"} required value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2.5 text-[14px] pr-10 focus:outline-none focus:border-[#0A192F]" />
-                  <button type="button" onClick={() => setShow(!show)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A1A1AA]">
+                  <button type="button" onClick={() => setShow(!show)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B6B72]">
                     {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
@@ -177,7 +177,7 @@ export default function Login() {
               <button data-testid="login-submit-button" type="submit" disabled={busy}
                 className="w-full bg-[#0A192F] hover:bg-[#172A45] text-white font-medium py-3 rounded-md transition-all flex items-center justify-center gap-2 disabled:opacity-50">
                 {busy ? "Attendere…" : "Accedi al gestionale"}
-                <span className="text-[#FF5A00]">→</span>
+                <span className="text-[#B23E00]">→</span>
               </button>
 
               {error && (
@@ -192,7 +192,7 @@ export default function Login() {
             <div className="mt-6 text-[13px] text-[#52525B]">
               Non hai un account?{" "}
               <Link data-testid="signup-link" to="/richiedi-demo"
-                className="text-[#0A192F] font-semibold underline underline-offset-4 decoration-[#FF5A00]">
+                className="text-[#0A192F] font-semibold underline underline-offset-4 decoration-[#B23E00]">
                 Inizia gratis
               </Link>
             </div>
@@ -200,7 +200,7 @@ export default function Login() {
           </div>
         </div>
 
-        <footer className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">
+        <footer className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72]">
           © 2026 SALESFLY — Made in Italia
         </footer>
       </div>
@@ -212,23 +212,23 @@ export default function Login() {
         <div className="absolute inset-0 bg-gradient-to-tr from-[#F9F9F8]/90 via-[#F9F9F8]/40 to-transparent" />
         <div className="relative h-full flex flex-col justify-end p-10">
           <div className="bg-white border border-[#E4E4E1] rounded-md p-6 max-w-md">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00] mb-3">In evidenza · oggi</div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#B23E00] mb-3">In evidenza · oggi</div>
             <div className="font-cabinet font-black text-2xl mb-3">"7 clienti da visitare in zona Lombardia."</div>
             <div className="text-[13px] text-[#52525B] mb-4">
               L'assistente AI individua le opportunità più calde in base a storico ordini, ultimo contatto e potenziale.
             </div>
             <div className="grid grid-cols-3 gap-2 text-center font-mono text-[11px]">
               <div className="border border-[#E4E4E1] rounded-md py-2">
-                <div className="text-[#FF5A00] text-base font-bold"><CountUp end={42} prefix="€" suffix="K" /></div>
-                <div className="text-[#A1A1AA] uppercase tracking-widest text-[9px]">pipeline</div>
+                <div className="text-[#B23E00] text-base font-bold"><CountUp end={42} prefix="€" suffix="K" /></div>
+                <div className="text-[#6B6B72] uppercase tracking-widest text-[9px]">pipeline</div>
               </div>
               <div className="border border-[#E4E4E1] rounded-md py-2">
                 <div className="text-[#0A192F] text-base font-bold"><CountUp end={3} /></div>
-                <div className="text-[#A1A1AA] uppercase tracking-widest text-[9px]">mandanti</div>
+                <div className="text-[#6B6B72] uppercase tracking-widest text-[9px]">mandanti</div>
               </div>
               <div className="border border-[#E4E4E1] rounded-md py-2">
                 <div className="text-[#059669] text-base font-bold"><CountUp end={18} prefix="+" suffix="%" /></div>
-                <div className="text-[#A1A1AA] uppercase tracking-widest text-[9px]">vs mese prec.</div>
+                <div className="text-[#6B6B72] uppercase tracking-widest text-[9px]">vs mese prec.</div>
               </div>
             </div>
           </div>

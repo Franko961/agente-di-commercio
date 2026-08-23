@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import api from "../api";
 import { ArrowLeft, MapPin, Phone, Mail, Building, Trash2, Edit, Calendar, FileText, Folder, Coins, MessageCircle, Send, Eye, Download } from "lucide-react";
@@ -35,7 +35,7 @@ export default function ClientDetail() {
     navigate("/app/clienti");
   };
 
-  if (!data) return <div className="p-8 font-mono text-sm text-[#A1A1AA]">caricamento…</div>;
+  if (!data) return <div className="p-8 font-mono text-sm text-[#6B6B72]">caricamento…</div>;
   const c = data.client;
   const baseAmount = (cm) => cm.base_amount ?? (cm.rate ? cm.amount / (cm.rate / 100) : 0);
 const fatturatoCliente = data.commissions.reduce((s, cm) => s + baseAmount(cm), 0);
@@ -50,7 +50,7 @@ const provvigioniCliente = data.commissions.reduce((s, cm) => s + (cm.amount || 
       <div className="bg-white border border-[#E4E4E1] rounded-md p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00] mb-2">{c.zone || "Italia"} · {c.sector || "Settore"}</div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#B23E00] mb-2">{c.zone || "Italia"} · {c.sector || "Settore"}</div>
             <h1 className="font-cabinet font-black text-3xl tracking-tight">{c.company_name}</h1>
             <div className="text-[14px] text-[#52525B] mt-1">{c.contact_name}</div>
             <div className="flex flex-wrap gap-4 mt-4 text-[13px] text-[#52525B]">
@@ -89,7 +89,7 @@ const provvigioniCliente = data.commissions.reduce((s, cm) => s + (cm.amount || 
               )}
             </div>
           </div>
-          <button data-testid="delete-client-button" onClick={remove} className="text-[#A1A1AA] hover:text-[#DC2626] p-2"><Trash2 className="w-4 h-4" /></button>
+          <button data-testid="delete-client-button" onClick={remove} className="text-[#6B6B72] hover:text-[#DC2626] p-2"><Trash2 className="w-4 h-4" /></button>
         </div>
       </div>
 
@@ -97,7 +97,7 @@ const provvigioniCliente = data.commissions.reduce((s, cm) => s + (cm.amount || 
       <div className="flex gap-1 border-b border-[#E4E4E1] overflow-x-auto">
         {TABS.map(({ id: t, label, icon: Icon }) => (
           <button key={t} onClick={() => setTab(t)} data-testid={`tab-${t}`}
-                  className={`flex items-center gap-2 px-4 py-3 text-[13px] font-medium whitespace-nowrap border-b-2 transition-colors ${tab === t ? "border-[#FF5A00] text-[#0A0A0A]" : "border-transparent text-[#52525B]"}`}>
+                  className={`flex items-center gap-2 px-4 py-3 text-[13px] font-medium whitespace-nowrap border-b-2 transition-colors ${tab === t ? "border-[#B23E00] text-[#0A0A0A]" : "border-transparent text-[#52525B]"}`}>
             <Icon className="w-3.5 h-3.5" /> {label}
           </button>
         ))}
@@ -113,7 +113,7 @@ const provvigioniCliente = data.commissions.reduce((s, cm) => s + (cm.amount || 
             <InfoCard label="Data di nascita" value={c.birthday ? format(parseISO(c.birthday), "d MMMM", { locale: it }) : "—"} />
             {c.lat && c.lng && <InfoCard label="Coordinate" value={`${c.lat.toFixed(4)}, ${c.lng.toFixed(4)}`} />}
             <div className="md:col-span-2 bg-white border border-[#E4E4E1] rounded-md p-5">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-2">Note</div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mb-2">Note</div>
               <div className="text-[14px] text-[#0A0A0A] whitespace-pre-wrap">{c.notes || "Nessuna nota."}</div>
             </div>
           </div>
@@ -126,11 +126,11 @@ const provvigioniCliente = data.commissions.reduce((s, cm) => s + (cm.amount || 
               <div key={o.id} className="bg-white border border-[#E4E4E1] rounded-md p-4 flex items-center justify-between">
                 <div>
                   <div className="font-medium text-[14px]">{o.title}</div>
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mt-1">{format(parseISO(o.created_at), "dd MMM yyyy", { locale: it })}</div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mt-1">{format(parseISO(o.created_at), "dd MMM yyyy", { locale: it })}</div>
                 </div>
                 <div className="text-right">
                   <div className="font-cabinet font-bold text-lg">{fmt(o.total)}</div>
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00]">{o.status}</div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#B23E00]">{o.status}</div>
                 </div>
               </div>
             ))}
@@ -144,13 +144,13 @@ const provvigioniCliente = data.commissions.reduce((s, cm) => s + (cm.amount || 
               <div key={a.id} className="bg-white border border-[#E4E4E1] rounded-md p-4 flex items-center gap-4">
                 <div className="w-14 text-center">
                   <div className="font-cabinet font-black text-xl">{format(parseISO(a.start), "d")}</div>
-                  <div className="font-mono text-[10px] uppercase text-[#A1A1AA]">{format(parseISO(a.start), "MMM yy", { locale: it })}</div>
+                  <div className="font-mono text-[10px] uppercase text-[#6B6B72]">{format(parseISO(a.start), "MMM yy", { locale: it })}</div>
                 </div>
                 <div className="flex-1">
                   <div className="font-medium text-[14px]">{a.title}</div>
                   <div className="text-[12px] text-[#52525B]">{format(parseISO(a.start), "HH:mm")} · {a.location}</div>
                 </div>
-                <span className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00]">{a.status}</span>
+                <span className="font-mono text-[10px] uppercase tracking-widest text-[#B23E00]">{a.status}</span>
               </div>
             ))}
           </div>
@@ -165,7 +165,7 @@ const provvigioniCliente = data.commissions.reduce((s, cm) => s + (cm.amount || 
               const isVideo = ct.startsWith("video/") || ["mp4", "mov", "webm"].includes(ext);
               const isPdf = ct.includes("pdf") || ext === "pdf";
               const isImg = ct.startsWith("image/");
-              const color = isVideo ? "#7C3AED" : isPdf ? "#DC2626" : isImg ? "#FF5A00" : "#52525B";
+              const color = isVideo ? "#7C3AED" : isPdf ? "#DC2626" : isImg ? "#B23E00" : "#52525B";
               return (
                 <div key={d.id} className="bg-white border border-[#E4E4E1] rounded-md p-4 flex items-center justify-between gap-3">
                   <button
@@ -178,7 +178,7 @@ const provvigioniCliente = data.commissions.reduce((s, cm) => s + (cm.amount || 
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="font-medium text-[14px] truncate">{d.name}</div>
-                      <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">{d.category}{d.size ? ` · ${(d.size / 1024 / 1024).toFixed(1)} MB` : ""}</div>
+                      <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72]">{d.category}{d.size ? ` · ${(d.size / 1024 / 1024).toFixed(1)} MB` : ""}</div>
                       {d.tags?.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {d.tags.map(t => <span key={t} className="bg-[#F3F3F1] text-[#52525B] text-[10px] font-mono lowercase px-1.5 py-0.5 rounded">#{t}</span>)}
@@ -187,7 +187,7 @@ const provvigioniCliente = data.commissions.reduce((s, cm) => s + (cm.amount || 
                     </div>
                   </button>
                   {d.storage_path && (
-                    <button onClick={() => setPreviewDoc(d)} className="flex items-center gap-1 text-[11px] font-mono uppercase tracking-widest text-[#FF5A00] shrink-0">
+                    <button onClick={() => setPreviewDoc(d)} className="flex items-center gap-1 text-[11px] font-mono uppercase tracking-widest text-[#B23E00] shrink-0">
                       <Eye className="w-3 h-3" /> apri
                     </button>
                   )}
@@ -206,7 +206,7 @@ const provvigioniCliente = data.commissions.reduce((s, cm) => s + (cm.amount || 
           <div className="font-cabinet font-black text-2xl">{fmt(fatturatoCliente)}</div>
         </div>
         <div className="text-right">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#FF5A00] mb-1">Provvigioni totali</div>
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#B23E00] mb-1">Provvigioni totali</div>
           <div className="font-cabinet font-black text-2xl">{fmt(provvigioniCliente)}</div>
         </div>
       </div>
@@ -222,7 +222,7 @@ const provvigioniCliente = data.commissions.reduce((s, cm) => s + (cm.amount || 
         </div>
         <div className="text-right">
           <div className="font-cabinet font-bold text-lg">{fmt(cm.amount)}</div>
-          <div className="font-mono text-[10px] uppercase tracking-widest" style={{ color: cm.status === "incassato" ? "#059669" : "#FF5A00" }}>{cm.status}</div>
+          <div className="font-mono text-[10px] uppercase tracking-widest" style={{ color: cm.status === "incassato" ? "#059669" : "#B23E00" }}>{cm.status}</div>
         </div>
       </div>
     ))}
@@ -238,12 +238,12 @@ const provvigioniCliente = data.commissions.reduce((s, cm) => s + (cm.amount || 
 function InfoCard({ label, value }) {
   return (
     <div className="bg-white border border-[#E4E4E1] rounded-md p-4">
-      <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-1">{label}</div>
+      <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mb-1">{label}</div>
       <div className="text-[14px] font-medium">{value}</div>
     </div>
   );
 }
 
 function Empty({ children }) {
-  return <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#A1A1AA] text-[13px]">{children}</div>;
+  return <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#6B6B72] text-[13px]">{children}</div>;
 }

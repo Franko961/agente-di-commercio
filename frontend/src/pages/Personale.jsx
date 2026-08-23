@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import {
   Plus, Trash2, Check, X, Link2, Download, Clock,
   Users, AlertTriangle, RefreshCw, Power, PowerOff,
@@ -10,9 +10,9 @@ import { exportLeaveRequests } from "../utils/export";
 import EmployeeDetailSheet from "../components/EmployeeDetailSheet";
 
 const TYPE_LABELS = { ferie: "Ferie", permesso: "Permesso", malattia: "Malattia" };
-const TYPE_COLORS = { ferie: "#FF5A00", permesso: "#0A192F", malattia: "#DC2626" };
+const TYPE_COLORS = { ferie: "#B23E00", permesso: "#0A192F", malattia: "#DC2626" };
 const STATUS_LABELS = { in_attesa: "In attesa", approvata: "Approvata", rifiutata: "Rifiutata" };
-const STATUS_COLORS = { in_attesa: "#FF5A00", approvata: "#059669", rifiutata: "#DC2626" };
+const STATUS_COLORS = { in_attesa: "#B23E00", approvata: "#059669", rifiutata: "#DC2626" };
 
 const EMPTY_EMPLOYEE = { name: "", role: "", email: "" };
 
@@ -140,7 +140,7 @@ export default function Personale() {
     <div className="p-4 md:p-8">
       <div className="flex items-end justify-between border-b border-[#E4E4E1] pb-6 mb-6 flex-wrap gap-3">
         <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Gestione Personale</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-2">Gestione Personale</div>
           <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Personale</h1>
         </div>
         <div className="flex items-center gap-2">
@@ -221,10 +221,10 @@ export default function Personale() {
         ].map(([key, label, Icon, badge]) => (
           <button key={key} onClick={() => setTab(key)}
             className={`flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
-              tab === key ? "border-[#FF5A00] text-[#0A192F]" : "border-transparent text-[#A1A1AA] hover:text-[#52525B]"
+              tab === key ? "border-[#B23E00] text-[#0A192F]" : "border-transparent text-[#6B6B72] hover:text-[#52525B]"
             }`}>
             <Icon className="w-3.5 h-3.5" /> {label}
-            {badge > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[#FF5A00] text-white text-[10px] font-bold">{badge}</span>}
+            {badge > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[#B23E00] text-white text-[10px] font-bold">{badge}</span>}
           </button>
         ))}
       </div>
@@ -241,12 +241,12 @@ export default function Personale() {
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full" style={{ background: TYPE_COLORS[r.type] }} />
                         <span className="font-cabinet font-bold text-[14px]">{r.employee_name}</span>
-                        <span className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA]">{TYPE_LABELS[r.type]}</span>
+                        <span className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72]">{TYPE_LABELS[r.type]}</span>
                       </div>
                       <div className="text-[12px] text-[#52525B] mt-1">{r.date_from} → {r.date_to}</div>
                       {r.note && <div className="text-[12px] text-[#52525B] mt-1 italic">"{r.note}"</div>}
                       {r.overlaps && (
-                        <div className="flex items-center gap-1.5 mt-1.5 text-[12px] text-[#FF5A00]">
+                        <div className="flex items-center gap-1.5 mt-1.5 text-[12px] text-[#B23E00]">
                           <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                           Si sovrappone a un'altra richiesta di {r.employee_name}
                         </div>
@@ -262,7 +262,7 @@ export default function Personale() {
                         <X className="w-3.5 h-3.5" /> Rifiuta
                       </button>
                       <button onClick={() => deleteRequest(r)} title="Elimina" aria-label="Elimina richiesta"
-                        className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+                        className="p-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </div>
                 ))}
@@ -272,7 +272,7 @@ export default function Personale() {
           <div>
             <div className="font-mono text-[11px] uppercase tracking-widest text-[#52525B] mb-3">Storico decisioni</div>
             {decided.length === 0 ? (
-              <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#A1A1AA] text-[13px]">Nessuna richiesta ancora decisa.</div>
+              <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#6B6B72] text-[13px]">Nessuna richiesta ancora decisa.</div>
             ) : (
               <div className="space-y-2">
                 {decided.map((r) => (
@@ -280,14 +280,14 @@ export default function Personale() {
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full" style={{ background: TYPE_COLORS[r.type] }} />
                       <span className="font-medium">{r.employee_name}</span>
-                      <span className="text-[#A1A1AA]">{TYPE_LABELS[r.type]} · {r.date_from} → {r.date_to}</span>
+                      <span className="text-[#6B6B72]">{TYPE_LABELS[r.type]} · {r.date_from} → {r.date_to}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: STATUS_COLORS[r.status] }}>
                         {STATUS_LABELS[r.status]}
                       </span>
                       <button onClick={() => deleteRequest(r)} title="Elimina" aria-label="Elimina richiesta"
-                        className="p-1 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
+                        className="p-1 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </div>
                 ))}
@@ -306,28 +306,28 @@ export default function Personale() {
                 <div className="flex items-center gap-2">
                   <span className="font-cabinet font-bold text-[14px]">{e.name}</span>
                   {!e.active && (
-                    <span className="font-mono text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-[#F3F3F1] text-[#A1A1AA]">Disattivato</span>
+                    <span className="font-mono text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-[#F3F3F1] text-[#6B6B72]">Disattivato</span>
                   )}
                 </div>
                 <div className="text-[12px] text-[#52525B]">{e.role || "—"}{e.email ? ` · ${e.email}` : ""}</div>
-                <div className="text-[11px] text-[#A1A1AA] mt-0.5">
+                <div className="text-[11px] text-[#6B6B72] mt-0.5">
                   {e.last_used_at ? `Link usato l'ultima volta il ${new Date(e.last_used_at).toLocaleString("it-IT")}` : "Link non ancora utilizzato"}
                 </div>
               </div>
               <div className="flex gap-1" onClick={(evt) => evt.stopPropagation()}>
                 <button onClick={() => regenerateToken(e)} title="Rigenera link personale" aria-label="Rigenera link personale"
-                  className="p-1.5 text-[#A1A1AA] hover:text-[#FF5A00] hover:bg-[#FFF3EC] rounded"><RefreshCw className="w-4 h-4" /></button>
+                  className="p-1.5 text-[#6B6B72] hover:text-[#B23E00] hover:bg-[#FFF3EC] rounded"><RefreshCw className="w-4 h-4" /></button>
                 <button onClick={() => toggleActive(e)} title={e.active ? "Disattiva" : "Riattiva"} aria-label={e.active ? "Disattiva dipendente" : "Riattiva dipendente"}
-                  className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded">
+                  className="p-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded">
                   {e.active ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
                 </button>
                 <button onClick={() => setDeleteTarget(e)} title="Elimina" aria-label="Elimina dipendente"
-                  className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+                  className="p-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
               </div>
             </div>
           ))}
           {employees.length === 0 && (
-            <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#A1A1AA] text-[13px]">Nessun dipendente ancora registrato.</div>
+            <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#6B6B72] text-[13px]">Nessun dipendente ancora registrato.</div>
           )}
         </div>
       )}

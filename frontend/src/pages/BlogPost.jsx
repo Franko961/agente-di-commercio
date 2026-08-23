@@ -1,4 +1,4 @@
-import { useParams, Navigate, Link } from "react-router-dom";
+﻿import { useParams, Navigate, Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Calendar } from "lucide-react";
 import { getArticleBySlug, getPublishedArticles } from "@/content/blog";
 import PublicHeader from "@/components/PublicHeader";
@@ -79,7 +79,7 @@ export default function BlogPost() {
           <ArrowLeft className="w-3.5 h-3.5" /> Tutte le guide
         </Link>
 
-        <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-3 flex items-center gap-1.5">
+        <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-3 flex items-center gap-1.5">
           <Calendar className="w-3 h-3" />
           {new Date(article.publishedAt).toLocaleDateString("it-IT", {
             day: "numeric",
@@ -103,7 +103,7 @@ export default function BlogPost() {
 
         {relatedArticles.length > 0 && (
           <div className="mt-16 pt-10 border-t border-[#E4E4E1]">
-            <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#A1A1AA] mb-4">
+            <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#6B6B72] mb-4">
               Leggi anche
             </div>
             <div className="space-y-4">
@@ -115,7 +115,7 @@ export default function BlogPost() {
                 >
                   <div className="font-cabinet font-bold text-lg mb-2">{a.title}</div>
                   <p className="text-[14px] text-[#52525B] mb-3">{a.description}</p>
-                  <span className="inline-flex items-center gap-1 text-[13px] text-[#FF5A00] font-medium">
+                  <span className="inline-flex items-center gap-1 text-[13px] text-[#B23E00] font-medium">
                     Leggi <ArrowRight className="w-3.5 h-3.5" />
                   </span>
                 </Link>

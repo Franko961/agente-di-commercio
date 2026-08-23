@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import api from "../api";
 import { Link, useNavigate } from "react-router-dom";
 import { Plus, Search, MapPin, Phone, Mail, Filter, Download, Upload, MessageCircle, Pencil } from "lucide-react";
@@ -8,7 +8,7 @@ import { useMandante } from "../contexts/MandanteContext";
 import { exportClients, whatsappLink } from "../utils/export";
 import LocationPicker from "../components/LocationPicker";
 
-const POTENTIAL_COLOR = { alto: "#059669", medio: "#FF5A00", basso: "#A1A1AA" };
+const POTENTIAL_COLOR = { alto: "#059669", medio: "#B23E00", basso: "#6B6B72" };
 
 const SETTORI = [
   "Ristorazione",
@@ -139,7 +139,7 @@ export default function Clients() {
       {/* Header */}
       <div className="hidden md:flex items-end justify-between border-b border-[#E4E4E1] pb-6 mb-6">
         <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Anagrafiche</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-2">Anagrafiche</div>
           <h1 className="font-cabinet font-black text-4xl tracking-tight">Clienti</h1>
           <p className="text-[14px] text-[#52525B] mt-2">{clients.length} aziende nel tuo portafoglio.</p>
         </div>
@@ -218,7 +218,7 @@ export default function Clients() {
       {/* Filters */}
       <div className="flex flex-wrap gap-2 mb-4">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#A1A1AA]" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#6B6B72]" />
           <input data-testid="client-search-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca per ragione sociale, città…"
                  className="w-full bg-white border border-[#E4E4E1] rounded-md pl-9 pr-3 py-2 text-[13px] focus:outline-none focus:border-[#0A192F]" />
         </div>
@@ -269,26 +269,26 @@ export default function Clients() {
             {clients.map((c) => (
               <tr key={c.id} className="border-b border-[#E4E4E1] hover:bg-[#F9F9F8] transition-colors">
                 <td className="px-4 py-3">
-                  <Link to={`/app/clienti/${c.id}`} data-testid={`client-row-${c.id}`} className="font-semibold text-[13px] hover:text-[#FF5A00]">{c.company_name}</Link>
-                  {c.email && <div className="text-[11px] text-[#A1A1AA]">{c.email}</div>}
+                  <Link to={`/app/clienti/${c.id}`} data-testid={`client-row-${c.id}`} className="font-semibold text-[13px] hover:text-[#B23E00]">{c.company_name}</Link>
+                  {c.email && <div className="text-[11px] text-[#6B6B72]">{c.email}</div>}
                 </td>
                 <td className="px-4 py-3 text-[13px]">{c.contact_name || "—"}</td>
-                <td className="px-4 py-3 text-[13px]"><div>{c.city}</div><div className="text-[11px] text-[#A1A1AA]">{c.zone}</div></td>
+                <td className="px-4 py-3 text-[13px]"><div>{c.city}</div><div className="text-[11px] text-[#6B6B72]">{c.zone}</div></td>
                 <td className="px-4 py-3 text-[13px]">{c.sector || "—"}</td>
                 <td className="px-4 py-3"><span className="font-mono text-[10px] uppercase tracking-widest px-2 py-1 rounded" style={{ background: `${POTENTIAL_COLOR[c.potential]}20`, color: POTENTIAL_COLOR[c.potential] }}>{c.potential}</span></td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-2">
-                    <button onClick={() => setEditTarget(c)} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica" aria-label="Modifica cliente">
+                    <button onClick={() => setEditTarget(c)} className="p-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors" title="Modifica" aria-label="Modifica cliente">
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <Link to={`/app/clienti/${c.id}`} className="text-[#FF5A00] text-[12px] font-mono uppercase tracking-widest">apri</Link>
+                    <Link to={`/app/clienti/${c.id}`} className="text-[#B23E00] text-[12px] font-mono uppercase tracking-widest">apri</Link>
                   </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {clients.length === 0 && <div className="p-8 text-center text-[#A1A1AA] text-[13px]">Nessun cliente trovato.</div>}
+        {clients.length === 0 && <div className="p-8 text-center text-[#6B6B72] text-[13px]">Nessun cliente trovato.</div>}
       </div>
 
       {/* Mobile cards */}
@@ -296,7 +296,7 @@ export default function Clients() {
         {clients.map((c) => (
           <div key={c.id} className="block bg-white border border-[#E4E4E1] rounded-md p-4">
             <div className="flex justify-end mb-1">
-              <button onClick={() => setEditTarget(c)} className="p-1 text-[#A1A1AA] hover:text-[#0A192F]" title="Modifica" aria-label="Modifica cliente">
+              <button onClick={() => setEditTarget(c)} className="p-1 text-[#6B6B72] hover:text-[#0A192F]" title="Modifica" aria-label="Modifica cliente">
                 <Pencil className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -306,14 +306,14 @@ export default function Clients() {
               <span className="font-mono text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0 ml-2" style={{ background: `${POTENTIAL_COLOR[c.potential]}20`, color: POTENTIAL_COLOR[c.potential] }}>{c.potential}</span>
             </div>
             {c.contact_name && <div className="text-[12px] text-[#52525B] mb-1">{c.contact_name}</div>}
-            <div className="flex items-center gap-3 text-[11px] text-[#A1A1AA] mt-2">
+            <div className="flex items-center gap-3 text-[11px] text-[#6B6B72] mt-2">
               {c.city && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{c.city}</span>}
               {c.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{c.phone}</span>}
             </div>
             </Link>
           </div>
         ))}
-        {clients.length === 0 && <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#A1A1AA] text-[13px]">Nessun cliente trovato.</div>}
+        {clients.length === 0 && <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#6B6B72] text-[13px]">Nessun cliente trovato.</div>}
       </div>
     </div>
   );

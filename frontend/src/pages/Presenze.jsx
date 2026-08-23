@@ -1,4 +1,4 @@
-import { useEffect, useState, Fragment } from "react";
+﻿import { useEffect, useState, Fragment } from "react";
 import {
   QrCode, RefreshCw, Download, ChevronLeft, ChevronRight, ChevronDown,
   Palmtree, Clock, Thermometer, Home, Car, Timer, Phone,
@@ -13,7 +13,7 @@ import { useAuth } from "../contexts/AuthContext";
 import DayDetailSheet from "../components/DayDetailSheet";
 
 const TYPE_LABELS = { ferie: "Ferie", permesso: "Permesso", malattia: "Malattia" };
-const TYPE_COLORS = { ferie: "#FF5A00", permesso: "#0A192F", malattia: "#DC2626" };
+const TYPE_COLORS = { ferie: "#B23E00", permesso: "#0A192F", malattia: "#DC2626" };
 // Tipi registrabili solo dal responsabile direttamente dal pannello giorno
 // (vedi DayDetailSheet.jsx e backend/models/leave_request.py ADMIN_LEAVE_TYPES):
 // a differenza di ferie/permesso/malattia non passano da richiesta+approvazione.
@@ -162,7 +162,7 @@ export default function Presenze() {
     <div className="p-4 md:p-8">
       <div className="flex items-end justify-between border-b border-[#E4E4E1] pb-6 mb-6 flex-wrap gap-3">
         <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Gestione Presenze</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-2">Gestione Presenze</div>
           <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Presenze</h1>
         </div>
         <div className="flex items-center gap-2">
@@ -194,7 +194,7 @@ export default function Presenze() {
             ) : kioskHasToken === false ? (
               <p className="text-[13px] text-[#52525B]">Nessun QR generato finora.</p>
             ) : (
-              <p className="text-[13px] text-[#A1A1AA]">Caricamento…</p>
+              <p className="text-[13px] text-[#6B6B72]">Caricamento…</p>
             )}
             {kioskHasToken !== null && (
               <button onClick={regenerateKiosk} className="w-full flex items-center justify-center gap-2 bg-[#0A192F] text-white py-2.5 rounded-md text-[13px] font-medium">
@@ -209,14 +209,14 @@ export default function Presenze() {
         <div className="bg-white border border-[#E4E4E1] rounded-md p-4 mb-4 flex items-center justify-between gap-4">
           <div>
             <div className="text-[13px] font-medium">Avvisami se un dipendente non timbra</div>
-            <div className="text-[12px] text-[#A1A1AA]">
+            <div className="text-[12px] text-[#6B6B72]">
               Un'ora dopo l'inizio del turno contrattuale (impostato sulla scheda dipendente), se non ha timbrato e non ha un'assenza approvata.
             </div>
           </div>
           <Switch checked={attendanceReminder?.enabled || false} onCheckedChange={toggleAttendanceReminder} />
         </div>
       ) : (
-        <div className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-md p-4 mb-4 text-[13px] text-[#A1A1AA]">
+        <div className="bg-[#F9F9F8] border border-[#E4E4E1] rounded-md p-4 mb-4 text-[13px] text-[#6B6B72]">
           Attiva il modulo Automazioni per la segnalazione delle timbrature mancanti.
         </div>
       )}
@@ -321,7 +321,7 @@ function AbsenceCalendarGrid({ employees, month, rows, hoursRows, expectedRows, 
 
   if (activeEmployees.length === 0) {
     return (
-      <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#A1A1AA] text-[13px]">
+      <div className="bg-white border border-[#E4E4E1] rounded-md p-8 text-center text-[#6B6B72] text-[13px]">
         Nessun dipendente attivo registrato.
       </div>
     );
@@ -450,20 +450,20 @@ function AbsenceCalendarGrid({ employees, month, rows, hoursRows, expectedRows, 
               </th>
               {visibleDays.map((day) => (
                 <th key={day}
-                  className={`border-b border-[#E4E4E1] w-7 text-center font-mono text-[10px] py-2 ${isWeekend(month, day) ? "bg-[#F9F9F8] text-[#A1A1AA]" : "text-[#52525B]"}`}>
+                  className={`border-b border-[#E4E4E1] w-7 text-center font-mono text-[10px] py-2 ${isWeekend(month, day) ? "bg-[#F9F9F8] text-[#6B6B72]" : "text-[#52525B]"}`}>
                   {day}
                 </th>
               ))}
             </tr>
             <tr>
-              <th className="sticky left-0 z-10 bg-white border-b border-r border-[#E4E4E1] px-3 py-1 text-left font-mono text-[10px] text-[#A1A1AA] whitespace-nowrap">
+              <th className="sticky left-0 z-10 bg-white border-b border-r border-[#E4E4E1] px-3 py-1 text-left font-mono text-[10px] text-[#6B6B72] whitespace-nowrap">
                 Assenti / {activeEmployees.length}
               </th>
               {visibleDays.map((day) => {
                 const count = absentCountByDay[day - 1];
                 return (
                   <th key={day}
-                    className={`border-b border-[#E4E4E1] text-center font-mono text-[10px] py-1 ${count > 0 ? "text-[#FF5A00] font-bold" : "text-[#D4D4D1]"}`}>
+                    className={`border-b border-[#E4E4E1] text-center font-mono text-[10px] py-1 ${count > 0 ? "text-[#B23E00] font-bold" : "text-[#D4D4D1]"}`}>
                     {count || "–"}
                   </th>
                 );
@@ -481,7 +481,7 @@ function AbsenceCalendarGrid({ employees, month, rows, hoursRows, expectedRows, 
                       <td colSpan={visibleDays.length + 1} className="bg-[#F9F9F8] border-b border-[#E4E4E1] px-3 py-1.5">
                         <button onClick={() => toggleGroup(key)} className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-[#52525B]">
                           <ChevronDown className={`w-3 h-3 transition-transform ${collapsed ? "-rotate-90" : ""}`} />
-                          {key || "Non assegnato"} <span className="text-[#A1A1AA]">({groupEmployees.length})</span>
+                          {key || "Non assegnato"} <span className="text-[#6B6B72]">({groupEmployees.length})</span>
                         </button>
                       </td>
                     </tr>

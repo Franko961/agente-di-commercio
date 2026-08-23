@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { CheckCircle2, Smartphone } from "lucide-react";
 import api, { API_BASE } from "../api";
@@ -124,7 +124,7 @@ export default function RichiediAssenza() {
 
       <main className="flex-1 px-6 py-16 max-w-lg mx-auto w-full">
         {employeeName === null && (
-          <p className="text-center text-[#A1A1AA] text-[14px]">Caricamento…</p>
+          <p className="text-center text-[#6B6B72] text-[14px]">Caricamento…</p>
         )}
 
         {employeeName === false && (
@@ -138,7 +138,7 @@ export default function RichiediAssenza() {
 
         {employeeName && !isStandalone && (installPrompt || isIos) && (
           <div className="bg-white border border-[#E4E4E1] rounded-xl p-4 mb-6 flex items-start gap-3">
-            <Smartphone className="w-5 h-5 text-[#FF5A00] shrink-0 mt-0.5" />
+            <Smartphone className="w-5 h-5 text-[#B23E00] shrink-0 mt-0.5" />
             {installPrompt ? (
               <div className="flex-1 flex items-center justify-between gap-3 flex-wrap">
                 <p className="text-[13px] text-[#52525B]">Salva questo link sulla schermata Home per riaprirlo come un'app.</p>
@@ -178,7 +178,7 @@ export default function RichiediAssenza() {
                   {TYPES.map((t) => (
                     <button key={t.value} type="button" onClick={() => setForm({ ...form, type: t.value })}
                       className={`py-2.5 rounded-md border-2 text-[13px] font-medium transition-colors ${
-                        form.type === t.value ? "border-[#FF5A00] bg-[#FF5A00] text-white" : "border-[#E4E4E1] text-[#52525B]"
+                        form.type === t.value ? "border-[#B23E00] bg-[#B23E00] text-white" : "border-[#E4E4E1] text-[#52525B]"
                       }`}>
                       {t.label}
                     </button>

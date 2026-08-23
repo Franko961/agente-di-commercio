@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import api from "../api";
 import { Plus, Trash2, Download, Pencil, PhoneCall, Clock, CalendarClock, Search, ChevronDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
@@ -11,7 +11,7 @@ const COLUMNS = [
   { id: "nuovo", label: "Nuovo", color: "#52525B" },
   { id: "contattato", label: "Contattato", color: "#0A192F" },
   { id: "qualificato", label: "Qualificato", color: "#172A45" },
-  { id: "trattativa", label: "Trattativa", color: "#FF5A00" },
+  { id: "trattativa", label: "Trattativa", color: "#B23E00" },
   { id: "vinto", label: "Vinto", color: "#059669" },
   { id: "perso", label: "Perso", color: "#DC2626" },
 ];
@@ -69,7 +69,7 @@ export default function Leads() {
     <div className="p-4 md:p-8">
       <div className="flex items-end justify-between border-b border-[#E4E4E1] pb-6 mb-6 gap-2">
         <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Pipeline</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-2">Pipeline</div>
           <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Lead & Prospect</h1>
         </div>
         {/* Nuovo lead + CSV raggruppati (prima erano fratelli diretti del
@@ -99,7 +99,7 @@ export default function Leads() {
       </div>
 
       <div className="relative mb-4 max-w-sm">
-        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#A1A1AA]" />
+        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#6B6B72]" />
         <input
           data-testid="lead-search-input"
           value={search}
@@ -125,7 +125,7 @@ export default function Leads() {
                   <div className="w-2 h-2 rounded-full" style={{ background: col.color }} />
                   <span className="font-cabinet font-bold text-[13px]">{col.label}</span>
                 </div>
-                <span className="font-mono text-[10px] text-[#A1A1AA]">{items.length}</span>
+                <span className="font-mono text-[10px] text-[#6B6B72]">{items.length}</span>
               </div>
               <div className="font-mono text-[10px] text-[#52525B] mb-3">{fmt(total)} valore stimato</div>
               {/* Altezza massima + scroll interno: una colonna con molti
@@ -138,21 +138,21 @@ export default function Leads() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="font-medium text-[13px] flex-1">{l.company_name}</div>
                       <div className="flex items-center gap-1 shrink-0">
-                        <button onClick={() => setLoggingContact(l)} data-testid={`log-contact-${l.id}`} title="Registra contatto" aria-label="Registra contatto" className="text-[#A1A1AA] hover:text-[#059669]">
+                        <button onClick={() => setLoggingContact(l)} data-testid={`log-contact-${l.id}`} title="Registra contatto" aria-label="Registra contatto" className="text-[#6B6B72] hover:text-[#059669]">
                           <PhoneCall className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={() => setEditing(l)} data-testid={`edit-lead-${l.id}`} title="Modifica" aria-label="Modifica lead" className="text-[#A1A1AA] hover:text-[#0A192F]">
+                        <button onClick={() => setEditing(l)} data-testid={`edit-lead-${l.id}`} title="Modifica" aria-label="Modifica lead" className="text-[#6B6B72] hover:text-[#0A192F]">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={async () => { await api.delete(`/leads/${l.id}`); load(); }} title="Elimina" aria-label="Elimina lead" className="text-[#A1A1AA] hover:text-[#DC2626]">
+                        <button onClick={async () => { await api.delete(`/leads/${l.id}`); load(); }} title="Elimina" aria-label="Elimina lead" className="text-[#6B6B72] hover:text-[#DC2626]">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
                     {l.contact_name && <div className="text-[11px] text-[#52525B] mt-0.5">{l.contact_name}</div>}
                     <div className="flex items-center justify-between mt-2">
-                      <span className="font-mono text-[10px] text-[#A1A1AA] uppercase tracking-widest">{l.source || "—"}</span>
-                      <span className="font-mono text-[11px] font-bold text-[#FF5A00]">{fmt(l.estimated_value)}</span>
+                      <span className="font-mono text-[10px] text-[#6B6B72] uppercase tracking-widest">{l.source || "—"}</span>
+                      <span className="font-mono text-[11px] font-bold text-[#B23E00]">{fmt(l.estimated_value)}</span>
                     </div>
                     {(l.last_interaction_at || l.next_follow_up_at) && (
                       <div className="mt-2 pt-2 border-t border-[#F3F3F1] space-y-0.5">
@@ -163,7 +163,7 @@ export default function Leads() {
                           </div>
                         )}
                         {l.next_follow_up_at && (
-                          <div className="flex items-center gap-1 text-[10px] text-[#FF5A00] font-medium">
+                          <div className="flex items-center gap-1 text-[10px] text-[#B23E00] font-medium">
                             <CalendarClock className="w-3 h-3 shrink-0" />
                             prossimo follow-up: {format(parseISO(l.next_follow_up_at), "d MMM", { locale: it })}
                           </div>

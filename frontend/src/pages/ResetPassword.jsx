@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import api from "../api";
@@ -65,7 +65,7 @@ export default function ResetPassword() {
             <p className="text-[#52525B] text-sm mb-6">
               Questo link non contiene un token di reset valido. Richiedine uno nuovo dalla pagina di login.
             </p>
-            <Link to="/password-dimenticata" className="text-[13px] font-semibold text-[#0A192F] underline underline-offset-4 decoration-[#FF5A00]">
+            <Link to="/password-dimenticata" className="text-[13px] font-semibold text-[#0A192F] underline underline-offset-4 decoration-[#B23E00]">
               Richiedi un nuovo link →
             </Link>
           </div>
@@ -93,7 +93,7 @@ export default function ResetPassword() {
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2.5 text-[14px] pr-10 focus:outline-none focus:border-[#0A192F]"
                   />
-                  <button type="button" onClick={() => setShow(!show)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A1A1AA]">
+                  <button type="button" onClick={() => setShow(!show)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B6B72]">
                     {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
@@ -113,7 +113,7 @@ export default function ResetPassword() {
               <button type="submit" disabled={busy}
                 className="w-full bg-[#0A192F] hover:bg-[#172A45] text-white font-medium py-3 rounded-md transition-all flex items-center justify-center gap-2 disabled:opacity-50">
                 {busy ? "Attendere…" : "Reimposta password"}
-                <span className="text-[#FF5A00]">→</span>
+                <span className="text-[#B23E00]">→</span>
               </button>
 
               {error && (

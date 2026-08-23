@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   CalendarDays, CheckCircle2, Loader2, RefreshCw, Unplug, Plug, History, Target, Save,
@@ -294,7 +294,7 @@ export default function Settings() {
         <button
           onClick={() => setTab("integrazioni")}
           className={`flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
-            tab === "integrazioni" ? "border-[#FF5A00] text-[#0A192F]" : "border-transparent text-[#A1A1AA] hover:text-[#52525B]"
+            tab === "integrazioni" ? "border-[#B23E00] text-[#0A192F]" : "border-transparent text-[#6B6B72] hover:text-[#52525B]"
           }`}
         >
           <Plug className="w-3.5 h-3.5" /> Integrazioni
@@ -302,7 +302,7 @@ export default function Settings() {
         <button
           onClick={() => setTab("obiettivi")}
           className={`flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
-            tab === "obiettivi" ? "border-[#FF5A00] text-[#0A192F]" : "border-transparent text-[#A1A1AA] hover:text-[#52525B]"
+            tab === "obiettivi" ? "border-[#B23E00] text-[#0A192F]" : "border-transparent text-[#6B6B72] hover:text-[#52525B]"
           }`}
         >
           <Target className="w-3.5 h-3.5" /> Obiettivi
@@ -310,7 +310,7 @@ export default function Settings() {
         <button
           onClick={() => setTab("percorsi")}
           className={`flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
-            tab === "percorsi" ? "border-[#FF5A00] text-[#0A192F]" : "border-transparent text-[#A1A1AA] hover:text-[#52525B]"
+            tab === "percorsi" ? "border-[#B23E00] text-[#0A192F]" : "border-transparent text-[#6B6B72] hover:text-[#52525B]"
           }`}
         >
           <Home className="w-3.5 h-3.5" /> Punti di partenza
@@ -318,7 +318,7 @@ export default function Settings() {
         <button
           onClick={() => setTab("registro-ai")}
           className={`flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
-            tab === "registro-ai" ? "border-[#FF5A00] text-[#0A192F]" : "border-transparent text-[#A1A1AA] hover:text-[#52525B]"
+            tab === "registro-ai" ? "border-[#B23E00] text-[#0A192F]" : "border-transparent text-[#6B6B72] hover:text-[#52525B]"
           }`}
         >
           <History className="w-3.5 h-3.5" /> Registro AI
@@ -326,7 +326,7 @@ export default function Settings() {
         <button
           onClick={() => setTab("privacy")}
           className={`flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
-            tab === "privacy" ? "border-[#FF5A00] text-[#0A192F]" : "border-transparent text-[#A1A1AA] hover:text-[#52525B]"
+            tab === "privacy" ? "border-[#B23E00] text-[#0A192F]" : "border-transparent text-[#6B6B72] hover:text-[#52525B]"
           }`}
         >
           <ShieldCheck className="w-3.5 h-3.5" /> Privacy e dati
@@ -334,7 +334,7 @@ export default function Settings() {
         <button
           onClick={() => setTab("feedback")}
           className={`flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
-            tab === "feedback" ? "border-[#FF5A00] text-[#0A192F]" : "border-transparent text-[#A1A1AA] hover:text-[#52525B]"
+            tab === "feedback" ? "border-[#B23E00] text-[#0A192F]" : "border-transparent text-[#6B6B72] hover:text-[#52525B]"
           }`}
         >
           <Star className="w-3.5 h-3.5" /> Feedback
@@ -346,7 +346,7 @@ export default function Settings() {
       ) : tab === "percorsi" ? (
         <>
           <div className="mb-8">
-            <div className="font-mono text-[11px] uppercase tracking-widest text-[#FF5A00] mb-1">Impostazioni</div>
+            <div className="font-mono text-[11px] uppercase tracking-widest text-[#B23E00] mb-1">Impostazioni</div>
             <h1 className="font-cabinet text-3xl font-black">Punti di partenza</h1>
             <p className="text-[#52525B] mt-1">
               Imposta l'indirizzo di casa e/o ufficio per poterli scegliere come punto di partenza nel pianificatore del giro visite (Mappa clienti).
@@ -354,14 +354,14 @@ export default function Settings() {
           </div>
 
           {addresses === null ? (
-            <div className="flex items-center gap-2 text-[13px] text-[#A1A1AA]">
+            <div className="flex items-center gap-2 text-[13px] text-[#6B6B72]">
               <Loader2 className="w-4 h-4 animate-spin" /> Caricamento…
             </div>
           ) : (
             <form onSubmit={saveAddresses} className="space-y-5">
               <div className="border border-[#E4E4E1] rounded-lg p-5">
                 <div className="flex items-center gap-2 mb-3">
-                  <Home className="w-4 h-4 text-[#FF5A00]" />
+                  <Home className="w-4 h-4 text-[#B23E00]" />
                   <div className="font-semibold text-[15px]">Casa</div>
                 </div>
                 <input
@@ -379,7 +379,7 @@ export default function Settings() {
 
               <div className="border border-[#E4E4E1] rounded-lg p-5">
                 <div className="flex items-center gap-2 mb-3">
-                  <Building2 className="w-4 h-4 text-[#FF5A00]" />
+                  <Building2 className="w-4 h-4 text-[#B23E00]" />
                   <div className="font-semibold text-[15px]">Ufficio</div>
                 </div>
                 <input
@@ -398,7 +398,7 @@ export default function Settings() {
               <button
                 type="submit"
                 disabled={addressesBusy}
-                className="flex items-center gap-1.5 px-4 py-2 bg-[#FF5A00] hover:bg-[#E04F00] text-white rounded-md text-[13px] font-medium transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 px-4 py-2 bg-[#B23E00] hover:bg-[#E04F00] text-white rounded-md text-[13px] font-medium transition-colors disabled:opacity-50"
               >
                 <Save className="w-3.5 h-3.5" /> {addressesBusy ? "Salvataggio…" : "Salva indirizzi"}
               </button>
@@ -408,7 +408,7 @@ export default function Settings() {
       ) : tab === "privacy" ? (
         <>
           <div className="mb-8">
-            <div className="font-mono text-[11px] uppercase tracking-widest text-[#FF5A00] mb-1">Impostazioni</div>
+            <div className="font-mono text-[11px] uppercase tracking-widest text-[#B23E00] mb-1">Impostazioni</div>
             <h1 className="font-cabinet text-3xl font-black">Privacy e dati</h1>
             <p className="text-[#52525B] mt-1">
               Gestisci i tuoi dati personali secondo il GDPR: puoi scaricarne una copia completa o richiederne la cancellazione definitiva.
@@ -494,7 +494,7 @@ export default function Settings() {
                       <button
                         type="button"
                         onClick={() => setDeletePasswordVisible((v) => !v)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[#A1A1AA]"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[#6B6B72]"
                       >
                         {deletePasswordVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -531,7 +531,7 @@ export default function Settings() {
       ) : tab === "obiettivi" ? (
         <>
           <div className="mb-8">
-            <div className="font-mono text-[11px] uppercase tracking-widest text-[#FF5A00] mb-1">Impostazioni</div>
+            <div className="font-mono text-[11px] uppercase tracking-widest text-[#B23E00] mb-1">Impostazioni</div>
             <h1 className="font-cabinet text-3xl font-black">Obiettivi</h1>
             <p className="text-[#52525B] mt-1">
               Imposta i tuoi obiettivi mensili. Lascia vuoto un campo per non tracciare quella metrica.
@@ -539,7 +539,7 @@ export default function Settings() {
           </div>
 
           {goals === null ? (
-            <div className="flex items-center gap-2 text-[13px] text-[#A1A1AA]">
+            <div className="flex items-center gap-2 text-[13px] text-[#6B6B72]">
               <Loader2 className="w-4 h-4 animate-spin" /> Caricamento…
             </div>
           ) : (
@@ -553,7 +553,7 @@ export default function Settings() {
                     type="number" min="0" step="1"
                     value={goals.goal_revenue ?? ""}
                     onChange={(e) => setGoals({ ...goals, goal_revenue: e.target.value })}
-                    className="w-full px-3 py-2 border border-[#E4E4E1] rounded-md text-[14px] focus:outline-none focus:border-[#FF5A00]"
+                    className="w-full px-3 py-2 border border-[#E4E4E1] rounded-md text-[14px] focus:outline-none focus:border-[#B23E00]"
                     placeholder="es. 10000"
                   />
                 </div>
@@ -565,10 +565,10 @@ export default function Settings() {
                     type="number" min="0" step="1"
                     value={goals.goal_commissions ?? ""}
                     onChange={(e) => setGoals({ ...goals, goal_commissions: e.target.value })}
-                    className="w-full px-3 py-2 border border-[#E4E4E1] rounded-md text-[14px] focus:outline-none focus:border-[#FF5A00]"
+                    className="w-full px-3 py-2 border border-[#E4E4E1] rounded-md text-[14px] focus:outline-none focus:border-[#B23E00]"
                     placeholder="non impostato"
                   />
-                  <p className="text-[11px] text-[#A1A1AA] mt-1">Maturate + incassate, del mese corrente.</p>
+                  <p className="text-[11px] text-[#6B6B72] mt-1">Maturate + incassate, del mese corrente.</p>
                 </div>
                 <div>
                   <label className="block text-[12px] font-semibold text-[#52525B] mb-1.5">
@@ -578,7 +578,7 @@ export default function Settings() {
                     type="number" min="0" step="1"
                     value={goals.goal_new_clients ?? ""}
                     onChange={(e) => setGoals({ ...goals, goal_new_clients: e.target.value })}
-                    className="w-full px-3 py-2 border border-[#E4E4E1] rounded-md text-[14px] focus:outline-none focus:border-[#FF5A00]"
+                    className="w-full px-3 py-2 border border-[#E4E4E1] rounded-md text-[14px] focus:outline-none focus:border-[#B23E00]"
                     placeholder="non impostato"
                   />
                 </div>
@@ -590,7 +590,7 @@ export default function Settings() {
                     type="number" min="0" step="1"
                     value={goals.goal_visits ?? ""}
                     onChange={(e) => setGoals({ ...goals, goal_visits: e.target.value })}
-                    className="w-full px-3 py-2 border border-[#E4E4E1] rounded-md text-[14px] focus:outline-none focus:border-[#FF5A00]"
+                    className="w-full px-3 py-2 border border-[#E4E4E1] rounded-md text-[14px] focus:outline-none focus:border-[#B23E00]"
                     placeholder="non impostato"
                   />
                 </div>
@@ -598,7 +598,7 @@ export default function Settings() {
               <button
                 type="submit"
                 disabled={goalsBusy}
-                className="flex items-center gap-1.5 px-4 py-2 bg-[#FF5A00] hover:bg-[#E04F00] text-white rounded-md text-[13px] font-medium transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 px-4 py-2 bg-[#B23E00] hover:bg-[#E04F00] text-white rounded-md text-[13px] font-medium transition-colors disabled:opacity-50"
               >
                 <Save className="w-3.5 h-3.5" /> {goalsBusy ? "Salvataggio…" : "Salva obiettivi"}
               </button>
@@ -614,7 +614,7 @@ export default function Settings() {
                 </p>
               </div>
               {companyLogo === null ? (
-                <div className="flex items-center gap-2 text-[13px] text-[#A1A1AA]">
+                <div className="flex items-center gap-2 text-[13px] text-[#6B6B72]">
                   <Loader2 className="w-4 h-4 animate-spin" /> Caricamento…
                 </div>
               ) : (
@@ -622,7 +622,7 @@ export default function Settings() {
                   {companyLogo ? (
                     <img src={companyLogo} alt="Logo aziendale" className="h-14 max-w-[200px] object-contain border border-[#E4E4E1] rounded-md p-1" />
                   ) : (
-                    <div className="h-14 w-24 flex items-center justify-center border border-dashed border-[#E4E4E1] rounded-md text-[#A1A1AA]">
+                    <div className="h-14 w-24 flex items-center justify-center border border-dashed border-[#E4E4E1] rounded-md text-[#6B6B72]">
                       <Image className="w-5 h-5" />
                     </div>
                   )}
@@ -653,7 +653,7 @@ export default function Settings() {
                 </p>
               </div>
               {leaveSettings === null ? (
-                <div className="flex items-center gap-2 text-[13px] text-[#A1A1AA]">
+                <div className="flex items-center gap-2 text-[13px] text-[#6B6B72]">
                   <Loader2 className="w-4 h-4 animate-spin" /> Caricamento…
                 </div>
               ) : (
@@ -664,7 +664,7 @@ export default function Settings() {
                       onChange={() => saveLeaveSettings("calendario")} />
                     <span>
                       <span className="block text-[13px] font-semibold">Giorni di calendario</span>
-                      <span className="block text-[12px] text-[#A1A1AA]">Conta ogni giorno dell'intervallo, weekend inclusi (es. venerdì-lunedì = 4 giorni).</span>
+                      <span className="block text-[12px] text-[#6B6B72]">Conta ogni giorno dell'intervallo, weekend inclusi (es. venerdì-lunedì = 4 giorni).</span>
                     </span>
                   </label>
                   <label className="flex items-start gap-3 cursor-pointer">
@@ -673,7 +673,7 @@ export default function Settings() {
                       onChange={() => saveLeaveSettings("lavorativi")} />
                     <span>
                       <span className="block text-[13px] font-semibold">Soli giorni lavorativi</span>
-                      <span className="block text-[12px] text-[#A1A1AA]">Esclude sabato e domenica (es. venerdì-lunedì = 2 giorni). Non esclude le festività infrasettimanali.</span>
+                      <span className="block text-[12px] text-[#6B6B72]">Esclude sabato e domenica (es. venerdì-lunedì = 2 giorni). Non esclude le festività infrasettimanali.</span>
                     </span>
                   </label>
                   <label className="flex items-start gap-3 cursor-pointer">
@@ -682,10 +682,10 @@ export default function Settings() {
                       onChange={() => saveLeaveSettings("festivita")} />
                     <span>
                       <span className="block text-[13px] font-semibold">Esclude domenica e festività</span>
-                      <span className="block text-[12px] text-[#A1A1AA]">Sabato incluso, domenica e festività nazionali escluse (Capodanno, Pasquetta, Ferragosto, Natale, ecc.). Per chi lavora anche il sabato.</span>
+                      <span className="block text-[12px] text-[#6B6B72]">Sabato incluso, domenica e festività nazionali escluse (Capodanno, Pasquetta, Ferragosto, Natale, ecc.). Per chi lavora anche il sabato.</span>
                     </span>
                   </label>
-                  <p className="text-[11px] text-[#A1A1AA] pt-1">Si applica solo alle Ferie: le Malattie restano sempre a giorni di calendario.</p>
+                  <p className="text-[11px] text-[#6B6B72] pt-1">Si applica solo alle Ferie: le Malattie restano sempre a giorni di calendario.</p>
                 </div>
               )}
             </div>
@@ -694,7 +694,7 @@ export default function Settings() {
       ) : tab === "feedback" ? (
         <>
           <div className="mb-8">
-            <div className="font-mono text-[11px] uppercase tracking-widest text-[#FF5A00] mb-1">Impostazioni</div>
+            <div className="font-mono text-[11px] uppercase tracking-widest text-[#B23E00] mb-1">Impostazioni</div>
             <h1 className="font-cabinet text-3xl font-black">Feedback</h1>
             <p className="text-[#52525B] mt-1">
               Raccontaci come va con SALESFLY — ci aiuta a migliorare, e con il tuo consenso può comparire come recensione sul sito.
@@ -728,7 +728,7 @@ export default function Settings() {
                       aria-label={`${n} stelle`}
                     >
                       <Star
-                        className={`w-7 h-7 transition-colors ${n <= fbRating ? "fill-[#FF5A00] text-[#FF5A00]" : "text-[#E4E4E1]"}`}
+                        className={`w-7 h-7 transition-colors ${n <= fbRating ? "fill-[#B23E00] text-[#B23E00]" : "text-[#E4E4E1]"}`}
                       />
                     </button>
                   ))}
@@ -742,7 +742,7 @@ export default function Settings() {
                   onChange={(e) => setFbText(e.target.value)}
                   rows={4}
                   placeholder="Cosa ti piace? Cosa cambieresti?"
-                  className="w-full px-3 py-2 border border-[#E4E4E1] rounded-md text-[14px] focus:outline-none focus:border-[#FF5A00]"
+                  className="w-full px-3 py-2 border border-[#E4E4E1] rounded-md text-[14px] focus:outline-none focus:border-[#B23E00]"
                 />
               </div>
               <label className="flex items-start gap-2 text-[13px] text-[#52525B]">
@@ -759,7 +759,7 @@ export default function Settings() {
                 type="submit"
                 disabled={fbBusy}
                 data-testid="feedback-submit-button"
-                className="flex items-center gap-1.5 px-4 py-2 bg-[#FF5A00] hover:bg-[#E04F00] text-white rounded-md text-[13px] font-medium transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 px-4 py-2 bg-[#B23E00] hover:bg-[#E04F00] text-white rounded-md text-[13px] font-medium transition-colors disabled:opacity-50"
               >
                 <Save className="w-3.5 h-3.5" /> {fbBusy ? "Invio…" : "Invia feedback"}
               </button>
@@ -769,7 +769,7 @@ export default function Settings() {
       ) : (
         <>
           <div className="mb-8">
-            <div className="font-mono text-[11px] uppercase tracking-widest text-[#FF5A00] mb-1">Impostazioni</div>
+            <div className="font-mono text-[11px] uppercase tracking-widest text-[#B23E00] mb-1">Impostazioni</div>
             <h1 className="font-cabinet text-3xl font-black">Integrazioni</h1>
             <p className="text-[#52525B] mt-1">Collega servizi esterni per far lavorare Salesfly insieme ai tuoi strumenti.</p>
           </div>
@@ -801,7 +801,7 @@ export default function Settings() {
               </div>
 
               {status === null ? (
-                <Loader2 className="w-4 h-4 animate-spin text-[#A1A1AA]" />
+                <Loader2 className="w-4 h-4 animate-spin text-[#6B6B72]" />
               ) : status.connected ? (
                 <div className="flex items-center gap-2 shrink-0">
                   {status.needs_reauth && (
@@ -809,7 +809,7 @@ export default function Settings() {
                       data-testid="gcal-reconnect-button"
                       onClick={connect}
                       disabled={busy}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-[#FF5A00] hover:bg-[#E04F00] text-white rounded-md text-[12px] font-medium transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1.5 px-3 py-2 bg-[#B23E00] hover:bg-[#E04F00] text-white rounded-md text-[12px] font-medium transition-colors disabled:opacity-50"
                     >
                       <Plug className="w-3.5 h-3.5" /> Riconnetti
                     </button>
@@ -836,7 +836,7 @@ export default function Settings() {
                   data-testid="gcal-connect-button"
                   onClick={connect}
                   disabled={busy}
-                  className="shrink-0 px-4 py-2 bg-[#FF5A00] hover:bg-[#E04F00] text-white rounded-md text-[13px] font-medium transition-colors disabled:opacity-50"
+                  className="shrink-0 px-4 py-2 bg-[#B23E00] hover:bg-[#E04F00] text-white rounded-md text-[13px] font-medium transition-colors disabled:opacity-50"
                 >
                   {busy ? "Attendere…" : "Connetti"}
                 </button>
@@ -844,7 +844,7 @@ export default function Settings() {
             </div>
           </div>
 
-          <p className="text-[11px] text-[#A1A1AA] font-mono mt-4">
+          <p className="text-[11px] text-[#6B6B72] font-mono mt-4">
             La sincronizzazione con Google avviene automaticamente ogni pochi minuti, oltre che subito dopo ogni modifica fatta qui in Salesfly.
           </p>
         </>

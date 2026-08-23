@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Link } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
 import api from "../api";
@@ -54,7 +54,7 @@ export default function ForgotPassword() {
               con le istruzioni per reimpostare la password. Il link è valido per 1 ora. Se non la trovi,
               controlla anche nello spam.
             </p>
-            <Link to="/login" className="inline-block mt-6 text-[13px] font-semibold text-[#0A192F] underline underline-offset-4 decoration-[#FF5A00]">
+            <Link to="/login" className="inline-block mt-6 text-[13px] font-semibold text-[#0A192F] underline underline-offset-4 decoration-[#B23E00]">
               ← Torna al login
             </Link>
           </div>
@@ -82,7 +82,7 @@ export default function ForgotPassword() {
               <button type="submit" disabled={busy}
                 className="w-full bg-[#0A192F] hover:bg-[#172A45] text-white font-medium py-3 rounded-md transition-all flex items-center justify-center gap-2 disabled:opacity-50">
                 {busy ? "Invio in corso…" : "Invia link di reset"}
-                <span className="text-[#FF5A00]">→</span>
+                <span className="text-[#B23E00]">→</span>
               </button>
 
               {error && (
@@ -93,7 +93,7 @@ export default function ForgotPassword() {
             </form>
 
             <div className="mt-6 text-center text-[13px] text-[#52525B]">
-              <Link to="/login" className="text-[#0A192F] font-semibold underline underline-offset-4 decoration-[#FF5A00]">
+              <Link to="/login" className="text-[#0A192F] font-semibold underline underline-offset-4 decoration-[#B23E00]">
                 ← Torna al login
               </Link>
             </div>

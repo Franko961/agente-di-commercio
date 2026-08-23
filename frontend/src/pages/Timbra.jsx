@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { CheckCircle2, ChevronLeft, Timer, User } from "lucide-react";
 import { toast } from "sonner";
@@ -77,7 +77,7 @@ export default function Timbra() {
 
       <main className="flex-1 px-6 py-16 max-w-md mx-auto w-full">
         {employees === null && (
-          <p className="text-center text-[#A1A1AA] text-[14px]">Caricamento…</p>
+          <p className="text-center text-[#6B6B72] text-[14px]">Caricamento…</p>
         )}
 
         {employees === false && (
@@ -105,16 +105,16 @@ export default function Timbra() {
         {employees && employees.length > 0 && !selected && !done && (
           <>
             <div className="text-center mb-6">
-              <Timer className="w-8 h-8 text-[#A1A1AA] mx-auto mb-2" />
+              <Timer className="w-8 h-8 text-[#6B6B72] mx-auto mb-2" />
               <h1 className="font-cabinet font-black text-2xl mb-1">Chi sei?</h1>
               <p className="text-[#52525B] text-sm">Tocca il tuo nome per timbrare.</p>
             </div>
             <div className="space-y-2">
               {employees.map((emp) => (
                 <button key={emp.id} onClick={() => selectEmployee(emp)}
-                  className="w-full flex items-center justify-between gap-3 bg-white border border-[#E4E4E1] rounded-xl p-4 text-left hover:border-[#FF5A00]">
+                  className="w-full flex items-center justify-between gap-3 bg-white border border-[#E4E4E1] rounded-xl p-4 text-left hover:border-[#B23E00]">
                   <span className="flex items-center gap-3">
-                    <User className="w-4 h-4 text-[#A1A1AA]" />
+                    <User className="w-4 h-4 text-[#6B6B72]" />
                     <span className="font-medium text-[15px]">{emp.name}</span>
                   </span>
                   {emp.clocked_in && (

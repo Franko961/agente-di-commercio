@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import {
   Rocket, Users, KanbanSquare, CalendarDays, ShoppingCart, Coins,
   Sparkles, Zap, Navigation, ShieldCheck, ChevronDown, HelpCircle,
@@ -41,7 +41,7 @@ function CategorySection({ category, open, onToggle }) {
           <Icon className="w-4 h-4 text-[#0A192F]" strokeWidth={1.75} />
         </div>
         <span className="font-cabinet font-bold text-[15px] flex-1">{category.label}</span>
-        <ChevronDown className={`w-4 h-4 text-[#A1A1AA] shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown className={`w-4 h-4 text-[#6B6B72] shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
         <div className="px-5 pb-6 border-t border-[#E4E4E1] pt-5">
@@ -74,7 +74,7 @@ export default function HelpCenter() {
       <meta name="robots" content="noindex, nofollow" />
 
       <div className="mb-8">
-        <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Aiuto</div>
+        <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-2">Aiuto</div>
         <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight mb-2">Centro assistenza</h1>
         <p className="text-[14px] text-[#52525B]">
           Risposte rapide, organizzate per argomento — ogni articolo si legge in meno di un minuto.

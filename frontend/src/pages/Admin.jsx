@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import api from "../api";
 import {
   Users, TrendingUp, CreditCard, Pencil, Trash2, Check, X,
@@ -11,7 +11,7 @@ const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency:
 const fmtUsd = (n) => `$${(n ?? 0).toFixed(4)}`;
 
 const STATUS_COLOR = {
-  active: "#059669", trial: "#FF5A00", cancelled: "#DC2626", expired: "#A1A1AA"
+  active: "#059669", trial: "#B23E00", cancelled: "#DC2626", expired: "#6B6B72"
 };
 
 // Valori allineati a backend/models/admin.py IMPERSONATION_CATEGORIES.
@@ -55,7 +55,7 @@ export default function Admin() {
     <div className="p-4 md:p-8">
       <div className="border-b border-[#E4E4E1] pb-4 mb-6 flex items-end justify-between flex-wrap gap-4">
         <div>
-          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#FF5A00] mb-2">Pannello</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-2">Pannello</div>
           <h1 className="font-cabinet font-black text-3xl md:text-4xl tracking-tight">Admin Dashboard</h1>
         </div>
         <div className="flex gap-1 bg-[#F3F3F1] rounded-md p-1">
@@ -201,7 +201,7 @@ function BusinessTab() {
     !search || u.email.includes(search) || u.name?.toLowerCase().includes(search.toLowerCase())
   );
 
-  if (!stats) return <div className="p-8 text-center text-[#A1A1AA]">Caricamento…</div>;
+  if (!stats) return <div className="p-8 text-center text-[#6B6B72]">Caricamento…</div>;
 
   return (
     <>
@@ -210,11 +210,11 @@ function BusinessTab() {
         {[
           { label: "Utenti totali", value: stats.total_users, icon: Users, color: "#0A192F" },
           { label: "Abbonati attivi", value: stats.active, icon: Check, color: "#059669" },
-          { label: "In prova", value: stats.trial, icon: TrendingUp, color: "#FF5A00" },
+          { label: "In prova", value: stats.trial, icon: TrendingUp, color: "#B23E00" },
           { label: "MRR", value: fmt(stats.mrr), icon: CreditCard, color: "#059669" },
         ].map(k => (
           <div key={k.label} className="bg-white border border-[#E4E4E1] rounded-md p-5">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-2">{k.label}</div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mb-2">{k.label}</div>
             <div className="font-cabinet font-black text-2xl" style={{ color: k.color }}>{k.value}</div>
           </div>
         ))}
@@ -223,17 +223,17 @@ function BusinessTab() {
       {/* Piano breakdown */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-white border border-[#E4E4E1] rounded-md p-4">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-1">Piano Base</div>
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mb-1">Piano Base</div>
           <div className="font-cabinet font-black text-xl">{stats.plan_base}</div>
           <div className="text-[11px] text-[#52525B]">{fmt(stats.plan_base * 6)}/mese</div>
         </div>
         <div className="bg-white border border-[#E4E4E1] rounded-md p-4">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-1">Piano Pro</div>
-          <div className="font-cabinet font-black text-xl text-[#FF5A00]">{stats.plan_pro}</div>
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mb-1">Piano Pro</div>
+          <div className="font-cabinet font-black text-xl text-[#B23E00]">{stats.plan_pro}</div>
           <div className="text-[11px] text-[#52525B]">{fmt(stats.plan_pro * 11)}/mese</div>
         </div>
         <div className="bg-white border border-[#E4E4E1] rounded-md p-4">
-          <div className="font-mono text-[10px] uppercase tracking-widest text-[#A1A1AA] mb-1">Cancellati</div>
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mb-1">Cancellati</div>
           <div className="font-cabinet font-black text-xl text-red-500">{stats.cancelled}</div>
         </div>
         <div className="bg-[#0A192F] text-white rounded-md p-4">
@@ -273,7 +273,7 @@ function BusinessTab() {
                       </select>
                     ) : (
                       <span className="font-mono text-[11px] uppercase tracking-widest px-2 py-1 rounded"
-                        style={{ background: u.plan === "pro" ? "#FF5A0015" : "#0A192F15", color: u.plan === "pro" ? "#FF5A00" : "#0A192F" }}>
+                        style={{ background: u.plan === "pro" ? "#B23E0015" : "#0A192F15", color: u.plan === "pro" ? "#B23E00" : "#0A192F" }}>
                         {u.plan || "base"}
                       </span>
                     )}
@@ -285,12 +285,12 @@ function BusinessTab() {
                         {["trial","active","cancelled","expired"].map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     ) : (
-                      <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: STATUS_COLOR[u.subscription_status] || "#A1A1AA" }}>
+                      <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: STATUS_COLOR[u.subscription_status] || "#6B6B72" }}>
                         {u.subscription_status || "trial"}
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-[12px] text-[#A1A1AA]">{u.created_at?.slice(0, 10)}</td>
+                  <td className="px-4 py-3 text-[12px] text-[#6B6B72]">{u.created_at?.slice(0, 10)}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
                       {editUser?.id === u.id ? (
@@ -298,20 +298,20 @@ function BusinessTab() {
                           <button onClick={() => updateUser(u.id, { plan: editUser.plan, subscription_status: editUser.subscription_status })}
                             className="p-1.5 text-[#059669] hover:bg-green-50 rounded"><Check className="w-4 h-4" /></button>
                           <button onClick={() => setEditUser(null)}
-                            className="p-1.5 text-[#A1A1AA] hover:bg-[#F3F3F1] rounded"><X className="w-4 h-4" /></button>
+                            className="p-1.5 text-[#6B6B72] hover:bg-[#F3F3F1] rounded"><X className="w-4 h-4" /></button>
                         </>
                       ) : (
                         <>
                           <button onClick={() => openImpersonateDialog(u, "view")} title="Visualizza come utente (sola lettura)" aria-label="Visualizza come utente (sola lettura)"
-                            className="p-1.5 text-[#A1A1AA] hover:text-[#FF5A00] hover:bg-[#FFF3EC] rounded"><Eye className="w-4 h-4" /></button>
+                            className="p-1.5 text-[#6B6B72] hover:text-[#B23E00] hover:bg-[#FFF3EC] rounded"><Eye className="w-4 h-4" /></button>
                           <button onClick={() => openImpersonateDialog(u, "edit")} title="Accedi e modifica" aria-label="Accedi e modifica"
-                            className="p-1.5 text-[#A1A1AA] hover:text-[#FF5A00] hover:bg-[#FFF3EC] rounded"><LogIn className="w-4 h-4" /></button>
+                            className="p-1.5 text-[#6B6B72] hover:text-[#B23E00] hover:bg-[#FFF3EC] rounded"><LogIn className="w-4 h-4" /></button>
                           <button onClick={() => setEditUser({...u})} title="Modifica utente" aria-label="Modifica utente"
-                            className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
+                            className="p-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><Pencil className="w-4 h-4" /></button>
                           <button onClick={() => setModuleTarget({ id: u.id, email: u.email, disabled_modules: u.disabled_modules || [], enabled_extra_modules: u.enabled_extra_modules || [] })} title="Moduli attivi" aria-label="Moduli attivi"
-                            className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><ToggleLeft className="w-4 h-4" /></button>
+                            className="p-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded"><ToggleLeft className="w-4 h-4" /></button>
                           <button onClick={() => deleteUser(u.id, u.email)} title="Elimina utente" aria-label="Elimina utente"
-                            className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+                            className="p-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
                         </>
                       )}
                     </div>
@@ -410,7 +410,7 @@ function BusinessTab() {
                   return (
                     <button key={m.value} type="button" onClick={() => toggleModule(m.value)}
                       className={`flex items-center justify-between px-3 py-2 rounded-md border text-[12px] font-medium transition-colors ${
-                        enabled ? "border-[#059669]/30 bg-[#059669]/5 text-[#059669]" : "border-[#E4E4E1] text-[#A1A1AA]"
+                        enabled ? "border-[#059669]/30 bg-[#059669]/5 text-[#059669]" : "border-[#E4E4E1] text-[#6B6B72]"
                       }`}>
                       {m.label}
                       {enabled ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
@@ -428,7 +428,7 @@ function BusinessTab() {
                   return (
                     <button key={m.value} type="button" onClick={() => toggleExtraModule(m.value)}
                       className={`flex items-center justify-between px-3 py-2 rounded-md border text-[12px] font-medium transition-colors ${
-                        enabled ? "border-[#FF5A00]/30 bg-[#FF5A00]/5 text-[#FF5A00]" : "border-[#E4E4E1] text-[#A1A1AA]"
+                        enabled ? "border-[#B23E00]/30 bg-[#B23E00]/5 text-[#B23E00]" : "border-[#E4E4E1] text-[#6B6B72]"
                       }`}>
                       {m.label}
                       {enabled ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
@@ -498,20 +498,20 @@ function HealthTab() {
           ))}
         </div>
         {health && (
-          <div className="text-[11px] text-[#A1A1AA] font-mono">
+          <div className="text-[11px] text-[#6B6B72] font-mono">
             {health.endpoints.total_requests} richieste API nella finestra
           </div>
         )}
       </div>
 
       {loading || !health ? (
-        <div className="p-8 text-center text-[#A1A1AA]">Caricamento…</div>
+        <div className="p-8 text-center text-[#6B6B72]">Caricamento…</div>
       ) : (
         <div className="space-y-6">
           {/* Riepiloghi categoria */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <CategoryCard
-              icon={Bot} title="Assistente AI" color="#FF5A00"
+              icon={Bot} title="Assistente AI" color="#B23E00"
               stats={health.ai}
               extra={`Costo stimato: ${fmtUsd(health.ai.cost_usd)} · ${health.ai.tokens_in ?? 0}+${health.ai.tokens_out ?? 0} token`}
             />
@@ -526,7 +526,7 @@ function HealthTab() {
               <div className="font-mono text-[11px] uppercase tracking-widest text-[#52525B]">Endpoint più lenti</div>
             </div>
             {health.endpoints.slowest.length === 0 ? (
-              <div className="p-6 text-center text-[13px] text-[#A1A1AA]">Nessun dato nella finestra selezionata</div>
+              <div className="p-6 text-center text-[13px] text-[#6B6B72]">Nessun dato nella finestra selezionata</div>
             ) : (
               <EndpointTable rows={health.endpoints.slowest} showDuration />
             )}
@@ -564,7 +564,7 @@ function CategoryCard({ icon: Icon, title, color, stats, extra }) {
           {stats.failure_rate_pct}% falliti
         </div>
       </div>
-      <div className="text-[11px] text-[#A1A1AA]">
+      <div className="text-[11px] text-[#6B6B72]">
         {stats.success} riuscite · {stats.failure} fallite
         {extra && <div className="mt-1">{extra}</div>}
       </div>
@@ -595,13 +595,13 @@ function EndpointTable({ rows, showDuration, showErrors }) {
           {rows.map((r, i) => (
             <tr key={i} className="border-t border-[#E4E4E1]">
               <td className="px-4 py-2.5 text-[12px]">
-                <span className="font-mono text-[10px] text-[#A1A1AA] mr-2">{r.method}</span>
+                <span className="font-mono text-[10px] text-[#6B6B72] mr-2">{r.method}</span>
                 <span className="font-medium">{r.path}</span>
               </td>
               <td className="px-4 py-2.5 text-[12px] text-[#52525B]">{r.count}</td>
               {showDuration && <>
                 <td className="px-4 py-2.5 text-[12px] font-mono">{r.avg_duration_ms} ms</td>
-                <td className="px-4 py-2.5 text-[12px] font-mono text-[#A1A1AA]">{r.max_duration_ms} ms</td>
+                <td className="px-4 py-2.5 text-[12px] font-mono text-[#6B6B72]">{r.max_duration_ms} ms</td>
               </>}
               {showErrors && <>
                 <td className="px-4 py-2.5 text-[12px] text-[#B45309]">{r.status_4xx}</td>
@@ -651,9 +651,9 @@ function AuditTab() {
         Azioni amministrative ({total})
       </div>
       {loading ? (
-        <div className="p-8 text-center text-[#A1A1AA]">Caricamento…</div>
+        <div className="p-8 text-center text-[#6B6B72]">Caricamento…</div>
       ) : entries.length === 0 ? (
-        <div className="p-8 text-center text-[13px] text-[#A1A1AA]">Nessuna azione registrata</div>
+        <div className="p-8 text-center text-[13px] text-[#6B6B72]">Nessuna azione registrata</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -667,13 +667,13 @@ function AuditTab() {
             <tbody>
               {entries.map((e, i) => (
                 <tr key={i} className="border-t border-[#E4E4E1]">
-                  <td className="px-4 py-2.5 text-[12px] font-mono text-[#A1A1AA]">
+                  <td className="px-4 py-2.5 text-[12px] font-mono text-[#6B6B72]">
                     {e.created_at ? new Date(e.created_at).toLocaleString("it-IT") : "—"}
                   </td>
                   <td className="px-4 py-2.5 text-[12px] font-medium">{e.actor}</td>
                   <td className="px-4 py-2.5 text-[12px]">{ACTION_LABELS[e.action] || e.action}</td>
                   <td className="px-4 py-2.5 text-[12px] text-[#52525B] font-mono">{e.target_user_id || "—"}</td>
-                  <td className="px-4 py-2.5 text-[11px] text-[#A1A1AA] font-mono">
+                  <td className="px-4 py-2.5 text-[11px] text-[#6B6B72] font-mono">
                     {e.detail && Object.keys(e.detail).length > 0 ? JSON.stringify(e.detail) : "—"}
                   </td>
                 </tr>
@@ -733,9 +733,9 @@ function FeedbackTab() {
         Feedback ricevuti ({items.length})
       </div>
       {loading ? (
-        <div className="p-8 text-center text-[#A1A1AA]">Caricamento…</div>
+        <div className="p-8 text-center text-[#6B6B72]">Caricamento…</div>
       ) : items.length === 0 ? (
-        <div className="p-8 text-center text-[13px] text-[#A1A1AA]">Nessun feedback ricevuto</div>
+        <div className="p-8 text-center text-[13px] text-[#6B6B72]">Nessun feedback ricevuto</div>
       ) : (
         <div className="divide-y divide-[#E4E4E1]">
           {items.map((f) => (
@@ -744,20 +744,20 @@ function FeedbackTab() {
                 <div className="flex items-center gap-2 mb-1">
                   <div className="flex items-center">
                     {[1, 2, 3, 4, 5].map((n) => (
-                      <Star key={n} className={`w-3.5 h-3.5 ${n <= f.rating ? "fill-[#FF5A00] text-[#FF5A00]" : "text-[#E4E4E1]"}`} />
+                      <Star key={n} className={`w-3.5 h-3.5 ${n <= f.rating ? "fill-[#B23E00] text-[#B23E00]" : "text-[#E4E4E1]"}`} />
                     ))}
                   </div>
                   <span className="text-[12px] font-medium">{f.user_name || "—"}</span>
-                  <span className="text-[11px] text-[#A1A1AA] font-mono">
+                  <span className="text-[11px] text-[#6B6B72] font-mono">
                     {f.created_at ? new Date(f.created_at).toLocaleDateString("it-IT") : "—"}
                   </span>
                   {f.publish_consent ? (
                     <span className="text-[10px] font-mono uppercase tracking-widest text-[#059669]">consenso pubblicazione</span>
                   ) : (
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-[#A1A1AA]">privato</span>
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B72]">privato</span>
                   )}
                   {f.approved && (
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-[#FF5A00]">approvato</span>
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-[#B23E00]">approvato</span>
                   )}
                 </div>
                 {f.text && <p className="text-[13px] text-[#52525B]">{f.text}</p>}
@@ -765,17 +765,17 @@ function FeedbackTab() {
               <div className="flex items-center gap-1 shrink-0">
                 {f.approved ? (
                   <button onClick={() => setApproved(f.id, false)} title="Revoca approvazione" aria-label="Revoca approvazione"
-                    className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors">
+                    className="p-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors">
                     <X className="w-4 h-4" />
                   </button>
                 ) : (
                   <button onClick={() => setApproved(f.id, true)} disabled={!f.publish_consent} title={f.publish_consent ? "Approva per la pubblicazione" : "L'utente non ha dato il consenso alla pubblicazione"} aria-label="Approva per la pubblicazione"
-                    className="p-1.5 text-[#A1A1AA] hover:text-[#059669] hover:bg-green-50 rounded transition-colors disabled:opacity-30 disabled:hover:text-[#A1A1AA] disabled:hover:bg-transparent">
+                    className="p-1.5 text-[#6B6B72] hover:text-[#059669] hover:bg-green-50 rounded transition-colors disabled:opacity-30 disabled:hover:text-[#6B6B72] disabled:hover:bg-transparent">
                     <Check className="w-4 h-4" />
                   </button>
                 )}
                 <button onClick={() => remove(f.id)} title="Elimina" aria-label="Elimina feedback"
-                  className="p-1.5 text-[#A1A1AA] hover:text-[#DC2626] hover:bg-red-50 rounded transition-colors">
+                  className="p-1.5 text-[#6B6B72] hover:text-[#DC2626] hover:bg-red-50 rounded transition-colors">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>

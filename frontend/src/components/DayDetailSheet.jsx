@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Timer } from "lucide-react";
@@ -8,7 +8,7 @@ import api from "../api";
 const ADMIN_TYPE_LABELS = { smartworking: "Smartworking", trasferta: "Trasferta", straordinari: "Straordinari", reperibilita: "Reperibilità" };
 const ADMIN_TYPE_COLORS = { smartworking: "#D97706", trasferta: "#78350F", straordinari: "#DB2777", reperibilita: "#6366F1" };
 const TYPE_LABELS = { ferie: "Ferie", permesso: "Permesso", malattia: "Malattia", ...ADMIN_TYPE_LABELS };
-const TYPE_COLORS = { ferie: "#FF5A00", permesso: "#0A192F", malattia: "#DC2626", ...ADMIN_TYPE_COLORS };
+const TYPE_COLORS = { ferie: "#B23E00", permesso: "#0A192F", malattia: "#DC2626", ...ADMIN_TYPE_COLORS };
 
 // Stesso helper di EmployeeDetailSheet.jsx (duplicato qui apposta: un file
 // più piccolo e indipendente è preferibile a un import incrociato per una
@@ -130,22 +130,22 @@ export default function DayDetailSheet({ employeeId, employeeName, date, request
               {(sessions || []).map((s) => (
                 <div key={s.id} className="bg-white border border-[#E4E4E1] rounded-md p-3 flex items-center justify-between gap-2 text-[13px]">
                   <div className="flex items-center gap-2 min-w-0">
-                    <Timer className="w-4 h-4 text-[#A1A1AA] shrink-0" />
+                    <Timer className="w-4 h-4 text-[#6B6B72] shrink-0" />
                     <span>{fmtTime(s.clock_in)} → {s.clock_out ? fmtTime(s.clock_out) : "in corso"}</span>
-                    <span className="text-[#A1A1AA] text-[11px]">({formatDuration(s.clock_in, s.clock_out)})</span>
+                    <span className="text-[#6B6B72] text-[11px]">({formatDuration(s.clock_in, s.clock_out)})</span>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <button onClick={() => setSessionForm(s)} className="p-1.5 text-[#A1A1AA] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded" aria-label="Modifica presenza">
+                    <button onClick={() => setSessionForm(s)} className="p-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded" aria-label="Modifica presenza">
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
-                    <button onClick={() => deleteSession(s)} className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded" aria-label="Elimina presenza">
+                    <button onClick={() => deleteSession(s)} className="p-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded" aria-label="Elimina presenza">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
               ))}
               {sessions && sessions.length === 0 && !sessionForm && (
-                <div className="text-[12px] text-[#A1A1AA]">Nessuna presenza registrata.</div>
+                <div className="text-[12px] text-[#6B6B72]">Nessuna presenza registrata.</div>
               )}
             </div>
           </section>
@@ -157,7 +157,7 @@ export default function DayDetailSheet({ employeeId, employeeName, date, request
                 <Plus className="w-3.5 h-3.5" /> Aggiungi
               </button>
             </div>
-            <p className="text-[11px] text-[#A1A1AA] mb-2">
+            <p className="text-[11px] text-[#6B6B72] mb-2">
               Ferie/Permesso/Malattia si gestiscono dal link personale del dipendente o dalla scheda in Personale — qui puoi solo eliminarli. Gli altri tipi si registrano direttamente.
             </p>
             {requestFormOpen && (
@@ -173,13 +173,13 @@ export default function DayDetailSheet({ employeeId, employeeName, date, request
                     {r.hours ? <span className="text-[#52525B] text-[12px] ml-2">{r.hours}h</span> : null}
                     {r.note ? <div className="text-[11px] text-[#52525B] mt-0.5">{r.note}</div> : null}
                   </div>
-                  <button onClick={() => deleteRequest(r)} className="p-1.5 text-[#A1A1AA] hover:text-red-500 hover:bg-red-50 rounded shrink-0" aria-label="Elimina giustificativo">
+                  <button onClick={() => deleteRequest(r)} className="p-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded shrink-0" aria-label="Elimina giustificativo">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))}
               {requests.length === 0 && !requestFormOpen && (
-                <div className="text-[12px] text-[#A1A1AA]">Nessun giustificativo per questo giorno.</div>
+                <div className="text-[12px] text-[#6B6B72]">Nessun giustificativo per questo giorno.</div>
               )}
             </div>
           </section>
