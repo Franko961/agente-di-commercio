@@ -1,6 +1,10 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
 import L from "leaflet";
+// Vedi il commento in LocationPicker.jsx: importato qui invece che come
+// @import globale così finisce nel chunk lazy di questa pagina, non nel
+// bundle caricato da ogni pagina pubblica.
+import "leaflet/dist/leaflet.css";
 import { Link } from "react-router-dom";
 import {
   Route, Loader2, X, MapPin, Clock, Navigation, ExternalLink, CheckCircle2, RotateCcw,

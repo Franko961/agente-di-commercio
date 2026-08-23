@@ -2,8 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@900,800,700,500,400&f[]=manrope@700,600,500,400&f[]=jetbrains-mono@500,400&display=swap');
-@import url('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
+/* Cabinet Grotesk/Manrope/JetBrains Mono: <link> in public/index.html, non
+   più un @import qui — vedi il commento lì sul perché (catena di richieste
+   in sequenza invece che scoperta in parallelo dall'HTML grezzo). */
 
 :root {
     --bg-canvas: #F9F9F8;

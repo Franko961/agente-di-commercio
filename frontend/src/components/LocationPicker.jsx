@@ -1,6 +1,11 @@
 ﻿import { useState } from "react";
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import L from "leaflet";
+// Importato qui (non più come @import globale in index.css) così finisce nel
+// chunk lazy di questo componente, non nel bundle caricato da OGNI pagina
+// (inclusa la homepage pubblica, che non ha mai una mappa) — vedi il
+// commento in public/index.html sullo stesso principio per i font.
+import "leaflet/dist/leaflet.css";
 import { Search, Loader2, MapPin } from "lucide-react";
 import api from "../api";
 
