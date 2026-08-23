@@ -22,8 +22,5 @@ class AdminRepository:
     async def update_user(self, uid: str, data: dict) -> None:
         await self.collection.update_one({"id": uid}, {"$set": data})
 
-    async def delete_user(self, uid: str) -> None:
-        await self.collection.delete_one({"id": uid})
-
 
 admin_repository = AdminRepository()

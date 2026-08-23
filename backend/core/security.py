@@ -137,6 +137,15 @@ async def get_current_user(request: Request) -> dict:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
+    # Un JWT firmato con lo stesso JWT_SECRET può essere stato emesso per uno
+    # scopo diverso da una sessione vera (es. create_document_download_token,
+    # che non porta "type": "access" e ha un TTL breve pensato per finire in
+    # un URL): senza questo controllo, un token del genere — se trapelato via
+    # cronologia browser/log/analytics, come il suo stesso commento avverte —
+    # verrebbe accettato qui come una sessione completa per l'utente, non
+    # solo per lo scopo ristretto per cui è stato emesso.
+    if payload.get("type") != "access":
+        raise HTTPException(status_code=401, detail="Invalid token")
     user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")

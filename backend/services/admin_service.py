@@ -10,6 +10,7 @@ from core.security import create_impersonation_token, MODULE_KEYS, EXTRA_MODULE_
 from repositories.admin_repository import admin_repository
 from repositories.user_repository import user_repository
 from models.admin import IMPERSONATION_CATEGORIES
+from services.gdpr_service import gdpr_service
 
 ALLOWED_USER_UPDATE_FIELDS = {"plan", "subscription_status", "role", "disabled_modules", "enabled_extra_modules"}
 
@@ -113,7 +114,14 @@ class AdminService:
         )
 
     async def delete_user(self, uid: str, admin: dict = None) -> None:
-        await self.repo.delete_user(uid)
+        # Riusa lo stesso nucleo di cancellazione della cancellazione
+        # self-service (services/gdpr_service._erase_user_data): prima
+        # cancellava solo il documento utente, lasciando un eventuale
+        # abbonamento Stripe/PayPal attivo a fatturare per sempre (nessun
+        # account a cui ricollegarlo) e tutti i dati/file del cliente
+        # orfani — la stessa identica azione concettuale trattata in modo
+        # molto più superficiale a seconda di chi la avviava.
+        await gdpr_service._erase_user_data(uid)
         await self._record_audit(
             admin.get("email", admin.get("id")) if admin else "sconosciuto",
             "delete_user", target_user_id=uid,

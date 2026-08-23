@@ -29,6 +29,12 @@ def run(coro):
     return asyncio.run(coro)
 
 
+async def _verify_signature_always_true(*a, **k):
+    # _verify_paypal_webhook_signature è async (asyncio.to_thread attorno
+    # alle chiamate PayPal): un lambda sincrono non sarebbe awaitable.
+    return True
+
+
 class TrackingFakeUserRepo(FakeUserRepo):
     """FakeUserRepo di test_subscription_cancel_grace_period non traccia le
     chiamate a update_by_stripe_subscription_id/update_by_paypal_subscription_id
@@ -57,6 +63,7 @@ def _stripe_updated_event(sub_id: str, status: str) -> dict:
 
 def _install_fake_stripe_webhook(monkeypatch, event: dict):
     monkeypatch.setattr(subscription_mod, "STRIPE_SECRET_KEY", "sk_test_fake")
+    monkeypatch.setattr(subscription_mod, "STRIPE_WEBHOOK_SECRET", "whsec_fake")
     monkeypatch.setattr(subscription_mod, "stripe_webhook_events", FakeWebhookEventsCollection())
 
     class FakeWebhook:
@@ -163,7 +170,7 @@ def test_webhook_paypal_pagamento_riuscito_dopo_fallito_riattiva(monkeypatch):
         "id": "user-5", "paypal_subscription_id": "I-FAIL-THEN-OK", "subscription_status": "payment_failed",
     }})
     service = SubscriptionService(repo=repo)
-    monkeypatch.setattr(service, "_verify_paypal_webhook_signature", lambda *a, **k: True)
+    monkeypatch.setattr(service, "_verify_paypal_webhook_signature", _verify_signature_always_true)
 
     event = _paypal_event("PAYMENT.SALE.COMPLETED", "I-FAIL-THEN-OK")
     result = run(service.handle_paypal_webhook(FakeRequest(json_data=event)))
@@ -182,7 +189,7 @@ def test_webhook_paypal_pagamento_riuscito_su_abbonamento_gia_attivo_non_lo_tocc
         "id": "user-6", "paypal_subscription_id": "I-ALREADY-ACTIVE", "subscription_status": "active",
     }})
     service = SubscriptionService(repo=repo)
-    monkeypatch.setattr(service, "_verify_paypal_webhook_signature", lambda *a, **k: True)
+    monkeypatch.setattr(service, "_verify_paypal_webhook_signature", _verify_signature_always_true)
 
     event = _paypal_event("PAYMENT.SALE.COMPLETED", "I-ALREADY-ACTIVE")
     run(service.handle_paypal_webhook(FakeRequest(json_data=event)))
@@ -201,7 +208,7 @@ def test_webhook_paypal_pagamento_riuscito_su_sospeso_non_lo_riattiva(monkeypatc
         "id": "user-7", "paypal_subscription_id": "I-SUSPENDED", "subscription_status": "suspended",
     }})
     service = SubscriptionService(repo=repo)
-    monkeypatch.setattr(service, "_verify_paypal_webhook_signature", lambda *a, **k: True)
+    monkeypatch.setattr(service, "_verify_paypal_webhook_signature", _verify_signature_always_true)
 
     event = _paypal_event("PAYMENT.SALE.COMPLETED", "I-SUSPENDED")
     run(service.handle_paypal_webhook(FakeRequest(json_data=event)))

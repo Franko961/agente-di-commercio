@@ -78,9 +78,19 @@ export default function Subscription() {
 
   const cancelSub = async () => {
     if (!window.confirm("Sei sicuro di voler cancellare l'abbonamento?")) return;
-    await api.post("/subscription/cancel");
-    toast.success("Abbonamento cancellato");
-    load();
+    try {
+      await api.post("/subscription/cancel");
+      toast.success("Abbonamento cancellato");
+      load();
+    } catch (err) {
+      // Il backend ora rifiuta esplicitamente (502) se non riesce a
+      // confermare la cancellazione col fornitore di pagamento, invece di
+      // segnare l'abbonamento cancellato lato nostro mentre Stripe/PayPal
+      // continuerebbero comunque ad addebitare: senza gestirlo qui,
+      // l'utente non vedrebbe alcun feedback su un tentativo fallito.
+      const detail = err?.response?.data?.detail;
+      toast.error(typeof detail === "string" ? detail : "Non siamo riusciti a completare la disdetta. Riprova tra poco.");
+    }
   };
 
   if (confirmingPaypal) {

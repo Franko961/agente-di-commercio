@@ -1,7 +1,9 @@
+import asyncio
 import logging
 import requests
 from datetime import datetime, timezone
 from fastapi import HTTPException, Request
+from pymongo.errors import DuplicateKeyError
 
 from core.config import (
     PLANS, TRIAL_DAYS, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
@@ -35,6 +37,24 @@ PAYPAL_ACTIVE_STATUSES = {"ACTIVE"}
 # Alias mantenuto per compatibilità: la logica vive ora in core/subscription_utils.py
 # (core non può dipendere da services, quindi la fonte di verità è lì).
 subscription_active = is_subscription_active
+
+
+async def _claim_webhook_event_once(collection, event_id: str, event_type: str) -> bool:
+    """Reclama atomicamente un event_id di webhook (Stripe o PayPal):
+    ritorna True solo alla PRIMA chiamata che ci riesce, False per ogni
+    successiva (duplicato). Prima, "cerca poi eventualmente inserisci" erano
+    due operazioni separate: due consegne quasi simultanee dello stesso
+    evento (entrambi i provider dichiarano esplicitamente di poter reinviare
+    lo stesso evento più volte) potevano passare il controllo find_one
+    prima che una delle due scrivesse, elaborando l'evento due volte.
+    insert_one fallisce da solo con DuplicateKeyError sul secondo tentativo
+    grazie all'indice univoco su event_id (creato in startup_service.py) —
+    un'unica operazione atomica lato server, nessuna finestra residua."""
+    try:
+        await collection.insert_one({"event_id": event_id, "event_type": event_type})
+        return True
+    except DuplicateKeyError:
+        return False
 
 
 class SubscriptionService:
@@ -133,6 +153,17 @@ class SubscriptionService:
     async def handle_stripe_webhook(self, request: Request) -> dict:
         if not STRIPE_SECRET_KEY:
             raise HTTPException(500, "Stripe non configurato")
+        # Fail-closed come il percorso PayPal (_verify_paypal_webhook_signature
+        # rifiuta se PAYPAL_WEBHOOK_ID manca): senza questo controllo,
+        # STRIPE_WEBHOOK_SECRET vuoto (default in core/config.py se la env
+        # var non è impostata) farebbe verificare la firma con una chiave
+        # HMAC vuota — non un errore per la libreria stripe, ma una "firma"
+        # calcolabile da chiunque, che accetterebbe eventi Stripe falsificati
+        # (es. un checkout.session.completed fabbricato che attiva un piano
+        # a pagamento gratis).
+        if not STRIPE_WEBHOOK_SECRET:
+            logger.error("STRIPE_WEBHOOK_SECRET non configurato: rifiuto il webhook")
+            raise HTTPException(500, "Stripe non configurato")
         try:
             import stripe
             stripe.api_key = STRIPE_SECRET_KEY
@@ -143,11 +174,8 @@ class SubscriptionService:
             raise HTTPException(400, str(e))
 
         event_id = event.get("id")
-        if event_id:
-            existing = await stripe_webhook_events.find_one({"event_id": event_id})
-            if existing:
-                return {"ok": True, "duplicate": True}
-            await stripe_webhook_events.insert_one({"event_id": event_id, "event_type": event.get("type")})
+        if event_id and not await _claim_webhook_event_once(stripe_webhook_events, event_id, event.get("type")):
+            return {"ok": True, "duplicate": True}
 
         if event["type"] == "checkout.session.completed":
             meta = event["data"]["object"].get("metadata", {})
@@ -190,51 +218,70 @@ class SubscriptionService:
         return {"ok": True}
 
     # ---- Helper PayPal ---------------------------------------------------
+    # async + asyncio.to_thread attorno a `requests` (sincrona): senza,
+    # ciascuna di queste chiamate bloccherebbe l'intero event loop del
+    # worker per la durata della richiesta HTTP a PayPal (fino al timeout di
+    # 10s) — non solo la richiesta che l'ha innescata, ma OGNI altra
+    # richiesta in corso su quello stesso worker (login, dashboard, ecc.).
+    # Stesso principio già applicato a Google Calendar in
+    # services/google_calendar_service.py.
 
-    def _paypal_token(self) -> str:
+    async def _paypal_token(self) -> str:
         if not PAYPAL_CLIENT_ID or not PAYPAL_CLIENT_SECRET:
             raise HTTPException(500, "PayPal non configurato")
-        resp = requests.post(
-            f"{PAYPAL_API_BASE}/v1/oauth2/token",
-            auth=(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET),
-            data={"grant_type": "client_credentials"},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        return resp.json()["access_token"]
 
-    def _paypal_get_subscription(self, subscription_id: str) -> dict:
+        def _fetch():
+            resp = requests.post(
+                f"{PAYPAL_API_BASE}/v1/oauth2/token",
+                auth=(PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET),
+                data={"grant_type": "client_credentials"},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            return resp.json()["access_token"]
+
+        return await asyncio.to_thread(_fetch)
+
+    async def _paypal_get_subscription(self, subscription_id: str) -> dict:
         """Interroga direttamente PayPal per lo stato reale dell'abbonamento.
         Non ci si fida mai della sola conferma inviata dal frontend."""
-        token = self._paypal_token()
-        resp = requests.get(
-            f"{PAYPAL_API_BASE}/v1/billing/subscriptions/{subscription_id}",
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=10,
-        )
+        token = await self._paypal_token()
+
+        def _fetch():
+            return requests.get(
+                f"{PAYPAL_API_BASE}/v1/billing/subscriptions/{subscription_id}",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=10,
+            )
+
+        resp = await asyncio.to_thread(_fetch)
         if resp.status_code != 200:
             raise HTTPException(400, "Abbonamento PayPal non trovato")
         return resp.json()
 
-    def _verify_paypal_webhook_signature(self, headers, raw_body: bytes, event: dict) -> bool:
+    async def _verify_paypal_webhook_signature(self, headers, raw_body: bytes, event: dict) -> bool:
         if not PAYPAL_WEBHOOK_ID:
             logger.error("PAYPAL_WEBHOOK_ID non configurato: rifiuto il webhook")
             return False
-        token = self._paypal_token()
-        resp = requests.post(
-            f"{PAYPAL_API_BASE}/v1/notifications/verify-webhook-signature",
-            headers={"Authorization": f"Bearer {token}"},
-            json={
-                "transmission_id": headers.get("paypal-transmission-id"),
-                "transmission_time": headers.get("paypal-transmission-time"),
-                "cert_url": headers.get("paypal-cert-url"),
-                "auth_algo": headers.get("paypal-auth-algo"),
-                "transmission_sig": headers.get("paypal-transmission-sig"),
-                "webhook_id": PAYPAL_WEBHOOK_ID,
-                "webhook_event": event,
-            },
-            timeout=10,
-        )
+        token = await self._paypal_token()
+
+        def _verify():
+            return requests.post(
+                f"{PAYPAL_API_BASE}/v1/notifications/verify-webhook-signature",
+                headers={"Authorization": f"Bearer {token}"},
+                json={
+                    "transmission_id": headers.get("paypal-transmission-id"),
+                    "transmission_time": headers.get("paypal-transmission-time"),
+                    "cert_url": headers.get("paypal-cert-url"),
+                    "auth_algo": headers.get("paypal-auth-algo"),
+                    "transmission_sig": headers.get("paypal-transmission-sig"),
+                    "webhook_id": PAYPAL_WEBHOOK_ID,
+                    "webhook_event": event,
+                },
+                timeout=10,
+            )
+
+        resp = await asyncio.to_thread(_verify)
         if resp.status_code != 200:
             return False
         return resp.json().get("verification_status") == "SUCCESS"
@@ -253,20 +300,24 @@ class SubscriptionService:
             raise HTTPException(400, "Piano PayPal non configurato")
 
         return_base = payload.get("return_url", FRONTEND_URL)
-        token = self._paypal_token()
-        resp = requests.post(
-            f"{PAYPAL_API_BASE}/v1/billing/subscriptions",
-            headers={"Authorization": f"Bearer {token}"},
-            json={
-                "plan_id": plan["paypal_plan_id"],
-                "application_context": {
-                    "brand_name": "Salesfly",
-                    "return_url": f"{return_base}/abbonamento?paypal_return=1",
-                    "cancel_url": f"{return_base}/abbonamento?cancelled=1",
+        token = await self._paypal_token()
+
+        def _create():
+            return requests.post(
+                f"{PAYPAL_API_BASE}/v1/billing/subscriptions",
+                headers={"Authorization": f"Bearer {token}"},
+                json={
+                    "plan_id": plan["paypal_plan_id"],
+                    "application_context": {
+                        "brand_name": "Salesfly",
+                        "return_url": f"{return_base}/abbonamento?paypal_return=1",
+                        "cancel_url": f"{return_base}/abbonamento?cancelled=1",
+                    },
                 },
-            },
-            timeout=10,
-        )
+                timeout=10,
+            )
+
+        resp = await asyncio.to_thread(_create)
         if resp.status_code not in (200, 201):
             logger.error(f"Errore creazione abbonamento PayPal: {resp.status_code} {resp.text[:300]}")
             raise HTTPException(500, "Errore avvio pagamento PayPal")
@@ -276,6 +327,15 @@ class SubscriptionService:
         if not approve_url:
             raise HTTPException(500, "PayPal non ha restituito un link di approvazione")
 
+        # Registra QUALE subscription_id ci aspettiamo da questo utente prima
+        # di reindirizzarlo a PayPal: paypal_capture() lo confermerà contro
+        # questo valore invece di fidarsi ciecamente del subscription_id che
+        # il frontend rimanda indietro — altrimenti chiunque conoscesse un
+        # subscription_id reale e ACTIVE di un altro utente potrebbe legarlo
+        # al proprio account (PayPal conferma solo che l'id è reale e attivo,
+        # non a chi appartiene lato nostro).
+        await self.repo.update_by_id(user["id"], {"pending_paypal_subscription_id": data["id"]})
+
         return {"approve_url": approve_url, "subscription_id": data["id"]}
 
     async def paypal_capture(self, user: dict, payload: dict) -> dict:
@@ -283,12 +343,23 @@ class SubscriptionService:
         Il frontend segnala solo che l'utente ha approvato: il backend
         interroga sempre PayPal per lo stato reale prima di attivare
         qualunque funzionalità a pagamento."""
-        await self._forbid_if_demo(user["id"])
+        u = await self._forbid_if_demo(user["id"])
         subscription_id = payload.get("subscription_id")
         if not subscription_id:
             raise HTTPException(400, "subscription_id mancante")
 
-        subscription = self._paypal_get_subscription(subscription_id)
+        # Il subscription_id deve essere quello che QUESTO account si
+        # aspettava (impostato da create_paypal_subscription) o quello già
+        # legato ad esso in precedenza (ricattura/retry sullo stesso
+        # abbonamento) — mai un id arbitrario passato nel payload, che PayPal
+        # confermerebbe comunque come reale/attivo indipendentemente da chi
+        # lo sta presentando.
+        expected_ids = {u.get("pending_paypal_subscription_id"), u.get("paypal_subscription_id")}
+        expected_ids.discard(None)
+        if subscription_id not in expected_ids:
+            raise HTTPException(403, "Questo abbonamento PayPal non risulta creato per questo account")
+
+        subscription = await self._paypal_get_subscription(subscription_id)
 
         # Non ci fidiamo del piano dichiarato dal frontend: lo deriviamo dal
         # plan_id che PayPal ci restituisce, altrimenti un client malevolo (o
@@ -307,6 +378,7 @@ class SubscriptionService:
                 "plan": plan_id,
                 "subscription_status": "pending",
                 "paypal_subscription_id": subscription_id,
+                "pending_paypal_subscription_id": None,
             })
             return {"ok": True, "status": "pending"}
 
@@ -314,6 +386,7 @@ class SubscriptionService:
             "plan": plan_id,
             "subscription_status": "active",
             "paypal_subscription_id": subscription_id,
+            "pending_paypal_subscription_id": None,
         })
         return {"ok": True, "status": "active"}
 
@@ -323,16 +396,13 @@ class SubscriptionService:
         raw_body = await request.body()
         event = await request.json()
 
-        if not self._verify_paypal_webhook_signature(request.headers, raw_body, event):
+        if not await self._verify_paypal_webhook_signature(request.headers, raw_body, event):
             raise HTTPException(400, "Firma webhook PayPal non valida")
 
         event_id = event.get("id")
-        if event_id:
-            # Idempotenza: PayPal può reinviare lo stesso evento più volte.
-            existing = await paypal_webhook_events.find_one({"event_id": event_id})
-            if existing:
-                return {"ok": True, "duplicate": True}
-            await paypal_webhook_events.insert_one({"event_id": event_id, "event_type": event.get("event_type")})
+        # Idempotenza: PayPal può reinviare lo stesso evento più volte.
+        if event_id and not await _claim_webhook_event_once(paypal_webhook_events, event_id, event.get("event_type")):
+            return {"ok": True, "duplicate": True}
 
         event_type = event.get("event_type")
         resource = event.get("resource", {})
@@ -390,10 +460,24 @@ class SubscriptionService:
         u = await self._forbid_if_demo(user["id"])
         cancel_at = None
 
+        # Traccia, per ciascun provider configurato, se l'azione di
+        # cancellazione lato provider è DAVVERO andata a buon fine — non solo
+        # se non ha sollevato un'eccezione: una risposta HTTP non-2xx da
+        # PayPal, ad esempio, non fa sollevare requests.post da sola. Serve a
+        # decidere sotto se è sicuro marcare l'abbonamento come cancellato
+        # nel nostro DB: se un provider è configurato ma la sua chiamata non
+        # è confermata riuscita, Stripe/PayPal continuerebbero comunque ad
+        # addebitare il cliente anche se qui segniamo "cancellato" e gli
+        # togliamo l'accesso — il peggio di entrambi i mondi.
+        stripe_attempted = bool(u.get("stripe_subscription_id") and STRIPE_SECRET_KEY)
+        stripe_succeeded = False
+        paypal_attempted = bool(u.get("paypal_subscription_id") and PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET)
+        paypal_succeeded = False
+
         # Stripe: cancel_at_period_end invece di cancellare subito — è Stripe
         # stesso a tenere traccia della data di fine periodo e a mandare il
         # webhook customer.subscription.deleted solo quando arriva, non ora.
-        if u.get("stripe_subscription_id") and STRIPE_SECRET_KEY:
+        if stripe_attempted:
             try:
                 import stripe
                 stripe.api_key = STRIPE_SECRET_KEY
@@ -401,6 +485,7 @@ class SubscriptionService:
                 period_end = sub.get("current_period_end")
                 if period_end:
                     cancel_at = datetime.fromtimestamp(period_end, tz=timezone.utc).isoformat()
+                stripe_succeeded = True
             except Exception as e:
                 logger.warning(f"Stripe cancel error: {e}")
 
@@ -408,31 +493,53 @@ class SubscriptionService:
         # ferma subito i rinnovi futuri. Per onorare comunque "accesso fino a
         # fine periodo pagato", leggiamo prima la prossima data di rinnovo
         # (il periodo già pagato termina lì) come cancel_at, poi cancelliamo.
-        if u.get("paypal_subscription_id") and PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET:
+        if paypal_attempted:
             try:
-                subscription = self._paypal_get_subscription(u["paypal_subscription_id"])
+                subscription = await self._paypal_get_subscription(u["paypal_subscription_id"])
                 next_billing = subscription.get("billing_info", {}).get("next_billing_time")
                 if next_billing and not cancel_at:
                     cancel_at = next_billing
             except Exception as e:
                 logger.warning(f"PayPal get subscription error: {e}")
             try:
-                token = self._paypal_token()
-                requests.post(
-                    f"{PAYPAL_API_BASE}/v1/billing/subscriptions/{u['paypal_subscription_id']}/cancel",
-                    headers={"Authorization": f"Bearer {token}"},
-                    json={"reason": "Cancellato dall'utente"},
-                    timeout=10,
-                )
+                token = await self._paypal_token()
+
+                def _cancel():
+                    return requests.post(
+                        f"{PAYPAL_API_BASE}/v1/billing/subscriptions/{u['paypal_subscription_id']}/cancel",
+                        headers={"Authorization": f"Bearer {token}"},
+                        json={"reason": "Cancellato dall'utente"},
+                        timeout=10,
+                    )
+
+                resp = await asyncio.to_thread(_cancel)
+                # PayPal risponde 204 No Content quando la cancellazione va a
+                # buon fine: requests non solleva un'eccezione da sola per
+                # uno status non-2xx, va controllato esplicitamente.
+                if resp.status_code in (200, 204):
+                    paypal_succeeded = True
+                else:
+                    logger.warning(f"PayPal cancel error: status {resp.status_code} {resp.text[:200]}")
             except Exception as e:
                 logger.warning(f"PayPal cancel error: {e}")
 
         if cancel_at:
             await self.repo.update_by_id(user["id"], {"cancel_at": cancel_at})
+        elif not stripe_attempted and not paypal_attempted:
+            # Nessun provider configurato per questo utente: non c'è nessun
+            # addebito ricorrente reale da fermare, sicuro cancellare subito.
+            await self.repo.update_by_id(user["id"], {"subscription_status": "cancelled"})
+        elif (stripe_attempted and not stripe_succeeded) or (paypal_attempted and not paypal_succeeded):
+            # Un provider è configurato ma non abbiamo la conferma che la
+            # cancellazione sia davvero avvenuta lì: NON scriviamo
+            # "cancelled" nel nostro DB, altrimenti l'utente perderebbe
+            # l'accesso mentre il provider continua ad addebitarlo.
+            raise HTTPException(502, "Non siamo riusciti a completare la disdetta con il fornitore di pagamento. Riprova tra poco o contattaci.")
         else:
-            # Nessuna data di fine periodo determinabile (nessun provider
-            # configurato, o entrambe le chiamate fallite): meglio cancellare
-            # subito che lasciare un abbonamento attivo a tempo indeterminato.
+            # Provider configurato e cancellazione confermata riuscita, ma
+            # senza una data di fine periodo derivabile (raro, es. Stripe non
+            # ha restituito current_period_end): cancellare subito è corretto
+            # qui, la cancellazione lato provider è davvero avvenuta.
             await self.repo.update_by_id(user["id"], {"subscription_status": "cancelled"})
         return {"ok": True}
 

@@ -47,7 +47,6 @@ class FakeDb:
 class FakeAdminRepo:
     def __init__(self):
         self.updated = []
-        self.deleted = []
 
     async def promote_by_email(self, email):
         return email == "franco@test.it"
@@ -55,8 +54,18 @@ class FakeAdminRepo:
     async def update_user(self, uid, data):
         self.updated.append((uid, data))
 
-    async def delete_user(self, uid):
-        self.deleted.append(uid)
+
+class FakeGdprService:
+    """delete_user ora delega a gdpr_service._erase_user_data (cancella
+    anche abbonamento/dati/file, non solo il documento utente — vedi
+    test_admin_delete_user_full_erasure.py per la verifica di questo).
+    Qui basta tracciare che sia stato chiamato con l'uid giusto."""
+
+    def __init__(self):
+        self.erased = []
+
+    async def _erase_user_data(self, uid):
+        self.erased.append(uid)
 
 
 def build_service(monkeypatch):
@@ -95,11 +104,13 @@ def test_update_user_traccia_chi_ha_fatto_la_modifica(monkeypatch):
 
 def test_delete_user_traccia_lazione(monkeypatch):
     service, fake_db, repo = build_service(monkeypatch)
+    fake_gdpr = FakeGdprService()
+    monkeypatch.setattr(admin_service_mod, "gdpr_service", fake_gdpr)
     admin_actor = {"id": "admin-1", "email": "admin@salesfly.it"}
 
     run(service.delete_user("u-99", admin=admin_actor))
 
-    assert repo.deleted == ["u-99"]
+    assert fake_gdpr.erased == ["u-99"]
     entry = fake_db.admin_audit_log.inserted[0]
     assert entry["action"] == "delete_user"
     assert entry["target_user_id"] == "u-99"

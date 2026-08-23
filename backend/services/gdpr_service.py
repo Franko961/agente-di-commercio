@@ -193,6 +193,44 @@ class GdprService:
         zip_buf.seek(0)
         return zip_buf.read()
 
+    async def _erase_user_data(self, user_id: str) -> None:
+        """Nucleo di cancellazione condiviso tra delete_account (self-service,
+        dopo verifica password) e la cancellazione avviata da un admin (che
+        non può fornire la password del bersaglio, quindi non passa da
+        delete_account): ferma l'abbonamento, cancella i file S3 e ogni riga
+        collegata a user_id nelle collection user-scoped, poi il documento
+        utente stesso. Prima che le due strade condividessero questo nucleo,
+        una cancellazione avviata da admin lasciava l'abbonamento attivo a
+        fatturare per sempre (nessun account a cui ricollegarlo) e tutti i
+        dati/file del cliente orfani — la stessa identica azione concettuale
+        trattata in due modi molto diversi a seconda di chi la avviava."""
+        try:
+            await subscription_service.cancel_subscription({"id": user_id})
+        except Exception as e:
+            logger.warning(f"Cancellazione abbonamento durante eliminazione account fallita: {e}")
+
+        documents = await db.documents.find({"user_id": user_id}, {"_id": 0, "storage_path": 1}).to_list(20000)
+        employee_documents = await db.employee_documents.find({"user_id": user_id}, {"_id": 0, "storage_path": 1}).to_list(20000)
+        for doc in documents + employee_documents:
+            storage_path = doc.get("storage_path")
+            if not storage_path:
+                continue
+            try:
+                storage_delete(storage_path)
+            except Exception as e:
+                logger.warning(f"Eliminazione file S3 durante eliminazione account fallita: {e}")
+
+        for collection_name in USER_SCOPED_COLLECTIONS.values():
+            await db[collection_name].delete_many({"user_id": user_id})
+
+        # Contatore ordini: chiave "order_number:{user_id}" (vedi
+        # order_repository.next_order_number), non un campo user_id
+        # filtrabile con la query generica del loop sopra — va ripulito a
+        # parte, altrimenti resterebbe orfano nel DB indefinitamente.
+        await db.counters.delete_one({"_id": f"order_number:{user_id}"})
+
+        await db.users.delete_one({"id": user_id})
+
     async def delete_account(self, user: dict, password: str) -> None:
         """Cancellazione account e cancellazione DEFINITIVA dei dati (art. 17
         GDPR, diritto all'oblio) — non un soft-delete: ogni documento viene
@@ -216,34 +254,7 @@ class GdprService:
         if not full_user or not verify_password(password, full_user.get("password_hash", "")):
             raise HTTPException(403, "Password non corretta")
 
-        # Ferma prima gli addebiti ricorrenti: cancellare l'account senza
-        # disdire l'abbonamento lascerebbe l'utente a pagare per un servizio
-        # che non esiste più.
-        try:
-            await subscription_service.cancel_subscription(user)
-        except Exception as e:
-            logger.warning(f"Cancellazione abbonamento durante eliminazione account fallita: {e}")
-
-        # Cancella davvero i file dei documenti da S3, non solo i record.
-        documents = await db.documents.find({"user_id": user_id}, {"_id": 0, "storage_path": 1}).to_list(20000)
-        employee_documents = await db.employee_documents.find({"user_id": user_id}, {"_id": 0, "storage_path": 1}).to_list(20000)
-        for doc in documents + employee_documents:
-            storage_path = doc.get("storage_path")
-            if not storage_path:
-                continue
-            try:
-                storage_delete(storage_path)
-            except Exception as e:
-                logger.warning(f"Eliminazione file S3 durante eliminazione account fallita: {e}")
-
-        for collection_name in USER_SCOPED_COLLECTIONS.values():
-            await db[collection_name].delete_many({"user_id": user_id})
-
-        # Contatore ordini: chiave "order_number:{user_id}" (vedi
-        # order_repository.next_order_number), non un campo user_id
-        # filtrabile con la query generica del loop sopra — va ripulito a
-        # parte, altrimenti resterebbe orfano nel DB indefinitamente.
-        await db.counters.delete_one({"_id": f"order_number:{user_id}"})
+        await self._erase_user_data(user_id)
 
         # Traccia di sicurezza dell'eliminazione: si conserva DOPO la
         # cancellazione dell'account (a differenza dei dati sopra), ma
@@ -278,10 +289,14 @@ class GdprService:
                 "detail": {"email_hash": email_hash},
                 "created_at": datetime.now(timezone.utc),
             })
-        except Exception:
-            pass
-
-        await db.users.delete_one({"id": user_id})
+        except Exception as e:
+            # A differenza degli altri except in questo metodo, un fallimento
+            # qui non ha alcun effetto visibile all'utente (l'account è già
+            # cancellato comunque) — proprio per questo va quantomeno
+            # loggato: altrimenti, in caso di contestazione futura ("non
+            # sono stato io a cancellare il mio account"), non ci sarebbe né
+            # la traccia di audit né un log che spieghi perché manca.
+            logger.warning(f"Scrittura audit log durante eliminazione account fallita: {e}")
 
 
 gdpr_service = GdprService()

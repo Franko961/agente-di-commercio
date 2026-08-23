@@ -569,9 +569,39 @@ async def run_startup() -> None:
         unique=True,
         partialFilterExpression={"source_offer_id": {"$type": "string"}},
     )
-    # TTL: gli eventi di rate limiting più vecchi di 2 ore vengono eliminati
-    # automaticamente da MongoDB (le finestre usate sono tutte <= 15 minuti).
-    await db.rate_limit_events.create_index("created_at", expireAfterSeconds=7200)
+    # rate_limit_events è passata da "un documento per tentativo" a "un
+    # documento per (kind, key)" con un array di timestamp (vedi
+    # core/rate_limit.check_and_record — fix della corsa tra il conteggio e
+    # la scrittura, non più atomici separatamente). Il vecchio indice TTL su
+    # created_at non esiste più in questo schema, va tolto esplicitamente
+    # (drop_index in un try: un database nuovo non ce l'ha da rimuovere).
+    try:
+        await db.rate_limit_events.drop_index([("created_at", 1)])
+    except Exception:
+        pass
+    # Indice univoco: find_one_and_update(upsert=True) su (kind, key) da solo
+    # è un check-then-act per una chiave MAI vista prima — due chiamate
+    # concorrenti potrebbero entrambe tentare di crearla. Questo indice è
+    # l'ultima linea di difesa (la seconda perde con DuplicateKeyError,
+    # gestito con un retry in check_and_record), stesso principio già usato
+    # altrove in questo file (vehicles, orders, automation_runs).
+    await db.rate_limit_events.create_index([("kind", 1), ("key", 1)], unique=True)
+    # TTL su last_updated (non più su un singolo tentativo): 2 ore coprono
+    # con margine la finestra più ampia usata oggi (60 minuti) — non è
+    # comunque il meccanismo che garantisce la correttezza della finestra
+    # scorrevole (quello lo fa il $filter dentro check_and_record ad ogni
+    # chiamata), solo pulizia delle chiavi ormai inattive.
+    await db.rate_limit_events.create_index("last_updated", expireAfterSeconds=7200)
+    # Indice univoco su event_id: rende atomica _claim_webhook_event_once()
+    # (vedi subscription_service.py) — un insert_one che fallisce da solo
+    # con DuplicateKeyError alla seconda consegna dello stesso evento
+    # webhook, invece del precedente "cerca poi eventualmente inserisci"
+    # (due operazioni separate, quindi non atomico: due consegne quasi
+    # simultanee dello stesso evento — Stripe e PayPal dichiarano entrambi
+    # di poterlo fare — potevano passare il controllo prima che una delle
+    # due registrasse l'id, elaborando l'evento due volte).
+    await db.stripe_webhook_events.create_index("event_id", unique=True)
+    await db.paypal_webhook_events.create_index("event_id", unique=True)
     # Indice composto: find_many() filtra sempre per user_id e ordina per
     # created_at desc, quindi questo indice copre sia il filtro che il sort.
     await db.ai_action_logs.create_index([("user_id", 1), ("created_at", -1)])

@@ -19,6 +19,7 @@ import asyncio
 from datetime import datetime, timezone, timedelta
 
 import pytest
+from pymongo.errors import DuplicateKeyError
 
 sys.path.insert(0, ".")
 
@@ -29,6 +30,13 @@ from core.subscription_utils import is_subscription_active
 
 def run(coro):
     return asyncio.run(coro)
+
+
+async def _verify_signature_always_true(*a, **k):
+    # _verify_paypal_webhook_signature è async (asyncio.to_thread attorno
+    # alle chiamate PayPal, vedi fix scalabilità): un lambda sincrono non
+    # sarebbe awaitable e romperebbe `await self._verify_paypal_webhook_signature(...)`.
+    return True
 
 
 class FakeUserRepo:
@@ -62,7 +70,11 @@ class FakeUserRepo:
 
 class FakeWebhookEventsCollection:
     """Sostituisce la collection Mongo reale usata per l'idempotenza dei
-    webhook PayPal, così il test non tocca un database vero."""
+    webhook Stripe/PayPal, così il test non tocca un database vero.
+    insert_one solleva DuplicateKeyError sul secondo insert con lo stesso
+    event_id, come farebbe l'indice univoco reale (vedi
+    subscription_service._claim_webhook_event_once) — find_one non serve
+    più: il controllo di idempotenza ora passa solo da insert_one."""
 
     def __init__(self):
         self.seen_ids = set()
@@ -72,6 +84,8 @@ class FakeWebhookEventsCollection:
         return {"event_id": eid} if eid in self.seen_ids else None
 
     async def insert_one(self, doc):
+        if doc["event_id"] in self.seen_ids:
+            raise DuplicateKeyError("chiave duplicata (event_id)")
         self.seen_ids.add(doc["event_id"])
 
 
@@ -214,6 +228,7 @@ def test_cancel_senza_provider_configurato_cancella_subito(monkeypatch):
 
 def test_webhook_stripe_subscription_deleted_finalizza_e_pulisce_cancel_at(monkeypatch):
     monkeypatch.setattr(subscription_mod, "STRIPE_SECRET_KEY", "sk_test_fake")
+    monkeypatch.setattr(subscription_mod, "STRIPE_WEBHOOK_SECRET", "whsec_fake")
 
     fake_event = {"type": "customer.subscription.deleted", "data": {"object": {"id": "sub_456"}}}
 
@@ -251,7 +266,7 @@ def test_webhook_paypal_cancelled_non_taglia_se_cancel_at_gia_impostato(monkeypa
         "subscription_status": "active", "cancel_at": future,
     }})
     service = SubscriptionService(repo=repo)
-    monkeypatch.setattr(service, "_verify_paypal_webhook_signature", lambda *a, **k: True)
+    monkeypatch.setattr(service, "_verify_paypal_webhook_signature", _verify_signature_always_true)
 
     event = {"id": "evt-1", "event_type": "BILLING.SUBSCRIPTION.CANCELLED", "resource": {"id": "I-ABC"}}
     request = FakeRequest(json_data=event)
@@ -270,7 +285,7 @@ def test_webhook_paypal_cancelled_taglia_subito_se_cancellata_fuori_dalla_nostra
         "subscription_status": "active",
     }})
     service = SubscriptionService(repo=repo)
-    monkeypatch.setattr(service, "_verify_paypal_webhook_signature", lambda *a, **k: True)
+    monkeypatch.setattr(service, "_verify_paypal_webhook_signature", _verify_signature_always_true)
 
     event = {"id": "evt-2", "event_type": "BILLING.SUBSCRIPTION.CANCELLED", "resource": {"id": "I-XYZ"}}
     request = FakeRequest(json_data=event)
@@ -288,6 +303,7 @@ def test_webhook_stripe_evento_duplicato_non_viene_riprocessato(monkeypatch):
     lo stesso evento più volte (retry), un secondo invio con lo stesso id
     non deve rieseguire l'handler."""
     monkeypatch.setattr(subscription_mod, "STRIPE_SECRET_KEY", "sk_test_fake")
+    monkeypatch.setattr(subscription_mod, "STRIPE_WEBHOOK_SECRET", "whsec_fake")
     monkeypatch.setattr(subscription_mod, "stripe_webhook_events", FakeWebhookEventsCollection())
 
     fake_event = {

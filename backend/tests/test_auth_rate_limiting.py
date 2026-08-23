@@ -90,6 +90,35 @@ def test_troppi_tentativi_per_email_bloccano_il_login_prima_di_verificare_la_pas
     assert exc_info.value.status_code == 429
 
 
+class _RawPayload:
+    """Doppio minimo di LoginIn che NON passa dalla normalizzazione di
+    Pydantic EmailStr (che di suo toglie già gli spazi incidentali prima
+    che il service veda il valore) — serve a verificare la normalizzazione
+    di login() stesso, in isolamento, non un effetto collaterale di
+    EmailStr. È lo stesso principio per cui login() deve fare .strip() di
+    suo, come register()/forgot_password(): un chiamante futuro che non
+    passi da LoginIn (es. un endpoint interno, un test, uno script) non
+    avrebbe altrimenti nessuna garanzia di normalizzazione."""
+    def __init__(self, email, password):
+        self.email = email
+        self.password = password
+
+
+def test_login_normalizza_di_suo_spazi_incidentali_intorno_alla_email(monkeypatch):
+    """Il fix: prima login() normalizzava solo con .lower(), non .strip()
+    come register()/forgot_password() — un'email salvata senza spazi
+    (register la strippa) non sarebbe mai stata trovata da find_by_email
+    se il valore arrivato a login() avesse avuto spazi incidentali,
+    anche con la password corretta."""
+    monkeypatch.setattr(auth_service_mod, "check_and_record", _allow_always)
+    service = AuthService(repo=FakeUserRepo({"mario@example.com": _user()}))
+
+    token, out = run(service.login(_RawPayload(email="  mario@example.com  ", password="password-corretta")))
+
+    assert token
+    assert out["email"] == "mario@example.com"
+
+
 def test_rate_limit_login_usa_email_e_ip_come_chiavi(monkeypatch):
     calls = []
 

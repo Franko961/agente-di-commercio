@@ -126,7 +126,11 @@ class AuthService:
         return token, clean(doc)
 
     async def login(self, payload, ip_address: str = None) -> tuple:
-        email = payload.email.lower()
+        # .strip() come register()/forgot_password(): un'email registrata è
+        # sempre salvata senza spazi, ma un login con spazi incidentali
+        # (tastiera mobile, copia-incolla) senza questo normalizza in modo
+        # diverso e non troverebbe mai l'utente, anche con la password giusta.
+        email = payload.email.lower().strip()
 
         # Nessuna protezione contro i tentativi ripetuti di password esisteva
         # qui: un attaccante poteva provare password illimitate su una email
