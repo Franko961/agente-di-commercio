@@ -56,11 +56,28 @@ def test_senza_x_forwarded_for_ricade_sul_peer_diretto():
     assert result["x_forwarded_for"] is None
 
 
-def test_nessun_campo_extra_oltre_ai_quattro_previsti():
-    """Guardrail contro fughe di dati accidentali: solo i quattro campi
+def test_nessun_campo_extra_oltre_ai_cinque_previsti():
+    """Guardrail contro fughe di dati accidentali: solo i cinque campi
     diagnostici attesi, nient'altro (es. nessun dato di sessione/config)."""
     request = FakeRequest(headers={}, client_host="10.0.0.5")
 
     result = run(server.debug_my_ip(request))
 
-    assert set(result.keys()) == {"resolved_ip", "x_forwarded_for", "direct_peer", "trusted_proxy_hops"}
+    assert set(result.keys()) == {"resolved_ip", "x_forwarded_for", "direct_peer", "trusted_proxy_hops", "headers"}
+
+
+def test_headers_esclude_cookie_e_authorization():
+    """Chi chiama questo endpoint pubblico potrebbe avere una sessione attiva
+    (es. testato dal browser già loggato): il proprio token di sessione non
+    deve mai finire riflesso indietro nella risposta JSON."""
+    request = FakeRequest(headers={
+        "cookie": "access_token=segreto-non-deve-uscire",
+        "authorization": "Bearer segreto-anche-questo",
+        "x-nf-client-connection-ip": "203.0.113.9",
+    }, client_host="10.0.0.5")
+
+    result = run(server.debug_my_ip(request))
+
+    assert "cookie" not in result["headers"]
+    assert "authorization" not in result["headers"]
+    assert result["headers"]["x-nf-client-connection-ip"] == "203.0.113.9"

@@ -144,11 +144,17 @@ async def health():
 # informazioni sulla propria connessione.
 @app.get("/api/debug/my-ip")
 async def debug_my_ip(request: Request):
+    # cookie/authorization esclusi apposta dal dump: chi chiama potrebbe
+    # avere una sessione attiva (es. Franco loggato mentre testa questo
+    # endpoint dal browser) e non deve mai vedere il proprio token di
+    # sessione riflesso indietro in una risposta JSON pubblica.
+    safe_headers = {k: v for k, v in request.headers.items() if k.lower() not in ("cookie", "authorization")}
     return {
         "resolved_ip": get_client_ip(request),
         "x_forwarded_for": request.headers.get("x-forwarded-for"),
         "direct_peer": request.client.host if request.client else None,
         "trusted_proxy_hops": TRUSTED_PROXY_HOPS,
+        "headers": safe_headers,
     }
 
 
