@@ -88,17 +88,17 @@ class EmployeeCompensationService:
             await self.expenses.delete(expense_doc["id"], user["id"])
             raise
 
-    async def update_compensation(self, user: dict, cid: str, payload) -> None:
-        existing = await self.repo.find_one(cid, user["id"])
+    async def update_compensation(self, user: dict, employee_id: str, cid: str, payload) -> None:
+        existing = await self.repo.find_one(cid, user["id"], employee_id)
         if not existing:
             raise NotFoundError("Compenso non trovato")
-        employee = await self._validate_employee(user["id"], existing["employee_id"])
+        employee = await self._validate_employee(user["id"], employee_id)
 
         notes = (payload.notes or "").strip()
         date_iso = payload.date.isoformat()
         employee_name = f"{employee['name']} {employee.get('surname', '')}".strip()
 
-        await self.repo.update(cid, user["id"], {
+        await self.repo.update(cid, user["id"], employee_id, {
             "type": payload.type,
             "amount": payload.amount,
             "date": date_iso,
@@ -112,11 +112,11 @@ class EmployeeCompensationService:
                 "amount": payload.amount,
             })
 
-    async def delete_compensation(self, user: dict, cid: str) -> None:
-        existing = await self.repo.find_one(cid, user["id"])
+    async def delete_compensation(self, user: dict, employee_id: str, cid: str) -> None:
+        existing = await self.repo.find_one(cid, user["id"], employee_id)
         if existing and existing.get("expense_id"):
             await self.expenses.delete(existing["expense_id"], user["id"])
-        await self.repo.delete(cid, user["id"])
+        await self.repo.delete(cid, user["id"], employee_id)
 
 
 employee_compensation_service = EmployeeCompensationService()

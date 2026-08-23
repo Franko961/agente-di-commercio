@@ -19,11 +19,11 @@ async def create_employee_equipment(eid: str, payload: EmployeeEquipmentIn, user
 
 @router.put("/{eqid}", dependencies=[MODULE_DEP])
 async def update_employee_equipment(eid: str, eqid: str, payload: EmployeeEquipmentIn, user=Depends(forbid_demo_write)):
-    await employee_equipment_service.update_equipment(user, eqid, payload)
+    await employee_equipment_service.update_equipment(user, eid, eqid, payload)
     return {"ok": True}
 
 
 @router.delete("/{eqid}", dependencies=[MODULE_DEP])
 async def delete_employee_equipment(eid: str, eqid: str, user=Depends(forbid_demo_write)):
-    await employee_equipment_service.delete_equipment(user, eqid)
+    await employee_equipment_service.delete_equipment(user, eid, eqid)
     return {"ok": True}

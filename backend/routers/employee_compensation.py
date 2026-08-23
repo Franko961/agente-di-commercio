@@ -19,11 +19,11 @@ async def create_employee_compensation(eid: str, payload: EmployeeCompensationIn
 
 @router.put("/{cid}", dependencies=[MODULE_DEP])
 async def update_employee_compensation(eid: str, cid: str, payload: EmployeeCompensationIn, user=Depends(forbid_demo_write)):
-    await employee_compensation_service.update_compensation(user, cid, payload)
+    await employee_compensation_service.update_compensation(user, eid, cid, payload)
     return {"ok": True}
 
 
 @router.delete("/{cid}", dependencies=[MODULE_DEP])
 async def delete_employee_compensation(eid: str, cid: str, user=Depends(forbid_demo_write)):
-    await employee_compensation_service.delete_compensation(user, cid)
+    await employee_compensation_service.delete_compensation(user, eid, cid)
     return {"ok": True}

@@ -45,24 +45,24 @@ class FakeEmployeeCompensationRepo:
     async def find_many(self, employee_id, user_id):
         return [d for d in self.docs.values() if d["employee_id"] == employee_id and d["user_id"] == user_id]
 
-    async def find_one(self, cid, user_id):
+    async def find_one(self, cid, user_id, employee_id):
         d = self.docs.get(cid)
-        return d if d and d["user_id"] == user_id else None
+        return d if d and d["user_id"] == user_id and d["employee_id"] == employee_id else None
 
     async def insert(self, doc):
         self.docs[doc["id"]] = dict(doc)
         return doc
 
-    async def update(self, cid, user_id, data):
+    async def update(self, cid, user_id, employee_id, data):
         d = self.docs.get(cid)
-        if not d or d["user_id"] != user_id:
+        if not d or d["user_id"] != user_id or d["employee_id"] != employee_id:
             return False
         d.update(data)
         return True
 
-    async def delete(self, cid, user_id):
+    async def delete(self, cid, user_id, employee_id):
         d = self.docs.get(cid)
-        if d and d["user_id"] == user_id:
+        if d and d["user_id"] == user_id and d["employee_id"] == employee_id:
             del self.docs[cid]
 
 
@@ -184,7 +184,7 @@ def test_update_compensation_sincronizza_la_spesa_collegata():
     service, comp_repo, _, expense_repo = build_service()
     comp = run(service.create_compensation(USER, "emp-1", EmployeeCompensationIn(type="bonus", amount=200, date=date(2026, 2, 1))))
 
-    run(service.update_compensation(USER, comp["id"], EmployeeCompensationIn(type="bonus", amount=350, date=date(2026, 2, 15), notes="produttività")))
+    run(service.update_compensation(USER, "emp-1", comp["id"], EmployeeCompensationIn(type="bonus", amount=350, date=date(2026, 2, 15), notes="produttività")))
 
     updated = comp_repo.docs[comp["id"]]
     assert updated["amount"] == 350
@@ -199,14 +199,27 @@ def test_update_compensation_sincronizza_la_spesa_collegata():
 def test_update_compensation_unknown_raises_404():
     service, _, _, _ = build_service()
     with pytest.raises(NotFoundError):
-        run(service.update_compensation(USER, "does-not-exist", EmployeeCompensationIn(amount=100, date=date(2026, 1, 1))))
+        run(service.update_compensation(USER, "emp-1", "does-not-exist", EmployeeCompensationIn(amount=100, date=date(2026, 1, 1))))
 
 
 def test_update_compensation_other_user_raises_404():
     service, _, _, _ = build_service()
     comp = run(service.create_compensation(USER, "emp-1", EmployeeCompensationIn(amount=100, date=date(2026, 1, 1))))
     with pytest.raises(NotFoundError):
-        run(service.update_compensation(OTHER_USER, comp["id"], EmployeeCompensationIn(amount=100, date=date(2026, 1, 1))))
+        run(service.update_compensation(OTHER_USER, "emp-1", comp["id"], EmployeeCompensationIn(amount=100, date=date(2026, 1, 1))))
+
+
+def test_update_compensation_wrong_employee_id_raises_404():
+    # Bug di isolamento corretto: un id di record valido per l'account ma
+    # riferito con l'employee_id sbagliato nell'URL non deve avere effetto.
+    service, comp_repo, emp_repo, _ = build_service()
+    emp_repo.docs["emp-2"] = {"id": "emp-2", "user_id": USER["id"], "name": "Luca", "surname": "Bianchi"}
+    comp = run(service.create_compensation(USER, "emp-1", EmployeeCompensationIn(amount=100, date=date(2026, 1, 1))))
+
+    with pytest.raises(NotFoundError):
+        run(service.update_compensation(USER, "emp-2", comp["id"], EmployeeCompensationIn(amount=999, date=date(2026, 1, 1))))
+
+    assert comp_repo.docs[comp["id"]]["amount"] == 100
 
 
 # ---------- delete_compensation (+ sync su Spese) ----------
@@ -216,7 +229,7 @@ def test_delete_compensation_rimuove_anche_la_spesa_collegata():
     comp = run(service.create_compensation(USER, "emp-1", EmployeeCompensationIn(amount=100, date=date(2026, 1, 1))))
     expense_id = comp["expense_id"]
 
-    run(service.delete_compensation(USER, comp["id"]))
+    run(service.delete_compensation(USER, "emp-1", comp["id"]))
 
     assert comp["id"] not in comp_repo.docs
     assert expense_id not in expense_repo.docs
@@ -226,7 +239,18 @@ def test_delete_compensation_other_user_is_noop():
     service, comp_repo, _, expense_repo = build_service()
     comp = run(service.create_compensation(USER, "emp-1", EmployeeCompensationIn(amount=100, date=date(2026, 1, 1))))
 
-    run(service.delete_compensation(OTHER_USER, comp["id"]))
+    run(service.delete_compensation(OTHER_USER, "emp-1", comp["id"]))
+
+    assert comp["id"] in comp_repo.docs
+    assert comp["expense_id"] in expense_repo.docs
+
+
+def test_delete_compensation_wrong_employee_id_is_noop():
+    service, comp_repo, emp_repo, expense_repo = build_service()
+    emp_repo.docs["emp-2"] = {"id": "emp-2", "user_id": USER["id"], "name": "Luca", "surname": "Bianchi"}
+    comp = run(service.create_compensation(USER, "emp-1", EmployeeCompensationIn(amount=100, date=date(2026, 1, 1))))
+
+    run(service.delete_compensation(USER, "emp-2", comp["id"]))
 
     assert comp["id"] in comp_repo.docs
     assert comp["expense_id"] in expense_repo.docs

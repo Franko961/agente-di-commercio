@@ -46,24 +46,24 @@ class FakeEmployeeEquipmentRepo:
     async def find_many(self, employee_id, user_id):
         return [d for d in self.docs.values() if d["employee_id"] == employee_id and d["user_id"] == user_id]
 
-    async def find_one(self, eqid, user_id):
+    async def find_one(self, eqid, user_id, employee_id):
         d = self.docs.get(eqid)
-        return d if d and d["user_id"] == user_id else None
+        return d if d and d["user_id"] == user_id and d["employee_id"] == employee_id else None
 
     async def insert(self, doc):
         self.docs[doc["id"]] = dict(doc)
         return doc
 
-    async def update(self, eqid, user_id, data):
+    async def update(self, eqid, user_id, employee_id, data):
         d = self.docs.get(eqid)
-        if not d or d["user_id"] != user_id:
+        if not d or d["user_id"] != user_id or d["employee_id"] != employee_id:
             return False
         d.update(data)
         return True
 
-    async def delete(self, eqid, user_id):
+    async def delete(self, eqid, user_id, employee_id):
         d = self.docs.get(eqid)
-        if d and d["user_id"] == user_id:
+        if d and d["user_id"] == user_id and d["employee_id"] == employee_id:
             del self.docs[eqid]
 
 
@@ -184,7 +184,7 @@ def test_update_equipment_marks_returned():
     service, eq_repo, _ = build_service()
     item = run(service.create_equipment(USER, "emp-1", EmployeeEquipmentIn(name="Chiavi ufficio", delivered_date=date(2026, 1, 1))))
 
-    run(service.update_equipment(USER, item["id"], EmployeeEquipmentIn(
+    run(service.update_equipment(USER, "emp-1", item["id"], EmployeeEquipmentIn(
         name="Chiavi ufficio", delivered_date=date(2026, 1, 1),
         returned_date=date(2026, 6, 1), status="restituito",
     )))
@@ -198,14 +198,29 @@ def test_update_equipment_marks_returned():
 def test_update_equipment_unknown_raises_404():
     service, _, _ = build_service()
     with pytest.raises(NotFoundError):
-        run(service.update_equipment(USER, "does-not-exist", EmployeeEquipmentIn(name="x")))
+        run(service.update_equipment(USER, "emp-1", "does-not-exist", EmployeeEquipmentIn(name="x")))
 
 
 def test_update_equipment_other_user_raises_404():
     service, eq_repo, _ = build_service()
     item = run(service.create_equipment(USER, "emp-1", EmployeeEquipmentIn(name="Chiavi")))
     with pytest.raises(NotFoundError):
-        run(service.update_equipment(OTHER_USER, item["id"], EmployeeEquipmentIn(name="Chiavi")))
+        run(service.update_equipment(OTHER_USER, "emp-1", item["id"], EmployeeEquipmentIn(name="Chiavi")))
+
+
+def test_update_equipment_wrong_employee_id_raises_404():
+    # Bug di isolamento corretto: un id di record valido per l'account ma
+    # riferito con l'employee_id sbagliato nell'URL non deve avere effetto
+    # (stesso principio già corretto per le presenze e le Contestazioni
+    # disciplinari).
+    service, eq_repo, emp_repo = build_service()
+    emp_repo.docs["emp-2"] = {"id": "emp-2", "user_id": USER["id"], "name": "Luca"}
+    item = run(service.create_equipment(USER, "emp-1", EmployeeEquipmentIn(name="Chiavi ufficio")))
+
+    with pytest.raises(NotFoundError):
+        run(service.update_equipment(USER, "emp-2", item["id"], EmployeeEquipmentIn(name="Manomesso")))
+
+    assert eq_repo.docs[item["id"]]["name"] == "Chiavi ufficio"
 
 
 # ---------- delete_equipment ----------
@@ -214,7 +229,7 @@ def test_delete_equipment_removes_item():
     service, eq_repo, _ = build_service()
     item = run(service.create_equipment(USER, "emp-1", EmployeeEquipmentIn(name="Chiavi")))
 
-    run(service.delete_equipment(USER, item["id"]))
+    run(service.delete_equipment(USER, "emp-1", item["id"]))
 
     assert item["id"] not in eq_repo.docs
     assert run(service.list_equipment(USER, "emp-1")) == []
@@ -224,6 +239,16 @@ def test_delete_equipment_other_user_is_noop():
     service, eq_repo, _ = build_service()
     item = run(service.create_equipment(USER, "emp-1", EmployeeEquipmentIn(name="Chiavi")))
 
-    run(service.delete_equipment(OTHER_USER, item["id"]))
+    run(service.delete_equipment(OTHER_USER, "emp-1", item["id"]))
+
+    assert item["id"] in eq_repo.docs
+
+
+def test_delete_equipment_wrong_employee_id_is_noop():
+    service, eq_repo, emp_repo = build_service()
+    emp_repo.docs["emp-2"] = {"id": "emp-2", "user_id": USER["id"], "name": "Luca"}
+    item = run(service.create_equipment(USER, "emp-1", EmployeeEquipmentIn(name="Chiavi")))
+
+    run(service.delete_equipment(USER, "emp-2", item["id"]))
 
     assert item["id"] in eq_repo.docs

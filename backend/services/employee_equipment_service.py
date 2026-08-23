@@ -43,8 +43,8 @@ class EmployeeEquipmentService:
         }
         return await self.repo.insert(doc)
 
-    async def update_equipment(self, user: dict, eqid: str, payload) -> None:
-        ok = await self.repo.update(eqid, user["id"], {
+    async def update_equipment(self, user: dict, employee_id: str, eqid: str, payload) -> None:
+        ok = await self.repo.update(eqid, user["id"], employee_id, {
             "name": payload.name.strip(),
             "delivered_date": payload.delivered_date.isoformat() if payload.delivered_date else None,
             "returned_date": payload.returned_date.isoformat() if payload.returned_date else None,
@@ -55,8 +55,8 @@ class EmployeeEquipmentService:
         if not ok:
             raise NotFoundError("Dotazione non trovata")
 
-    async def delete_equipment(self, user: dict, eqid: str) -> None:
-        await self.repo.delete(eqid, user["id"])
+    async def delete_equipment(self, user: dict, employee_id: str, eqid: str) -> None:
+        await self.repo.delete(eqid, user["id"], employee_id)
 
 
 employee_equipment_service = EmployeeEquipmentService()
