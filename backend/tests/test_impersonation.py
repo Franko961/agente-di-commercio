@@ -95,6 +95,7 @@ class FakeRequest:
         self.cookies = {"access_token": token}
         self.headers = {}
         self.url = type("U", (), {"path": "/api/clients"})()
+        self.scope = {"path": "/api/clients"}
 
 
 def test_get_current_user_propaga_impersonated_by(monkeypatch):

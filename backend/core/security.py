@@ -162,7 +162,11 @@ async def get_current_user(request: Request) -> dict:
         if payload.get("iat"):
             user["impersonation_started_at"] = datetime.fromtimestamp(payload["iat"], tz=timezone.utc)
 
-    path = request.url.path
+    # scope["path"] (non request.url.path, ricostruito da starlette a partire
+    # dall'header Host) per evitare che un Host header malformato/malevolo
+    # faccia percepire come "esente" un path che in realtà non lo è (nota
+    # CVE PYSEC-2026-161/248 di starlette sulla ricostruzione dell'URL).
+    path = request.scope["path"]
     is_exempt = any(path.startswith(p) for p in TRIAL_GATE_EXEMPT_PREFIXES)
     # Una sessione di impersonificazione (payload.impersonated_by presente)
     # è sempre esente dal gate, indipendentemente dal ruolo dell'utente
