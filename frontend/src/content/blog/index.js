@@ -17,8 +17,9 @@ import { article as crmAiVenditori } from "./articles/crm-intelligenza-artificia
 import { article as aumentareProvvigioni } from "./articles/aumentare-provvigioni-agente-di-commercio";
 import { article as daExcelAlCrm } from "./articles/passare-da-excel-al-crm-agenti";
 import { article as implementareInDueMinuti } from "./articles/implementare-salesfly-in-due-minuti";
+import { article as contrattoDiAgenzia } from "./articles/contratto-di-agenzia-clausole-da-controllare";
 
-const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot, migliorCrmVenditori, crmAiVenditori, aumentareProvvigioni, daExcelAlCrm, implementareInDueMinuti];
+const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot, migliorCrmVenditori, crmAiVenditori, aumentareProvvigioni, daExcelAlCrm, implementareInDueMinuti, contrattoDiAgenzia];
 
 export const articles = [...allArticles].sort(
   (a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)
