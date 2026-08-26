@@ -41,12 +41,12 @@ function themeForSlug(slug) {
 function ArticleCover({ slug, issueNumber }) {
   const { category, photoId } = themeForSlug(slug);
   return (
-    <div className="aspect-[3/4] rounded-2xl relative overflow-hidden">
+    <div className="aspect-[3/4] rounded-2xl relative overflow-hidden shadow-sm group-hover:shadow-xl transition-shadow duration-300">
       <img
         src={`https://images.unsplash.com/photo-${photoId}?w=600&q=75&auto=format&fit=crop`}
         alt=""
         loading="lazy"
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110"
       />
       <div
         className="absolute inset-0"
