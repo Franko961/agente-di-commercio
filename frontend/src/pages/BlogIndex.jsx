@@ -1,6 +1,24 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Calculator,
+  TrendingUp,
+  GraduationCap,
+  BookOpen,
+  ShieldCheck,
+  FileSignature,
+  FileSpreadsheet,
+  Rocket,
+  Scale,
+  Sparkles,
+  Smartphone,
+  Route,
+  Building2,
+  Receipt,
+  Newspaper,
+} from "lucide-react";
 import { getPublishedArticles } from "@/content/blog";
 import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
@@ -9,8 +27,9 @@ import PageMeta from "@/components/PageMeta";
 const PER_PAGE = 9;
 
 // Sfondi pastello in rotazione per le copertine — nessuna immagine reale per
-// articolo, quindi il "visual" è generato: colore di sfondo + titolo vero in
-// tipografia grande, come una copertina editoriale.
+// articolo (niente fototeca esterna, la CSP del sito limita i domini immagine
+// consentiti), quindi il "visual" è un'icona a tema grande su sfondo colorato,
+// come una copertina editoriale illustrata invece che una foto.
 const COVER_PALETTE = [
   { bg: "#D9E4D3", text: "#0A192F" }, // salvia
   { bg: "#F0E4D3", text: "#0A192F" }, // sabbia
@@ -19,29 +38,52 @@ const COVER_PALETTE = [
   { bg: "#E4E0E8", text: "#0A192F" }, // lavanda
 ];
 
-function ArticleCover({ title, issueNumber, index }) {
+// Icona a tema per slug, in ordine dal più specifico al più generico — i
+// sotto-temi ENASARCO (rimborso tasse, bonus scolastico) vanno controllati
+// prima del fallback generico "enasarco".
+const ICON_RULES = [
+  [(s) => s.includes("rimborso-tasse") || s.includes("universita"), GraduationCap],
+  [(s) => s.includes("bonus-scolastico"), BookOpen],
+  [(s) => s.includes("enasarco"), ShieldCheck],
+  [(s) => s.includes("contratto"), FileSignature],
+  [(s) => s.includes("aumentare-provvigioni"), TrendingUp],
+  [(s) => s.includes("calcolo-provvigioni"), Calculator],
+  [(s) => s.includes("excel"), FileSpreadsheet],
+  [(s) => s.includes("due-minuti"), Rocket],
+  [(s) => s.includes("hubspot") || s.includes("migliori-crm"), Scale],
+  [(s) => s.includes("intelligenza-artificiale") || s.includes("ai-crm"), Sparkles],
+  [(s) => s.includes("mobile") || s.includes("telefono"), Smartphone],
+  [(s) => s.includes("giro-visite"), Route],
+  [(s) => s.includes("mandanti"), Building2],
+  [(s) => s.includes("spese"), Receipt],
+];
+
+function iconForSlug(slug) {
+  const match = ICON_RULES.find(([test]) => test(slug));
+  return match ? match[1] : Newspaper;
+}
+
+function ArticleCover({ slug, issueNumber, index }) {
   const palette = COVER_PALETTE[index % COVER_PALETTE.length];
+  const Icon = iconForSlug(slug);
   return (
     <div
-      className="aspect-[3/4] rounded-2xl relative overflow-hidden flex flex-col justify-between p-5"
+      className="aspect-[3/4] rounded-2xl relative overflow-hidden flex flex-col p-5"
       style={{ background: palette.bg }}
     >
       <div
-        className="absolute -right-8 -bottom-8 w-32 h-32 rounded-full border-2 opacity-20"
+        className="absolute -right-10 -bottom-10 w-40 h-40 rounded-full border-2 opacity-20"
         style={{ borderColor: palette.text }}
       />
       <span
-        className="font-mono text-[11px] uppercase tracking-[0.2em]"
+        className="font-mono text-[11px] uppercase tracking-[0.2em] relative z-10"
         style={{ color: palette.text, opacity: 0.7 }}
       >
         N. {issueNumber}
       </span>
-      <span
-        className="font-cabinet font-black text-2xl leading-[1.1] tracking-tight relative z-10 line-clamp-6"
-        style={{ color: palette.text }}
-      >
-        {title}
-      </span>
+      <div className="flex-1 flex items-center justify-center relative z-10">
+        <Icon className="w-20 h-20" strokeWidth={1.25} style={{ color: palette.text, opacity: 0.85 }} />
+      </div>
     </div>
   );
 }
@@ -85,7 +127,7 @@ export default function BlogIndex() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
               {pageArticles.map((a, i) => (
                 <Link key={a.slug} to={`/blog/${a.slug}`} className="group block">
-                  <ArticleCover title={a.title} issueNumber={total - (start + i)} index={start + i} />
+                  <ArticleCover slug={a.slug} issueNumber={total - (start + i)} index={start + i} />
                   <div className="mt-4">
                     <div className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B72] mb-2">
                       Issue {total - (start + i)}
