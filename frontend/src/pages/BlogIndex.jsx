@@ -1,24 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Calculator,
-  TrendingUp,
-  GraduationCap,
-  BookOpen,
-  ShieldCheck,
-  FileSignature,
-  FileSpreadsheet,
-  Rocket,
-  Scale,
-  Sparkles,
-  Smartphone,
-  Route,
-  Building2,
-  Receipt,
-  Newspaper,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getPublishedArticles } from "@/content/blog";
 import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
@@ -26,63 +8,60 @@ import PageMeta from "@/components/PageMeta";
 
 const PER_PAGE = 9;
 
-// Sfondi pastello in rotazione per le copertine — nessuna immagine reale per
-// articolo (niente fototeca esterna, la CSP del sito limita i domini immagine
-// consentiti), quindi il "visual" è un'icona a tema grande su sfondo colorato,
-// come una copertina editoriale illustrata invece che una foto.
-const COVER_PALETTE = [
-  { bg: "#D9E4D3", text: "#0A192F" }, // salvia
-  { bg: "#F0E4D3", text: "#0A192F" }, // sabbia
-  { bg: "#DCE3E8", text: "#0A192F" }, // grigio-blu
-  { bg: "#E8C9B8", text: "#0A192F" }, // terracotta chiaro
-  { bg: "#E4E0E8", text: "#0A192F" }, // lavanda
-];
-
-// Icona a tema per slug, in ordine dal più specifico al più generico — i
+// Copertine in stile testata di rivista: foto reale (Unsplash, dominio già
+// autorizzato dalla CSP del sito in img-src, licenza Unsplash che ne permette
+// l'uso commerciale libero) con overlay sfumato scuro sotto per leggibilità
+// del testo sovrapposto — non un'icona/illustrazione generata.
+//
+// Categoria a tema per slug, in ordine dal più specifico al più generico — i
 // sotto-temi ENASARCO (rimborso tasse, bonus scolastico) vanno controllati
 // prima del fallback generico "enasarco".
-const ICON_RULES = [
-  [(s) => s.includes("rimborso-tasse") || s.includes("universita"), GraduationCap],
-  [(s) => s.includes("bonus-scolastico"), BookOpen],
-  [(s) => s.includes("enasarco"), ShieldCheck],
-  [(s) => s.includes("contratto"), FileSignature],
-  [(s) => s.includes("aumentare-provvigioni"), TrendingUp],
-  [(s) => s.includes("calcolo-provvigioni"), Calculator],
-  [(s) => s.includes("excel"), FileSpreadsheet],
-  [(s) => s.includes("due-minuti"), Rocket],
-  [(s) => s.includes("hubspot") || s.includes("migliori-crm"), Scale],
-  [(s) => s.includes("intelligenza-artificiale") || s.includes("ai-crm"), Sparkles],
-  [(s) => s.includes("mobile") || s.includes("telefono"), Smartphone],
-  [(s) => s.includes("giro-visite"), Route],
-  [(s) => s.includes("mandanti"), Building2],
-  [(s) => s.includes("spese"), Receipt],
+const THEME_RULES = [
+  [(s) => s.includes("rimborso-tasse") || s.includes("universita"), "STUDIO", "1541339907198-e08756dedf3f"],
+  [(s) => s.includes("bonus-scolastico"), "FAMIGLIA", "1603367563698-67012943fd67"],
+  [(s) => s.includes("enasarco"), "ENASARCO", "1637763723578-79a4ca9225f7"],
+  [(s) => s.includes("contratto"), "CONTRATTI", "1450101499163-c8848c66ca85"],
+  [(s) => s.includes("aumentare-provvigioni") || s.includes("calcolo-provvigioni"), "PROVVIGIONI", "1560221328-12fe60f83ab8"],
+  [(s) => s.includes("excel"), "MIGRAZIONE", "1487017159836-4e23ece2e4cf"],
+  [(s) => s.includes("due-minuti"), "SETUP", "1449247709967-d4461a6a6103"],
+  [(s) => s.includes("hubspot") || s.includes("migliori-crm"), "CONFRONTO", "1539992190939-08f22d7ebaad"],
+  [(s) => s.includes("intelligenza-artificiale") || s.includes("ai-crm"), "AI", "1674027444485-cec3da58eef4"],
+  [(s) => s.includes("mobile") || s.includes("telefono"), "MOBILE", "1592890288564-76628a30a657"],
+  [(s) => s.includes("giro-visite"), "TERRITORIO", "1684836571999-f3dc511935e7"],
+  [(s) => s.includes("mandanti"), "MANDANTI", "1672380135241-c024f7fbfa13"],
+  [(s) => s.includes("spese"), "SPESE", "1649209979970-f01d950cc5ed"],
 ];
+const DEFAULT_THEME = { category: "GUIDA", photoId: "1612367980327-7454a7276aa7" };
 
-function iconForSlug(slug) {
-  const match = ICON_RULES.find(([test]) => test(slug));
-  return match ? match[1] : Newspaper;
+function themeForSlug(slug) {
+  const match = THEME_RULES.find(([test]) => test(slug));
+  return match ? { category: match[1], photoId: match[2] } : DEFAULT_THEME;
 }
 
-function ArticleCover({ slug, issueNumber, index }) {
-  const palette = COVER_PALETTE[index % COVER_PALETTE.length];
-  const Icon = iconForSlug(slug);
+function ArticleCover({ slug, issueNumber }) {
+  const { category, photoId } = themeForSlug(slug);
   return (
-    <div
-      className="aspect-[3/4] rounded-2xl relative overflow-hidden flex flex-col p-5"
-      style={{ background: palette.bg }}
-    >
-      <div
-        className="absolute -right-10 -bottom-10 w-40 h-40 rounded-full border-2 opacity-20"
-        style={{ borderColor: palette.text }}
+    <div className="aspect-[3/4] rounded-2xl relative overflow-hidden">
+      <img
+        src={`https://images.unsplash.com/photo-${photoId}?w=600&q=75&auto=format&fit=crop`}
+        alt=""
+        loading="lazy"
+        className="absolute inset-0 w-full h-full object-cover"
       />
-      <span
-        className="font-mono text-[11px] uppercase tracking-[0.2em] relative z-10"
-        style={{ color: palette.text, opacity: 0.7 }}
-      >
-        N. {issueNumber}
-      </span>
-      <div className="flex-1 flex items-center justify-center relative z-10">
-        <Icon className="w-20 h-20" strokeWidth={1.25} style={{ color: palette.text, opacity: 0.85 }} />
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(to top, rgba(10,25,47,0.9) 0%, rgba(10,25,47,0.15) 45%, rgba(10,25,47,0.35) 100%)",
+        }}
+      />
+      <div className="absolute inset-0 flex flex-col justify-between p-5">
+        <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-white/90 self-start px-2.5 py-1 rounded-full bg-black/25 backdrop-blur-sm">
+          N. {issueNumber}
+        </span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-white self-start px-2.5 py-1 rounded-full border border-white/40">
+          {category}
+        </span>
       </div>
     </div>
   );
@@ -127,7 +106,7 @@ export default function BlogIndex() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
               {pageArticles.map((a, i) => (
                 <Link key={a.slug} to={`/blog/${a.slug}`} className="group block">
-                  <ArticleCover slug={a.slug} issueNumber={total - (start + i)} index={start + i} />
+                  <ArticleCover slug={a.slug} issueNumber={total - (start + i)} />
                   <div className="mt-4">
                     <div className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B72] mb-2">
                       Issue {total - (start + i)}
