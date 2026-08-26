@@ -30,8 +30,22 @@ class FakeRequest:
         self.client = FakeClient(client_host) if client_host else None
 
 
+def all_routes(routes):
+    """Starlette 1.x non appiattisce più le route incluse con
+    include_router() dentro app.routes: ogni chiamata compare come un
+    _IncludedRouter che va srotolato tramite original_router.routes per
+    arrivare alle vere APIRoute/Route con un attributo .path."""
+    flat = []
+    for route in routes:
+        if hasattr(route, "path"):
+            flat.append(route)
+        elif hasattr(route, "original_router"):
+            flat.extend(all_routes(route.original_router.routes))
+    return flat
+
+
 def test_registrato_pubblicamente_senza_autenticazione():
-    routes = {r.path: r for r in server.app.routes}
+    routes = {r.path: r for r in all_routes(server.app.routes)}
     assert "/api/debug/my-ip" in routes
     assert routes["/api/debug/my-ip"].dependant.dependencies == []
 
