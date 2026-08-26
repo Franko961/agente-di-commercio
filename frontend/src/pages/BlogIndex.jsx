@@ -43,7 +43,7 @@ function ArticleCover({ slug, issueNumber, priority }) {
   return (
     <div className="aspect-[3/4] rounded-2xl relative overflow-hidden shadow-sm group-hover:shadow-xl transition-shadow duration-300">
       <img
-        src={`https://images.unsplash.com/photo-${photoId}?w=600&q=75&auto=format&fit=crop`}
+        src={`https://images.unsplash.com/photo-${photoId}?w=480&q=68&auto=format&fit=crop`}
         alt=""
         loading={priority ? "eager" : "lazy"}
         fetchpriority={priority ? "high" : undefined}
