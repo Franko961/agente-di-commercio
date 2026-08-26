@@ -22,6 +22,7 @@ from unittest.mock import AsyncMock, MagicMock
 sys.path.insert(0, ".")
 
 import services.ai_service as ai_service_mod
+import services.ai_service.orchestrator as orchestrator_mod
 from services.ai_service import AiService, CRM_WRITE_TOOLS
 
 
@@ -65,7 +66,7 @@ def test_demo_user_cannot_write_via_chat_tool_loop(monkeypatch):
     service.repo.insert_log = AsyncMock(return_value=None)
     service.repo.count_since = AsyncMock(return_value=0)
 
-    monkeypatch.setattr(ai_service_mod, "check_and_record", _allow_always)
+    monkeypatch.setattr(orchestrator_mod, "check_and_record", _allow_always)
     monkeypatch.setattr(service, "gather_context", AsyncMock(return_value="(contesto vuoto)"))
     monkeypatch.setattr(service, "requires_confirmation", lambda name, inp, channel="chat": False)
     monkeypatch.setattr(service, "_log_action", AsyncMock(return_value={"id": "log_1"}))

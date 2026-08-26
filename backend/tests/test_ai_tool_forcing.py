@@ -27,6 +27,7 @@ import pytest
 sys.path.insert(0, ".")
 
 import services.ai_service as ai_service_mod
+import services.ai_service.orchestrator as orchestrator_mod
 
 
 async def _allow_ai_chat_rate_limit(*a, **k):
@@ -216,7 +217,7 @@ class FakeActionLogRepo:
 
 def build_service():
     from services.ai_service import AiService
-    ai_service_mod.check_and_record = _allow_ai_chat_rate_limit
+    orchestrator_mod.check_and_record = _allow_ai_chat_rate_limit
     client_repo = FakeClientRepo()
     service = AiService(
         repo=FakeAiRepo(),
@@ -246,7 +247,7 @@ def build_service_with_offer():
     """Variante di build_service() con mandante/offerta reali (fittizi) per
     testare il flusso di conferma economica di add_offer."""
     from services.ai_service import AiService
-    ai_service_mod.check_and_record = _allow_ai_chat_rate_limit
+    orchestrator_mod.check_and_record = _allow_ai_chat_rate_limit
     client_repo = FakeClientRepo()
     client_repo.docs.append({"id": "c-1", "user_id": "user-1", "company_name": "Rossi Srl"})
     mandante = {"id": "m-1", "name": "Paginesi", "commission_rate": 10}
@@ -404,7 +405,7 @@ def test_add_offer_non_scrive_subito_ma_richiede_conferma():
     # l'importo frainteso, es. 15.000 -> 1.500), l'offerta viene scritta
     resolved = dict(pending["resolved_input"])
     resolved["amount"] = 1500
-    with patch("services.ai_service.order_service") as mock_order_service:
+    with patch("services.ai_service.actions.offers.order_service") as mock_order_service:
         mock_order_service.create_from_offer = AsyncMock(return_value={"total": 1500})
         confirm_result = asyncio.run(
             service.execute_confirmed_action(FAKE_USER, {

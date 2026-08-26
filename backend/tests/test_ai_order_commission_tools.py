@@ -130,7 +130,7 @@ def test_prepare_add_order_stato_non_valido_ricade_su_confermato():
 def test_finalize_add_order_happy_path_delega_a_order_service():
     service, _ = build_service_with_offer()
 
-    with patch("services.ai_service.order_service") as mock_order_service:
+    with patch("services.ai_service.actions.orders.order_service") as mock_order_service:
         mock_order_service.create_order = AsyncMock(return_value={"id": "o-1", "numero_ordine": "ORD-0001", "total": 1000})
         msg = run(service._finalize_add_order(FAKE_USER["id"], {
             "client_id": "c-1", "client_name": "Rossi Srl",
@@ -154,7 +154,7 @@ def test_finalize_add_order_happy_path_delega_a_order_service():
 def test_finalize_add_order_annullato_non_genera_provvigione():
     service, _ = build_service_with_offer()
 
-    with patch("services.ai_service.order_service") as mock_order_service:
+    with patch("services.ai_service.actions.orders.order_service") as mock_order_service:
         mock_order_service.create_order = AsyncMock(return_value={"id": "o-1", "numero_ordine": "ORD-0002", "total": 500})
         msg = run(service._finalize_add_order(FAKE_USER["id"], {
             "client_id": "c-1", "client_name": "Rossi Srl",
@@ -171,7 +171,7 @@ def test_finalize_add_order_annullato_non_genera_provvigione():
 def test_finalize_add_order_importo_modificato_ricalcola_items():
     service, _ = build_service_with_offer()
 
-    with patch("services.ai_service.order_service") as mock_order_service:
+    with patch("services.ai_service.actions.orders.order_service") as mock_order_service:
         mock_order_service.create_order = AsyncMock(return_value={"id": "o-1", "numero_ordine": "ORD-0003", "total": 2000})
         run(service._finalize_add_order(FAKE_USER["id"], {
             "client_id": "c-1", "client_name": "Rossi Srl",
@@ -294,7 +294,7 @@ def test_prepare_add_commission_stato_e_tipo_fuori_enum_ricadono_sui_default():
 def test_finalize_add_commission_happy_path_delega_a_commission_service():
     service, _ = build_service()
 
-    with patch("services.ai_service.commission_service") as mock_commission_service:
+    with patch("services.ai_service.actions.commissions.commission_service") as mock_commission_service:
         mock_commission_service.create_manual_commission = AsyncMock(return_value={"id": "mc-1"})
         msg = run(service._finalize_add_commission(FAKE_USER["id"], {
             "period": "2026-05", "amount": 300, "stato": "maturato", "tipo": "ordinaria",
@@ -316,7 +316,7 @@ def test_finalize_add_commission_happy_path_delega_a_commission_service():
 def test_finalize_add_commission_avvisa_se_mandante_non_trovato():
     service, _ = build_service()
 
-    with patch("services.ai_service.commission_service") as mock_commission_service:
+    with patch("services.ai_service.actions.commissions.commission_service") as mock_commission_service:
         mock_commission_service.create_manual_commission = AsyncMock(return_value={"id": "mc-1"})
         msg = run(service._finalize_add_commission(FAKE_USER["id"], {
             "period": "2026-05", "amount": 100, "stato": "maturato", "tipo": "ordinaria",
@@ -331,7 +331,7 @@ def test_finalize_add_commission_avvisa_se_mandante_non_trovato():
 def test_finalize_add_commission_importo_zero_non_scrive():
     service, _ = build_service()
 
-    with patch("services.ai_service.commission_service") as mock_commission_service:
+    with patch("services.ai_service.actions.commissions.commission_service") as mock_commission_service:
         mock_commission_service.create_manual_commission = AsyncMock(return_value={"id": "mc-1"})
         msg = run(service._finalize_add_commission(FAKE_USER["id"], {"amount": 0}))
 
@@ -421,7 +421,7 @@ def test_execute_confirmed_action_add_order_ignora_client_id_manomesso():
     tampered["client_id"] = "c-di-un-altro-utente"
     tampered["mandante_id"] = "m-di-un-altro-utente"
 
-    with patch("services.ai_service.order_service") as mock_order_service:
+    with patch("services.ai_service.actions.orders.order_service") as mock_order_service:
         mock_order_service.create_order = AsyncMock(return_value={"id": "o-1", "numero_ordine": "ORD-1", "total": 900})
         run(service.execute_confirmed_action(FAKE_USER, {
             "tool_name": "add_order", "resolved_input": tampered, "log_id": log["id"],
@@ -440,7 +440,7 @@ def test_execute_confirmed_action_add_order_amount_e_status_restano_modificabili
     edited["amount"] = 1800
     edited["status"] = "annullato"
 
-    with patch("services.ai_service.order_service") as mock_order_service:
+    with patch("services.ai_service.actions.orders.order_service") as mock_order_service:
         mock_order_service.create_order = AsyncMock(return_value={"id": "o-1", "numero_ordine": "ORD-1", "total": 1800})
         result = run(service.execute_confirmed_action(FAKE_USER, {
             "tool_name": "add_order", "resolved_input": edited, "log_id": log["id"],
@@ -490,7 +490,7 @@ def test_execute_confirmed_action_add_commission_ignora_mandante_id_manomesso():
     tampered["mandante_id"] = "m-di-un-altro-utente"
     tampered["client_id"] = "c-di-un-altro-utente"
 
-    with patch("services.ai_service.commission_service") as mock_commission_service:
+    with patch("services.ai_service.actions.commissions.commission_service") as mock_commission_service:
         mock_commission_service.create_manual_commission = AsyncMock(return_value={"id": "mc-1"})
         run(service.execute_confirmed_action(FAKE_USER, {
             "tool_name": "add_commission", "resolved_input": tampered, "log_id": log["id"],
@@ -512,7 +512,7 @@ def test_execute_confirmed_action_add_commission_amount_stato_tipo_descrizione_p
     edited["descrizione"] = "Corretto a mano"
     edited["period"] = "2026-06"
 
-    with patch("services.ai_service.commission_service") as mock_commission_service:
+    with patch("services.ai_service.actions.commissions.commission_service") as mock_commission_service:
         mock_commission_service.create_manual_commission = AsyncMock(return_value={"id": "mc-1"})
         result = run(service.execute_confirmed_action(FAKE_USER, {
             "tool_name": "add_commission", "resolved_input": edited, "log_id": log["id"],

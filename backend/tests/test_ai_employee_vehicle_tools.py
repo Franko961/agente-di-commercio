@@ -26,6 +26,7 @@ import pytest
 sys.path.insert(0, ".")
 
 import services.ai_service as ai_service_mod
+import services.ai_service.tools.crm_writer as crm_writer_mod
 from services.ai_service import AiService
 from core.exceptions import ValidationAppError
 
@@ -164,7 +165,7 @@ USER = {"id": "user-1", "email": "franco@test.it"}
 
 def test_add_employee_tool_usa_employee_service(monkeypatch):
     fake = FakeEmployeeService()
-    monkeypatch.setattr(ai_service_mod, "employee_service", fake)
+    monkeypatch.setattr(crm_writer_mod, "employee_service", fake)
     service = AiService()
 
     result = run(service.execute_crm_tool(
@@ -183,7 +184,7 @@ def test_add_employee_tool_usa_employee_service(monkeypatch):
 
 def test_add_employee_tool_funziona_senza_cognome(monkeypatch):
     fake = FakeEmployeeService()
-    monkeypatch.setattr(ai_service_mod, "employee_service", fake)
+    monkeypatch.setattr(crm_writer_mod, "employee_service", fake)
     service = AiService()
 
     result = run(service.execute_crm_tool("add_employee", {"name": "Anna"}, USER["id"]))
@@ -196,7 +197,7 @@ def test_add_employee_tool_funziona_senza_cognome(monkeypatch):
 
 def test_add_vehicle_tool_usa_vehicle_service(monkeypatch):
     fake = FakeVehicleService()
-    monkeypatch.setattr(ai_service_mod, "vehicle_service", fake)
+    monkeypatch.setattr(crm_writer_mod, "vehicle_service", fake)
     service = AiService()
 
     result = run(service.execute_crm_tool(
@@ -214,7 +215,7 @@ def test_add_vehicle_tool_usa_vehicle_service(monkeypatch):
 
 def test_add_vehicle_tool_default_furgone(monkeypatch):
     fake = FakeVehicleService()
-    monkeypatch.setattr(ai_service_mod, "vehicle_service", fake)
+    monkeypatch.setattr(crm_writer_mod, "vehicle_service", fake)
     service = AiService()
 
     run(service.execute_crm_tool("add_vehicle", {"plate": "XY999ZZ"}, USER["id"]))
@@ -225,7 +226,7 @@ def test_add_vehicle_tool_default_furgone(monkeypatch):
 
 def test_add_vehicle_tool_propaga_errore_targa_duplicata(monkeypatch):
     fake = FakeVehicleService(raise_error=ValidationAppError("Esiste già un mezzo con targa AB123CD"))
-    monkeypatch.setattr(ai_service_mod, "vehicle_service", fake)
+    monkeypatch.setattr(crm_writer_mod, "vehicle_service", fake)
     service = AiService()
 
     result = run(service.execute_crm_tool("add_vehicle", {"plate": "AB123CD"}, USER["id"]))
@@ -241,7 +242,7 @@ def test_add_employee_bloccato_se_modulo_personale_non_abilitato(monkeypatch):
     (solo su disabled_modules) lo avrebbe lasciato passare comunque, dato che
     un modulo extra mai attivato non compare in quella lista."""
     fake = FakeEmployeeService()
-    monkeypatch.setattr(ai_service_mod, "employee_service", fake)
+    monkeypatch.setattr(crm_writer_mod, "employee_service", fake)
     responses = {"responses": [
         make_message([make_tool_use_block("add_employee", {"name": "Mario"}, "t1")], stop_reason="tool_use"),
         make_message([make_text_block("Fatto.")], stop_reason="end_turn"),
@@ -258,7 +259,7 @@ def test_add_employee_bloccato_se_modulo_personale_non_abilitato(monkeypatch):
 
 def test_add_employee_consentito_se_modulo_personale_abilitato(monkeypatch):
     fake = FakeEmployeeService()
-    monkeypatch.setattr(ai_service_mod, "employee_service", fake)
+    monkeypatch.setattr(crm_writer_mod, "employee_service", fake)
     responses = {"responses": [
         make_message([make_tool_use_block("add_employee", {"name": "Mario"}, "t1")], stop_reason="tool_use"),
         make_message([make_text_block("Fatto.")], stop_reason="end_turn"),
@@ -275,7 +276,7 @@ def test_add_employee_consentito_se_modulo_personale_abilitato(monkeypatch):
 
 def test_add_vehicle_bloccato_se_modulo_flotta_non_abilitato(monkeypatch):
     fake = FakeVehicleService()
-    monkeypatch.setattr(ai_service_mod, "vehicle_service", fake)
+    monkeypatch.setattr(crm_writer_mod, "vehicle_service", fake)
     responses = {"responses": [
         make_message([make_tool_use_block("add_vehicle", {"plate": "AB123CD"}, "t1")], stop_reason="tool_use"),
         make_message([make_text_block("Fatto.")], stop_reason="end_turn"),

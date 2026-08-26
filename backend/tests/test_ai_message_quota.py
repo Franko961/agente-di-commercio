@@ -31,6 +31,7 @@ from tests.test_ai_tool_forcing import (
 )
 from core.config import PLANS
 import services.ai_service as ai_service_mod
+import services.ai_service.orchestrator as orchestrator_mod
 
 
 def run(coro):
@@ -95,7 +96,7 @@ def test_troppe_richieste_ravvicinate_vengono_bloccate(monkeypatch):
 
     async def _deny_always(*a, **k):
         return False
-    monkeypatch.setattr(ai_service_mod, "check_and_record", _deny_always)
+    monkeypatch.setattr(orchestrator_mod, "check_and_record", _deny_always)
 
     with pytest.raises(HTTPException) as exc_info:
         run(service.chat({"id": "user-1", "plan": "pro"}, Payload("ciao")))

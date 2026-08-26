@@ -56,7 +56,7 @@ def test_doppia_conferma_concorrente_scrive_una_sola_volta():
         "log_id": log["id"],
     }
 
-    with patch("services.ai_service.order_service") as mock_order_service:
+    with patch("services.ai_service.actions.offers.order_service") as mock_order_service:
         mock_order_service.create_from_offer = AsyncMock(return_value={"total": 1500})
         first = run(service.execute_confirmed_action(FAKE_USER, dict(confirm_payload)))
 
@@ -174,7 +174,7 @@ def test_doppio_annullamento_non_sovrascrive_unazione_gia_confermata():
     confirm_payload = {
         "tool_name": "add_offer", "resolved_input": log["resolved_params"], "log_id": log["id"],
     }
-    with patch("services.ai_service.order_service") as mock_order_service:
+    with patch("services.ai_service.actions.offers.order_service") as mock_order_service:
         mock_order_service.create_from_offer = AsyncMock(return_value={"total": 1500})
         run(service.execute_confirmed_action(FAKE_USER, confirm_payload))
 

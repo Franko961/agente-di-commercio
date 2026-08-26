@@ -53,7 +53,7 @@ def test_client_id_manomesso_dal_browser_viene_ignorato():
     tampered["client_id"] = "c-di-un-altro-utente"
     tampered["mandante_id"] = "m-di-un-altro-utente"
 
-    with patch("services.ai_service.order_service") as mock_order_service:
+    with patch("services.ai_service.actions.offers.order_service") as mock_order_service:
         mock_order_service.create_from_offer = AsyncMock(return_value={"total": 1500})
         run(service.execute_confirmed_action(FAKE_USER, {
             "tool_name": "add_offer", "resolved_input": tampered, "log_id": log["id"],
@@ -79,7 +79,7 @@ def test_prodotti_manomessi_dal_browser_vengono_ignorati():
     # comportamento voluto per l'unico campo che l'utente può modificare via UI).
     tampered["amount"] = 1500
 
-    with patch("services.ai_service.order_service") as mock_order_service:
+    with patch("services.ai_service.actions.offers.order_service") as mock_order_service:
         mock_order_service.create_from_offer = AsyncMock(return_value={"total": 1500})
         run(service.execute_confirmed_action(FAKE_USER, {
             "tool_name": "add_offer", "resolved_input": tampered, "log_id": log["id"],
@@ -97,7 +97,7 @@ def test_title_manomesso_dal_browser_viene_ignorato():
     tampered = dict(log["resolved_params"])
     tampered["title"] = "Titolo iniettato dal browser"
 
-    with patch("services.ai_service.order_service") as mock_order_service:
+    with patch("services.ai_service.actions.offers.order_service") as mock_order_service:
         mock_order_service.create_from_offer = AsyncMock(return_value={"total": 1500})
         run(service.execute_confirmed_action(FAKE_USER, {
             "tool_name": "add_offer", "resolved_input": tampered, "log_id": log["id"],
@@ -116,7 +116,7 @@ def test_amount_e_accepted_restano_modificabili_come_da_ui():
     edited["amount"] = 2000
     edited["accepted"] = True
 
-    with patch("services.ai_service.order_service") as mock_order_service:
+    with patch("services.ai_service.actions.offers.order_service") as mock_order_service:
         mock_order_service.create_from_offer = AsyncMock(return_value={"total": 2000})
         result = run(service.execute_confirmed_action(FAKE_USER, {
             "tool_name": "add_offer", "resolved_input": edited, "log_id": log["id"],
@@ -138,7 +138,7 @@ def test_campo_non_previsto_nel_payload_viene_ignorato():
     tampered["user_id"] = "utente-diverso-iniettato"
     tampered["is_admin"] = True
 
-    with patch("services.ai_service.order_service") as mock_order_service:
+    with patch("services.ai_service.actions.offers.order_service") as mock_order_service:
         mock_order_service.create_from_offer = AsyncMock(return_value={"total": 1500})
         run(service.execute_confirmed_action(FAKE_USER, {
             "tool_name": "add_offer", "resolved_input": tampered, "log_id": log["id"],
