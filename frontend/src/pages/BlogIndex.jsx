@@ -38,14 +38,15 @@ function themeForSlug(slug) {
   return match ? { category: match[1], photoId: match[2] } : DEFAULT_THEME;
 }
 
-function ArticleCover({ slug, issueNumber }) {
+function ArticleCover({ slug, issueNumber, priority }) {
   const { category, photoId } = themeForSlug(slug);
   return (
     <div className="aspect-[3/4] rounded-2xl relative overflow-hidden shadow-sm group-hover:shadow-xl transition-shadow duration-300">
       <img
         src={`https://images.unsplash.com/photo-${photoId}?w=600&q=75&auto=format&fit=crop`}
         alt=""
-        loading="lazy"
+        loading={priority ? "eager" : "lazy"}
+        fetchpriority={priority ? "high" : undefined}
         className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110"
       />
       <div
@@ -106,7 +107,7 @@ export default function BlogIndex() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
               {pageArticles.map((a, i) => (
                 <Link key={a.slug} to={`/blog/${a.slug}`} className="group block">
-                  <ArticleCover slug={a.slug} issueNumber={total - (start + i)} />
+                  <ArticleCover slug={a.slug} issueNumber={total - (start + i)} priority={i === 0} />
                   <div className="mt-4">
                     <div className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B72] mb-2">
                       Issue {total - (start + i)}

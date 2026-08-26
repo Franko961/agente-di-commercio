@@ -51,6 +51,12 @@
         <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin />
         <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@900,800,700,500,400&f[]=manrope@700,600,500,400&f[]=jetbrains-mono@500,400&display=swap" rel="stylesheet" />
         <!--
+        Unsplash: usato per foto reali in Login.jsx e nelle copertine del
+        blog (BlogIndex.jsx) - preconnect così la prima immagine su queste
+        due pagine non aspetta la connessione TLS al dominio esterno.
+        -->
+        <link rel="preconnect" href="https://images.unsplash.com" />
+        <!--
         Google Analytics e PostHog NON vengono più caricati qui: partivano
         incondizionatamente ad ogni visita, prima ancora di qualunque scelta
         dell'utente. Ora vengono caricati da src/lib/analytics.js, solo dopo
