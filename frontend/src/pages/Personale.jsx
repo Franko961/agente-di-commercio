@@ -216,8 +216,8 @@ export default function Personale() {
 
       <div className="flex items-center gap-1 mb-6 border-b border-[#E4E4E1] overflow-x-auto">
         {[
-          ["richieste", "Richieste", Clock, pending.length],
           ["dipendenti", "Dipendenti", Users, 0],
+          ["richieste", "Richieste", Clock, pending.length],
         ].map(([key, label, Icon, badge]) => (
           <button key={key} onClick={() => setTab(key)}
             className={`flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
