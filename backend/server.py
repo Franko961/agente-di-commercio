@@ -6,7 +6,7 @@ load_dotenv(ROOT_DIR / '.env')
 
 import logging
 import time
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -51,7 +51,7 @@ from services.startup_service import run_startup, run_shutdown
 from core.exceptions import AppError
 from core.config import CORS_ORIGINS, SENTRY_DSN, TRUSTED_PROXY_HOPS
 from core.observability import configure_logging, new_request_id, set_request_id, record_api_call, init_opentelemetry
-from core.security import get_client_ip
+from core.security import get_client_ip, require_admin
 
 app = FastAPI(title="Gestionale Agenti di Commercio")
 
@@ -132,18 +132,22 @@ async def health():
     return {"status": "ok"}
 
 
-# Diagnostica pubblica per verificare in produzione cosa vede DAVVERO il
-# server dietro il reverse proxy di Railway (e di Netlify per il traffico
-# via salesfly.it/api/*): apri questo URL da due reti diverse (es. wifi di
-# casa e dati mobili) e confronta resolved_ip — deve essere DIVERSO tra le
-# due, e coincidere con l'IP reale del dispositivo usato, non con un IP
-# fisso di Railway. Se resolved_ip risultasse identico da reti diverse,
-# TRUSTED_PROXY_HOPS (core/config.py) andrebbe rivisto. Nessun dato
-# sensibile esposto: solo l'IP/gli header della richiesta stessa, stesso
-# principio di un servizio pubblico "whatismyip" — chi chiama vede solo
-# informazioni sulla propria connessione.
+# Diagnostica per verificare in produzione cosa vede DAVVERO il server
+# dietro il reverse proxy di Railway (e di Netlify per il traffico via
+# salesfly.it/api/*): apri questo URL da due reti diverse (es. wifi di casa
+# e dati mobili, loggato come admin da entrambe) e confronta resolved_ip —
+# deve essere DIVERSO tra le due, e coincidere con l'IP reale del
+# dispositivo usato, non con un IP fisso di Railway. Se resolved_ip
+# risultasse identico da reti diverse, TRUSTED_PROXY_HOPS (core/config.py)
+# andrebbe rivisto.
+# Protetto da require_admin (non più pubblico): anche se non espone dati
+# di sessione (cookie/authorization esclusi dal dump sotto) e in teoria chi
+# chiama vede solo informazioni sulla propria connessione, resta comunque
+# un endpoint diagnostico che rivela dettagli dell'infrastruttura (header
+# grezzi, trusted_proxy_hops) a chiunque lo chiami — non ha senso lasciarlo
+# raggiungibile da un utente anonimo qualsiasi in produzione.
 @app.get("/api/debug/my-ip")
-async def debug_my_ip(request: Request):
+async def debug_my_ip(request: Request, admin: dict = Depends(require_admin)):
     # cookie/authorization esclusi apposta dal dump: chi chiama potrebbe
     # avere una sessione attiva (es. Franco loggato mentre testa questo
     # endpoint dal browser) e non deve mai vedere il proprio token di
