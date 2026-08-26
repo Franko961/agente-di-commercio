@@ -10,7 +10,7 @@ function WelcomeScreen({ onStart }) {
   return (
     <div className="text-center max-w-lg mx-auto">
       <div className="w-16 h-16 mx-auto mb-6">
-        <img src="/logo-mark.png" alt="SALESFLY" className="w-full h-full object-contain" />
+        <img src="/logo-mark.webp" alt="SALESFLY" className="w-full h-full object-contain" />
       </div>
       <h1 className="font-cabinet font-black text-4xl md:text-5xl tracking-tight mb-4">Benvenuto in SalesFly.</h1>
       <p className="text-[16px] md:text-[18px] text-[#52525B] mb-8">

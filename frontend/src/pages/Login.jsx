@@ -100,7 +100,7 @@ export default function Login() {
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 flex items-center justify-center shrink-0">
-              <img src="/logo-mark.png" alt="SALESFLY" className="w-full h-full object-contain" />
+              <img src="/logo-mark.webp" alt="SALESFLY" className="w-full h-full object-contain" />
             </div>
             <div>
               <div className="font-cabinet font-black text-[16px] leading-none">SALESFLY.</div>

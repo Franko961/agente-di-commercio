@@ -19,7 +19,7 @@ export default function PublicHeader() {
       <div className="px-6 py-4 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2" onClick={() => setOpen(false)}>
           <div className="w-11 h-11 flex items-center justify-center shrink-0">
-            <img src="/logo-mark.png" alt="SALESFLY" className="w-full h-full object-contain" />
+            <img src="/logo-mark.webp" alt="SALESFLY" className="w-full h-full object-contain" />
           </div>
           <span className="font-cabinet font-black text-xl">SALESFLY.</span>
         </Link>
