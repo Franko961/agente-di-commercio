@@ -36,7 +36,6 @@
 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" rel="stylesheet" />
         <!--
         Cabinet Grotesk/Manrope/JetBrains Mono (Fontshare): prima erano
         un @import dentro src/index.css, invisibile al preload scanner del
@@ -49,7 +48,44 @@
         -->
         <link rel="preconnect" href="https://api.fontshare.com" />
         <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin />
-        <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@900,800,700,500,400&f[]=manrope@700,600,500,400&f[]=jetbrains-mono@500,400&display=swap" rel="stylesheet" />
+        <!--
+        Entrambi i CSS dei font caricati con preload + applicazione
+        asincrona (non un <link rel="stylesheet"> diretto): un foglio di
+        stile normale blocca il rendering iniziale finché non è scaricato -
+        PageSpeed Insights lo segnalava esplicitamente su queste due
+        richieste (~600ms stimati). Con "media=print" il browser lo scarica
+        subito (l'hint di preload lo scopre comunque appena parsato l'HTML)
+        ma non lo considera bloccante per il primo paint; onload lo
+        riattiva come foglio di stile vero. display=swap nell'URL fa sì che
+        il testo compaia comunque subito con il font di sistema, senza
+        aspettare i .woff2 - qui si evita solo il blocco extra dovuto al
+        CSS stesso. <noscript> copre il caso, raro, di JS disabilitato.
+        -->
+        <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap"
+          rel="stylesheet"
+          media="print"
+          onload="this.media='all'"
+        />
+        <link
+          rel="preload"
+          as="style"
+          href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@900,800,700,500,400&f[]=manrope@700,600,500,400&f[]=jetbrains-mono@500,400&display=swap"
+        />
+        <link
+          href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@900,800,700,500,400&f[]=manrope@700,600,500,400&f[]=jetbrains-mono@500,400&display=swap"
+          rel="stylesheet"
+          media="print"
+          onload="this.media='all'"
+        />
+        <noscript>
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" rel="stylesheet" />
+          <link
+            href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@900,800,700,500,400&f[]=manrope@700,600,500,400&f[]=jetbrains-mono@500,400&display=swap"
+            rel="stylesheet"
+          />
+        </noscript>
         <!--
         NIENT'ALTRO preconnect qui, apposta: index.html è un unico shell
         condiviso da OGNI pagina della SPA, quindi ogni preconnect qui ha un

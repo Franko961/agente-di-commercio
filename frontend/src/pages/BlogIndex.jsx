@@ -46,7 +46,7 @@ function ArticleCover({ slug, issueNumber, priority }) {
         src={`https://images.unsplash.com/photo-${photoId}?w=480&q=68&auto=format&fit=crop`}
         alt=""
         loading={priority ? "eager" : "lazy"}
-        fetchpriority={priority ? "high" : undefined}
+        fetchPriority={priority ? "high" : undefined}
         className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-110"
       />
       <div
