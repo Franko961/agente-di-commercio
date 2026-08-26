@@ -51,11 +51,16 @@
         <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin />
         <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@900,800,700,500,400&f[]=manrope@700,600,500,400&f[]=jetbrains-mono@500,400&display=swap" rel="stylesheet" />
         <!--
-        Unsplash: usato per foto reali in Login.jsx e nelle copertine del
-        blog (BlogIndex.jsx) - preconnect così la prima immagine su queste
-        due pagine non aspetta la connessione TLS al dominio esterno.
+        NIENT'ALTRO preconnect qui, apposta: index.html è un unico shell
+        condiviso da OGNI pagina della SPA, quindi ogni preconnect qui ha un
+        costo su tutte le pagine anche quando l'origine non serve a quella
+        pagina specifica. images.unsplash.com (usato solo da Login.jsx e
+        BlogIndex.jsx) era stato aggiunto qui e PageSpeed Insights lo ha
+        segnalato "non utilizzato" proprio sulla home — rimosso. Se in
+        futuro serve un preconnect solo per /blog o /login, va aggiunto
+        dinamicamente in quella pagina (es. via un <link> renderizzato da
+        React in quel componente), non qui.
         -->
-        <link rel="preconnect" href="https://images.unsplash.com" />
         <!--
         Google Analytics e PostHog NON vengono più caricati qui: partivano
         incondizionatamente ad ogni visita, prima ancora di qualunque scelta
