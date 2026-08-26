@@ -2,6 +2,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Download, ExternalLink, FileText, Video, FileSpreadsheet, FileImage, File as FileIcon } from "lucide-react";
 import mammoth from "mammoth";
+import DOMPurify from "dompurify";
 import api from "../api";
 
 const FILE_BASE = import.meta.env.VITE_BACKEND_URL;
@@ -46,7 +47,14 @@ export default function DocumentPreview({ document: doc, open, onClose }) {
         } else if (kind === "docx") {
           const arrayBuffer = await r.arrayBuffer();
           const result = await mammoth.convertToHtml({ arrayBuffer });
-          if (!revoked) setDocxHtml(result.value);
+          // Sanitizzato prima di finire in dangerouslySetInnerHTML: il
+          // .docx arriva da un utente (anche se autenticato, proprietario
+          // del file e con download già protetto) — con l'impersonazione
+          // amministrativa in questo gestionale, un documento malevolo
+          // aperto durante una sessione impersonata eseguirebbe eventuale
+          // script nel contesto dell'admin, non solo del proprietario.
+          const sanitized = DOMPurify.sanitize(result.value);
+          if (!revoked) setDocxHtml(sanitized);
           // Manteniamo comunque il blob per il download
           const blob = new Blob([arrayBuffer], { type: doc?.content_type || "application/octet-stream" });
           url = URL.createObjectURL(blob);
