@@ -19,8 +19,9 @@ import { article as daExcelAlCrm } from "./articles/passare-da-excel-al-crm-agen
 import { article as implementareInDueMinuti } from "./articles/implementare-salesfly-in-due-minuti";
 import { article as contrattoDiAgenzia } from "./articles/contratto-di-agenzia-clausole-da-controllare";
 import { article as rimborsoTasseStudio } from "./articles/enasarco-rimborso-tasse-studio-universita-2026";
+import { article as bonusScolasticoFigli } from "./articles/enasarco-bonus-scolastico-figli-2026";
 
-const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot, migliorCrmVenditori, crmAiVenditori, aumentareProvvigioni, daExcelAlCrm, implementareInDueMinuti, contrattoDiAgenzia, rimborsoTasseStudio];
+const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot, migliorCrmVenditori, crmAiVenditori, aumentareProvvigioni, daExcelAlCrm, implementareInDueMinuti, contrattoDiAgenzia, rimborsoTasseStudio, bonusScolasticoFigli];
 
 export const articles = [...allArticles].sort(
   (a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)
