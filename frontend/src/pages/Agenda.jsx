@@ -1,5 +1,6 @@
 ﻿import { useEffect, useRef, useState } from "react";
-import api from "../api";
+import { listAppointments, createAppointment, updateAppointment, deleteAppointment } from "../api/appointments";
+import { listClients } from "../api/clients";
 import { Plus, Trash2, MapPin, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { format, parseISO, startOfWeek, addDays, isSameDay } from "date-fns";
@@ -15,8 +16,8 @@ export default function Agenda() {
   const todayColRef = useRef(null);
 
   const load = async () => {
-    const [a, c] = await Promise.all([api.get("/appointments"), api.get("/clients")]);
-    setAppts(a.data); setClients(c.data);
+    const [a, c] = await Promise.all([listAppointments(), listClients()]);
+    setAppts(a); setClients(c);
   };
   useEffect(() => { load(); }, []);
 
@@ -34,7 +35,7 @@ export default function Agenda() {
 
   const deleteAppt = async (id) => {
     if (!window.confirm("Eliminare questo appuntamento?")) return;
-    await api.delete(`/appointments/${id}`);
+    await deleteAppointment(id);
     toast.success("Appuntamento eliminato");
     load();
   };
@@ -54,7 +55,7 @@ export default function Agenda() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Nuovo appuntamento</DialogTitle></DialogHeader>
-            <ApptForm clients={clients} onSave={async (f) => { await api.post("/appointments", f); load(); toast.success("Appuntamento creato"); setOpen(false); }} />
+            <ApptForm clients={clients} onSave={async (f) => { await createAppointment(f); load(); toast.success("Appuntamento creato"); setOpen(false); }} />
           </DialogContent>
         </Dialog>
       </div>
@@ -65,7 +66,7 @@ export default function Agenda() {
           <DialogHeader><DialogTitle>Modifica appuntamento</DialogTitle></DialogHeader>
           {editTarget && (
             <ApptForm clients={clients} initial={editTarget} submitLabel="Aggiorna" onSave={async (f) => {
-              await api.put(`/appointments/${editTarget.id}`, f);
+              await updateAppointment(editTarget.id, f);
               load(); toast.success("Appuntamento aggiornato"); setEditTarget(null);
             }} />
           )}

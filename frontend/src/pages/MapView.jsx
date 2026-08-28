@@ -11,7 +11,11 @@ import {
   LocateFixed, Search, CalendarPlus,
 } from "lucide-react";
 import { toast } from "sonner";
-import api from "../api";
+import { listClients } from "../api/clients";
+import { getAddresses } from "../api/settings";
+import { geocodeAddress } from "../api/geocoding";
+import { optimizeRoute } from "../api/routePlanning";
+import { createAppointmentsBulk } from "../api/appointments";
 
 // Etichette leggibili per ogni modalità di partenza, usate sia nel <select>
 // sia per riassumere all'utente cosa è stato scelto una volta calcolato il
@@ -143,8 +147,8 @@ export default function MapView() {
     });
   }, [planOpen, selectedIds, startTime, visitMinutes, plan, completedIds, planDate, savedToAgenda, startMode, roundTrip, customQuery, customCoord]);
 
-  useEffect(() => { api.get("/clients").then(({ data }) => setClients(data.filter(c => isValidCoord(c.lat, c.lng)))); }, []);
-  useEffect(() => { api.get("/settings/addresses").then(({ data }) => setAddresses(data)).catch(() => setAddresses({})); }, []);
+  useEffect(() => { listClients().then((data) => setClients(data.filter(c => isValidCoord(c.lat, c.lng)))); }, []);
+  useEffect(() => { getAddresses().then(setAddresses).catch(() => setAddresses({})); }, []);
 
   const homeReady = isValidCoord(addresses?.home_lat, addresses?.home_lng);
   const officeReady = isValidCoord(addresses?.office_lat, addresses?.office_lng);
@@ -153,7 +157,7 @@ export default function MapView() {
     if (customQuery.trim().length < 3) return;
     setCustomSearching(true);
     try {
-      const { data } = await api.get("/geocode", { params: { q: customQuery.trim() } });
+      const data = await geocodeAddress(customQuery.trim());
       setCustomResults(data);
     } catch {
       setCustomResults([]);
@@ -220,7 +224,7 @@ export default function MapView() {
     setCompletedIds([]);
     setSavedToAgenda(false);
     try {
-      const { data } = await api.post("/route-planning/optimize", {
+      const data = await optimizeRoute({
         client_ids: selectedIds,
         start_time: startTime,
         visit_minutes: Number(visitMinutes) || 30,
@@ -250,7 +254,7 @@ export default function MapView() {
         location: [s.address, s.city].filter(Boolean).join(", "),
         status: "pianificato",
       }));
-      await api.post("/appointments/bulk", { appointments });
+      await createAppointmentsBulk(appointments);
       setSavedToAgenda(true);
       toast.success(`${appointments.length} appuntamenti creati in Agenda`);
     } catch (e) {
