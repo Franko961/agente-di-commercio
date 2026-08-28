@@ -1,5 +1,8 @@
 ﻿import { useEffect, useState } from "react";
-import api from "../api";
+import {
+  getSubscriptionStatus, getPaymentHistory, createStripeSession,
+  createPaypalOrder, capturePaypalOrder, cancelSubscription,
+} from "../api/subscription";
 import usePlans from "../hooks/usePlans";
 import { CheckCircle, XCircle, CreditCard, AlertTriangle, ExternalLink, Receipt } from "lucide-react";
 import { toast } from "sonner";
@@ -22,13 +25,13 @@ export default function Subscription() {
   const [paymentHistory, setPaymentHistory] = useState([]);
 
   const load = async () => {
-    const { data } = await api.get("/subscription/status");
+    const data = await getSubscriptionStatus();
     setStatus(data);
     setLoading(false);
     // Non critico per la pagina: se fallisce, la sezione storico resta
     // semplicemente vuota invece di bloccare tutto il resto.
     try {
-      const { data: history } = await api.get("/subscription/payment-history");
+      const history = await getPaymentHistory();
       setPaymentHistory(history.items || []);
     } catch {
       setPaymentHistory([]);
@@ -43,8 +46,8 @@ export default function Subscription() {
     const subscriptionId = params.get("subscription_id");
     if (params.get("paypal_return") && subscriptionId) {
       setConfirmingPaypal(true);
-      api.post("/subscription/paypal-capture", { subscription_id: subscriptionId })
-        .then(({ data }) => {
+      capturePaypalOrder({ subscription_id: subscriptionId })
+        .then((data) => {
           if (data.status === "active") {
             toast.success("Abbonamento attivato! Grazie.");
           } else {
@@ -69,7 +72,7 @@ export default function Subscription() {
   const startStripe = async (plan) => {
     setPaying(true);
     try {
-      const { data } = await api.post("/subscription/create-stripe-session", {
+      const data = await createStripeSession({
         plan,
         return_url: window.location.origin,
       });
@@ -83,7 +86,7 @@ export default function Subscription() {
   const startPaypal = async (plan) => {
     setPaying(true);
     try {
-      const { data } = await api.post("/subscription/paypal-create", {
+      const data = await createPaypalOrder({
         plan,
         return_url: window.location.origin,
       });
@@ -97,7 +100,7 @@ export default function Subscription() {
   const cancelSub = async () => {
     if (!window.confirm("Sei sicuro di voler cancellare l'abbonamento?")) return;
     try {
-      await api.post("/subscription/cancel");
+      await cancelSubscription();
       toast.success("Abbonamento cancellato");
       load();
     } catch (err) {
