@@ -5,12 +5,15 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
-import api from "../api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { Switch } from "../components/ui/switch";
 import { exportAttendance } from "../utils/export";
 import { useAuth } from "../contexts/AuthContext";
 import DayDetailSheet from "../components/DayDetailSheet";
+import { listEmployees, getLeaveRequestsCalendar } from "../api/employees";
+import { getAttendanceCalendar, getAttendanceExpected } from "../api/attendance";
+import { listAutomations, createAutomation, updateAutomation } from "../api/automations";
+import { getLeaveSettings, getAttendanceKiosk, regenerateAttendanceKiosk } from "../api/settings";
 
 const TYPE_LABELS = { ferie: "Ferie", permesso: "Permesso", malattia: "Malattia" };
 const TYPE_COLORS = { ferie: "#B23E00", permesso: "#0A192F", malattia: "#DC2626" };
@@ -44,29 +47,25 @@ export default function Presenze() {
   const [ferieCountMode, setFerieCountMode] = useState("calendario"); // vedi Impostazioni > Ferie
 
   const loadEmployees = async () => {
-    const { data } = await api.get("/employees");
-    setEmployees(data);
+    setEmployees(await listEmployees());
   };
   const loadCalendar = async (m) => {
-    const { data } = await api.get("/leave-requests/calendar", { params: { month: m } });
-    setCalendarRows(data);
+    setCalendarRows(await getLeaveRequestsCalendar({ month: m }));
   };
   const loadHours = async (m) => {
-    const { data } = await api.get("/attendance/calendar", { params: { month: m } });
-    setHoursRows(data);
+    setHoursRows(await getAttendanceCalendar({ month: m }));
   };
   const loadExpectedHours = async (m) => {
-    const { data } = await api.get("/attendance/expected", { params: { month: m } });
-    setExpectedRows(data);
+    setExpectedRows(await getAttendanceExpected({ month: m }));
   };
   const loadAttendanceReminder = async () => {
     if (!automazioniEnabled) return;
-    const { data } = await api.get("/automations");
+    const data = await listAutomations();
     const existing = data.find((a) => a.trigger === "attendance_missing");
     if (existing) setAttendanceReminder(existing);
   };
   const loadLeaveSettings = async () => {
-    const { data } = await api.get("/settings/leave");
+    const data = await getLeaveSettings();
     setFerieCountMode(data.ferie_count_mode);
   };
 
@@ -107,10 +106,10 @@ export default function Presenze() {
         // automation_service.update_automation), non il documento
         // aggiornato: a differenza della creazione, qui l'id non cambia,
         // quindi si aggiorna lo stato locale con lo stesso payload inviato.
-        await api.put(`/automations/${attendanceReminder.id}`, payload);
+        await updateAutomation(attendanceReminder.id, payload);
         setAttendanceReminder({ ...attendanceReminder, ...payload });
       } else {
-        const { data } = await api.post("/automations", payload);
+        const data = await createAutomation(payload);
         setAttendanceReminder(data);
       }
       toast.success(enabled ? "Segnalazione attivata" : "Segnalazione disattivata");
@@ -122,14 +121,14 @@ export default function Presenze() {
   const openKioskDialog = async () => {
     setKioskDialogOpen(true);
     if (kioskHasToken === null) {
-      const { data } = await api.get("/settings/attendance-kiosk");
+      const data = await getAttendanceKiosk();
       setKioskHasToken(data.has_token);
     }
   };
 
   const regenerateKiosk = async () => {
     if (kioskHasToken && !window.confirm("Il QR attuale smetterà subito di funzionare. Rigenerare?")) return;
-    const { data } = await api.post("/settings/attendance-kiosk/regenerate");
+    const data = await regenerateAttendanceKiosk();
     setKioskToken(data.token);
     setKioskHasToken(true);
     toast.success("QR generato");

@@ -3,7 +3,8 @@ import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Timer } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
-import api from "../api";
+import { listEmployeeAttendance, deleteAttendance, updateAttendance, createAttendance } from "../api/attendance";
+import { deleteLeaveRequest, createLeaveRequestForEmployee } from "../api/employees";
 
 const ADMIN_TYPE_LABELS = { smartworking: "Smartworking", trasferta: "Trasferta", straordinari: "Straordinari", reperibilita: "Reperibilità" };
 const ADMIN_TYPE_COLORS = { smartworking: "#D97706", trasferta: "#78350F", straordinari: "#DB2777", reperibilita: "#6366F1" };
@@ -60,7 +61,7 @@ export default function DayDetailSheet({ employeeId, employeeName, date, request
   const [requestFormOpen, setRequestFormOpen] = useState(false);
 
   const loadSessions = async () => {
-    const { data } = await api.get(`/employees/${employeeId}/attendance`);
+    const data = await listEmployeeAttendance(employeeId);
     setSessions(data.filter((s) => localDateStr(s.clock_in) === date));
   };
   useEffect(() => {
@@ -73,7 +74,7 @@ export default function DayDetailSheet({ employeeId, employeeName, date, request
   const deleteSession = async (s) => {
     if (!window.confirm("Eliminare questa presenza?")) return;
     try {
-      await api.delete(`/employees/${employeeId}/attendance/${s.id}`);
+      await deleteAttendance(employeeId, s.id);
       toast.success("Presenza eliminata");
       loadSessions();
       onChanged();
@@ -85,7 +86,7 @@ export default function DayDetailSheet({ employeeId, employeeName, date, request
   const deleteRequest = async (r) => {
     if (!window.confirm(`Eliminare "${TYPE_LABELS[r.type] || r.type}"?`)) return;
     try {
-      await api.delete(`/leave-requests/${r.id}`);
+      await deleteLeaveRequest(r.id);
       toast.success("Giustificativo eliminato");
       onChanged();
     } catch (err) {
@@ -206,10 +207,10 @@ function SessionForm({ employeeId, date, initial, onDone, onCancel }) {
     };
     try {
       if (initial) {
-        await api.patch(`/employees/${employeeId}/attendance/${initial.id}`, payload);
+        await updateAttendance(employeeId, initial.id, payload);
         toast.success("Presenza aggiornata");
       } else {
-        await api.post(`/employees/${employeeId}/attendance`, payload);
+        await createAttendance(employeeId, payload);
         toast.success("Presenza aggiunta");
       }
       onDone();
@@ -259,7 +260,7 @@ function RequestForm({ employeeId, date, onDone, onCancel }) {
       note: f.note,
     };
     try {
-      await api.post(`/employees/${employeeId}/leave-requests`, payload);
+      await createLeaveRequestForEmployee(employeeId, payload);
       toast.success("Giustificativo aggiunto");
       onDone();
     } catch (err) {
