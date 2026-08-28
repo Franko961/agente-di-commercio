@@ -15,7 +15,7 @@ BASE_URL = os.environ.get(
 API = f"{BASE_URL}/api"
 
 EMAIL = "agente@demo.it"
-PASSWORD = "demo1234"
+PASSWORD = "DemoAgente2026"
 
 
 # ---------- Fixtures ----------
