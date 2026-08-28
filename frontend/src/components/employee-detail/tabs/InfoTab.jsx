@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Camera } from "lucide-react";
-import api from "../../../api";
+import { updateEmployee } from "../../../api/employees";
 import { resizeImageToDataUrl } from "../../../utils/image";
 import { EMPLOYMENT_STATUS_LABELS, formatApiError } from "../constants";
 
@@ -46,7 +46,7 @@ export default function InfoTab({ employee, onSaved }) {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.put(`/employees/${employee.id}`, {
+      await updateEmployee(employee.id, {
         ...f,
         email: f.email || null,
         birth_date: f.birth_date || null,

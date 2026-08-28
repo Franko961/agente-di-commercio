@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Wallet, Plus, Pencil, Trash2 } from "lucide-react";
-import api from "../../../api";
+import { listCompensation, createCompensation, updateCompensation, deleteCompensation } from "../../../api/employees";
 import { MiniStat } from "./AssenzeTab";
 
 const COMPENSATION_TYPE_LABELS = { stipendio: "Stipendio", bonus: "Bonus", rimborso: "Rimborso", altro: "Altro" };
@@ -13,8 +13,7 @@ export default function CompensiTab({ employeeId }) {
   const [editTarget, setEditTarget] = useState(null);
 
   const load = async () => {
-    const { data } = await api.get(`/employees/${employeeId}/compensation`);
-    setItems(data);
+    setItems(await listCompensation(employeeId));
   };
   useEffect(() => { load(); }, [employeeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -25,7 +24,7 @@ export default function CompensiTab({ employeeId }) {
   const remove = async (item) => {
     if (!window.confirm(`Eliminare il compenso del ${item.date}? Verrà rimossa anche la spesa collegata.`)) return;
     try {
-      await api.delete(`/employees/${employeeId}/compensation/${item.id}`);
+      await deleteCompensation(employeeId, item.id);
       toast.success("Compenso eliminato");
       load();
     } catch {
@@ -94,10 +93,10 @@ function CompensationForm({ employeeId, initial, onDone, onCancel }) {
     const payload = { ...f, amount: Number(f.amount) };
     try {
       if (initial) {
-        await api.put(`/employees/${employeeId}/compensation/${initial.id}`, payload);
+        await updateCompensation(employeeId, initial.id, payload);
         toast.success("Compenso aggiornato");
       } else {
-        await api.post(`/employees/${employeeId}/compensation`, payload);
+        await createCompensation(employeeId, payload);
         toast.success("Compenso aggiunto");
       }
       onDone();

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { FileText, Package, Wallet, History, Send, Check, X, AlertTriangle } from "lucide-react";
-import api from "../../../api";
+import { getEmployeeActivity } from "../../../api/employees";
 
 const ACTIVITY_META = {
   assenza_inviata: { label: "Richiesta di assenza inviata", icon: Send, color: "#0A192F" },
@@ -23,7 +23,7 @@ export default function AttivitaTab({ employeeId }) {
   const [events, setEvents] = useState(null);
 
   useEffect(() => {
-    api.get(`/employees/${employeeId}/activity`).then(({ data }) => setEvents(data));
+    getEmployeeActivity(employeeId).then(setEvents);
   }, [employeeId]);
 
   return (

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Sparkles } from "lucide-react";
-import api from "../../../api";
+import { getEmployeeAiSummary } from "../../../api/employees";
 
 function localSummaryText(summary) {
   if (!summary) return "";
@@ -20,7 +20,7 @@ export default function AiTab({ employeeId, summary }) {
     setLoading(true);
     setError(null);
     try {
-      const { data } = await api.get(`/employees/${employeeId}/ai-summary`);
+      const data = await getEmployeeAiSummary(employeeId);
       if (data.summary) {
         setAiSummary(data.summary);
       } else {

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
-import api from "../../../api";
+import { deleteLeaveRequest } from "../../../api/employees";
 import { REQUEST_STATUS_LABELS, REQUEST_STATUS_COLORS } from "../constants";
 
 const LEAVE_TYPE_LABELS = { ferie: "Ferie", permesso: "Permesso", malattia: "Malattia" };
@@ -15,7 +15,7 @@ export default function AssenzeTab({ requests, summary, onDeleted }) {
   const deleteRequest = async (r) => {
     if (!window.confirm(`Eliminare la richiesta di ${LEAVE_TYPE_LABELS[r.type].toLowerCase()}?`)) return;
     try {
-      await api.delete(`/leave-requests/${r.id}`);
+      await deleteLeaveRequest(r.id);
       toast.success("Richiesta eliminata");
       onDeleted();
     } catch (err) {

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Timer } from "lucide-react";
-import api from "../../../api";
+import { listEmployeeAttendance, createAttendance, updateAttendance, deleteAttendance } from "../../../api/attendance";
 import { formatApiError } from "../constants";
 
 function formatDuration(clockIn, clockOut) {
@@ -21,8 +21,7 @@ export default function PresenzeTab({ employeeId }) {
   const [editTarget, setEditTarget] = useState(null);
 
   const load = async () => {
-    const { data } = await api.get(`/employees/${employeeId}/attendance`);
-    setItems(data);
+    setItems(await listEmployeeAttendance(employeeId));
   };
   useEffect(() => { load(); }, [employeeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -33,7 +32,7 @@ export default function PresenzeTab({ employeeId }) {
   const remove = async (item) => {
     if (!window.confirm("Eliminare questa sessione presenze?")) return;
     try {
-      await api.delete(`/employees/${employeeId}/attendance/${item.id}`);
+      await deleteAttendance(employeeId, item.id);
       toast.success("Sessione eliminata");
       load();
     } catch {
@@ -107,10 +106,10 @@ function AttendanceForm({ employeeId, initial, onDone, onCancel }) {
     };
     try {
       if (initial) {
-        await api.patch(`/employees/${employeeId}/attendance/${initial.id}`, payload);
+        await updateAttendance(employeeId, initial.id, payload);
         toast.success("Sessione aggiornata");
       } else {
-        await api.post(`/employees/${employeeId}/attendance`, payload);
+        await createAttendance(employeeId, payload);
         toast.success("Sessione aggiunta");
       }
       onDone();

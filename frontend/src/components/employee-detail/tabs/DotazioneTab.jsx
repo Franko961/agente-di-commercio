@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Package, Plus, Pencil, Trash2 } from "lucide-react";
-import api from "../../../api";
+import { listEquipment, createEquipment, updateEquipment, deleteEquipment } from "../../../api/employees";
 import { formatApiError } from "../constants";
 
 const EQUIPMENT_STATUS_LABELS = { consegnato: "Consegnato", restituito: "Restituito" };
@@ -12,8 +12,7 @@ export default function DotazioneTab({ employeeId }) {
   const [editTarget, setEditTarget] = useState(null);
 
   const load = async () => {
-    const { data } = await api.get(`/employees/${employeeId}/equipment`);
-    setItems(data);
+    setItems(await listEquipment(employeeId));
   };
   useEffect(() => { load(); }, [employeeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -24,7 +23,7 @@ export default function DotazioneTab({ employeeId }) {
   const remove = async (item) => {
     if (!window.confirm(`Eliminare "${item.name}" dalla dotazione?`)) return;
     try {
-      await api.delete(`/employees/${employeeId}/equipment/${item.id}`);
+      await deleteEquipment(employeeId, item.id);
       toast.success("Dotazione eliminata");
       load();
     } catch {
@@ -95,10 +94,10 @@ function EquipmentForm({ employeeId, initial, onDone, onCancel }) {
     };
     try {
       if (initial) {
-        await api.put(`/employees/${employeeId}/equipment/${initial.id}`, payload);
+        await updateEquipment(employeeId, initial.id, payload);
         toast.success("Dotazione aggiornata");
       } else {
-        await api.post(`/employees/${employeeId}/equipment`, payload);
+        await createEquipment(employeeId, payload);
         toast.success("Dotazione aggiunta");
       }
       onDone();

@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FileText, Upload, Plus, Pencil, Trash2 } from "lucide-react";
-import api from "../../../api";
+import {
+  listDisciplinaryActions, createDisciplinaryAction, updateDisciplinaryAction,
+  deleteDisciplinaryAction, uploadEmployeeDocument,
+} from "../../../api/employees";
 import { FILE_BASE, DOCUMENT_MAX_MB, formatApiError } from "../constants";
 
 const CONTESTAZIONE_TYPE_LABELS = {
@@ -23,8 +26,7 @@ export default function ContestazioniTab({ employeeId }) {
   const [editTarget, setEditTarget] = useState(null);
 
   const load = async () => {
-    const { data } = await api.get(`/employees/${employeeId}/disciplinary-actions`);
-    setItems(data);
+    setItems(await listDisciplinaryActions(employeeId));
   };
   useEffect(() => { load(); }, [employeeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -35,7 +37,7 @@ export default function ContestazioniTab({ employeeId }) {
   const remove = async (item) => {
     if (!window.confirm(`Eliminare la contestazione "${item.subject}"?`)) return;
     try {
-      await api.delete(`/employees/${employeeId}/disciplinary-actions/${item.id}`);
+      await deleteDisciplinaryAction(employeeId, item.id);
       toast.success("Contestazione eliminata");
       load();
     } catch {
@@ -172,7 +174,7 @@ function ContestazioneForm({ employeeId, initial, onDone, onCancel }) {
         fd.append("name", f.subject.trim());
         fd.append("category", "contestazione_disciplinare");
         fd.append("notes", "");
-        const { data } = await api.post(`/employees/${employeeId}/documents/upload`, fd);
+        const data = await uploadEmployeeDocument(employeeId, fd);
         documentId = data.id;
       }
       const payload = {
@@ -184,10 +186,10 @@ function ContestazioneForm({ employeeId, initial, onDone, onCancel }) {
         document_id: documentId,
       };
       if (initial) {
-        await api.put(`/employees/${employeeId}/disciplinary-actions/${initial.id}`, payload);
+        await updateDisciplinaryAction(employeeId, initial.id, payload);
         toast.success("Contestazione aggiornata");
       } else {
-        await api.post(`/employees/${employeeId}/disciplinary-actions`, payload);
+        await createDisciplinaryAction(employeeId, payload);
         toast.success("Contestazione registrata");
       }
       onDone();

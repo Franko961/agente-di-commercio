@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FileText, Upload, Download, Trash2 } from "lucide-react";
-import api from "../../../api";
+import { listEmployeeDocuments, uploadEmployeeDocument, deleteEmployeeDocument } from "../../../api/employees";
 import { FILE_BASE, DOCUMENT_MAX_MB } from "../constants";
 
 const DOCUMENT_CATEGORY_LABELS = { contratto: "Contratto", documento_identita: "Documento d'identità", patente: "Patente", contestazione_disciplinare: "Contestazione disciplinare", altro: "Altro" };
@@ -11,8 +11,7 @@ export default function DocumentiTab({ employeeId }) {
   const [showUpload, setShowUpload] = useState(false);
 
   const load = async () => {
-    const { data } = await api.get(`/employees/${employeeId}/documents`);
-    setDocs(data);
+    setDocs(await listEmployeeDocuments(employeeId));
   };
   useEffect(() => { load(); }, [employeeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -39,7 +38,7 @@ export default function DocumentiTab({ employeeId }) {
   const remove = async (doc) => {
     if (!window.confirm(`Eliminare "${doc.name}"?`)) return;
     try {
-      await api.delete(`/employees/${employeeId}/documents/${doc.id}`);
+      await deleteEmployeeDocument(employeeId, doc.id);
       toast.success("Documento eliminato");
       load();
     } catch {
@@ -113,7 +112,7 @@ function EmployeeDocumentUploadForm({ employeeId, onDone }) {
     fd.append("category", category);
     fd.append("notes", notes);
     try {
-      await api.post(`/employees/${employeeId}/documents/upload`, fd);
+      await uploadEmployeeDocument(employeeId, fd);
       toast.success("Documento caricato");
       onDone();
     } catch (err) {

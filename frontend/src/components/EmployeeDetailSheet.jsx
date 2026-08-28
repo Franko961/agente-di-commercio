@@ -5,7 +5,10 @@ import {
   Package, FileText, AlertTriangle, Wallet, History, Sparkles, Link2, BarChart3,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
-import api from "../api";
+import {
+  getEmployeeDetail, regenerateEmployeeToken, setEmployeeActive,
+  setLeaveRequestCertificate, regenerateEmployeePin,
+} from "../api/employees";
 import EmployeeSidebar from "./employee-detail/EmployeeSidebar";
 import InfoTab from "./employee-detail/tabs/InfoTab";
 import AssenzeTab from "./employee-detail/tabs/AssenzeTab";
@@ -62,8 +65,7 @@ export default function EmployeeDetailSheet({ employee, requests, onClose, onEmp
   const [newPin, setNewPin] = useState(null); // { pin } — mostrato una sola volta dopo generazione
 
   const loadDetail = async () => {
-    const { data } = await api.get(`/employees/${employee.id}/detail`);
-    setDetail(data);
+    setDetail(await getEmployeeDetail(employee.id));
   };
   useEffect(() => { loadDetail(); }, [employee.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -80,20 +82,20 @@ export default function EmployeeDetailSheet({ employee, requests, onClose, onEmp
 
   const regenerateToken = async () => {
     if (!window.confirm(`Rigenerare il link di "${emp.name}"? Il link precedente smetterà subito di funzionare.`)) return;
-    const { data } = await api.post(`/employees/${emp.id}/regenerate-token`);
+    const data = await regenerateEmployeeToken(emp.id);
     setNewLink({ token: data.request_token });
     toast.success("Nuovo link generato");
     refreshAll();
   };
 
   const toggleActive = async () => {
-    await api.patch(`/employees/${emp.id}/active`, { active: !emp.active });
+    await setEmployeeActive(emp.id, !emp.active);
     toast.success(emp.active ? "Dipendente disattivato" : "Dipendente riattivato");
     refreshAll();
   };
 
   const setCertificate = async (rid, received) => {
-    await api.patch(`/leave-requests/${rid}/certificate`, { certificate_received: received });
+    await setLeaveRequestCertificate(rid, received);
     toast.success(received ? "Certificato segnato come ricevuto" : "Certificato segnato come non ricevuto");
     onRequestsChanged();
     loadDetail();
@@ -107,7 +109,7 @@ export default function EmployeeDetailSheet({ employee, requests, onClose, onEmp
 
   const regeneratePin = async () => {
     if (emp.has_pin && !window.confirm(`Rigenerare il PIN chiosco di "${emp.name}"? Il PIN precedente smetterà subito di funzionare.`)) return;
-    const { data } = await api.post(`/employees/${emp.id}/attendance/pin`);
+    const data = await regenerateEmployeePin(emp.id);
     setNewPin({ pin: data.pin });
     toast.success("Nuovo PIN generato");
     refreshAll();
