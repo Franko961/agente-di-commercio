@@ -1,5 +1,4 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import api from "../api";
 import { Search, ShoppingCart, Building, Trash2, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import ProductCombobox from "../components/ProductCombobox";
@@ -7,6 +6,11 @@ import { useMandante } from "../contexts/MandanteContext";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { toast } from "sonner";
+import { listClients } from "../api/clients";
+import { listMandanti } from "../api/mandanti";
+import { listProducts } from "../api/products";
+import { listOffers, updateOfferStatus } from "../api/offers";
+import useOrders from "../hooks/useOrders";
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
 
@@ -27,22 +31,24 @@ export default function Ordini() {
   const [clients, setClients] = useState([]);
   const [mandanti, setMandanti] = useState([]);
   const [products, setProducts] = useState([]);
-  const [orders, setOrders] = useState([]);
+  const {
+    orders, create: createOrderApi, update: updateOrderApi, updateStatus: updateOrderStatusApi,
+    remove: removeOrderApi, reload: reloadOrders,
+  } = useOrders({ mandante_id: mandanteParam });
   const [offers, setOffers] = useState([]);
   const [query, setQuery] = useState("");
   const [activeClient, setActiveClient] = useState(null);
   const [showNewOrderForm, setShowNewOrderForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
 
-  const load = async () => {
-    const [c, m, p, o, of] = await Promise.all([
-      api.get("/clients"), api.get("/mandanti"), api.get("/products"),
-      api.get("/orders", { params: { mandante_id: mandanteParam } }),
-      api.get("/offers", { params: { mandante_id: mandanteParam } }),
-    ]);
-    setClients(c.data); setMandanti(m.data); setProducts(p.data); setOrders(o.data); setOffers(of.data);
-  };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [mandanteParam]);
+  useEffect(() => {
+    Promise.all([listClients(), listMandanti(), listProducts()]).then(([c, m, p]) => {
+      setClients(c); setMandanti(m); setProducts(p);
+    });
+  }, []);
+
+  const loadOffers = () => listOffers({ mandante_id: mandanteParam }).then(setOffers);
+  useEffect(() => { loadOffers(); /* eslint-disable-next-line */ }, [mandanteParam]);
 
   const filteredClients = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -65,22 +71,20 @@ export default function Ordini() {
       .sort((a, b) => b.created_at.localeCompare(a.created_at));
 
   const saveOrder = async (payload) => {
-    await api.post("/orders", payload);
+    await createOrderApi(payload);
     toast.success("Ordine registrato — provvigione calcolata");
-    await load();
   };
 
   const saveEditedOrder = async (oid, payload) => {
-    await api.put(`/orders/${oid}`, payload);
+    await updateOrderApi(oid, payload);
     toast.success("Ordine aggiornato — provvigione ricalcolata");
-    await load();
   };
 
   const updateOrderField = async (order, field, value) => {
     const wasCancelled = ["annullato", "reso"].includes(order.status);
     const willBeCancelled = ["annullato", "reso"].includes(value);
     try {
-      await api.patch(`/orders/${order.id}/status`, { [field]: value });
+      await updateOrderStatusApi(order.id, { [field]: value });
       if (field === "status" && willBeCancelled && !wasCancelled) {
         toast.success("Ordine annullato — provvigione collegata rimossa");
       } else if (field === "status" && wasCancelled && !willBeCancelled) {
@@ -88,7 +92,6 @@ export default function Ordini() {
       } else {
         toast.success("Aggiornato");
       }
-      await load();
     } catch {
       toast.error("Errore durante l'aggiornamento");
     }
@@ -96,18 +99,17 @@ export default function Ordini() {
 
   const deleteOrder = async (order) => {
     if (!window.confirm("Eliminare questo ordine? Verrà eliminata anche la provvigione collegata.")) return;
-    await api.delete(`/orders/${order.id}`);
+    await removeOrderApi(order.id);
     toast.success("Ordine e provvigione collegata eliminati");
-    await load();
   };
 
   const acceptOffer = async (offer) => {
     // Accetta il preventivo così com'è: niente da reinserire, i prodotti sono
     // già quelli dell'offerta. L'ordine e la provvigione vengono generati
     // automaticamente lato backend (offer_service → order_service.create_from_offer).
-    await api.patch(`/offers/${offer.id}/status`, { status: "accettata" });
+    await updateOfferStatus(offer.id, "accettata");
     toast.success("Preventivo accettato — ordine e provvigione generati");
-    await load();
+    await Promise.all([reloadOrders(), loadOffers()]);
   };
 
   return (
