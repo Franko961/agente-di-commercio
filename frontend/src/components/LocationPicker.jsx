@@ -7,7 +7,7 @@ import L from "leaflet";
 // commento in public/index.html sullo stesso principio per i font.
 import "leaflet/dist/leaflet.css";
 import { Search, Loader2, MapPin } from "lucide-react";
-import api from "../api";
+import { geocodeAddress } from "../api/geocoding";
 
 const orangeIcon = L.divIcon({
   className: "",
@@ -67,7 +67,7 @@ export default function LocationPicker({ address, city, province, lat, lng, onCh
     setSearching(true);
     setSearched(false);
     try {
-      const { data } = await api.get("/geocode", { params: { q: query.trim() } });
+      const data = await geocodeAddress(query.trim());
       setResults(data);
     } catch {
       setResults([]);

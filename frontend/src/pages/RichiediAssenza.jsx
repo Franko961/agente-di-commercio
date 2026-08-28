@@ -1,7 +1,8 @@
 ﻿import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { CheckCircle2, Smartphone } from "lucide-react";
-import api, { API_BASE } from "../api";
+import { API_BASE } from "../api";
+import { getEmployeeByToken, submitLeaveRequest } from "../api/employees";
 import { toast } from "sonner";
 import PageMeta from "../components/PageMeta";
 
@@ -28,8 +29,8 @@ export default function RichiediAssenza() {
   const [isIos, setIsIos] = useState(false);
 
   useEffect(() => {
-    api.get(`/employees/by-token/${token}`)
-      .then(({ data }) => setEmployeeName(data.name))
+    getEmployeeByToken(token)
+      .then((data) => setEmployeeName(data.name))
       .catch(() => setEmployeeName(false));
   }, [token]);
 
@@ -100,7 +101,7 @@ export default function RichiediAssenza() {
     }
     setBusy(true);
     try {
-      await api.post("/leave-requests", { employee_token: token, ...form });
+      await submitLeaveRequest({ employee_token: token, ...form });
       setSent(true);
     } catch (err) {
       toast.error(err?.response?.data?.detail || "Invio non riuscito, riprova tra poco");

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import { Upload, FileSpreadsheet, ArrowLeft, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import api from "../api";
+import { bulkImportClients } from "../api/clients";
 
 // Limiti applicati PRIMA di passare il file alla libreria xlsx: il parsing
 // avviene interamente nel browser di chi importa (mai sul server), quindi
@@ -127,7 +127,7 @@ export default function ImportClienti() {
   const doImport = async () => {
     setImporting(true);
     try {
-      const { data } = await api.post("/clients/bulk", { clients: mappedRows });
+      const data = await bulkImportClients({ clients: mappedRows });
       setResult(data);
       if (data.imported > 0) {
         toast.success(`${data.imported} clienti importati`);

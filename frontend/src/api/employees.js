@@ -88,6 +88,17 @@ export function createLeaveRequestForEmployee(employeeId, payload) {
   return api.post(`/employees/${employeeId}/leave-requests`, payload).then(({ data }) => data);
 }
 
+// --- Pagine pubbliche self-service (nessuna autenticazione, link personale
+// via token) — RichiediAssenza.jsx ---
+
+export function getEmployeeByToken(token) {
+  return api.get(`/employees/by-token/${token}`).then(({ data }) => data);
+}
+
+export function submitLeaveRequest(payload) {
+  return api.post("/leave-requests", payload).then(({ data }) => data);
+}
+
 // --- Dotazione (equipment) ---
 
 export function listEquipment(employeeId) {

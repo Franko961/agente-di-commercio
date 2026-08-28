@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from "react";
 import { History, RefreshCw, Loader2, Mic, MessageSquare } from "lucide-react";
-import api from "../api";
+import { getAiActions } from "../api/ai";
 import { EXPENSE_CATEGORY_LABELS } from "./AIActionConfirm";
 
 const TOOL_LABELS = {
@@ -67,7 +67,7 @@ export default function AiActionsLog() {
     try {
       const params = {};
       Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
-      const { data } = await api.get("/ai/actions", { params });
+      const data = await getAiActions(params);
       setLogs(data || []);
     } catch (e) {
       setLogs([]);

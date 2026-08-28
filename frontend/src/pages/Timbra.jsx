@@ -2,7 +2,7 @@
 import { useParams, Link } from "react-router-dom";
 import { CheckCircle2, ChevronLeft, Timer, User } from "lucide-react";
 import { toast } from "sonner";
-import api from "../api";
+import { getKioskEmployees, kioskClockIn, kioskClockOut } from "../api/attendance";
 import PageMeta from "../components/PageMeta";
 
 // Pagina pubblica del "chiosco" di timbratura: raggiunta da un QR fisico
@@ -24,8 +24,8 @@ export default function Timbra() {
   const [done, setDone] = useState(null); // { name, clocked_in } dopo la timbratura
 
   const loadEmployees = () => {
-    api.get(`/attendance/kiosk/${token}/employees`)
-      .then(({ data }) => setEmployees(data))
+    getKioskEmployees(token)
+      .then(setEmployees)
       .catch(() => setEmployees(false));
   };
   useEffect(() => { loadEmployees(); }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -50,8 +50,8 @@ export default function Timbra() {
     setBusy(true);
     setError(null);
     try {
-      const action = selected.clocked_in ? "clock-out" : "clock-in";
-      await api.post(`/attendance/kiosk/${token}/${action}`, { employee_id: selected.id, pin });
+      const clockFn = selected.clocked_in ? kioskClockOut : kioskClockIn;
+      await clockFn(token, { employee_id: selected.id, pin });
       setDone({ name: selected.name, clocked_in: !selected.clocked_in });
       toast.success(selected.clocked_in ? "Uscita registrata" : "Ingresso registrato");
     } catch (err) {

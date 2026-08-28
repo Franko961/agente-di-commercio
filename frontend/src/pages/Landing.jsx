@@ -19,7 +19,7 @@ import { useCookieConsent } from "../contexts/CookieConsentContext";
 import PageMeta from "../components/PageMeta";
 import Reveal from "../components/Reveal";
 import CountUp from "../components/CountUp";
-import api from "../api";
+import { getPublicFeedback } from "../api/feedback";
 
 const FEATURES = [
   { icon: Users, title: "Clienti & anagrafiche", desc: "Tutti i tuoi clienti, contatti e storico visite in un unico posto, sempre a portata di mano." },
@@ -173,7 +173,7 @@ export default function Landing() {
   }, []);
 
   useEffect(() => {
-    api.get("/feedback/public").then(({ data }) => setTestimonials(data)).catch(() => setTestimonials([]));
+    getPublicFeedback().then(setTestimonials).catch(() => setTestimonials([]));
   }, []);
 
   return (

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { CheckCircle2, Mail } from "lucide-react";
-import api from "../api";
+import { createContactRequest } from "../api/contactRequests";
 import { toast } from "sonner";
 import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
@@ -28,7 +28,7 @@ export default function Contatti() {
     }
     setBusy(true);
     try {
-      await api.post("/contact-requests", form);
+      await createContactRequest(form);
       setSent(true);
     } catch (err) {
       const detail = err?.response?.data?.detail;

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import api from "../api";
+import { createDemoRequest } from "../api/demoRequests";
 import { toast } from "sonner";
 import usePlans from "../hooks/usePlans";
 import PageMeta from "../components/PageMeta";
@@ -30,7 +30,7 @@ export default function RichiediDemo() {
     }
     setBusy(true);
     try {
-      const { data } = await api.post("/demo-requests", form);
+      const data = await createDemoRequest(form);
       // Naviga su un URL dedicato (invece di un semplice stato locale)
       // raggiungibile SOLO dopo un invio riuscito: serve da bersaglio per
       // il tracciamento conversioni (Google Ads/Analytics) — un URL che
