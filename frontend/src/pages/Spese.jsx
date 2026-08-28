@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useState, useRef } from "react";
-import api from "../api";
+import { listExpenses, createExpense, updateExpense, deleteExpense as deleteExpenseApi } from "../api/expenses";
+import { uploadDocument } from "../api/documents";
 import { Plus, Trash2, Pencil, Fuel, UtensilsCrossed, BedDouble, ParkingCircle, Package, Receipt, Landmark, PiggyBank, Car, Calculator, Paperclip, Upload, X, Loader2, ChevronDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { toast } from "sonner";
@@ -134,14 +135,13 @@ export default function Spese() {
     if (filter) params.category = filter;
     if (dateFrom) params.date_from = dateFrom;
     if (dateTo) params.date_to = dateTo;
-    const { data } = await api.get("/expenses", { params });
-    setExpenses(data);
+    setExpenses(await listExpenses(params));
   };
   useEffect(() => { load(); }, [filter, dateFrom, dateTo]);
 
   const deleteExpense = async (id, desc) => {
     if (!window.confirm(`Eliminare la spesa "${desc || "senza descrizione"}"?`)) return;
-    await api.delete(`/expenses/${id}`);
+    await deleteExpenseApi(id);
     toast.success("Spesa eliminata");
     load();
   };
@@ -174,7 +174,7 @@ export default function Spese() {
             <ExpenseForm
               initial={newExpenseInitial}
               onDraftChange={(f) => saveDraft({ type: "new", form: f })}
-              onSave={async (f) => { await api.post("/expenses", f); clearDraft(); load(); toast.success("Spesa registrata"); setOpen(false); }}
+              onSave={async (f) => { await createExpense(f); clearDraft(); load(); toast.success("Spesa registrata"); setOpen(false); }}
             />
           </DialogContent>
         </Dialog>
@@ -190,7 +190,7 @@ export default function Spese() {
               submitLabel="Aggiorna"
               onDraftChange={(f) => saveDraft({ type: "edit", form: f })}
               onSave={async (f) => {
-                await api.put(`/expenses/${editTarget.id}`, f);
+                await updateExpense(editTarget.id, f);
                 clearDraft();
                 load(); toast.success("Spesa aggiornata"); setEditTarget(null);
               }}
@@ -343,7 +343,7 @@ function ExpenseForm({ initial, onSave, onDraftChange, submitLabel = "Salva" }) 
       fd.append("category", "scontrino");
       fd.append("notes", "");
       fd.append("tags", "spese");
-      const { data } = await api.post("/documents/upload", fd);
+      const data = await uploadDocument(fd);
       setF((prev) => ({ ...prev, receipt_document_id: data.id, receipt_filename: data.original_filename || file.name }));
       toast.success("Scontrino allegato");
     } catch (err) {
