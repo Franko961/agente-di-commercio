@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import api from "../api";
+import { listMandanti } from "../api/mandanti";
 import { useAuth } from "./AuthContext";
 
 const MandanteContext = createContext(null);
@@ -11,8 +11,7 @@ export function MandanteProvider({ children }) {
 
   const refresh = async () => {
     if (!user) return;
-    const { data } = await api.get("/mandanti");
-    setMandanti(data);
+    setMandanti(await listMandanti());
   };
 
   useEffect(() => { refresh(); }, [user]);

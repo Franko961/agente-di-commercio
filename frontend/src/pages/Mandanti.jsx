@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState } from "react";
-import api from "../api";
+import { createMandante, updateMandante, deleteMandante } from "../api/mandanti";
 import { Plus, Trash2, Pencil, Target, Trophy, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { useMandante } from "../contexts/MandanteContext";
@@ -15,20 +15,20 @@ export default function Mandanti() {
 
   const remove = async (id) => {
     if (!window.confirm("Eliminare il mandante?")) return;
-    await api.delete(`/mandanti/${id}`);
+    await deleteMandante(id);
     refreshMandanti();
     toast.success("Mandante eliminato");
   };
 
   const save = async (f) => {
-    await api.post("/mandanti", f);
+    await createMandante(f);
     refreshMandanti();
     toast.success("Mandante creato");
     setOpen(false);
   };
 
   const update = async (id, f) => {
-    await api.put(`/mandanti/${id}`, f);
+    await updateMandante(id, f);
     refreshMandanti();
     toast.success("Mandante aggiornato");
     setEditTarget(null);

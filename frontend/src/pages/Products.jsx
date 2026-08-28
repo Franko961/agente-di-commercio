@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState } from "react";
-import api from "../api";
+import { listProducts, createProduct, updateProduct, deleteProduct as deleteProductApi } from "../api/products";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { toast } from "sonner";
@@ -15,12 +15,12 @@ export default function Products() {
   const [editTarget, setEditTarget] = useState(null);
   const [filter, setFilter] = useState("");
 
-  const load = async () => { const { data } = await api.get("/products"); setProducts(data); };
+  const load = async () => { setProducts(await listProducts()); };
   useEffect(() => { load(); }, []);
 
   const deleteProduct = async (id, name) => {
     if (!window.confirm(`Eliminare il prodotto "${name}"?`)) return;
-    await api.delete(`/products/${id}`);
+    await deleteProductApi(id);
     toast.success("Prodotto eliminato");
     load();
   };
@@ -42,7 +42,7 @@ export default function Products() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Nuovo prodotto</DialogTitle></DialogHeader>
-            <ProductForm mandanti={mandanti} initial={EMPTY} onSave={async (f) => { await api.post("/products", f); load(); toast.success("Prodotto creato"); setOpen(false); }} />
+            <ProductForm mandanti={mandanti} initial={EMPTY} onSave={async (f) => { await createProduct(f); load(); toast.success("Prodotto creato"); setOpen(false); }} />
           </DialogContent>
         </Dialog>
       </div>
@@ -53,7 +53,7 @@ export default function Products() {
           <DialogHeader><DialogTitle>Modifica prodotto</DialogTitle></DialogHeader>
           {editTarget && (
             <ProductForm mandanti={mandanti} initial={editTarget} submitLabel="Aggiorna" onSave={async (f) => {
-              await api.put(`/products/${editTarget.id}`, f);
+              await updateProduct(editTarget.id, f);
               load(); toast.success("Prodotto aggiornato"); setEditTarget(null);
             }} />
           )}
