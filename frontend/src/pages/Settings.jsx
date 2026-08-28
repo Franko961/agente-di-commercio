@@ -5,7 +5,10 @@ import {
   ShieldCheck, Download, Trash2, AlertTriangle, Eye, EyeOff, Home, Building2, Cookie, Star, Image,
 } from "lucide-react";
 import { toast } from "sonner";
-import api from "../api";
+import { getGoals, updateGoals, getAddresses, updateAddresses, getLeaveSettings, updateLeaveSettings, getCompanySettings, updateCompanySettings } from "../api/settings";
+import { getGoogleCalendarStatus, connectGoogleCalendar, disconnectGoogleCalendar, syncGoogleCalendar } from "../api/integrations";
+import { submitFeedback } from "../api/feedback";
+import { exportMyData as exportMyDataApi, deleteMyAccount as deleteMyAccountApi } from "../api/privacy";
 import AiActionsLog from "../components/AiActionsLog";
 import LocationPicker from "../components/LocationPicker";
 import { useAuth } from "../contexts/AuthContext";
@@ -45,7 +48,7 @@ export default function Settings() {
     if (!fbRating) { toast.error("Seleziona un voto da 1 a 5 stelle"); return; }
     setFbBusy(true);
     try {
-      await api.post("/feedback", { rating: fbRating, text: fbText.trim(), publish_consent: fbConsent });
+      await submitFeedback({ rating: fbRating, text: fbText.trim(), publish_consent: fbConsent });
       setFbSent(true);
       setFbRating(0);
       setFbText("");
@@ -67,8 +70,7 @@ export default function Settings() {
 
   const loadGoals = async () => {
     try {
-      const { data } = await api.get("/settings/goals");
-      setGoals(data);
+      setGoals(await getGoals());
     } catch {
       toast.error("Impossibile caricare gli obiettivi");
     }
@@ -84,8 +86,7 @@ export default function Settings() {
         goal_new_clients: goals.goal_new_clients === "" ? null : Number(goals.goal_new_clients),
         goal_visits: goals.goal_visits === "" ? null : Number(goals.goal_visits),
       };
-      const { data } = await api.put("/settings/goals", payload);
-      setGoals(data);
+      setGoals(await updateGoals(payload));
       toast.success("Obiettivi aggiornati");
     } catch {
       toast.error("Errore nel salvataggio degli obiettivi");
@@ -96,8 +97,7 @@ export default function Settings() {
 
   const loadStatus = async () => {
     try {
-      const res = await api.get("/integrations/google/status");
-      setStatus(res.data);
+      setStatus(await getGoogleCalendarStatus());
     } catch (e) {
       setStatus({ connected: false });
     }
@@ -105,8 +105,7 @@ export default function Settings() {
 
   const loadAddresses = async () => {
     try {
-      const { data } = await api.get("/settings/addresses");
-      setAddresses(data);
+      setAddresses(await getAddresses());
     } catch {
       toast.error("Impossibile caricare gli indirizzi");
     }
@@ -116,8 +115,7 @@ export default function Settings() {
     e.preventDefault();
     setAddressesBusy(true);
     try {
-      const { data } = await api.put("/settings/addresses", addresses);
-      setAddresses(data);
+      setAddresses(await updateAddresses(addresses));
       toast.success("Indirizzi aggiornati");
     } catch {
       toast.error("Errore nel salvataggio degli indirizzi");
@@ -129,8 +127,7 @@ export default function Settings() {
   const loadLeaveSettings = async () => {
     if (!personaleEnabled) return;
     try {
-      const { data } = await api.get("/settings/leave");
-      setLeaveSettings(data);
+      setLeaveSettings(await getLeaveSettings());
     } catch {
       toast.error("Impossibile caricare le impostazioni ferie");
     }
@@ -139,8 +136,7 @@ export default function Settings() {
   const saveLeaveSettings = async (mode) => {
     setLeaveSettingsBusy(true);
     try {
-      const { data } = await api.put("/settings/leave", { ferie_count_mode: mode });
-      setLeaveSettings(data);
+      setLeaveSettings(await updateLeaveSettings({ ferie_count_mode: mode }));
       toast.success("Preferenza aggiornata");
     } catch {
       toast.error("Errore nel salvataggio");
@@ -152,7 +148,7 @@ export default function Settings() {
   const loadCompanySettings = async () => {
     if (!personaleEnabled) return;
     try {
-      const { data } = await api.get("/settings/company");
+      const data = await getCompanySettings();
       setCompanyLogo(data.logo || "");
     } catch {
       toast.error("Impossibile caricare il logo aziendale");
@@ -167,7 +163,7 @@ export default function Settings() {
     setCompanyLogoBusy(true);
     try {
       const dataUrl = await resizeImageToDataUrl(file, 300);
-      const { data } = await api.put("/settings/company", { logo: dataUrl });
+      const data = await updateCompanySettings({ logo: dataUrl });
       setCompanyLogo(data.logo || "");
       toast.success("Logo aggiornato");
     } catch (err) {
@@ -180,7 +176,7 @@ export default function Settings() {
   const removeCompanyLogo = async () => {
     setCompanyLogoBusy(true);
     try {
-      const { data } = await api.put("/settings/company", { logo: null });
+      const data = await updateCompanySettings({ logo: null });
       setCompanyLogo(data.logo || "");
       toast.success("Logo rimosso");
     } catch {
@@ -218,8 +214,8 @@ export default function Settings() {
   const connect = async () => {
     setBusy(true);
     try {
-      const res = await api.get("/integrations/google/connect");
-      window.location.href = res.data.auth_url;
+      const data = await connectGoogleCalendar();
+      window.location.href = data.auth_url;
     } catch (e) {
       toast.error("Impossibile avviare il collegamento a Google");
       setBusy(false);
@@ -229,7 +225,7 @@ export default function Settings() {
   const disconnect = async () => {
     setBusy(true);
     try {
-      await api.post("/integrations/google/disconnect");
+      await disconnectGoogleCalendar();
       toast.success("Google Calendar scollegato");
       await loadStatus();
     } catch (e) {
@@ -242,7 +238,7 @@ export default function Settings() {
   const syncNow = async () => {
     setBusy(true);
     try {
-      await api.post("/integrations/google/sync");
+      await syncGoogleCalendar();
       toast.success("Sincronizzazione avviata");
     } catch (e) {
       toast.error("Errore durante la sincronizzazione");
@@ -254,7 +250,7 @@ export default function Settings() {
   const exportMyData = async () => {
     setExporting(true);
     try {
-      const res = await api.get("/privacy/export", { responseType: "blob" });
+      const res = await exportMyDataApi();
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const a = document.createElement("a");
       a.href = url;
@@ -274,7 +270,7 @@ export default function Settings() {
   const deleteMyAccount = async () => {
     setDeleting(true);
     try {
-      await api.post("/privacy/delete-account", { password: deletePassword });
+      await deleteMyAccountApi(deletePassword);
       toast.success("Account eliminato definitivamente");
       await logout();
       navigate("/");
