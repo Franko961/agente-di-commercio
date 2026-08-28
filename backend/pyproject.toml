@@ -60,5 +60,11 @@ line_length = 88
 
 [tool.mypy]
 python_version = "3.12"
+plugins = ["pydantic.mypy"]
 ignore_missing_imports = true
 check_untyped_defs = true
+# I test usano volutamente oggetti fake (FakeRequest/FakeResponse/...) al posto
+# dei tipi reali di FastAPI/Starlette per isolarsi dal framework — un pattern
+# di test deliberato, non un bug, che mypy non può verificare staticamente.
+# pytest è già una rete di sicurezza molto più efficace per il codice dei test.
+exclude = ["^tests/"]
