@@ -1,5 +1,4 @@
-﻿import { useEffect, useState } from "react";
-import api from "../api";
+﻿import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Plus, Search, MapPin, Phone, Mail, Filter, Download, Upload, MessageCircle, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
@@ -7,6 +6,7 @@ import { toast } from "sonner";
 import { useMandante } from "../contexts/MandanteContext";
 import { exportClients, whatsappLink } from "../utils/export";
 import LocationPicker from "../components/LocationPicker";
+import useClients from "../hooks/useClients";
 
 const POTENTIAL_COLOR = { alto: "#059669", medio: "#B23E00", basso: "#6B6B72" };
 
@@ -111,7 +111,6 @@ export default function Clients() {
   const navigate = useNavigate();
   const { mandanti, activeMandante } = useMandante();
   const mandanteParam = activeMandante && activeMandante !== "all" ? activeMandante : undefined;
-  const [clients, setClients] = useState([]);
   const [q, setQ] = useState("");
   const [zone, setZone] = useState("");
   const [potential, setPotential] = useState("");
@@ -119,18 +118,10 @@ export default function Clients() {
   const [open, setOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
 
-  const load = async () => {
-    const params = new URLSearchParams();
-    if (q) params.append("q", q);
-    if (zone) params.append("zone", zone);
-    if (potential) params.append("potential", potential);
-    if (sector) params.append("sector", sector);
-    if (mandanteParam) params.append("mandante_id", mandanteParam);
-    const { data } = await api.get(`/clients?${params}`);
-    setClients(data);
-  };
-
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [q, zone, potential, sector, mandanteParam]);
+  const { clients, create, update } = useClients({
+    q: q || undefined, zone: zone || undefined, potential: potential || undefined,
+    sector: sector || undefined, mandante_id: mandanteParam,
+  });
 
   const zones = [...new Set(clients.map((c) => c.zone).filter(Boolean))];
 
@@ -166,7 +157,7 @@ export default function Clients() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle className="font-cabinet">Nuovo cliente</DialogTitle></DialogHeader>
-            <ClientForm mandanti={mandanti} onSave={async (f) => { await api.post("/clients", f); load(); }} onClose={() => setOpen(false)} />
+            <ClientForm mandanti={mandanti} onSave={(f) => create(f)} onClose={() => setOpen(false)} />
           </DialogContent>
         </Dialog>
         </div>
@@ -208,7 +199,7 @@ export default function Clients() {
                 ...editTarget,
                 mandante_ids: editTarget.mandante_ids || [],
               }}
-              onSave={async (f) => { await api.put(`/clients/${editTarget.id}`, f); load(); toast.success("Cliente aggiornato"); }}
+              onSave={async (f) => { await update(editTarget.id, f); toast.success("Cliente aggiornato"); }}
               onClose={() => setEditTarget(null)}
             />
           )}
@@ -246,7 +237,7 @@ export default function Clients() {
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>Nuovo cliente</DialogTitle></DialogHeader>
-              <ClientForm mandanti={mandanti} onSave={async (f) => { await api.post("/clients", f); load(); }} onClose={() => setOpen(false)} />
+              <ClientForm mandanti={mandanti} onSave={(f) => create(f)} onClose={() => setOpen(false)} />
             </DialogContent>
           </Dialog>
         </div>

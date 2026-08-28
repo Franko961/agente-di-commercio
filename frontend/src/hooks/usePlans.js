@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState } from "react";
-import api from "../api";
+import { getPlans } from "../api/subscription";
 
 // Colori puramente visivi per piano — non sono dati di business, restano qui
 // invece che nel backend. Se aggiungi un piano nuovo, aggiungi anche il colore.
@@ -17,7 +17,7 @@ let inflight = null;
 async function fetchPlans() {
   if (cache) return cache;
   if (!inflight) {
-    inflight = api.get("/subscription/plans").then(({ data }) => {
+    inflight = getPlans().then((data) => {
       cache = data;
       return data;
     });

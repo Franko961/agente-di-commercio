@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import api from "../api";
+import { getClient, deleteClient } from "../api/clients";
 import { ArrowLeft, MapPin, Phone, Mail, Building, Trash2, Edit, Calendar, FileText, Folder, Coins, MessageCircle, Send, Eye, Download } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
@@ -25,12 +25,12 @@ export default function ClientDetail() {
   const [data, setData] = useState(null);
   const [previewDoc, setPreviewDoc] = useState(null);
 
-  const load = () => api.get(`/clients/${id}`).then(({ data }) => setData(data));
+  const load = () => getClient(id).then(setData);
   useEffect(() => { load(); }, [id]);
 
   const remove = async () => {
     if (!window.confirm("Eliminare il cliente?")) return;
-    await api.delete(`/clients/${id}`);
+    await deleteClient(id);
     toast.success("Cliente eliminato");
     navigate("/app/clienti");
   };
