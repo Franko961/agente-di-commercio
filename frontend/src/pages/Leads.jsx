@@ -1,9 +1,10 @@
-﻿import { useEffect, useState } from "react";
-import api from "../api";
+﻿import { useState } from "react";
 import { Plus, Trash2, Download, Pencil, PhoneCall, Clock, CalendarClock, Search, ChevronDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { toast } from "sonner";
 import { exportLeads } from "../utils/export";
+import { logLeadContact } from "../api/leads";
+import useLeads from "../hooks/useLeads";
 import { formatDistanceToNow, parseISO, format } from "date-fns";
 import { it } from "date-fns/locale";
 
@@ -25,7 +26,7 @@ const PAGE_SIZE = 10;
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n || 0);
 
 export default function Leads() {
-  const [leads, setLeads] = useState([]);
+  const { leads, reload: load, create, update, remove, moveStatus } = useLeads();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [loggingContact, setLoggingContact] = useState(null);
@@ -35,9 +36,6 @@ export default function Leads() {
   // alla volta cliccando "Mostra altri", non tocca le altre colonne.
   const [visibleCounts, setVisibleCounts] = useState({});
   const showMore = (colId) => setVisibleCounts((prev) => ({ ...prev, [colId]: (prev[colId] || PAGE_SIZE) + PAGE_SIZE }));
-
-  const load = async () => { const { data } = await api.get("/leads"); setLeads(data); };
-  useEffect(() => { load(); }, []);
 
   const q = search.trim().toLowerCase();
   // Con una ricerca attiva si mostrano TUTTI i risultati che corrispondono,
@@ -54,8 +52,7 @@ export default function Leads() {
   // cambiabile da mobile, dato che il form di modifica del lead non
   // espone nemmeno il campo stato.
   const moveLead = async (id, status) => {
-    await api.patch(`/leads/${id}/status`, { status });
-    setLeads((prev) => prev.map(l => l.id === id ? { ...l, status } : l));
+    await moveStatus(id, status);
     toast.success(`Lead spostato in "${status}"`);
   };
 
@@ -85,7 +82,7 @@ export default function Leads() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Nuovo lead</DialogTitle></DialogHeader>
-              <LeadForm onSave={async (f) => { await api.post("/leads", f); load(); toast.success("Lead creato"); setOpen(false); }} />
+              <LeadForm onSave={async (f) => { await create(f); toast.success("Lead creato"); setOpen(false); }} />
             </DialogContent>
           </Dialog>
           <button
@@ -144,7 +141,7 @@ export default function Leads() {
                         <button onClick={() => setEditing(l)} data-testid={`edit-lead-${l.id}`} title="Modifica" aria-label="Modifica lead" className="text-[#6B6B72] hover:text-[#0A192F]">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={async () => { await api.delete(`/leads/${l.id}`); load(); }} title="Elimina" aria-label="Elimina lead" className="text-[#6B6B72] hover:text-[#DC2626]">
+                        <button onClick={() => remove(l.id)} title="Elimina" aria-label="Elimina lead" className="text-[#6B6B72] hover:text-[#DC2626]">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -211,8 +208,7 @@ export default function Leads() {
             <LeadForm
               initial={editing}
               onSave={async (f) => {
-                await api.put(`/leads/${editing.id}`, f);
-                load();
+                await update(editing.id, f);
                 toast.success("Lead aggiornato");
                 setEditing(null);
               }}
@@ -240,7 +236,7 @@ function LogContactDialog({ lead, onClose, onSaved }) {
     e.preventDefault();
     setBusy(true);
     try {
-      await api.post(`/leads/${lead.id}/log-contact`, { note });
+      await logLeadContact(lead.id, { note });
       toast.success("Contatto registrato");
       onSaved();
     } catch {
