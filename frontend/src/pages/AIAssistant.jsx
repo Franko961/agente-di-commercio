@@ -1,5 +1,8 @@
 ﻿import { useEffect, useState, useRef, useCallback } from "react";
-import api from "../api";
+import {
+  sendAiChatMessage, getAiBriefing, getAiHistory, getAiPendingActions,
+  getAiSuggestions, executeAiAction, cancelAiAction, clearAiHistory,
+} from "../api/ai";
 import { Sparkles, Send, Lightbulb, Trash2, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 import { cleanForSpeech } from "../utils/speechClean";
 import AIActionConfirm from "../components/AIActionConfirm";
@@ -110,7 +113,7 @@ export default function AIAssistant() {
     setInput("");
     setBusy(true);
     try {
-      const { data } = await api.post("/ai/chat", { message: text, channel: "voice" });
+      const data = await sendAiChatMessage({ message: text, channel: "voice" });
       const actions = data.actions || [];
       let fullText = data.response;
       if (actions.length > 0) fullText = actions.join("\n") + (data.response ? "\n\n" + data.response : "");
@@ -137,7 +140,7 @@ export default function AIAssistant() {
       // interamente `messages` (vedi sotto).
       let greeting = WELCOME;
       try {
-        const { data } = await api.get("/ai/briefing");
+        const data = await getAiBriefing();
         if (data?.text) {
           greeting = { role: "assistant", text: data.text };
         }
@@ -147,7 +150,7 @@ export default function AIAssistant() {
       }
 
       try {
-        const { data } = await api.get("/ai/history");
+        const data = await getAiHistory();
         if (data && data.length > 0) {
           const history = data.flatMap(h => [
             { role: "user", text: h.message },
@@ -171,7 +174,7 @@ export default function AIAssistant() {
       // cronologia (che sostituisce interamente `messages`), altrimenti
       // questo messaggio verrebbe perso da quella sostituzione.
       try {
-        const { data: pending } = await api.get("/ai/pending-actions");
+        const pending = await getAiPendingActions();
         if (Array.isArray(pending) && pending.length > 0) {
           setMessages(m => [...m, {
             role: "assistant",
@@ -184,7 +187,7 @@ export default function AIAssistant() {
       }
     };
     loadHistory();
-    api.get("/ai/suggestions").then(({ data }) => setSuggestions(data.suggestions || [])).catch(() => {});
+    getAiSuggestions().then((data) => setSuggestions(data.suggestions || [])).catch(() => {});
   }, []);
 
   const send = async (text) => {
@@ -193,7 +196,7 @@ export default function AIAssistant() {
     setInput("");
     setBusy(true);
     try {
-      const { data } = await api.post("/ai/chat", { message: text, channel: "chat" });
+      const data = await sendAiChatMessage({ message: text, channel: "chat" });
       const actions = data.actions || [];
       let fullText = data.response;
       if (actions.length > 0) {
@@ -214,7 +217,7 @@ export default function AIAssistant() {
     const action = messages[msgIdx].pendingActions[actionIdx];
     setExecutingKey(`${msgIdx}-${actionIdx}`);
     try {
-      const { data } = await api.post("/ai/execute-action", {
+      const data = await executeAiAction({
         tool_name: action.tool_name, resolved_input: resolvedInput, log_id: action.log_id,
       });
       setMessages(m => m.map((msg, i) => i === msgIdx
@@ -243,7 +246,7 @@ export default function AIAssistant() {
     const action = messages[msgIdx].pendingActions[actionIdx];
     setExecutingKey(`${msgIdx}-${actionIdx}`);
     try {
-      await api.post("/ai/cancel-action", { log_id: action.log_id });
+      await cancelAiAction({ log_id: action.log_id });
       setMessages(m => m.map((msg, i) => i === msgIdx
         ? { ...msg, pendingActions: msg.pendingActions.filter((_, j) => j !== actionIdx) }
         : msg
@@ -260,7 +263,7 @@ export default function AIAssistant() {
 
   const clearHistory = async () => {
     if (!window.confirm("Cancellare tutta la cronologia della chat?")) return;
-    await api.delete("/ai/history");
+    await clearAiHistory();
     setMessages([WELCOME]);
   };
 
