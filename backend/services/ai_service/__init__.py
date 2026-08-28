@@ -290,7 +290,10 @@ class AiService:
                     }
                 ],
             )
-            response = message.content[0].text
+            first_block = message.content[0]
+            if first_block.type != "text":
+                raise ValueError(f"Blocco di risposta inatteso: {first_block.type}")
+            response = first_block.text
             m = re.search(r"\{.*\}", response, re.DOTALL)
             if m:
                 data = json.loads(m.group(0))
@@ -350,7 +353,10 @@ class AiService:
                 system=system,
                 messages=[{"role": "user", "content": context}],
             )
-            return {"summary": message.content[0].text.strip()}
+            first_block = message.content[0]
+            if first_block.type != "text":
+                raise ValueError(f"Blocco di risposta inatteso: {first_block.type}")
+            return {"summary": first_block.text.strip()}
         except Exception as e:
             logger.error(f"AI employee summary error: {e}")
         return {"summary": None}

@@ -1,6 +1,7 @@
 import secrets
 from calendar import monthrange
 from datetime import date, datetime, timedelta, timezone
+from typing import Optional
 
 from fastapi import HTTPException
 
@@ -135,7 +136,7 @@ class AttendanceService:
         return result
 
     async def _check_rate_limit(
-        self, token: str, employee_id: str, ip_address: str = None
+        self, token: str, employee_id: str, ip_address: Optional[str] = None
     ) -> None:
         # IP e token azienda: 300/ora, non 60 — un solo tablet fisico
         # all'ingresso genera TUTTO il traffico di un'azienda con più
@@ -186,7 +187,7 @@ class AttendanceService:
         return employee
 
     async def clock_in_kiosk(
-        self, token: str, employee_id: str, pin: str, ip_address: str = None
+        self, token: str, employee_id: str, pin: str, ip_address: Optional[str] = None
     ) -> dict:
         await self._check_rate_limit(token, employee_id, ip_address)
         employee = await self._employee_from_kiosk(token, employee_id, pin)
@@ -210,7 +211,7 @@ class AttendanceService:
         return await self.repo.insert(doc)
 
     async def clock_out_kiosk(
-        self, token: str, employee_id: str, pin: str, ip_address: str = None
+        self, token: str, employee_id: str, pin: str, ip_address: Optional[str] = None
     ) -> dict:
         await self._check_rate_limit(token, employee_id, ip_address)
         employee = await self._employee_from_kiosk(token, employee_id, pin)

@@ -40,7 +40,7 @@ class LeaveRequestService:
         self.employees = employees
         self.users = users
 
-    async def submit(self, payload, ip_address: str = None) -> dict:
+    async def submit(self, payload, ip_address: Optional[str] = None) -> dict:
         """Endpoint pubblico (nessun login, vedi routers/leave_requests.py):
         il dipendente invia la richiesta tramite il proprio link personale,
         senza dover accedere al gestionale."""
@@ -194,7 +194,7 @@ class LeaveRequestService:
         await self.repo.insert(doc)
         return doc
 
-    async def list_requests(self, user: dict, status: str = None) -> list:
+    async def list_requests(self, user: dict, status: Optional[str] = None) -> list:
         requests = await self.repo.find_many(user["id"])
         self._attach_overlap_flags(requests)
         if status:

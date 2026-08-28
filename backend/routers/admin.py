@@ -14,7 +14,13 @@ router = APIRouter(prefix="/api", tags=["admin"])
 
 
 @router.post("/auth/make-admin")
-async def make_admin(payload: dict = Body(...), request: Request = None):
+# FastAPI riconosce l'iniezione automatica dell'oggetto Request solo con
+# l'annotazione esatta `Request`, non `Optional[Request]` (verificato: con
+# Optional[Request] FastAPI prova a generare uno schema Pydantic per il
+# parametro e fallisce all'avvio). Il default None qui serve solo per le
+# chiamate dirette nei test, mai per il routing reale (FastAPI passa sempre
+# un Request vero).
+async def make_admin(payload: dict = Body(...), request: Request = None):  # type: ignore[assignment]
     """Route temporanea per promuovere un utente ad admin. Richiede ADMIN_SECRET."""
     ip_address = get_client_ip(request) if request else None
     return await admin_service.make_admin(

@@ -1,6 +1,7 @@
 import html
 import logging
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from fastapi import HTTPException
 
@@ -26,7 +27,7 @@ class AuthService:
     def __init__(self, repo=user_repository):
         self.repo = repo
 
-    async def register(self, payload, ip_address: str = None) -> dict:
+    async def register(self, payload, ip_address: Optional[str] = None) -> dict:
         # Endpoint pubblico che crea un account VERO (con dati demo seminati)
         # e manda un'email di benvenuto: stesso rischio già sistemato su
         # /api/demo-requests — senza un limite di frequenza, uno script
@@ -145,7 +146,7 @@ class AuthService:
 
         return token, clean(doc)
 
-    async def login(self, payload, ip_address: str = None) -> tuple:
+    async def login(self, payload, ip_address: Optional[str] = None) -> tuple:
         # .strip() come register()/forgot_password(): un'email registrata è
         # sempre salvata senza spazi, ma un login con spazi incidentali
         # (tastiera mobile, copia-incolla) senza questo normalizza in modo
@@ -189,7 +190,7 @@ class AuthService:
         token = create_access_token(user["id"], email)
         return token, clean(user)
 
-    async def forgot_password(self, payload, ip_address: str = None) -> dict:
+    async def forgot_password(self, payload, ip_address: Optional[str] = None) -> dict:
         email = payload.email.lower().strip()
 
         # Risposta generica identica in ogni caso, per non rivelare a chi
@@ -265,7 +266,7 @@ class AuthService:
 
         return generic
 
-    async def reset_password(self, payload, ip_address: str = None) -> dict:
+    async def reset_password(self, payload, ip_address: Optional[str] = None) -> dict:
         # Limite per IP: rallenta un eventuale tentativo di indovinare un
         # token per forza bruta (il token stesso, 32 byte casuali, resta
         # comunque non indovinabile in pratica — questo è un livello extra).

@@ -239,7 +239,7 @@ class AutomationEngine:
             # davvero valutata.
             return {"executed": 0, "skipped": 0, "errors": 0}
 
-        evaluator = _TRIGGER_EVALUATORS.get(trigger)
+        evaluator = _TRIGGER_EVALUATORS.get(str(trigger))
         if not evaluator:
             logger.warning(
                 f"Automazione {aid}: trigger sconosciuto '{trigger}', ignorata"
@@ -880,7 +880,7 @@ def _describe_target(target_type: str, context: dict) -> str:
             "bollo": "Bollo",
             "altro": "Scadenza",
         }
-        label = labels.get(context.get("type"), "Scadenza")
+        label = labels.get(str(context.get("type")), "Scadenza")
         return f"{label} di {context.get('vehicle_plate', '')} tra {context.get('days_until', '?')} giorni"
     if target_type == "employee_attendance":
         nome = f"{context.get('name', '')} {context.get('surname', '')}".strip()

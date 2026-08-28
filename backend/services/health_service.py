@@ -14,7 +14,7 @@ class HealthService:
     documenti in Python: con giorni/settimane di traffico i bucket per
     minuto possono essere molte migliaia di documenti."""
 
-    async def get_health(self, hours: int = 24) -> dict:
+    async def get_health(self, hours: float = 24) -> dict:
         since = datetime.now(timezone.utc) - timedelta(hours=hours)
 
         endpoints = await db.api_metrics_minute.aggregate(

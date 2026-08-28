@@ -2,6 +2,7 @@ import html
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from fastapi import HTTPException
 
@@ -43,7 +44,10 @@ class DemoRequestService:
         self.users = users
 
     async def create(
-        self, payload, ip_address: str = None, user_agent: str = None
+        self,
+        payload,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
     ) -> dict:
         # Endpoint pubblico non autenticato che crea un account VERO e
         # funzionante (con dati demo già seminati) e manda un'email con il

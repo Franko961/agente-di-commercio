@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
@@ -13,7 +14,7 @@ COLLECTION = db.rate_limit_events
 
 
 async def check_and_record(
-    kind: str, key: str, max_attempts: int, window_minutes: int
+    kind: str, key: Optional[str], max_attempts: int, window_minutes: int
 ) -> bool:
     """Contatore a finestra scorrevole per un tipo di evento + chiave (es. email o IP).
 

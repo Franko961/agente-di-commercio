@@ -1,5 +1,6 @@
 import html
 import logging
+from typing import Optional
 
 from fastapi import HTTPException
 
@@ -17,7 +18,7 @@ class ContactRequestService:
     def __init__(self, repo=contact_request_repository):
         self.repo = repo
 
-    async def create(self, payload, ip_address: str = None) -> dict:
+    async def create(self, payload, ip_address: Optional[str] = None) -> dict:
         # Stesso limite anti-abuso già usato per il form richiesta demo (vedi
         # demo_request_service): senza, chiunque potrebbe riempire la casella
         # info@salesfly.it di messaggi automatizzati.

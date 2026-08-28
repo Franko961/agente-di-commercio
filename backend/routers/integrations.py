@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import RedirectResponse
@@ -25,7 +26,11 @@ async def connect(user=Depends(forbid_demo_write)):
 
 
 @router.get("/callback")
-async def callback(code: str = None, state: str = None, error: str = None):
+async def callback(
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    error: Optional[str] = None,
+):
     """Google reindirizza qui il browser al termine del consenso (nessuna auth cookie richiesta:
     l'identità dell'utente è nello state firmato generato da /connect)."""
     if error:

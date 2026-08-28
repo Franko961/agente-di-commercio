@@ -1,6 +1,7 @@
 import os
 import secrets
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import HTTPException
 
@@ -46,7 +47,9 @@ class AdminService:
         except Exception:
             pass  # l'audit log non deve mai far fallire l'azione amministrativa reale
 
-    async def make_admin(self, email: str, secret: str, ip_address: str = None) -> dict:
+    async def make_admin(
+        self, email: str, secret: str, ip_address: Optional[str] = None
+    ) -> dict:
         """Promuove un utente ad admin. Richiede ADMIN_SECRET.
 
         Endpoint non autenticato per natura (serve a creare il PRIMO admin,
@@ -166,8 +169,8 @@ class AdminService:
         uid: str,
         admin: dict,
         mode: str = "view",
-        reason: str = None,
-        category: str = None,
+        reason: Optional[str] = None,
+        category: Optional[str] = None,
     ) -> tuple:
         """Genera un token che autentica chi chiama come l'utente uid,
         per poter entrare nel suo gestionale quando serve assistenza (es.

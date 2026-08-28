@@ -2,6 +2,7 @@ import base64
 import io
 from calendar import monthrange
 from datetime import date, datetime, timezone
+from typing import Optional
 
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as XLImage
@@ -83,7 +84,7 @@ def _is_ferie_excluded_day(mode: str, day: date) -> bool:
     return day.weekday() == 6 or is_italian_holiday(day)  # "festivita"
 
 
-def _add_logo(ws, company_logo: str) -> None:
+def _add_logo(ws, company_logo: Optional[str]) -> None:
     """Decodifica il data URL del logo aziendale e lo ancora in alto a
     sinistra, ridimensionato a un'altezza fissa mantenendo le proporzioni.
     Se il logo non è impostato o è malformato, il file si genera comunque
@@ -107,7 +108,7 @@ def _add_logo(ws, company_logo: str) -> None:
 def build_attendance_workbook(
     month: str,
     company_name: str,
-    company_logo: str,
+    company_logo: Optional[str],
     ferie_count_mode: str,
     leave_requests: list,
     sessions: list,
