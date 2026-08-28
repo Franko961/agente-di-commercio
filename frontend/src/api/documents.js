@@ -9,8 +9,10 @@ export function listDocuments(params = {}) {
   return api.get(`/documents${qs ? `?${qs}` : ""}`).then(({ data }) => data);
 }
 
-export function uploadDocument(formData) {
-  return api.post("/documents/upload", formData).then(({ data }) => data);
+// `config` opzionale (es. { onUploadProgress }) passato ad axios cosi'
+// com'e' — usato da pages/Documents.jsx per la barra di avanzamento upload.
+export function uploadDocument(formData, config = {}) {
+  return api.post("/documents/upload", formData, config).then(({ data }) => data);
 }
 
 export function updateDocument(id, payload) {

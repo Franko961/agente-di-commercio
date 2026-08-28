@@ -1,5 +1,4 @@
 ﻿import { useEffect, useState, useRef } from "react";
-import api from "../api";
 import { Plus, FileText, Trash2, Upload, Download, FileSpreadsheet, Video, FileImage, File as FileIcon, X, Eye, Tag, Loader2, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "../components/ui/dialog";
 import { toast } from "sonner";
@@ -7,6 +6,8 @@ import { format, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import DocumentPreview from "../components/DocumentPreview";
 import { compressVideo, formatBytes } from "../utils/videoCompress";
+import { listClients } from "../api/clients";
+import useDocuments from "../hooks/useDocuments";
 
 const CAT_COLORS = { contratto: "#0A192F", offerta: "#B23E00", fattura: "#059669", listino: "#6B2C2C", video: "#7C3AED", scontrino: "#B45309", altro: "#52525B" };
 const FILE_BASE = import.meta.env.VITE_BACKEND_URL;
@@ -34,28 +35,22 @@ function fileTypeColor(contentType, filename) {
 }
 
 export default function Documents() {
-  const [docs, setDocs] = useState([]);
+  const { documents: docs, create, remove: removeDocument } = useDocuments();
   const [clients, setClients] = useState([]);
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("all");
   const [tagFilter, setTagFilter] = useState("");
   const [previewDoc, setPreviewDoc] = useState(null);
 
-  const load = async () => {
-    const [d, c] = await Promise.all([api.get("/documents"), api.get("/clients")]);
-    setDocs(d.data); setClients(c.data);
-  };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { listClients().then(setClients); }, []);
 
   const remove = async (id) => {
     if (!window.confirm("Eliminare il documento?")) return;
-    setDocs(prev => prev.filter(d => d.id !== id));
     try {
-      await api.delete(`/documents/${id}`);
+      await removeDocument(id);
       toast.success("Documento eliminato");
-    } catch (e) {
+    } catch {
       toast.error("Errore eliminazione");
-      load();
     }
   };
 
@@ -112,10 +107,8 @@ export default function Documents() {
             <UploadForm
               clients={clients}
               existingTags={allTags}
-              onDone={(newDoc) => {
-                if (newDoc) setDocs(prev => [newDoc, ...prev]);
-                setOpen(false);
-              }}
+              onUpload={create}
+              onDone={() => setOpen(false)}
             />
           </DialogContent>
         </Dialog>
@@ -214,7 +207,7 @@ export default function Documents() {
   );
 }
 
-function UploadForm({ clients, existingTags, onDone }) {
+function UploadForm({ clients, existingTags, onUpload, onDone }) {
   const fileInputRef = useRef(null);
   const [file, setFile] = useState(null);
   const [originalSize, setOriginalSize] = useState(0);
@@ -294,11 +287,11 @@ function UploadForm({ clients, existingTags, onDone }) {
     if (tags.length) fd.append("tags", tags.join(","));
 
     try {
-      const { data } = await api.post("/documents/upload", fd, {
+      await onUpload(fd, {
         onUploadProgress: (p) => setProgress(p.total ? Math.round((p.loaded / p.total) * 100) : 0),
       });
       toast.success("Documento caricato");
-      onDone(data);
+      onDone();
     } catch (err) {
       const detail = err?.response?.data?.detail;
       toast.error(typeof detail === "string" ? detail : "Errore caricamento");
