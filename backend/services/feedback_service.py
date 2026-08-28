@@ -1,5 +1,5 @@
-from core.utils import gen_id, now_iso
 from core.exceptions import NotFoundError
+from core.utils import gen_id, now_iso
 from repositories.feedback_repository import feedback_repository
 
 
@@ -30,7 +30,10 @@ class FeedbackService:
         # Solo nome, voto e testo: niente user_id o altri dati interni su un
         # endpoint pubblico non autenticato usato dalla home page.
         items = await self.repo.find_public()
-        return [{"name": i["user_name"], "rating": i["rating"], "text": i["text"]} for i in items]
+        return [
+            {"name": i["user_name"], "rating": i["rating"], "text": i["text"]}
+            for i in items
+        ]
 
     async def set_approved(self, fid: str, approved: bool) -> None:
         if not await self.repo.find_one(fid):

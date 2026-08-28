@@ -2,7 +2,7 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 
-from core.database import db, close_db
+from core.database import close_db, db
 from core.utils import gen_id
 from repositories.job_lock_repository import job_lock_repository
 from services.storage_service import init_storage
@@ -128,10 +128,14 @@ _reconciliation_check_task = None
 
 async def _google_calendar_sync_loop() -> None:
     from services.google_calendar_service import google_calendar_service
+
     while True:
         try:
             await asyncio.sleep(GOOGLE_CALENDAR_SYNC_INTERVAL_SECONDS)
-            if not await job_lock_repository.try_acquire("google_calendar_sync", ttl_seconds=GOOGLE_CALENDAR_SYNC_INTERVAL_SECONDS - 30):
+            if not await job_lock_repository.try_acquire(
+                "google_calendar_sync",
+                ttl_seconds=GOOGLE_CALENDAR_SYNC_INTERVAL_SECONDS - 30,
+            ):
                 continue
             await google_calendar_service.sync_all_connected_accounts()
         except asyncio.CancelledError:
@@ -147,10 +151,14 @@ async def _stuck_ai_action_cleanup_loop() -> None:
     'fallita' invece di lasciarle bloccate per sempre. Non riesegue mai
     l'azione: vedi AiService.reclaim_stuck_executions per i dettagli."""
     from services.ai_service import ai_service
+
     while True:
         try:
             await asyncio.sleep(STUCK_AI_ACTION_CHECK_INTERVAL_SECONDS)
-            if not await job_lock_repository.try_acquire("stuck_ai_action_cleanup", ttl_seconds=STUCK_AI_ACTION_CHECK_INTERVAL_SECONDS - 15):
+            if not await job_lock_repository.try_acquire(
+                "stuck_ai_action_cleanup",
+                ttl_seconds=STUCK_AI_ACTION_CHECK_INTERVAL_SECONDS - 15,
+            ):
                 continue
             reclaimed = await ai_service.reclaim_stuck_executions()
             if reclaimed:
@@ -166,14 +174,19 @@ async def _stuck_ai_action_cleanup_loop() -> None:
 
 async def _demo_reset_loop() -> None:
     from services.demo_reset_service import demo_reset_service
+
     while True:
         try:
             await asyncio.sleep(DEMO_RESET_INTERVAL_SECONDS)
-            if not await job_lock_repository.try_acquire("demo_reset", ttl_seconds=DEMO_RESET_INTERVAL_SECONDS - 300):
+            if not await job_lock_repository.try_acquire(
+                "demo_reset", ttl_seconds=DEMO_RESET_INTERVAL_SECONDS - 300
+            ):
                 continue
             count = await demo_reset_service.reset_all_demo_accounts()
             if count:
-                logger.info(f"Reset periodico demo: {count} account ripuliti e riseminati")
+                logger.info(
+                    f"Reset periodico demo: {count} account ripuliti e riseminati"
+                )
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -187,15 +200,25 @@ async def _cancel_finalize_loop() -> None:
     while True:
         try:
             await asyncio.sleep(CANCEL_FINALIZE_INTERVAL_SECONDS)
-            if not await job_lock_repository.try_acquire("cancel_finalize", ttl_seconds=CANCEL_FINALIZE_INTERVAL_SECONDS - 300):
+            if not await job_lock_repository.try_acquire(
+                "cancel_finalize", ttl_seconds=CANCEL_FINALIZE_INTERVAL_SECONDS - 300
+            ):
                 continue
             now_iso = datetime.now(timezone.utc).isoformat()
             result = await db.users.update_many(
-                {"subscription_status": "active", "cancel_at": {"$ne": None, "$lte": now_iso}},
-                {"$set": {"subscription_status": "cancelled"}, "$unset": {"cancel_at": ""}},
+                {
+                    "subscription_status": "active",
+                    "cancel_at": {"$ne": None, "$lte": now_iso},
+                },
+                {
+                    "$set": {"subscription_status": "cancelled"},
+                    "$unset": {"cancel_at": ""},
+                },
             )
             if result.modified_count:
-                logger.info(f"Finalizzate {result.modified_count} disdette di abbonamento con periodo pagato scaduto")
+                logger.info(
+                    f"Finalizzate {result.modified_count} disdette di abbonamento con periodo pagato scaduto"
+                )
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -206,16 +229,25 @@ async def _demo_request_cleanup_loop() -> None:
     """Elimina periodicamente le richieste demo più vecchie di
     DEMO_REQUEST_RETENTION_DAYS (vedi commento lì sopra sul perché)."""
     from datetime import timedelta
+
     from repositories.demo_request_repository import demo_request_repository
+
     while True:
         try:
             await asyncio.sleep(DEMO_REQUEST_CLEANUP_INTERVAL_SECONDS)
-            if not await job_lock_repository.try_acquire("demo_request_cleanup", ttl_seconds=DEMO_REQUEST_CLEANUP_INTERVAL_SECONDS - 300):
+            if not await job_lock_repository.try_acquire(
+                "demo_request_cleanup",
+                ttl_seconds=DEMO_REQUEST_CLEANUP_INTERVAL_SECONDS - 300,
+            ):
                 continue
-            cutoff = (datetime.now(timezone.utc) - timedelta(days=DEMO_REQUEST_RETENTION_DAYS)).isoformat()
+            cutoff = (
+                datetime.now(timezone.utc) - timedelta(days=DEMO_REQUEST_RETENTION_DAYS)
+            ).isoformat()
             deleted = await demo_request_repository.delete_older_than(cutoff)
             if deleted:
-                logger.info(f"Pulizia richieste demo: eliminate {deleted} richieste più vecchie di {DEMO_REQUEST_RETENTION_DAYS} giorni")
+                logger.info(
+                    f"Pulizia richieste demo: eliminate {deleted} richieste più vecchie di {DEMO_REQUEST_RETENTION_DAYS} giorni"
+                )
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -228,14 +260,22 @@ async def _document_trash_cleanup_loop() -> None:
     Vedi services/document_trash_service.py e il commento sopra
     DOCUMENT_TRASH_RETENTION_DAYS per il perché serve."""
     from services.document_trash_service import document_trash_service
+
     while True:
         try:
             await asyncio.sleep(DOCUMENT_TRASH_CLEANUP_INTERVAL_SECONDS)
-            if not await job_lock_repository.try_acquire("document_trash_cleanup", ttl_seconds=DOCUMENT_TRASH_CLEANUP_INTERVAL_SECONDS - 300):
+            if not await job_lock_repository.try_acquire(
+                "document_trash_cleanup",
+                ttl_seconds=DOCUMENT_TRASH_CLEANUP_INTERVAL_SECONDS - 300,
+            ):
                 continue
-            purged = await document_trash_service.purge_expired(DOCUMENT_TRASH_RETENTION_DAYS)
+            purged = await document_trash_service.purge_expired(
+                DOCUMENT_TRASH_RETENTION_DAYS
+            )
             if purged:
-                logger.info(f"Pulizia cestino documenti: eliminati definitivamente {purged} documenti più vecchi di {DOCUMENT_TRASH_RETENTION_DAYS} giorni")
+                logger.info(
+                    f"Pulizia cestino documenti: eliminati definitivamente {purged} documenti più vecchi di {DOCUMENT_TRASH_RETENTION_DAYS} giorni"
+                )
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -247,14 +287,17 @@ async def _reconciliation_check_loop() -> None:
     compensi/costi il cui expense_id non punta più a nessuna spesa. Vedi
     services/reconciliation_service.py e il commento sopra
     RECONCILIATION_CHECK_INTERVAL_SECONDS per il perché."""
-    from services.reconciliation_service import reconciliation_service
-    from services.email_service import send_email
     from core.config import ADMIN_NOTIFY_EMAIL
+    from services.email_service import send_email
+    from services.reconciliation_service import reconciliation_service
 
     while True:
         try:
             await asyncio.sleep(RECONCILIATION_CHECK_INTERVAL_SECONDS)
-            if not await job_lock_repository.try_acquire("reconciliation_check", ttl_seconds=RECONCILIATION_CHECK_INTERVAL_SECONDS - 300):
+            if not await job_lock_repository.try_acquire(
+                "reconciliation_check",
+                ttl_seconds=RECONCILIATION_CHECK_INTERVAL_SECONDS - 300,
+            ):
                 continue
             result = await reconciliation_service.find_inconsistencies()
             orphan_expenses = result["orphan_expenses"]
@@ -288,16 +331,26 @@ async def _contact_request_cleanup_loop() -> None:
     """Elimina periodicamente i messaggi dal form contatti più vecchi di
     CONTACT_REQUEST_RETENTION_DAYS (vedi commento lì sopra sul perché)."""
     from datetime import timedelta
+
     from repositories.contact_request_repository import contact_request_repository
+
     while True:
         try:
             await asyncio.sleep(CONTACT_REQUEST_CLEANUP_INTERVAL_SECONDS)
-            if not await job_lock_repository.try_acquire("contact_request_cleanup", ttl_seconds=CONTACT_REQUEST_CLEANUP_INTERVAL_SECONDS - 300):
+            if not await job_lock_repository.try_acquire(
+                "contact_request_cleanup",
+                ttl_seconds=CONTACT_REQUEST_CLEANUP_INTERVAL_SECONDS - 300,
+            ):
                 continue
-            cutoff = (datetime.now(timezone.utc) - timedelta(days=CONTACT_REQUEST_RETENTION_DAYS)).isoformat()
+            cutoff = (
+                datetime.now(timezone.utc)
+                - timedelta(days=CONTACT_REQUEST_RETENTION_DAYS)
+            ).isoformat()
             deleted = await contact_request_repository.delete_older_than(cutoff)
             if deleted:
-                logger.info(f"Pulizia messaggi contatti: eliminati {deleted} messaggi più vecchi di {CONTACT_REQUEST_RETENTION_DAYS} giorni")
+                logger.info(
+                    f"Pulizia messaggi contatti: eliminati {deleted} messaggi più vecchi di {CONTACT_REQUEST_RETENTION_DAYS} giorni"
+                )
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -326,7 +379,10 @@ def _endpoint_problems(most_errors: list) -> list:
     for e in most_errors:
         if (e["method"], e["path"]) in _BENIGN_ENDPOINT_ERRORS:
             continue
-        if e["count"] >= ALERT_MIN_SAMPLE_SIZE and e["error_rate_pct"] >= ALERT_ERROR_RATE_THRESHOLD_PCT:
+        if (
+            e["count"] >= ALERT_MIN_SAMPLE_SIZE
+            and e["error_rate_pct"] >= ALERT_ERROR_RATE_THRESHOLD_PCT
+        ):
             problems.append(
                 f"{e['method']} {e['path']}: {e['error_rate_pct']}% errori "
                 f"({e['status_4xx'] + e['status_5xx']}/{e['count']})"
@@ -348,23 +404,37 @@ async def _health_alert_loop() -> None:
     processo (_last_alert_sent_at): con più repliche Railway, ognuna aveva
     il proprio cooldown "privato", quindi un problema persistente poteva
     generare un alert per replica invece di uno solo condiviso."""
-    from services.health_service import health_service
-    from services.email_service import send_email
     from core.config import ADMIN_NOTIFY_EMAIL
+    from services.email_service import send_email
+    from services.health_service import health_service
 
     while True:
         try:
             await asyncio.sleep(ALERT_CHECK_INTERVAL_SECONDS)
-            lock_owner = await job_lock_repository.try_acquire("health_alert", ttl_seconds=ALERT_CHECK_INTERVAL_SECONDS - 60)
+            lock_owner = await job_lock_repository.try_acquire(
+                "health_alert", ttl_seconds=ALERT_CHECK_INTERVAL_SECONDS - 60
+            )
             if not lock_owner:
                 continue
-            health = await health_service.get_health(hours=ALERT_CHECK_INTERVAL_SECONDS / 3600)
+            health = await health_service.get_health(
+                hours=ALERT_CHECK_INTERVAL_SECONDS / 3600
+            )
 
             problems = []
-            for key, label in [("ai", "chiamate AI"), ("email", "invii email"), ("calendar_sync", "sync Google Calendar"), ("automation_run", "esecuzioni automazioni")]:
+            for key, label in [
+                ("ai", "chiamate AI"),
+                ("email", "invii email"),
+                ("calendar_sync", "sync Google Calendar"),
+                ("automation_run", "esecuzioni automazioni"),
+            ]:
                 stats = health[key]
-                if stats["total"] >= ALERT_MIN_SAMPLE_SIZE and stats["failure_rate_pct"] >= ALERT_ERROR_RATE_THRESHOLD_PCT:
-                    problems.append(f"{label}: {stats['failure_rate_pct']}% di fallimenti ({stats['failure']}/{stats['total']})")
+                if (
+                    stats["total"] >= ALERT_MIN_SAMPLE_SIZE
+                    and stats["failure_rate_pct"] >= ALERT_ERROR_RATE_THRESHOLD_PCT
+                ):
+                    problems.append(
+                        f"{label}: {stats['failure_rate_pct']}% di fallimenti ({stats['failure']}/{stats['total']})"
+                    )
             problems.extend(_endpoint_problems(health["endpoints"]["most_errors"]))
 
             if not problems:
@@ -377,7 +447,9 @@ async def _health_alert_loop() -> None:
                 f"<p>Rilevate le seguenti anomalie negli ultimi {ALERT_CHECK_INTERVAL_SECONDS // 60} minuti:</p><ul>{body}</ul>",
             )
             if sent:
-                await job_lock_repository.extend("health_alert", lock_owner, ttl_seconds=ALERT_COOLDOWN_SECONDS)
+                await job_lock_repository.extend(
+                    "health_alert", lock_owner, ttl_seconds=ALERT_COOLDOWN_SECONDS
+                )
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -392,6 +464,7 @@ async def _automation_engine_loop() -> None:
     il dettaglio di valutazione/esecuzione/dedup."""
     from core.config import AUTOMATION_ENGINE_INTERVAL_SECONDS
     from services.automation_engine import automation_engine
+
     while True:
         try:
             await asyncio.sleep(AUTOMATION_ENGINE_INTERVAL_SECONDS)
@@ -416,7 +489,9 @@ async def backfill_manual_commission_ids() -> None:
     univoco garantiva un solo documento per mese. Backfillare qui un id
     reale su ogni documento esistente chiude il problema alla radice."""
     async for doc in db.manual_commissions.find({"id": {"$exists": False}}, {"_id": 1}):
-        await db.manual_commissions.update_one({"_id": doc["_id"]}, {"$set": {"id": gen_id()}})
+        await db.manual_commissions.update_one(
+            {"_id": doc["_id"]}, {"$set": {"id": gen_id()}}
+        )
 
 
 async def backfill_document_deleted_at() -> None:
@@ -475,7 +550,9 @@ async def run_startup() -> None:
     # gli utenti, non solo un filtro sull'utente corrente.
     # Copre sia find_many (elenco per dipendente, ordinato per clock_in)
     # sia find_open_session (la sessione ancora aperta, se esiste).
-    await db.attendance_sessions.create_index([("employee_id", 1), ("user_id", 1), ("clock_in", -1)])
+    await db.attendance_sessions.create_index(
+        [("employee_id", 1), ("user_id", 1), ("clock_in", -1)]
+    )
     # Indice parziale univoco: al massimo UN documento con clock_out=null
     # per dipendente. find_open_session() poi insert() in
     # attendance_service.clock_in_kiosk non è atomico da solo — due
@@ -617,7 +694,9 @@ async def run_startup() -> None:
     # endpoint/minuto in api_metrics_minute.
     await db.system_events.create_index([("category", 1), ("created_at", -1)])
     await db.system_events.create_index("created_at", expireAfterSeconds=30 * 24 * 3600)
-    await db.api_metrics_minute.create_index("created_at", expireAfterSeconds=7 * 24 * 3600)
+    await db.api_metrics_minute.create_index(
+        "created_at", expireAfterSeconds=7 * 24 * 3600
+    )
     # Audit amministrativo: nessun TTL di default, va conservato (è un log
     # di responsabilità, non solo di salute operativa) — vale per le azioni
     # di uno staff admin su un altro utente. Le voci "self_delete_account"

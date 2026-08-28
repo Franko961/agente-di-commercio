@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends
 from typing import Optional
-from core.security import get_current_user, forbid_demo_write, require_module
-from services.offer_service import offer_service
+
+from fastapi import APIRouter, Depends
+
+from core.security import forbid_demo_write, get_current_user, require_module
 from models.offer import OfferIn, OfferStatusIn, SignatureIn
+from services.offer_service import offer_service
 
 router = APIRouter(prefix="/api/offers", tags=["offers"])
 
@@ -14,7 +16,9 @@ MODULE_DEP = Depends(require_module("offerte"))
 
 
 @router.get("")
-async def list_offers(mandante_id: Optional[str] = None, user=Depends(get_current_user)):
+async def list_offers(
+    mandante_id: Optional[str] = None, user=Depends(get_current_user)
+):
     return await offer_service.list_offers(user, mandante_id)
 
 
@@ -30,7 +34,9 @@ async def update_offer(oid: str, payload: OfferIn, user=Depends(forbid_demo_writ
 
 
 @router.patch("/{oid}/status", dependencies=[MODULE_DEP])
-async def update_offer_status(oid: str, payload: OfferStatusIn, user=Depends(forbid_demo_write)):
+async def update_offer_status(
+    oid: str, payload: OfferStatusIn, user=Depends(forbid_demo_write)
+):
     await offer_service.update_offer_status(user, oid, payload.status)
     return {"ok": True}
 

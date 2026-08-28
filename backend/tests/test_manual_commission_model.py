@@ -9,6 +9,7 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_manual_commission_model.py -v
 """
+
 import sys
 
 import pytest
@@ -47,9 +48,13 @@ def test_campi_aggiuntivi_hanno_default_sensati():
 
 def test_campi_aggiuntivi_valorizzati_se_forniti():
     m = ManualCommissionIn(
-        period="2026-08", amount=450.50, client_id="client-1",
-        descrizione="Accordo fuori sistema", stato="incassato",
-        note="Pagato in contanti", tipo="rettifica",
+        period="2026-08",
+        amount=450.50,
+        client_id="client-1",
+        descrizione="Accordo fuori sistema",
+        stato="incassato",
+        note="Pagato in contanti",
+        tipo="rettifica",
     )
     assert m.client_id == "client-1"
     assert m.descrizione == "Accordo fuori sistema"
@@ -86,7 +91,9 @@ def test_amount_oltre_il_limite_rifiutato():
         ManualCommissionIn(period="2026-08", amount=MAX_MONETARY_TARGET + 1)
 
 
-@pytest.mark.parametrize("period", ["2026-13", "2026-00", "26-08", "2026/08", "agosto-2026", "2026-8", ""])
+@pytest.mark.parametrize(
+    "period", ["2026-13", "2026-00", "26-08", "2026/08", "agosto-2026", "2026-8", ""]
+)
 def test_period_malformato_rifiutato(period):
     with pytest.raises(ValidationError):
         ManualCommissionIn(period=period, amount=100)

@@ -1,5 +1,6 @@
-from pydantic import BaseModel
 from typing import Optional
+
+from pydantic import BaseModel
 
 
 class AddressesIn(BaseModel):
@@ -7,6 +8,7 @@ class AddressesIn(BaseModel):
     partenza nel pianificatore visite. Tutti opzionali e indipendenti: si può
     impostare solo casa, solo ufficio, o nessuno dei due (in quel caso quelle
     due opzioni restano semplicemente non selezionabili nel pianificatore)."""
+
     home_address: Optional[str] = None
     home_lat: Optional[float] = None
     home_lng: Optional[float] = None

@@ -9,19 +9,20 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_auth_rate_limiting.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 from fastapi import HTTPException
 
 sys.path.insert(0, ".")
 
+import services.auth_service as auth_service_mod
+import services.subscription_service as subscription_mod
 from core.security import hash_password
 from models.auth import LoginIn
-import services.auth_service as auth_service_mod
 from services.auth_service import AuthService
-import services.subscription_service as subscription_mod
 from services.subscription_service import SubscriptionService
 
 
@@ -53,18 +54,24 @@ class FakeUserRepo:
 
 def _user(email="mario@example.com", password="password-corretta"):
     return {
-        "id": "user-1", "email": email, "name": "Mario Rossi",
-        "password_hash": hash_password(password), "role": "agent",
+        "id": "user-1",
+        "email": email,
+        "name": "Mario Rossi",
+        "password_hash": hash_password(password),
+        "role": "agent",
     }
 
 
 # ---------- login ----------
 
+
 def test_login_corretto_funziona(monkeypatch):
     monkeypatch.setattr(auth_service_mod, "check_and_record", _allow_always)
     service = AuthService(repo=FakeUserRepo({"mario@example.com": _user()}))
 
-    token, out = run(service.login(LoginIn(email="mario@example.com", password="password-corretta")))
+    token, out = run(
+        service.login(LoginIn(email="mario@example.com", password="password-corretta"))
+    )
 
     assert token
     assert out["email"] == "mario@example.com"
@@ -79,7 +86,9 @@ def test_login_password_sbagliata_rifiutata(monkeypatch):
     assert exc_info.value.status_code == 401
 
 
-def test_troppi_tentativi_per_email_bloccano_il_login_prima_di_verificare_la_password(monkeypatch):
+def test_troppi_tentativi_per_email_bloccano_il_login_prima_di_verificare_la_password(
+    monkeypatch,
+):
     """Il caso che ha motivato il fix: senza rate limit, un attaccante può
     provare password illimitate sulla stessa email nota."""
     monkeypatch.setattr(auth_service_mod, "check_and_record", _deny_always)
@@ -99,6 +108,7 @@ class _RawPayload:
     suo, come register()/forgot_password(): un chiamante futuro che non
     passi da LoginIn (es. un endpoint interno, un test, uno script) non
     avrebbe altrimenti nessuna garanzia di normalizzazione."""
+
     def __init__(self, email, password):
         self.email = email
         self.password = password
@@ -113,7 +123,11 @@ def test_login_normalizza_di_suo_spazi_incidentali_intorno_alla_email(monkeypatc
     monkeypatch.setattr(auth_service_mod, "check_and_record", _allow_always)
     service = AuthService(repo=FakeUserRepo({"mario@example.com": _user()}))
 
-    token, out = run(service.login(_RawPayload(email="  mario@example.com  ", password="password-corretta")))
+    token, out = run(
+        service.login(
+            _RawPayload(email="  mario@example.com  ", password="password-corretta")
+        )
+    )
 
     assert token
     assert out["email"] == "mario@example.com"
@@ -129,13 +143,19 @@ def test_rate_limit_login_usa_email_e_ip_come_chiavi(monkeypatch):
     monkeypatch.setattr(auth_service_mod, "check_and_record", _tracking_check)
     service = AuthService(repo=FakeUserRepo({"mario@example.com": _user()}))
 
-    run(service.login(LoginIn(email="mario@example.com", password="password-corretta"), ip_address="9.9.9.9"))
+    run(
+        service.login(
+            LoginIn(email="mario@example.com", password="password-corretta"),
+            ip_address="9.9.9.9",
+        )
+    )
 
     assert ("login_email", "mario@example.com") in calls
     assert ("login_ip", "9.9.9.9") in calls
 
 
 # ---------- checkout-expired (verifica anch'esso una password) ----------
+
 
 class FakeStripeCapableService(SubscriptionService):
     async def create_stripe_session(self, user, payload):
@@ -144,28 +164,41 @@ class FakeStripeCapableService(SubscriptionService):
 
 def test_checkout_expired_password_corretta_procede(monkeypatch):
     monkeypatch.setattr(subscription_mod, "check_and_record", _allow_always)
-    service = FakeStripeCapableService(repo=FakeUserRepo({"mario@example.com": _user()}))
+    service = FakeStripeCapableService(
+        repo=FakeUserRepo({"mario@example.com": _user()})
+    )
 
-    result = run(service.create_checkout_for_expired_account(
-        {"email": "mario@example.com", "password": "password-corretta", "plan": "base"},
-        ip_address="1.2.3.4",
-    ))
+    result = run(
+        service.create_checkout_for_expired_account(
+            {
+                "email": "mario@example.com",
+                "password": "password-corretta",
+                "plan": "base",
+            },
+            ip_address="1.2.3.4",
+        )
+    )
     assert result == {"url": "https://stripe.example/session"}
 
 
 def test_checkout_expired_troppi_tentativi_bloccati(monkeypatch):
     monkeypatch.setattr(subscription_mod, "check_and_record", _deny_always)
-    service = FakeStripeCapableService(repo=FakeUserRepo({"mario@example.com": _user()}))
+    service = FakeStripeCapableService(
+        repo=FakeUserRepo({"mario@example.com": _user()})
+    )
 
     with pytest.raises(HTTPException) as exc_info:
-        run(service.create_checkout_for_expired_account(
-            {"email": "mario@example.com", "password": "qualsiasi", "plan": "base"},
-            ip_address="1.2.3.4",
-        ))
+        run(
+            service.create_checkout_for_expired_account(
+                {"email": "mario@example.com", "password": "qualsiasi", "plan": "base"},
+                ip_address="1.2.3.4",
+            )
+        )
     assert exc_info.value.status_code == 429
 
 
 # ---------- register (stesso rischio di demo-requests: crea un account vero) ----------
+
 
 async def _fake_seed_demo(user_id):
     return None
@@ -177,15 +210,20 @@ async def _fake_send_email(to, subject, html):
 
 def test_registrazione_normale_funziona(monkeypatch):
     from models.auth import RegisterIn
+
     monkeypatch.setattr(auth_service_mod, "check_and_record", _allow_always)
     monkeypatch.setattr(auth_service_mod.seed_service, "seed_demo", _fake_seed_demo)
     monkeypatch.setattr(auth_service_mod, "send_email", _fake_send_email)
     service = AuthService(repo=FakeUserRepo())
 
-    token, out = run(service.register(
-        RegisterIn(email="nuovo@example.com", password="password123", name="Nuovo Utente"),
-        ip_address="1.2.3.4",
-    ))
+    token, out = run(
+        service.register(
+            RegisterIn(
+                email="nuovo@example.com", password="password123", name="Nuovo Utente"
+            ),
+            ip_address="1.2.3.4",
+        )
+    )
 
     assert token
     assert out["email"] == "nuovo@example.com"
@@ -195,16 +233,21 @@ def test_troppe_registrazioni_dallo_stesso_ip_vengono_bloccate(monkeypatch):
     """Stesso rischio già sistemato su /api/demo-requests: senza rate
     limit, uno script potrebbe creare account fasulli in massa."""
     from models.auth import RegisterIn
+
     monkeypatch.setattr(auth_service_mod, "check_and_record", _deny_always)
     monkeypatch.setattr(auth_service_mod.seed_service, "seed_demo", _fake_seed_demo)
     monkeypatch.setattr(auth_service_mod, "send_email", _fake_send_email)
     service = AuthService(repo=FakeUserRepo())
 
     with pytest.raises(HTTPException) as exc_info:
-        run(service.register(
-            RegisterIn(email="altro@example.com", password="password123", name="Altro"),
-            ip_address="1.2.3.4",
-        ))
+        run(
+            service.register(
+                RegisterIn(
+                    email="altro@example.com", password="password123", name="Altro"
+                ),
+                ip_address="1.2.3.4",
+            )
+        )
     assert exc_info.value.status_code == 429
 
 

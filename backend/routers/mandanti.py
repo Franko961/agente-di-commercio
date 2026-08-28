@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends
-from core.security import get_current_user, forbid_demo_write, require_module
-from services.mandante_service import mandante_service
+
+from core.security import forbid_demo_write, get_current_user, require_module
 from models.mandante import MandanteIn
+from services.mandante_service import mandante_service
 
 router = APIRouter(prefix="/api/mandanti", tags=["mandanti"])
 
@@ -24,7 +25,9 @@ async def create_mandante(payload: MandanteIn, user=Depends(forbid_demo_write)):
 
 
 @router.put("/{mid}", dependencies=[MODULE_DEP])
-async def update_mandante(mid: str, payload: MandanteIn, user=Depends(forbid_demo_write)):
+async def update_mandante(
+    mid: str, payload: MandanteIn, user=Depends(forbid_demo_write)
+):
     await mandante_service.update_mandante(user, mid, payload)
     return {"ok": True}
 
@@ -33,4 +36,3 @@ async def update_mandante(mid: str, payload: MandanteIn, user=Depends(forbid_dem
 async def delete_mandante(mid: str, user=Depends(forbid_demo_write)):
     await mandante_service.delete_mandante(user, mid)
     return {"ok": True}
-

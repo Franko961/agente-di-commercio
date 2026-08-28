@@ -1,18 +1,19 @@
 import logging
 
-from core.utils import gen_id, now_iso, local_wallclock_to_utc_iso
+from core.utils import gen_id, local_wallclock_to_utc_iso, now_iso
 from models.employee import EmployeeIn
 from models.vehicle import VehicleIn
+from services.ai_service.tools.search import search_clients, search_offers
 from services.employee_service import employee_service
 from services.vehicle_service import vehicle_service
-from services.ai_service.tools.search import search_clients, search_offers
 
 logger = logging.getLogger(__name__)
 
 
 async def _add_client(client_repo, tool_input: dict, user_id: str) -> str:
     doc = {
-        "id": gen_id(), "user_id": user_id,
+        "id": gen_id(),
+        "user_id": user_id,
         "company_name": tool_input.get("company_name", ""),
         "contact_name": tool_input.get("contact_name", ""),
         "email": tool_input.get("email", ""),
@@ -26,15 +27,19 @@ async def _add_client(client_repo, tool_input: dict, user_id: str) -> str:
         "potential": tool_input.get("potential", "medio"),
         "notes": tool_input.get("notes", ""),
         "mandante_ids": [],
-        "lat": tool_input.get("lat"), "lng": tool_input.get("lng"),
-        "segment": "prospect", "status": "attivo",
+        "lat": tool_input.get("lat"),
+        "lng": tool_input.get("lng"),
+        "segment": "prospect",
+        "status": "attivo",
         "created_at": now_iso(),
     }
     await client_repo.insert(doc)
     return f"✅ Cliente '{doc['company_name']}' aggiunto con successo al CRM."
 
 
-async def _add_appointment(client_repo, appointment_repo, tool_input: dict, user_id: str) -> str:
+async def _add_appointment(
+    client_repo, appointment_repo, tool_input: dict, user_id: str
+) -> str:
     client_id = ""
     client_name = tool_input.get("client_name", "")
     if client_name:
@@ -54,7 +59,8 @@ async def _add_appointment(client_repo, appointment_repo, tool_input: dict, user
         start_utc = raw_start  # meglio salvare così com'è che far fallire il tool
 
     doc = {
-        "id": gen_id(), "user_id": user_id,
+        "id": gen_id(),
+        "user_id": user_id,
         "title": tool_input.get("title", ""),
         "start": start_utc,
         "client_id": client_id,
@@ -73,14 +79,16 @@ async def _add_appointment(client_repo, appointment_repo, tool_input: dict, user
 
 async def _add_lead(lead_repo, tool_input: dict, user_id: str) -> str:
     doc = {
-        "id": gen_id(), "user_id": user_id,
+        "id": gen_id(),
+        "user_id": user_id,
         "company_name": tool_input.get("company_name", ""),
         "contact_name": tool_input.get("contact_name", ""),
         "email": tool_input.get("email", ""),
         "phone": tool_input.get("phone", ""),
         "value": tool_input.get("value", 0),
         "notes": tool_input.get("notes", ""),
-        "stage": "nuovo", "status": "aperto",
+        "stage": "nuovo",
+        "status": "aperto",
         "created_at": now_iso(),
     }
     await lead_repo.insert(doc)
@@ -126,7 +134,9 @@ async def _add_vehicle(tool_input: dict, user_id: str) -> str:
     return f"✅ Mezzo '{doc['plate']}' aggiunto alla Flotta."
 
 
-async def execute_crm_tool(service, tool_name: str, tool_input: dict, user_id: str) -> str:
+async def execute_crm_tool(
+    service, tool_name: str, tool_input: dict, user_id: str
+) -> str:
     """Esegue un tool CRM e restituisce il risultato come stringa.
 
     `service` è l'istanza AiService chiamante: i tool add_offer/add_expense
@@ -140,7 +150,9 @@ async def execute_crm_tool(service, tool_name: str, tool_input: dict, user_id: s
             return await _add_client(service.client_repo, tool_input, user_id)
 
         elif tool_name == "add_appointment":
-            return await _add_appointment(service.client_repo, service.appointment_repo, tool_input, user_id)
+            return await _add_appointment(
+                service.client_repo, service.appointment_repo, tool_input, user_id
+            )
 
         elif tool_name == "add_lead":
             return await _add_lead(service.lead_repo, tool_input, user_id)
@@ -167,7 +179,13 @@ async def execute_crm_tool(service, tool_name: str, tool_input: dict, user_id: s
             return await _add_vehicle(tool_input, user_id)
 
         elif tool_name == "search_clients":
-            return await search_clients(service.client_repo, service.order_repo, service.appointment_repo, tool_input, user_id)
+            return await search_clients(
+                service.client_repo,
+                service.order_repo,
+                service.appointment_repo,
+                tool_input,
+                user_id,
+            )
 
         elif tool_name == "search_offers":
             return await search_offers(service.offer_repo, tool_input, user_id)

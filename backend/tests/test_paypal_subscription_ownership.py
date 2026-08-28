@@ -17,8 +17,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_paypal_subscription_ownership.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 from fastapi import HTTPException
@@ -27,7 +28,7 @@ sys.path.insert(0, ".")
 
 import services.subscription_service as subscription_mod
 from services.subscription_service import SubscriptionService
-from tests.test_subscription_cancel_grace_period import FakeUserRepo, FakeResponse
+from tests.test_subscription_cancel_grace_period import FakeResponse, FakeUserRepo
 
 
 def run(coro):
@@ -40,7 +41,9 @@ class FakeRequestsPayPalCapture:
     creazione dell'abbonamento (POST .../subscriptions) sia la lettura
     del suo stato reale (GET .../subscriptions/{id})."""
 
-    def __init__(self, real_subscription_id="I-REAL123", status="ACTIVE", plan_id="P-FAKE"):
+    def __init__(
+        self, real_subscription_id="I-REAL123", status="ACTIVE", plan_id="P-FAKE"
+    ):
         self.real_subscription_id = real_subscription_id
         self.status = status
         self.plan_id = plan_id
@@ -51,23 +54,30 @@ class FakeRequestsPayPalCapture:
         if "/oauth2/token" in url:
             return FakeResponse(200, {"access_token": "fake-token"})
         if url.endswith("/v1/billing/subscriptions"):
-            return FakeResponse(201, {
-                "id": self.real_subscription_id,
-                "links": [{"rel": "approve", "href": "https://paypal.example/approve"}],
-            })
+            return FakeResponse(
+                201,
+                {
+                    "id": self.real_subscription_id,
+                    "links": [
+                        {"rel": "approve", "href": "https://paypal.example/approve"}
+                    ],
+                },
+            )
         return FakeResponse(200, {})
 
     def get(self, url, **kwargs):
         self.calls.append(("GET", url))
-        return FakeResponse(200, {
-            "status": self.status,
-            "plan_id": self.plan_id,
-            "billing_info": {"next_billing_time": "2026-09-01T00:00:00Z"},
-        })
+        return FakeResponse(
+            200,
+            {
+                "status": self.status,
+                "plan_id": self.plan_id,
+                "billing_info": {"next_billing_time": "2026-09-01T00:00:00Z"},
+            },
+        )
 
 
 def build_service(fake_requests):
-    monkeypatch_targets = []
     repo = FakeUserRepo({})
     service = SubscriptionService(repo=repo)
     return service, repo
@@ -95,12 +105,20 @@ def test_paypal_capture_con_id_atteso_viene_accettato(monkeypatch):
     monkeypatch.setattr(subscription_mod, "requests", fake_requests)
     monkeypatch.setattr(subscription_mod, "PLANS", PLAN_FAKE)
 
-    repo = FakeUserRepo({"user-1": {
-        "id": "user-1", "is_demo": False, "pending_paypal_subscription_id": "I-REAL123",
-    }})
+    repo = FakeUserRepo(
+        {
+            "user-1": {
+                "id": "user-1",
+                "is_demo": False,
+                "pending_paypal_subscription_id": "I-REAL123",
+            }
+        }
+    )
     service = SubscriptionService(repo=repo)
 
-    result = run(service.paypal_capture({"id": "user-1"}, {"subscription_id": "I-REAL123"}))
+    result = run(
+        service.paypal_capture({"id": "user-1"}, {"subscription_id": "I-REAL123"})
+    )
 
     assert result == {"ok": True, "status": "active"}
     assert repo.users_by_id["user-1"]["subscription_status"] == "active"
@@ -117,10 +135,19 @@ def test_paypal_capture_con_id_di_un_altro_utente_viene_rifiutato(monkeypatch):
     monkeypatch.setattr(subscription_mod, "requests", fake_requests)
     monkeypatch.setattr(subscription_mod, "PLANS", PLAN_FAKE)
 
-    repo = FakeUserRepo({
-        "user-1": {"id": "user-1", "is_demo": False, "pending_paypal_subscription_id": "I-VITTIMA"},
-        "user-2": {"id": "user-2", "is_demo": False},  # attaccante: nessun id atteso
-    })
+    repo = FakeUserRepo(
+        {
+            "user-1": {
+                "id": "user-1",
+                "is_demo": False,
+                "pending_paypal_subscription_id": "I-VITTIMA",
+            },
+            "user-2": {
+                "id": "user-2",
+                "is_demo": False,
+            },  # attaccante: nessun id atteso
+        }
+    )
     service = SubscriptionService(repo=repo)
 
     with pytest.raises(HTTPException) as exc_info:
@@ -146,7 +173,9 @@ def test_paypal_capture_senza_alcuna_richiesta_precedente_viene_rifiutato(monkey
     service = SubscriptionService(repo=repo)
 
     with pytest.raises(HTTPException) as exc_info:
-        run(service.paypal_capture({"id": "user-3"}, {"subscription_id": "I-QUALSIASI"}))
+        run(
+            service.paypal_capture({"id": "user-3"}, {"subscription_id": "I-QUALSIASI"})
+        )
 
     assert exc_info.value.status_code == 403
 
@@ -155,16 +184,26 @@ def test_paypal_capture_riaccetta_lid_gia_legato_in_precedenza(monkeypatch):
     """Una ricattura sullo stesso abbonamento già attaccato all'utente
     (es. l'utente riclicca dopo un timeout, o il webhook è arrivato
     prima della capture) deve restare possibile: l'id è già "suo"."""
-    fake_requests = FakeRequestsPayPalCapture(real_subscription_id="I-GIA-MIO", status="ACTIVE")
+    fake_requests = FakeRequestsPayPalCapture(
+        real_subscription_id="I-GIA-MIO", status="ACTIVE"
+    )
     monkeypatch.setattr(subscription_mod, "requests", fake_requests)
     monkeypatch.setattr(subscription_mod, "PLANS", PLAN_FAKE)
 
-    repo = FakeUserRepo({"user-4": {
-        "id": "user-4", "is_demo": False, "paypal_subscription_id": "I-GIA-MIO",
-    }})
+    repo = FakeUserRepo(
+        {
+            "user-4": {
+                "id": "user-4",
+                "is_demo": False,
+                "paypal_subscription_id": "I-GIA-MIO",
+            }
+        }
+    )
     service = SubscriptionService(repo=repo)
 
-    result = run(service.paypal_capture({"id": "user-4"}, {"subscription_id": "I-GIA-MIO"}))
+    result = run(
+        service.paypal_capture({"id": "user-4"}, {"subscription_id": "I-GIA-MIO"})
+    )
 
     assert result == {"ok": True, "status": "active"}
 

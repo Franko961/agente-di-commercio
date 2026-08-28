@@ -3,8 +3,8 @@ from datetime import datetime
 from typing import Optional
 
 from models.expense import EXPENSE_CATEGORIES
-from models.vehicle import VEHICLE_TYPES
 from models.order import ORDER_STATUSES, PAYMENT_STATUSES
+from models.vehicle import VEHICLE_TYPES
 
 # Tool che generano un record economico (offerte/vendite, spese sopra una certa
 # soglia): non vengono MAI eseguiti direttamente dall'AI, nemmeno se il modello
@@ -129,23 +129,42 @@ CRM_TOOLS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "company_name": {"type": "string", "description": "Nome azienda o cliente"},
+                "company_name": {
+                    "type": "string",
+                    "description": "Nome azienda o cliente",
+                },
                 "contact_name": {"type": "string", "description": "Nome del referente"},
                 "email": {"type": "string", "description": "Email"},
                 "phone": {"type": "string", "description": "Telefono"},
                 "vat_number": {"type": "string", "description": "Partita IVA"},
-                "address": {"type": "string", "description": "Indirizzo (via e numero civico)"},
+                "address": {
+                    "type": "string",
+                    "description": "Indirizzo (via e numero civico)",
+                },
                 "city": {"type": "string", "description": "Città"},
-                "province": {"type": "string", "description": "Provincia (sigla, es. BO, MI)"},
+                "province": {
+                    "type": "string",
+                    "description": "Provincia (sigla, es. BO, MI)",
+                },
                 "zone": {"type": "string", "description": "Zona o regione commerciale"},
                 "sector": {"type": "string", "description": "Settore merceologico"},
-                "potential": {"type": "string", "description": "Potenziale commerciale: basso, medio o alto", "enum": ["basso", "medio", "alto"]},
-                "lat": {"type": "number", "description": "Latitudine della sede, se nota (es. da un indirizzo geocodificato)"},
-                "lng": {"type": "number", "description": "Longitudine della sede, se nota"},
+                "potential": {
+                    "type": "string",
+                    "description": "Potenziale commerciale: basso, medio o alto",
+                    "enum": ["basso", "medio", "alto"],
+                },
+                "lat": {
+                    "type": "number",
+                    "description": "Latitudine della sede, se nota (es. da un indirizzo geocodificato)",
+                },
+                "lng": {
+                    "type": "number",
+                    "description": "Longitudine della sede, se nota",
+                },
                 "notes": {"type": "string", "description": "Note aggiuntive"},
             },
-            "required": ["company_name"]
-        }
+            "required": ["company_name"],
+        },
     },
     {
         "name": "add_appointment",
@@ -154,13 +173,19 @@ CRM_TOOLS = [
             "type": "object",
             "properties": {
                 "title": {"type": "string", "description": "Titolo appuntamento"},
-                "start": {"type": "string", "description": "Data e ora ISO8601, es: 2026-05-15T10:00:00"},
-                "client_name": {"type": "string", "description": "Nome cliente (per trovarlo nel CRM)"},
+                "start": {
+                    "type": "string",
+                    "description": "Data e ora ISO8601, es: 2026-05-15T10:00:00",
+                },
+                "client_name": {
+                    "type": "string",
+                    "description": "Nome cliente (per trovarlo nel CRM)",
+                },
                 "location": {"type": "string", "description": "Luogo"},
                 "description": {"type": "string", "description": "Note"},
             },
-            "required": ["title", "start"]
-        }
+            "required": ["title", "start"],
+        },
     },
     {
         "name": "add_lead",
@@ -172,11 +197,14 @@ CRM_TOOLS = [
                 "contact_name": {"type": "string", "description": "Nome referente"},
                 "email": {"type": "string", "description": "Email"},
                 "phone": {"type": "string", "description": "Telefono"},
-                "value": {"type": "number", "description": "Valore stimato opportunità"},
+                "value": {
+                    "type": "number",
+                    "description": "Valore stimato opportunità",
+                },
                 "notes": {"type": "string", "description": "Note"},
             },
-            "required": ["company_name"]
-        }
+            "required": ["company_name"],
+        },
     },
     {
         "name": "add_note_to_client",
@@ -185,10 +213,13 @@ CRM_TOOLS = [
             "type": "object",
             "properties": {
                 "client_name": {"type": "string", "description": "Nome del cliente"},
-                "note": {"type": "string", "description": "Testo della nota da aggiungere"},
+                "note": {
+                    "type": "string",
+                    "description": "Testo della nota da aggiungere",
+                },
             },
-            "required": ["client_name", "note"]
-        }
+            "required": ["client_name", "note"],
+        },
     },
     {
         "name": "add_offer",
@@ -196,18 +227,49 @@ CRM_TOOLS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "client_name": {"type": "string", "description": "Nome del cliente (per trovarlo nel CRM)"},
-                "mandante_name": {"type": "string", "description": "Nome del mandante (per trovarlo nel CRM)"},
-                "title": {"type": "string", "description": "Titolo/oggetto della vendita, es: 'Fornitura materiali maggio'"},
-                "product_names": {"type": "array", "items": {"type": "string"}, "description": "Nomi dei prodotti venduti, se noti"},
-                "quantities": {"type": "array", "items": {"type": "number"}, "description": "Quantità per ciascun prodotto, stesso ordine di product_names"},
-                "unit_prices": {"type": "array", "items": {"type": "number"}, "description": "Prezzo unitario per ciascun prodotto; se omesso viene usato il prezzo di listino del prodotto"},
-                "total_amount": {"type": "number", "description": "Importo totale della vendita, da usare solo se non si conoscono i singoli prodotti/prezzi"},
-                "accepted": {"type": "boolean", "description": "True se la vendita è già confermata/conclusa (genera anche la provvigione), false se è solo un preventivo/bozza"},
-                "sale_type": {"type": "string", "enum": ["nuovo", "rinnovo"], "description": "Tipo di vendita: 'nuovo' per un nuovo cliente/contratto, 'rinnovo' per il rinnovo di uno esistente. Determina quale aliquota di provvigione del mandante viene applicata. Default 'nuovo' se non specificato."},
+                "client_name": {
+                    "type": "string",
+                    "description": "Nome del cliente (per trovarlo nel CRM)",
+                },
+                "mandante_name": {
+                    "type": "string",
+                    "description": "Nome del mandante (per trovarlo nel CRM)",
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Titolo/oggetto della vendita, es: 'Fornitura materiali maggio'",
+                },
+                "product_names": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Nomi dei prodotti venduti, se noti",
+                },
+                "quantities": {
+                    "type": "array",
+                    "items": {"type": "number"},
+                    "description": "Quantità per ciascun prodotto, stesso ordine di product_names",
+                },
+                "unit_prices": {
+                    "type": "array",
+                    "items": {"type": "number"},
+                    "description": "Prezzo unitario per ciascun prodotto; se omesso viene usato il prezzo di listino del prodotto",
+                },
+                "total_amount": {
+                    "type": "number",
+                    "description": "Importo totale della vendita, da usare solo se non si conoscono i singoli prodotti/prezzi",
+                },
+                "accepted": {
+                    "type": "boolean",
+                    "description": "True se la vendita è già confermata/conclusa (genera anche la provvigione), false se è solo un preventivo/bozza",
+                },
+                "sale_type": {
+                    "type": "string",
+                    "enum": ["nuovo", "rinnovo"],
+                    "description": "Tipo di vendita: 'nuovo' per un nuovo cliente/contratto, 'rinnovo' per il rinnovo di uno esistente. Determina quale aliquota di provvigione del mandante viene applicata. Default 'nuovo' se non specificato.",
+                },
             },
-            "required": ["client_name", "mandante_name"]
-        }
+            "required": ["client_name", "mandante_name"],
+        },
     },
     {
         "name": "add_order",
@@ -215,19 +277,52 @@ CRM_TOOLS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "client_name": {"type": "string", "description": "Nome del cliente (per trovarlo nel CRM)"},
-                "mandante_name": {"type": "string", "description": "Nome del mandante (per trovarlo nel CRM)"},
-                "product_names": {"type": "array", "items": {"type": "string"}, "description": "Nomi dei prodotti ordinati, se noti"},
-                "quantities": {"type": "array", "items": {"type": "number"}, "description": "Quantità per ciascun prodotto, stesso ordine di product_names"},
-                "unit_prices": {"type": "array", "items": {"type": "number"}, "description": "Prezzo unitario per ciascun prodotto; se omesso viene usato il prezzo di listino del prodotto"},
-                "total_amount": {"type": "number", "description": "Importo totale dell'ordine, da usare solo se non si conoscono i singoli prodotti/prezzi"},
-                "sale_type": {"type": "string", "enum": ["nuovo", "rinnovo"], "description": "Tipo di vendita: 'nuovo' per un nuovo cliente/contratto, 'rinnovo' per il rinnovo di uno esistente. Determina quale aliquota di provvigione del mandante viene applicata. Default 'nuovo' se non specificato."},
-                "status": {"type": "string", "enum": ORDER_STATUSES, "description": "Stato dell'ordine. Default 'confermato' se non specificato."},
-                "payment_status": {"type": "string", "enum": PAYMENT_STATUSES, "description": "Stato del pagamento. Default 'non_pagato' se non specificato."},
+                "client_name": {
+                    "type": "string",
+                    "description": "Nome del cliente (per trovarlo nel CRM)",
+                },
+                "mandante_name": {
+                    "type": "string",
+                    "description": "Nome del mandante (per trovarlo nel CRM)",
+                },
+                "product_names": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Nomi dei prodotti ordinati, se noti",
+                },
+                "quantities": {
+                    "type": "array",
+                    "items": {"type": "number"},
+                    "description": "Quantità per ciascun prodotto, stesso ordine di product_names",
+                },
+                "unit_prices": {
+                    "type": "array",
+                    "items": {"type": "number"},
+                    "description": "Prezzo unitario per ciascun prodotto; se omesso viene usato il prezzo di listino del prodotto",
+                },
+                "total_amount": {
+                    "type": "number",
+                    "description": "Importo totale dell'ordine, da usare solo se non si conoscono i singoli prodotti/prezzi",
+                },
+                "sale_type": {
+                    "type": "string",
+                    "enum": ["nuovo", "rinnovo"],
+                    "description": "Tipo di vendita: 'nuovo' per un nuovo cliente/contratto, 'rinnovo' per il rinnovo di uno esistente. Determina quale aliquota di provvigione del mandante viene applicata. Default 'nuovo' se non specificato.",
+                },
+                "status": {
+                    "type": "string",
+                    "enum": ORDER_STATUSES,
+                    "description": "Stato dell'ordine. Default 'confermato' se non specificato.",
+                },
+                "payment_status": {
+                    "type": "string",
+                    "enum": PAYMENT_STATUSES,
+                    "description": "Stato del pagamento. Default 'non_pagato' se non specificato.",
+                },
                 "notes": {"type": "string", "description": "Note aggiuntive"},
             },
-            "required": ["client_name", "mandante_name"]
-        }
+            "required": ["client_name", "mandante_name"],
+        },
     },
     {
         "name": "add_expense",
@@ -235,15 +330,28 @@ CRM_TOOLS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "date": {"type": "string", "description": "Data della spesa in formato ISO YYYY-MM-DD. Se non specificata, usa la data odierna."},
-                "category": {"type": "string", "enum": EXPENSE_CATEGORIES, "description": "Categoria della spesa."},
-                "description": {"type": "string", "description": "Breve descrizione della spesa"},
+                "date": {
+                    "type": "string",
+                    "description": "Data della spesa in formato ISO YYYY-MM-DD. Se non specificata, usa la data odierna.",
+                },
+                "category": {
+                    "type": "string",
+                    "enum": EXPENSE_CATEGORIES,
+                    "description": "Categoria della spesa.",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Breve descrizione della spesa",
+                },
                 "amount": {"type": "number", "description": "Importo in euro"},
-                "client_name": {"type": "string", "description": "Cliente collegato alla spesa, se presente (es. una spesa sostenuta durante una visita)"},
+                "client_name": {
+                    "type": "string",
+                    "description": "Cliente collegato alla spesa, se presente (es. una spesa sostenuta durante una visita)",
+                },
                 "notes": {"type": "string", "description": "Note aggiuntive"},
             },
-            "required": ["category", "amount"]
-        }
+            "required": ["category", "amount"],
+        },
     },
     {
         "name": "add_commission",
@@ -251,17 +359,40 @@ CRM_TOOLS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "period": {"type": "string", "description": "Mese di competenza in formato AAAA-MM (es. 2026-08). Se non specificato, usa il mese corrente."},
-                "amount": {"type": "number", "description": "Importo della provvigione in euro"},
-                "mandante_name": {"type": "string", "description": "Nome del mandante collegato, se presente (per trovarlo nel CRM)"},
-                "client_name": {"type": "string", "description": "Nome del cliente collegato, se presente (per trovarlo nel CRM)"},
-                "descrizione": {"type": "string", "description": "Breve descrizione della provvigione"},
-                "stato": {"type": "string", "enum": ["maturato", "incassato"], "description": "Stato della provvigione. Default 'maturato' se non specificato."},
-                "tipo": {"type": "string", "enum": ["ordinaria", "bonus", "rettifica"], "description": "Tipo di provvigione. Default 'ordinaria' se non specificato."},
+                "period": {
+                    "type": "string",
+                    "description": "Mese di competenza in formato AAAA-MM (es. 2026-08). Se non specificato, usa il mese corrente.",
+                },
+                "amount": {
+                    "type": "number",
+                    "description": "Importo della provvigione in euro",
+                },
+                "mandante_name": {
+                    "type": "string",
+                    "description": "Nome del mandante collegato, se presente (per trovarlo nel CRM)",
+                },
+                "client_name": {
+                    "type": "string",
+                    "description": "Nome del cliente collegato, se presente (per trovarlo nel CRM)",
+                },
+                "descrizione": {
+                    "type": "string",
+                    "description": "Breve descrizione della provvigione",
+                },
+                "stato": {
+                    "type": "string",
+                    "enum": ["maturato", "incassato"],
+                    "description": "Stato della provvigione. Default 'maturato' se non specificato.",
+                },
+                "tipo": {
+                    "type": "string",
+                    "enum": ["ordinaria", "bonus", "rettifica"],
+                    "description": "Tipo di provvigione. Default 'ordinaria' se non specificato.",
+                },
                 "note": {"type": "string", "description": "Note aggiuntive"},
             },
-            "required": ["amount"]
-        }
+            "required": ["amount"],
+        },
     },
     {
         "name": "add_employee",
@@ -270,13 +401,25 @@ CRM_TOOLS = [
             "type": "object",
             "properties": {
                 "name": {"type": "string", "description": "Nome del dipendente"},
-                "surname": {"type": "string", "description": "Cognome del dipendente, se fornito"},
-                "role": {"type": "string", "description": "Ruolo o mansione, es. Autista, Magazziniere, Impiegata"},
-                "email": {"type": "string", "description": "Email di contatto, se fornita"},
-                "phone": {"type": "string", "description": "Telefono di contatto, se fornito"},
+                "surname": {
+                    "type": "string",
+                    "description": "Cognome del dipendente, se fornito",
+                },
+                "role": {
+                    "type": "string",
+                    "description": "Ruolo o mansione, es. Autista, Magazziniere, Impiegata",
+                },
+                "email": {
+                    "type": "string",
+                    "description": "Email di contatto, se fornita",
+                },
+                "phone": {
+                    "type": "string",
+                    "description": "Telefono di contatto, se fornito",
+                },
             },
-            "required": ["name"]
-        }
+            "required": ["name"],
+        },
     },
     {
         "name": "add_vehicle",
@@ -286,10 +429,14 @@ CRM_TOOLS = [
             "properties": {
                 "plate": {"type": "string", "description": "Targa del mezzo"},
                 "model": {"type": "string", "description": "Modello, es. Fiat Ducato"},
-                "type": {"type": "string", "enum": list(VEHICLE_TYPES), "description": "Tipo di mezzo. Default 'furgone' se non specificato."},
+                "type": {
+                    "type": "string",
+                    "enum": list(VEHICLE_TYPES),
+                    "description": "Tipo di mezzo. Default 'furgone' se non specificato.",
+                },
             },
-            "required": ["plate"]
-        }
+            "required": ["plate"],
+        },
     },
     {
         "name": "search_clients",
@@ -313,11 +460,18 @@ CRM_TOOLS = [
                     "type": "string",
                     "description": "Filtra i clienti con almeno un appuntamento nel mese indicato, formato AAAA-MM (es. 2026-05 per 'maggio' dell'anno corrente).",
                 },
-                "zone": {"type": "string", "description": "Filtra per zona/area geografica."},
-                "potential": {"type": "string", "enum": ["basso", "medio", "alto"], "description": "Filtra per potenziale commerciale."},
+                "zone": {
+                    "type": "string",
+                    "description": "Filtra per zona/area geografica.",
+                },
+                "potential": {
+                    "type": "string",
+                    "enum": ["basso", "medio", "alto"],
+                    "description": "Filtra per potenziale commerciale.",
+                },
             },
-            "required": []
-        }
+            "required": [],
+        },
     },
     {
         "name": "search_offers",
@@ -331,12 +485,22 @@ CRM_TOOLS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "min_amount": {"type": "number", "description": "Importo minimo in euro (es. 5000 per 'sopra 5000 euro')."},
-                "max_amount": {"type": "number", "description": "Importo massimo in euro."},
-                "status": {"type": "string", "enum": ["bozza", "inviata", "accettata", "rifiutata", "scaduta"], "description": "Filtra per stato dell'offerta."},
+                "min_amount": {
+                    "type": "number",
+                    "description": "Importo minimo in euro (es. 5000 per 'sopra 5000 euro').",
+                },
+                "max_amount": {
+                    "type": "number",
+                    "description": "Importo massimo in euro.",
+                },
+                "status": {
+                    "type": "string",
+                    "enum": ["bozza", "inviata", "accettata", "rifiutata", "scaduta"],
+                    "description": "Filtra per stato dell'offerta.",
+                },
             },
-            "required": []
-        }
+            "required": [],
+        },
     },
 ]
 
@@ -344,20 +508,52 @@ CRM_TOOLS = [
 # Usate come rete di sicurezza: se il modello non chiama davvero il tool
 # corrispondente entro la fine del turno, lo forziamo con tool_choice.
 ACTION_INTENT_KEYWORDS = {
-    "add_client": ["aggiungi cliente", "aggiungi questo cliente", "crea cliente",
-                   "nuovo cliente", "inserisci cliente", "aggiungi al crm"],
-    "add_appointment": ["fissa appuntamento", "fissa un appuntamento", "aggiungi appuntamento",
-                        "crea appuntamento", "prenota una visita", "segna appuntamento"],
+    "add_client": [
+        "aggiungi cliente",
+        "aggiungi questo cliente",
+        "crea cliente",
+        "nuovo cliente",
+        "inserisci cliente",
+        "aggiungi al crm",
+    ],
+    "add_appointment": [
+        "fissa appuntamento",
+        "fissa un appuntamento",
+        "aggiungi appuntamento",
+        "crea appuntamento",
+        "prenota una visita",
+        "segna appuntamento",
+    ],
     "add_lead": ["aggiungi lead", "nuovo lead", "crea lead", "aggiungi prospect"],
     "add_note_to_client": ["aggiungi nota", "segna una nota", "aggiungi una nota"],
-    "add_offer": ["registra vendita", "registra offerta",
-                  "aggiungi offerta", "aggiungi vendita"],
-    "add_order": ["registra ordine", "aggiungi ordine", "nuovo ordine",
-                  "crea ordine", "inserisci ordine"],
-    "add_expense": ["aggiungi spesa", "registra spesa", "segna spesa", "nuova spesa",
-                     "inserisci spesa", "ho speso"],
-    "add_commission": ["registra provvigione", "aggiungi provvigione", "provvigione manuale",
-                        "inserisci provvigione", "nuova provvigione"],
+    "add_offer": [
+        "registra vendita",
+        "registra offerta",
+        "aggiungi offerta",
+        "aggiungi vendita",
+    ],
+    "add_order": [
+        "registra ordine",
+        "aggiungi ordine",
+        "nuovo ordine",
+        "crea ordine",
+        "inserisci ordine",
+    ],
+    "add_expense": [
+        "aggiungi spesa",
+        "registra spesa",
+        "segna spesa",
+        "nuova spesa",
+        "inserisci spesa",
+        "ho speso",
+    ],
+    "add_commission": [
+        "registra provvigione",
+        "aggiungi provvigione",
+        "provvigione manuale",
+        "inserisci provvigione",
+        "nuova provvigione",
+    ],
 }
 
 

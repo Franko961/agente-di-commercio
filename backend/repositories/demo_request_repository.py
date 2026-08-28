@@ -10,7 +10,11 @@ class DemoRequestRepository:
         return doc
 
     async def find_many(self, limit: int = 500) -> list:
-        return await self.collection.find({}, {"_id": 0}).sort("created_at", -1).to_list(limit)
+        return (
+            await self.collection.find({}, {"_id": 0})
+            .sort("created_at", -1)
+            .to_list(limit)
+        )
 
     async def find_by_email(self, email: str):
         return await self.collection.find_one({"email": email}, {"_id": 0})

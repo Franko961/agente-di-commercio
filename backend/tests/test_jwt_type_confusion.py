@@ -14,9 +14,10 @@ quest'ultima leggeva solo "sub" senza controllare "type"/"purpose".
 Esegui con:
     JWT_SECRET=test python -m pytest tests/test_jwt_type_confusion.py -v
 """
-import sys
+
 import asyncio
-from datetime import datetime, timezone, timedelta
+import sys
+from datetime import datetime, timedelta, timezone
 
 import jwt
 import pytest
@@ -24,13 +25,14 @@ from fastapi import HTTPException
 
 sys.path.insert(0, ".")
 
+import core.security as security_mod
+from core.config import JWT_ALG, JWT_SECRET
 from core.security import (
-    create_access_token, create_document_download_token, create_impersonation_token,
+    create_access_token,
+    create_document_download_token,
+    create_impersonation_token,
     get_current_user,
 )
-from core.config import JWT_SECRET, JWT_ALG
-import core.security as security_mod
-
 from tests.test_impersonation import FakeDb, FakeRequest
 
 
@@ -38,7 +40,12 @@ def run(coro):
     return asyncio.run(coro)
 
 
-USER_DOC = {"id": "user-1", "email": "utente@esempio.it", "role": "agent", "subscription_status": "active"}
+USER_DOC = {
+    "id": "user-1",
+    "email": "utente@esempio.it",
+    "role": "agent",
+    "subscription_status": "active",
+}
 
 
 def test_access_token_normale_viene_accettato(monkeypatch):
@@ -79,7 +86,11 @@ def test_token_senza_claim_type_viene_rifiutato(monkeypatch):
     "type": "access" (per uno scopo diverso da una sessione) deve essere
     rifiutato di default, non solo il caso specifico del download."""
     monkeypatch.setattr(security_mod, "db", FakeDb(USER_DOC))
-    payload = {"sub": "user-1", "purpose": "qualcosa_altro", "exp": datetime.now(timezone.utc) + timedelta(minutes=5)}
+    payload = {
+        "sub": "user-1",
+        "purpose": "qualcosa_altro",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
+    }
     token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
 
     with pytest.raises(HTTPException) as exc_info:
@@ -90,7 +101,11 @@ def test_token_senza_claim_type_viene_rifiutato(monkeypatch):
 
 def test_token_con_type_diverso_da_access_viene_rifiutato(monkeypatch):
     monkeypatch.setattr(security_mod, "db", FakeDb(USER_DOC))
-    payload = {"sub": "user-1", "type": "refresh", "exp": datetime.now(timezone.utc) + timedelta(minutes=5)}
+    payload = {
+        "sub": "user-1",
+        "type": "refresh",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
+    }
     token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
 
     with pytest.raises(HTTPException) as exc_info:

@@ -1,12 +1,20 @@
 import html
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
+
 from fastapi import HTTPException
-from core.utils import gen_id, now_iso, clean
-from core.security import hash_password, verify_password, create_access_token, generate_reset_token, hash_reset_token
-from core.config import PLANS, TRIAL_DAYS, ADMIN_NOTIFY_EMAIL, FRONTEND_URL
+
+from core.config import ADMIN_NOTIFY_EMAIL, FRONTEND_URL, PLANS, TRIAL_DAYS
 from core.rate_limit import check_and_record
+from core.security import (
+    create_access_token,
+    generate_reset_token,
+    hash_password,
+    hash_reset_token,
+    verify_password,
+)
 from core.subscription_utils import is_subscription_active
+from core.utils import clean, gen_id, now_iso
 from repositories.user_repository import user_repository
 from services.email_service import send_email
 from services.seed_service import seed_service
@@ -24,24 +32,36 @@ class AuthService:
         # /api/demo-requests — senza un limite di frequenza, uno script
         # potrebbe creare account fasulli in massa dallo stesso IP.
         if ip_address:
-            ip_ok = await check_and_record("register_ip", ip_address, max_attempts=5, window_minutes=60)
+            ip_ok = await check_and_record(
+                "register_ip", ip_address, max_attempts=5, window_minutes=60
+            )
             if not ip_ok:
-                raise HTTPException(status_code=429, detail="Troppe registrazioni da questo indirizzo, riprova più tardi.")
+                raise HTTPException(
+                    status_code=429,
+                    detail="Troppe registrazioni da questo indirizzo, riprova più tardi.",
+                )
 
         email = payload.email.lower().strip()
         if await self.repo.find_by_email(email):
             raise HTTPException(status_code=400, detail="Email gia' registrata")
         if len(payload.password) < 10:
-            raise HTTPException(status_code=400, detail="Password troppo corta (min 10 caratteri)")
+            raise HTTPException(
+                status_code=400, detail="Password troppo corta (min 10 caratteri)"
+            )
         user_id = gen_id()
         plan = payload.plan if payload.plan in PLANS else "base"
         doc = {
-            "id": user_id, "email": email, "name": payload.name,
+            "id": user_id,
+            "email": email,
+            "name": payload.name,
             "password_hash": hash_password(payload.password),
-            "role": "agent", "created_at": now_iso(),
+            "role": "agent",
+            "created_at": now_iso(),
             "plan": plan,
             "subscription_status": "trial",  # trial | active | cancelled | expired
-            "trial_ends_at": (datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)).isoformat(),
+            "trial_ends_at": (
+                datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)
+            ).isoformat(),
             "stripe_customer_id": None,
             "stripe_subscription_id": None,
             "paypal_subscription_id": None,
@@ -77,7 +97,7 @@ class AuthService:
                   </div>
                   <h2 style="color:#0A192F;margin:0 0 12px;">Benvenuto, {safe_name}!</h2>
                   <p style="color:#52525B;font-size:15px;line-height:1.6;">
-                    Il tuo account è stato creato con successo. Hai <strong>{TRIAL_DAYS} giorni di prova gratuita</strong> 
+                    Il tuo account è stato creato con successo. Hai <strong>{TRIAL_DAYS} giorni di prova gratuita</strong>
                     per esplorare tutte le funzionalità di SALESFLY.
                   </p>
                   <div style="background:#fff;border:1px solid #E4E4E1;border-radius:8px;padding:20px;margin:24px 0;">
@@ -85,7 +105,7 @@ class AuthService:
                     <div style="font-size:20px;font-weight:900;color:#FF5A00;">{PLANS[plan]['name']} — €{PLANS[plan]['price_eur']:.0f}/mese</div>
                     <div style="font-size:13px;color:#52525B;margin-top:4px;">{TRIAL_DAYS} giorni gratuiti, nessuna carta richiesta</div>
                   </div>
-                  <a href="{FRONTEND_URL}" 
+                  <a href="{FRONTEND_URL}"
                      style="display:inline-block;background:#0A192F;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">
                     Accedi al gestionale →
                   </a>
@@ -94,7 +114,7 @@ class AuthService:
                     Se non hai creato questo account, ignora questa email.
                   </p>
                 </div>
-                """
+                """,
             )
         except Exception as mail_err:
             logger.warning(f"Email benvenuto non inviata: {mail_err}")
@@ -111,14 +131,14 @@ class AuthService:
                     <tr><td style="padding:8px;color:#52525B;width:120px;">Nome</td><td style="padding:8px;font-weight:600;">{safe_name}</td></tr>
                     <tr style="background:#F9F9F8;"><td style="padding:8px;color:#52525B;">Email</td><td style="padding:8px;font-weight:600;">{safe_email}</td></tr>
                     <tr><td style="padding:8px;color:#52525B;">Piano</td><td style="padding:8px;font-weight:600;color:#FF5A00;">{PLANS[plan]['name']}</td></tr>
-                    <tr style="background:#F9F9F8;"><td style="padding:8px;color:#52525B;">Data</td><td style="padding:8px;">{now_iso()[:16].replace('T',' ')}</td></tr>
+                    <tr style="background:#F9F9F8;"><td style="padding:8px;color:#52525B;">Data</td><td style="padding:8px;">{now_iso()[:16].replace('T', ' ')}</td></tr>
                   </table>
                   <a href="{FRONTEND_URL}/app/admin"
                      style="display:inline-block;margin-top:20px;background:#FF5A00;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">
                     Vedi Admin Dashboard →
                   </a>
                 </div>
-                """
+                """,
             )
         except Exception as mail_err:
             logger.warning(f"Email admin non inviata: {mail_err}")
@@ -138,13 +158,22 @@ class AuthService:
         # dallo stesso IP (credential stuffing). Stesso principio già
         # applicato a forgot-password: limite per email (soglia più alta,
         # login è un'operazione quotidiana legittima) e per IP.
-        email_ok = await check_and_record("login_email", email, max_attempts=10, window_minutes=15)
+        email_ok = await check_and_record(
+            "login_email", email, max_attempts=10, window_minutes=15
+        )
         if not email_ok:
-            raise HTTPException(status_code=429, detail="Troppi tentativi di accesso, riprova più tardi")
+            raise HTTPException(
+                status_code=429, detail="Troppi tentativi di accesso, riprova più tardi"
+            )
         if ip_address:
-            ip_ok = await check_and_record("login_ip", ip_address, max_attempts=30, window_minutes=15)
+            ip_ok = await check_and_record(
+                "login_ip", ip_address, max_attempts=30, window_minutes=15
+            )
             if not ip_ok:
-                raise HTTPException(status_code=429, detail="Troppi tentativi di accesso, riprova più tardi")
+                raise HTTPException(
+                    status_code=429,
+                    detail="Troppi tentativi di accesso, riprova più tardi",
+                )
 
         user = await self.repo.find_by_email(email)
         if not user or not verify_password(payload.password, user["password_hash"]):
@@ -174,10 +203,14 @@ class AuthService:
         # Limite per email: max 5 richieste ogni 15 minuti (evita di intasare
         # di email la stessa casella). Limite per IP: max 20 ogni 15 minuti
         # (evita di usare l'endpoint per scansionare quali email esistono).
-        email_ok = await check_and_record("forgot_password_email", email, max_attempts=5, window_minutes=15)
+        email_ok = await check_and_record(
+            "forgot_password_email", email, max_attempts=5, window_minutes=15
+        )
         ip_ok = True
         if ip_address:
-            ip_ok = await check_and_record("forgot_password_ip", ip_address, max_attempts=20, window_minutes=15)
+            ip_ok = await check_and_record(
+                "forgot_password_ip", ip_address, max_attempts=20, window_minutes=15
+            )
         if not email_ok or not ip_ok:
             return generic
 
@@ -194,10 +227,13 @@ class AuthService:
             return generic
 
         token, token_hash, expires_at = generate_reset_token()
-        await self.repo.update_by_id(user["id"], {
-            "reset_token_hash": token_hash,
-            "reset_token_expires": expires_at,
-        })
+        await self.repo.update_by_id(
+            user["id"],
+            {
+                "reset_token_hash": token_hash,
+                "reset_token_expires": expires_at,
+            },
+        )
         reset_link = f"{FRONTEND_URL}/reset-password?token={token}"
 
         try:
@@ -222,7 +258,7 @@ class AuthService:
                     Se non hai richiesto tu questa email, ignorala pure: la tua password attuale resta invariata.
                   </p>
                 </div>
-                """
+                """,
             )
         except Exception as mail_err:
             logger.warning(f"Email reset password non inviata: {mail_err}")
@@ -234,12 +270,19 @@ class AuthService:
         # token per forza bruta (il token stesso, 32 byte casuali, resta
         # comunque non indovinabile in pratica — questo è un livello extra).
         if ip_address:
-            ip_ok = await check_and_record("reset_password_ip", ip_address, max_attempts=20, window_minutes=15)
+            ip_ok = await check_and_record(
+                "reset_password_ip", ip_address, max_attempts=20, window_minutes=15
+            )
             if not ip_ok:
-                raise HTTPException(status_code=429, detail="Troppi tentativi. Riprova tra qualche minuto.")
+                raise HTTPException(
+                    status_code=429,
+                    detail="Troppi tentativi. Riprova tra qualche minuto.",
+                )
 
         if len(payload.new_password) < 10:
-            raise HTTPException(status_code=400, detail="Password troppo corta (min 10 caratteri)")
+            raise HTTPException(
+                status_code=400, detail="Password troppo corta (min 10 caratteri)"
+            )
 
         token_hash = hash_reset_token(payload.token)
         user = await self.repo.find_by_reset_token_hash(token_hash)
@@ -248,19 +291,30 @@ class AuthService:
             # per l'account demo (vedi sopra), ma se uno fosse comunque
             # presente (es. impostato manualmente) il reset resta comunque
             # bloccato qui.
-            raise HTTPException(status_code=400, detail="Link non valido o già utilizzato")
+            raise HTTPException(
+                status_code=400, detail="Link non valido o già utilizzato"
+            )
 
         expires_raw = user.get("reset_token_expires")
         expires = datetime.fromisoformat(expires_raw) if expires_raw else None
         if not expires or expires < datetime.now(timezone.utc):
-            raise HTTPException(status_code=400, detail="Il link è scaduto. Richiedine uno nuovo dalla pagina di accesso.")
+            raise HTTPException(
+                status_code=400,
+                detail="Il link è scaduto. Richiedine uno nuovo dalla pagina di accesso.",
+            )
 
-        await self.repo.update_by_id(user["id"], {
-            "password_hash": hash_password(payload.new_password),
-            "reset_token_hash": None,
-            "reset_token_expires": None,
-        })
-        return {"ok": True, "message": "Password aggiornata con successo. Ora puoi accedere."}
+        await self.repo.update_by_id(
+            user["id"],
+            {
+                "password_hash": hash_password(payload.new_password),
+                "reset_token_hash": None,
+                "reset_token_expires": None,
+            },
+        )
+        return {
+            "ok": True,
+            "message": "Password aggiornata con successo. Ora puoi accedere.",
+        }
 
     async def mark_onboarding_seen(self, user: dict) -> dict:
         """Segna come vista la mini-guida mostrata al primo accesso in app

@@ -34,16 +34,26 @@ class ReconciliationService:
 
     async def find_inconsistencies(self) -> dict:
         all_expense_ids = {
-            e["id"] for e in await db.expenses.find({}, {"_id": 0, "id": 1}).to_list(_SCAN_LIMIT)
+            e["id"]
+            for e in await db.expenses.find({}, {"_id": 0, "id": 1}).to_list(
+                _SCAN_LIMIT
+            )
         }
 
-        orphan_expenses = []  # spesa Personale/Flotta senza il documento che dovrebbe averla generata
-        orphan_links = []     # compenso/costo il cui expense_id non punta a nessuna spesa esistente
+        orphan_expenses = (
+            []
+        )  # spesa Personale/Flotta senza il documento che dovrebbe averla generata
+        orphan_links = (
+            []
+        )  # compenso/costo il cui expense_id non punta a nessuna spesa esistente
 
         for source, link_field, linked_collection_name in _LINKED_SOURCES:
             linked_collection = db[linked_collection_name]
             linked_ids = {
-                d["id"] for d in await linked_collection.find({}, {"_id": 0, "id": 1}).to_list(_SCAN_LIMIT)
+                d["id"]
+                for d in await linked_collection.find({}, {"_id": 0, "id": 1}).to_list(
+                    _SCAN_LIMIT
+                )
             }
 
             expenses_for_source = await db.expenses.find(
@@ -51,14 +61,22 @@ class ReconciliationService:
             ).to_list(_SCAN_LIMIT)
             for exp in expenses_for_source:
                 if exp.get(link_field) not in linked_ids:
-                    orphan_expenses.append({"expense_id": exp["id"], "user_id": exp["user_id"], "source": source})
+                    orphan_expenses.append(
+                        {
+                            "expense_id": exp["id"],
+                            "user_id": exp["user_id"],
+                            "source": source,
+                        }
+                    )
 
             linked_docs = await linked_collection.find(
                 {}, {"_id": 0, "id": 1, "user_id": 1, "expense_id": 1}
             ).to_list(_SCAN_LIMIT)
             for doc in linked_docs:
                 if doc.get("expense_id") not in all_expense_ids:
-                    orphan_links.append({"id": doc["id"], "user_id": doc["user_id"], "source": source})
+                    orphan_links.append(
+                        {"id": doc["id"], "user_id": doc["user_id"], "source": source}
+                    )
 
         return {"orphan_expenses": orphan_expenses, "orphan_links": orphan_links}
 

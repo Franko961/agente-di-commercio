@@ -1,5 +1,6 @@
-from core.database import db
 from typing import Optional
+
+from core.database import db
 
 
 class ExpenseRepository:
@@ -22,10 +23,14 @@ class ExpenseRepository:
             if date_to:
                 date_query["$lte"] = date_to
             query["date"] = date_query
-        return await self.collection.find(query, {"_id": 0}).sort("date", -1).to_list(2000)
+        return (
+            await self.collection.find(query, {"_id": 0}).sort("date", -1).to_list(2000)
+        )
 
     async def find_one(self, eid: str, user_id: str) -> Optional[dict]:
-        return await self.collection.find_one({"id": eid, "user_id": user_id}, {"_id": 0})
+        return await self.collection.find_one(
+            {"id": eid, "user_id": user_id}, {"_id": 0}
+        )
 
     async def insert(self, doc: dict) -> dict:
         await self.collection.insert_one(doc)
@@ -33,7 +38,9 @@ class ExpenseRepository:
         return doc
 
     async def update(self, eid: str, user_id: str, data: dict) -> None:
-        await self.collection.update_one({"id": eid, "user_id": user_id}, {"$set": data})
+        await self.collection.update_one(
+            {"id": eid, "user_id": user_id}, {"$set": data}
+        )
 
     async def delete(self, eid: str, user_id: str) -> None:
         await self.collection.delete_one({"id": eid, "user_id": user_id})

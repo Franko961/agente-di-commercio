@@ -19,8 +19,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_flotta_module.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 from pydantic import ValidationError
@@ -28,21 +29,34 @@ from pydantic import ValidationError
 sys.path.insert(0, ".")
 
 from core.exceptions import NotFoundError, ValidationAppError
-from models.vehicle import VehicleIn, VehicleDeadlineIn, VehicleCostIn, CargoLoadIn, CargoLoadSign
-from services.vehicle_service import VehicleService
-from services.vehicle_deadline_service import VehicleDeadlineService
-from services.vehicle_cost_service import VehicleCostService
+from models.expense import ExpenseIn
+from models.vehicle import (
+    CargoLoadIn,
+    VehicleCostIn,
+    VehicleDeadlineIn,
+    VehicleIn,
+)
 from services.cargo_load_service import CargoLoadService
 from services.expense_service import ExpenseService
-from models.expense import ExpenseIn
+from services.vehicle_cost_service import VehicleCostService
+from services.vehicle_deadline_service import VehicleDeadlineService
+from services.vehicle_service import VehicleService
 
 
 def run(coro):
     return asyncio.run(coro)
 
 
-USER = {"id": "user-1", "email": "manager@example.com", "enabled_extra_modules": ["flotta"]}
-ALTRO_USER = {"id": "user-2", "email": "altro@example.com", "enabled_extra_modules": ["flotta"]}
+USER = {
+    "id": "user-1",
+    "email": "manager@example.com",
+    "enabled_extra_modules": ["flotta"],
+}
+ALTRO_USER = {
+    "id": "user-2",
+    "email": "altro@example.com",
+    "enabled_extra_modules": ["flotta"],
+}
 
 
 class FakeVehicleRepo:
@@ -63,15 +77,23 @@ class FakeVehicleRepo:
         # abbia visto find_by_plate() poco prima.
         for d in self.docs.values():
             if d["user_id"] == doc["user_id"] and d["plate"] == doc["plate"]:
-                raise ValidationAppError(f"Esiste già un mezzo con targa {doc.get('plate')}")
+                raise ValidationAppError(
+                    f"Esiste già un mezzo con targa {doc.get('plate')}"
+                )
         self.docs[doc["id"]] = dict(doc)
         return doc
 
     async def update(self, vid, user_id, data):
         if "plate" in data:
             for d in self.docs.values():
-                if d["id"] != vid and d["user_id"] == user_id and d["plate"] == data["plate"]:
-                    raise ValidationAppError(f"Esiste già un mezzo con targa {data.get('plate')}")
+                if (
+                    d["id"] != vid
+                    and d["user_id"] == user_id
+                    and d["plate"] == data["plate"]
+                ):
+                    raise ValidationAppError(
+                        f"Esiste già un mezzo con targa {data.get('plate')}"
+                    )
         d = self.docs.get(vid)
         if not d or d["user_id"] != user_id:
             return False
@@ -92,6 +114,7 @@ class FakeVehicleRepo:
 
 class FakeDetailRepo:
     """Fake generico per deadline/cost/cargo: stessa forma in tutti e tre."""
+
     def __init__(self):
         self.docs = {}
 
@@ -122,7 +145,14 @@ class FakeDetailRepo:
         d = self.docs.get(rid)
         if not d or d["user_id"] != user_id:
             return False
-        d.update({"signature": signature, "signer_name": signer_name, "signed_at": signed_at, "status": "consegnato"})
+        d.update(
+            {
+                "signature": signature,
+                "signer_name": signer_name,
+                "signed_at": signed_at,
+                "status": "consegnato",
+            }
+        )
         return True
 
 
@@ -152,6 +182,7 @@ class FakeExpenseRepo:
 class FakeRefRepo:
     """Fake generico find_one su una lista di dict — usato per client/order
     nei test di cargo_load_service (link facoltativi)."""
+
     def __init__(self, docs=None):
         self.docs = docs or []
 
@@ -181,6 +212,7 @@ def build_vehicle_service(employees=None):
 
 # ---------- vehicle_service ----------
 
+
 def test_create_vehicle_e_attivo_di_default():
     service, repo = build_vehicle_service()
     v = run(service.create_vehicle(USER, make_vehicle()))
@@ -192,7 +224,11 @@ def test_create_vehicle_e_attivo_di_default():
 def test_update_vehicle_aggiorna_i_campi():
     service, repo = build_vehicle_service()
     v = run(service.create_vehicle(USER, make_vehicle()))
-    run(service.update_vehicle(USER, v["id"], make_vehicle(plate="AB123CD", model="Iveco Daily")))
+    run(
+        service.update_vehicle(
+            USER, v["id"], make_vehicle(plate="AB123CD", model="Iveco Daily")
+        )
+    )
     assert repo.docs[v["id"]]["model"] == "Iveco Daily"
 
 
@@ -221,11 +257,14 @@ def test_delete_vehicle_rimuove_solo_il_proprio():
     assert v["id"] not in repo.docs
 
 
-@pytest.mark.parametrize("raw,expected", [
-    ("ab123cd", "AB123CD"),
-    ("AB 123 CD", "AB123CD"),
-    ("ab-123-cd", "AB123CD"),
-])
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("ab123cd", "AB123CD"),
+        ("AB 123 CD", "AB123CD"),
+        ("ab-123-cd", "AB123CD"),
+    ],
+)
 def test_create_vehicle_normalizza_la_targa(raw, expected):
     service, repo = build_vehicle_service()
     v = run(service.create_vehicle(USER, make_vehicle(plate=raw)))
@@ -236,7 +275,9 @@ def test_create_vehicle_rifiuta_targa_duplicata_per_lo_stesso_utente():
     service, repo = build_vehicle_service()
     run(service.create_vehicle(USER, make_vehicle("AB123CD")))
     with pytest.raises(ValidationAppError):
-        run(service.create_vehicle(USER, make_vehicle("ab 123-cd")))  # normalizza alla stessa targa
+        run(
+            service.create_vehicle(USER, make_vehicle("ab 123-cd"))
+        )  # normalizza alla stessa targa
 
 
 def test_create_vehicle_permette_targa_duplicata_tra_utenti_diversi():
@@ -257,7 +298,11 @@ def test_update_vehicle_rifiuta_targa_duplicata_di_un_altro_mezzo():
 def test_update_vehicle_permette_di_salvare_la_propria_stessa_targa():
     service, repo = build_vehicle_service()
     v = run(service.create_vehicle(USER, make_vehicle("AB123CD")))
-    run(service.update_vehicle(USER, v["id"], make_vehicle("AB123CD", model="Nuovo modello")))
+    run(
+        service.update_vehicle(
+            USER, v["id"], make_vehicle("AB123CD", model="Nuovo modello")
+        )
+    )
     assert repo.docs[v["id"]]["model"] == "Nuovo modello"
 
 
@@ -281,7 +326,11 @@ def test_create_vehicle_indice_univoco_blocca_la_race_condition(monkeypatch):
         run(service.create_vehicle(USER, make_vehicle("AB123CD")))
 
     # Un solo mezzo con quella targa è davvero rimasto, non due.
-    matching = [d for d in repo.docs.values() if d["user_id"] == USER["id"] and d["plate"] == "AB123CD"]
+    matching = [
+        d
+        for d in repo.docs.values()
+        if d["user_id"] == USER["id"] and d["plate"] == "AB123CD"
+    ]
     assert len(matching) == 1
 
 
@@ -303,6 +352,7 @@ def test_update_vehicle_indice_univoco_blocca_la_race_condition(monkeypatch):
 
 # ---------- vehicle_deadline_service ----------
 
+
 def build_deadline_service(vehicle_repo):
     repo = FakeDetailRepo()
     return VehicleDeadlineService(repo=repo, vehicles=vehicle_repo), repo
@@ -313,9 +363,16 @@ def test_create_deadline_denormalizza_la_targa():
     vehicle = run(vservice.create_vehicle(USER, make_vehicle("XY999ZZ")))
     service, repo = build_deadline_service(vrepo)
 
-    d = run(service.create_deadline(USER, VehicleDeadlineIn(
-        vehicle_id=vehicle["id"], type="assicurazione", due_date="2026-12-01",
-    )))
+    d = run(
+        service.create_deadline(
+            USER,
+            VehicleDeadlineIn(
+                vehicle_id=vehicle["id"],
+                type="assicurazione",
+                due_date="2026-12-01",
+            ),
+        )
+    )
     assert d["vehicle_plate"] == "XY999ZZ"
     assert d["due_date"] == "2026-12-01"
 
@@ -324,9 +381,16 @@ def test_create_deadline_rifiuta_mezzo_inesistente():
     vservice, vrepo = build_vehicle_service()
     service, repo = build_deadline_service(vrepo)
     with pytest.raises(ValidationAppError):
-        run(service.create_deadline(USER, VehicleDeadlineIn(
-            vehicle_id="non-esiste", type="revisione", due_date="2026-12-01",
-        )))
+        run(
+            service.create_deadline(
+                USER,
+                VehicleDeadlineIn(
+                    vehicle_id="non-esiste",
+                    type="revisione",
+                    due_date="2026-12-01",
+                ),
+            )
+        )
 
 
 def test_create_deadline_rifiuta_mezzo_di_un_altro_utente():
@@ -334,9 +398,16 @@ def test_create_deadline_rifiuta_mezzo_di_un_altro_utente():
     vehicle = run(vservice.create_vehicle(ALTRO_USER, make_vehicle()))
     service, repo = build_deadline_service(vrepo)
     with pytest.raises(ValidationAppError):
-        run(service.create_deadline(USER, VehicleDeadlineIn(
-            vehicle_id=vehicle["id"], type="bollo", due_date="2026-12-01",
-        )))
+        run(
+            service.create_deadline(
+                USER,
+                VehicleDeadlineIn(
+                    vehicle_id=vehicle["id"],
+                    type="bollo",
+                    due_date="2026-12-01",
+                ),
+            )
+        )
 
 
 @pytest.mark.parametrize("due_date", ["2026-99-99", "2026-02-31", "test", "2026-8-2"])
@@ -351,28 +422,48 @@ def test_delete_deadline_resta_leggibile_dopo_eliminazione_mezzo():
     vservice, vrepo = build_vehicle_service()
     vehicle = run(vservice.create_vehicle(USER, make_vehicle("ZZ111AA")))
     service, repo = build_deadline_service(vrepo)
-    d = run(service.create_deadline(USER, VehicleDeadlineIn(
-        vehicle_id=vehicle["id"], type="revisione", due_date="2026-12-01",
-    )))
+    d = run(
+        service.create_deadline(
+            USER,
+            VehicleDeadlineIn(
+                vehicle_id=vehicle["id"],
+                type="revisione",
+                due_date="2026-12-01",
+            ),
+        )
+    )
     run(vservice.delete_vehicle(USER, vehicle["id"]))
     assert repo.docs[d["id"]]["vehicle_plate"] == "ZZ111AA"
 
 
 # ---------- vehicle_cost_service (+ sync su Spese) ----------
 
+
 def build_cost_service(vehicle_repo, expense_repo=None):
     repo = FakeDetailRepo()
     expenses = expense_repo if expense_repo is not None else FakeExpenseRepo()
-    return VehicleCostService(repo=repo, vehicles=vehicle_repo, expenses=expenses), repo, expenses
+    return (
+        VehicleCostService(repo=repo, vehicles=vehicle_repo, expenses=expenses),
+        repo,
+        expenses,
+    )
 
 
 def test_create_cost_denormalizza_la_targa_e_salva_importo():
     vservice, vrepo = build_vehicle_service()
     vehicle = run(vservice.create_vehicle(USER, make_vehicle("CO123ST")))
     service, repo, expenses = build_cost_service(vrepo)
-    c = run(service.create_cost(USER, VehicleCostIn(
-        vehicle_id=vehicle["id"], category="carburante", amount=45.5, date="2026-08-01",
-    )))
+    c = run(
+        service.create_cost(
+            USER,
+            VehicleCostIn(
+                vehicle_id=vehicle["id"],
+                category="carburante",
+                amount=45.5,
+                date="2026-08-01",
+            ),
+        )
+    )
     assert c["vehicle_plate"] == "CO123ST"
     assert c["amount"] == 45.5
 
@@ -381,25 +472,46 @@ def test_create_cost_rifiuta_mezzo_inesistente():
     vservice, vrepo = build_vehicle_service()
     service, repo, expenses = build_cost_service(vrepo)
     with pytest.raises(ValidationAppError):
-        run(service.create_cost(USER, VehicleCostIn(
-            vehicle_id="non-esiste", category="manutenzione", amount=100, date="2026-08-01",
-        )))
+        run(
+            service.create_cost(
+                USER,
+                VehicleCostIn(
+                    vehicle_id="non-esiste",
+                    category="manutenzione",
+                    amount=100,
+                    date="2026-08-01",
+                ),
+            )
+        )
 
 
 def test_vehicle_cost_in_rifiuta_importo_non_positivo():
     with pytest.raises(ValidationError):
-        VehicleCostIn(vehicle_id="qualsiasi", category="carburante", amount=0, date="2026-08-01")
+        VehicleCostIn(
+            vehicle_id="qualsiasi", category="carburante", amount=0, date="2026-08-01"
+        )
     with pytest.raises(ValidationError):
-        VehicleCostIn(vehicle_id="qualsiasi", category="carburante", amount=-10, date="2026-08-01")
+        VehicleCostIn(
+            vehicle_id="qualsiasi", category="carburante", amount=-10, date="2026-08-01"
+        )
 
 
 def test_create_cost_genera_una_spesa_collegata():
     vservice, vrepo = build_vehicle_service()
     vehicle = run(vservice.create_vehicle(USER, make_vehicle("CO123ST")))
     service, repo, expenses = build_cost_service(vrepo)
-    c = run(service.create_cost(USER, VehicleCostIn(
-        vehicle_id=vehicle["id"], category="carburante", amount=45.5, date="2026-08-01", description="Pieno diesel",
-    )))
+    c = run(
+        service.create_cost(
+            USER,
+            VehicleCostIn(
+                vehicle_id=vehicle["id"],
+                category="carburante",
+                amount=45.5,
+                date="2026-08-01",
+                description="Pieno diesel",
+            ),
+        )
+    )
     assert c["expense_id"] in expenses.docs
     expense = expenses.docs[c["expense_id"]]
     assert expense["source"] == "flotta"
@@ -413,9 +525,17 @@ def test_create_cost_categoria_non_carburante_mappa_su_altro():
     vservice, vrepo = build_vehicle_service()
     vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
     service, repo, expenses = build_cost_service(vrepo)
-    c = run(service.create_cost(USER, VehicleCostIn(
-        vehicle_id=vehicle["id"], category="manutenzione", amount=150, date="2026-08-01",
-    )))
+    c = run(
+        service.create_cost(
+            USER,
+            VehicleCostIn(
+                vehicle_id=vehicle["id"],
+                category="manutenzione",
+                amount=150,
+                date="2026-08-01",
+            ),
+        )
+    )
     assert expenses.docs[c["expense_id"]]["category"] == "altro"
 
 
@@ -423,12 +543,30 @@ def test_update_cost_sincronizza_la_spesa_collegata():
     vservice, vrepo = build_vehicle_service()
     vehicle = run(vservice.create_vehicle(USER, make_vehicle("CO123ST")))
     service, repo, expenses = build_cost_service(vrepo)
-    c = run(service.create_cost(USER, VehicleCostIn(
-        vehicle_id=vehicle["id"], category="carburante", amount=45.5, date="2026-08-01",
-    )))
-    run(service.update_cost(USER, c["id"], VehicleCostIn(
-        vehicle_id=vehicle["id"], category="manutenzione", amount=200, date="2026-08-02", description="Tagliando",
-    )))
+    c = run(
+        service.create_cost(
+            USER,
+            VehicleCostIn(
+                vehicle_id=vehicle["id"],
+                category="carburante",
+                amount=45.5,
+                date="2026-08-01",
+            ),
+        )
+    )
+    run(
+        service.update_cost(
+            USER,
+            c["id"],
+            VehicleCostIn(
+                vehicle_id=vehicle["id"],
+                category="manutenzione",
+                amount=200,
+                date="2026-08-02",
+                description="Tagliando",
+            ),
+        )
+    )
     expense = expenses.docs[c["expense_id"]]
     assert expense["amount"] == 200
     assert expense["date"] == "2026-08-02"
@@ -440,9 +578,17 @@ def test_delete_cost_elimina_anche_la_spesa_collegata():
     vservice, vrepo = build_vehicle_service()
     vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
     service, repo, expenses = build_cost_service(vrepo)
-    c = run(service.create_cost(USER, VehicleCostIn(
-        vehicle_id=vehicle["id"], category="carburante", amount=45.5, date="2026-08-01",
-    )))
+    c = run(
+        service.create_cost(
+            USER,
+            VehicleCostIn(
+                vehicle_id=vehicle["id"],
+                category="carburante",
+                amount=45.5,
+                date="2026-08-01",
+            ),
+        )
+    )
     expense_id = c["expense_id"]
     run(service.delete_cost(USER, c["id"]))
     assert c["id"] not in repo.docs
@@ -459,12 +605,21 @@ def test_create_cost_rollback_spesa_se_insert_costo_fallisce():
 
     async def failing_insert(doc):
         raise RuntimeError("scrittura del costo fallita")
+
     repo.insert = failing_insert
 
     with pytest.raises(RuntimeError):
-        run(service.create_cost(USER, VehicleCostIn(
-            vehicle_id=vehicle["id"], category="carburante", amount=45.5, date="2026-08-01",
-        )))
+        run(
+            service.create_cost(
+                USER,
+                VehicleCostIn(
+                    vehicle_id=vehicle["id"],
+                    category="carburante",
+                    amount=45.5,
+                    date="2026-08-01",
+                ),
+            )
+        )
     assert expenses.docs == {}
 
 
@@ -472,13 +627,25 @@ def test_expense_service_rifiuta_modifica_di_una_spesa_generata_da_flotta():
     vservice, vrepo = build_vehicle_service()
     vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
     cost_service, cost_repo, expenses = build_cost_service(vrepo)
-    c = run(cost_service.create_cost(USER, VehicleCostIn(
-        vehicle_id=vehicle["id"], category="carburante", amount=45.5, date="2026-08-01",
-    )))
+    c = run(
+        cost_service.create_cost(
+            USER,
+            VehicleCostIn(
+                vehicle_id=vehicle["id"],
+                category="carburante",
+                amount=45.5,
+                date="2026-08-01",
+            ),
+        )
+    )
 
     expense_service = ExpenseService(repo=expenses)
     with pytest.raises(ValidationAppError):
-        run(expense_service.update_expense(USER, c["expense_id"], ExpenseIn(date="2026-08-05", amount=999)))
+        run(
+            expense_service.update_expense(
+                USER, c["expense_id"], ExpenseIn(date="2026-08-05", amount=999)
+            )
+        )
     with pytest.raises(ValidationAppError):
         run(expense_service.delete_expense(USER, c["expense_id"]))
     # In entrambi i casi la spesa non deve essere stata toccata.
@@ -488,18 +655,29 @@ def test_expense_service_rifiuta_modifica_di_una_spesa_generata_da_flotta():
 def test_expense_service_permette_modifica_di_una_spesa_normale():
     expenses = FakeExpenseRepo()
     expense_service = ExpenseService(repo=expenses)
-    doc = run(expense_service.create_expense(USER, ExpenseIn(date="2026-08-01", amount=30, category="vitto")))
-    run(expense_service.update_expense(USER, doc["id"], ExpenseIn(date="2026-08-01", amount=35, category="vitto")))
+    doc = run(
+        expense_service.create_expense(
+            USER, ExpenseIn(date="2026-08-01", amount=30, category="vitto")
+        )
+    )
+    run(
+        expense_service.update_expense(
+            USER, doc["id"], ExpenseIn(date="2026-08-01", amount=35, category="vitto")
+        )
+    )
     assert expenses.docs[doc["id"]]["amount"] == 35
 
 
 # ---------- cargo_load_service ----------
 
+
 def build_cargo_service(vehicle_repo, clients=None, orders=None):
     repo = FakeDetailRepo()
     service = CargoLoadService(
-        repo=repo, vehicles=vehicle_repo,
-        clients=clients or FakeRefRepo(), orders=orders or FakeRefRepo(),
+        repo=repo,
+        vehicles=vehicle_repo,
+        clients=clients or FakeRefRepo(),
+        orders=orders or FakeRefRepo(),
     )
     return service, repo
 
@@ -508,10 +686,17 @@ def test_create_load_denormalizza_la_targa():
     vservice, vrepo = build_vehicle_service()
     vehicle = run(vservice.create_vehicle(USER, make_vehicle("LO456AD")))
     service, repo = build_cargo_service(vrepo)
-    load = run(service.create_load(USER, CargoLoadIn(
-        vehicle_id=vehicle["id"], date="2026-08-05", description="Pallet materiali edili",
-        destination="Cantiere Milano Nord",
-    )))
+    load = run(
+        service.create_load(
+            USER,
+            CargoLoadIn(
+                vehicle_id=vehicle["id"],
+                date="2026-08-05",
+                description="Pallet materiali edili",
+                destination="Cantiere Milano Nord",
+            ),
+        )
+    )
     assert load["vehicle_plate"] == "LO456AD"
     assert load["destination"] == "Cantiere Milano Nord"
     assert load["status"] == "programmato"
@@ -522,9 +707,16 @@ def test_create_load_rifiuta_mezzo_di_un_altro_utente():
     vehicle = run(vservice.create_vehicle(ALTRO_USER, make_vehicle()))
     service, repo = build_cargo_service(vrepo)
     with pytest.raises(ValidationAppError):
-        run(service.create_load(USER, CargoLoadIn(
-            vehicle_id=vehicle["id"], date="2026-08-05", description="Carico test",
-        )))
+        run(
+            service.create_load(
+                USER,
+                CargoLoadIn(
+                    vehicle_id=vehicle["id"],
+                    date="2026-08-05",
+                    description="Carico test",
+                ),
+            )
+        )
 
 
 def test_update_load_rifiuta_carico_di_un_altro_utente():
@@ -535,13 +727,28 @@ def test_update_load_rifiuta_carico_di_un_altro_utente():
     vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
     altro_vehicle = run(vservice.create_vehicle(ALTRO_USER, make_vehicle("AL999TR")))
     service, repo = build_cargo_service(vrepo)
-    load = run(service.create_load(USER, CargoLoadIn(
-        vehicle_id=vehicle["id"], date="2026-08-05", description="Carico originale",
-    )))
+    load = run(
+        service.create_load(
+            USER,
+            CargoLoadIn(
+                vehicle_id=vehicle["id"],
+                date="2026-08-05",
+                description="Carico originale",
+            ),
+        )
+    )
     with pytest.raises(NotFoundError):
-        run(service.update_load(ALTRO_USER, load["id"], CargoLoadIn(
-            vehicle_id=altro_vehicle["id"], date="2026-08-06", description="Modificato",
-        )))
+        run(
+            service.update_load(
+                ALTRO_USER,
+                load["id"],
+                CargoLoadIn(
+                    vehicle_id=altro_vehicle["id"],
+                    date="2026-08-06",
+                    description="Modificato",
+                ),
+            )
+        )
 
 
 def test_create_load_accetta_cliente_e_ordine_facoltativi_validi():
@@ -550,10 +757,21 @@ def test_create_load_accetta_cliente_e_ordine_facoltativi_validi():
     clients = FakeRefRepo([{"id": "client-1", "user_id": USER["id"]}])
     orders = FakeRefRepo([{"id": "order-1", "user_id": USER["id"]}])
     service, repo = build_cargo_service(vrepo, clients=clients, orders=orders)
-    load = run(service.create_load(USER, CargoLoadIn(
-        vehicle_id=vehicle["id"], date="2026-08-05", description="Pallet",
-        client_id="client-1", order_id="order-1", quantity=10, colli=3, peso=250.5,
-    )))
+    load = run(
+        service.create_load(
+            USER,
+            CargoLoadIn(
+                vehicle_id=vehicle["id"],
+                date="2026-08-05",
+                description="Pallet",
+                client_id="client-1",
+                order_id="order-1",
+                quantity=10,
+                colli=3,
+                peso=250.5,
+            ),
+        )
+    )
     assert load["client_id"] == "client-1"
     assert load["order_id"] == "order-1"
     assert load["quantity"] == 10
@@ -567,9 +785,17 @@ def test_create_load_rifiuta_cliente_di_un_altro_utente():
     clients = FakeRefRepo([{"id": "client-1", "user_id": ALTRO_USER["id"]}])
     service, repo = build_cargo_service(vrepo, clients=clients)
     with pytest.raises(ValidationAppError):
-        run(service.create_load(USER, CargoLoadIn(
-            vehicle_id=vehicle["id"], date="2026-08-05", description="Pallet", client_id="client-1",
-        )))
+        run(
+            service.create_load(
+                USER,
+                CargoLoadIn(
+                    vehicle_id=vehicle["id"],
+                    date="2026-08-05",
+                    description="Pallet",
+                    client_id="client-1",
+                ),
+            )
+        )
 
 
 def test_create_load_senza_cliente_o_ordine_e_comunque_valido():
@@ -578,9 +804,16 @@ def test_create_load_senza_cliente_o_ordine_e_comunque_valido():
     vservice, vrepo = build_vehicle_service()
     vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
     service, repo = build_cargo_service(vrepo)
-    load = run(service.create_load(USER, CargoLoadIn(
-        vehicle_id=vehicle["id"], date="2026-08-05", description="Pallet",
-    )))
+    load = run(
+        service.create_load(
+            USER,
+            CargoLoadIn(
+                vehicle_id=vehicle["id"],
+                date="2026-08-05",
+                description="Pallet",
+            ),
+        )
+    )
     assert load["client_id"] is None
     assert load["order_id"] is None
 
@@ -589,9 +822,16 @@ def test_sign_load_registra_la_firma_e_segna_consegnato():
     vservice, vrepo = build_vehicle_service()
     vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
     service, repo = build_cargo_service(vrepo)
-    load = run(service.create_load(USER, CargoLoadIn(
-        vehicle_id=vehicle["id"], date="2026-08-05", description="Pallet",
-    )))
+    load = run(
+        service.create_load(
+            USER,
+            CargoLoadIn(
+                vehicle_id=vehicle["id"],
+                date="2026-08-05",
+                description="Pallet",
+            ),
+        )
+    )
     run(service.sign_load(USER, load["id"], "data:image/png;base64,xyz", "Mario Rossi"))
     signed = repo.docs[load["id"]]
     assert signed["status"] == "consegnato"
@@ -604,10 +844,15 @@ def test_sign_load_rifiuta_carico_inesistente():
     vservice, vrepo = build_vehicle_service()
     service, repo = build_cargo_service(vrepo)
     with pytest.raises(NotFoundError):
-        run(service.sign_load(USER, "non-esiste", "data:image/png;base64,xyz", "Mario Rossi"))
+        run(
+            service.sign_load(
+                USER, "non-esiste", "data:image/png;base64,xyz", "Mario Rossi"
+            )
+        )
 
 
 # ---------- vehicle_service <-> Personale (assigned_employee_id) ----------
+
 
 def test_create_vehicle_accetta_dipendente_assegnato_valido():
     employees = FakeRefRepo([{"id": "emp-1", "user_id": USER["id"]}])
@@ -632,7 +877,11 @@ def test_create_vehicle_senza_dipendente_assegnato_e_valido():
 def test_find_assigned_restituisce_il_mezzo_del_dipendente():
     employees = FakeRefRepo([{"id": "emp-1", "user_id": USER["id"]}])
     service, repo = build_vehicle_service(employees=employees)
-    run(service.create_vehicle(USER, make_vehicle("AB123CD", assigned_employee_id="emp-1")))
+    run(
+        service.create_vehicle(
+            USER, make_vehicle("AB123CD", assigned_employee_id="emp-1")
+        )
+    )
     run(service.create_vehicle(USER, make_vehicle("XY999ZZ")))
 
     found = run(service.find_assigned(USER, "emp-1"))
@@ -651,7 +900,11 @@ def test_find_assigned_restituisce_none_se_modulo_flotta_disattivato():
     # continuerebbe a mostrare il mezzo assegnato in precedenza.
     employees = FakeRefRepo([{"id": "emp-1", "user_id": USER["id"]}])
     service, repo = build_vehicle_service(employees=employees)
-    run(service.create_vehicle(USER, make_vehicle("AB123CD", assigned_employee_id="emp-1")))
+    run(
+        service.create_vehicle(
+            USER, make_vehicle("AB123CD", assigned_employee_id="emp-1")
+        )
+    )
 
     user_senza_flotta = {**USER, "enabled_extra_modules": []}
     assert run(service.find_assigned(user_senza_flotta, "emp-1")) is None
@@ -659,13 +912,35 @@ def test_find_assigned_restituisce_none_se_modulo_flotta_disattivato():
 
 # ---------- vehicle_deadline_service.next_deadline ----------
 
+
 def test_next_deadline_restituisce_la_piu_vicina_dello_stesso_tipo():
     vservice, vrepo = build_vehicle_service()
     vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
     service, repo = build_deadline_service(vrepo)
-    run(service.create_deadline(USER, VehicleDeadlineIn(vehicle_id=vehicle["id"], type="revisione", due_date="2026-12-01")))
-    run(service.create_deadline(USER, VehicleDeadlineIn(vehicle_id=vehicle["id"], type="revisione", due_date="2026-10-01")))
-    run(service.create_deadline(USER, VehicleDeadlineIn(vehicle_id=vehicle["id"], type="bollo", due_date="2026-09-01")))
+    run(
+        service.create_deadline(
+            USER,
+            VehicleDeadlineIn(
+                vehicle_id=vehicle["id"], type="revisione", due_date="2026-12-01"
+            ),
+        )
+    )
+    run(
+        service.create_deadline(
+            USER,
+            VehicleDeadlineIn(
+                vehicle_id=vehicle["id"], type="revisione", due_date="2026-10-01"
+            ),
+        )
+    )
+    run(
+        service.create_deadline(
+            USER,
+            VehicleDeadlineIn(
+                vehicle_id=vehicle["id"], type="bollo", due_date="2026-09-01"
+            ),
+        )
+    )
 
     next_rev = run(service.next_deadline(USER, vehicle["id"], "revisione"))
     assert next_rev["due_date"] == "2026-10-01"
@@ -679,45 +954,91 @@ def test_next_deadline_restituisce_none_se_nessuna_scadenza_di_quel_tipo():
 
 
 def test_next_deadline_esclude_le_scadenze_gia_passate(monkeypatch):
-    import services.vehicle_deadline_service as vehicle_deadline_mod
     from datetime import datetime
     from zoneinfo import ZoneInfo
-    monkeypatch.setattr(vehicle_deadline_mod, "now_local", lambda: datetime(2026, 6, 15, tzinfo=ZoneInfo("Europe/Rome")))
+
+    import services.vehicle_deadline_service as vehicle_deadline_mod
+
+    monkeypatch.setattr(
+        vehicle_deadline_mod,
+        "now_local",
+        lambda: datetime(2026, 6, 15, tzinfo=ZoneInfo("Europe/Rome")),
+    )
 
     vservice, vrepo = build_vehicle_service()
     vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
     service, repo = build_deadline_service(vrepo)
-    run(service.create_deadline(USER, VehicleDeadlineIn(vehicle_id=vehicle["id"], type="revisione", due_date="2026-02-01")))
-    run(service.create_deadline(USER, VehicleDeadlineIn(vehicle_id=vehicle["id"], type="revisione", due_date="2026-12-01")))
+    run(
+        service.create_deadline(
+            USER,
+            VehicleDeadlineIn(
+                vehicle_id=vehicle["id"], type="revisione", due_date="2026-02-01"
+            ),
+        )
+    )
+    run(
+        service.create_deadline(
+            USER,
+            VehicleDeadlineIn(
+                vehicle_id=vehicle["id"], type="revisione", due_date="2026-12-01"
+            ),
+        )
+    )
 
     next_rev = run(service.next_deadline(USER, vehicle["id"], "revisione"))
     assert next_rev["due_date"] == "2026-12-01"
 
 
 def test_next_deadline_restituisce_none_se_tutte_le_scadenze_sono_passate(monkeypatch):
-    import services.vehicle_deadline_service as vehicle_deadline_mod
     from datetime import datetime
     from zoneinfo import ZoneInfo
-    monkeypatch.setattr(vehicle_deadline_mod, "now_local", lambda: datetime(2026, 6, 15, tzinfo=ZoneInfo("Europe/Rome")))
+
+    import services.vehicle_deadline_service as vehicle_deadline_mod
+
+    monkeypatch.setattr(
+        vehicle_deadline_mod,
+        "now_local",
+        lambda: datetime(2026, 6, 15, tzinfo=ZoneInfo("Europe/Rome")),
+    )
 
     vservice, vrepo = build_vehicle_service()
     vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
     service, repo = build_deadline_service(vrepo)
-    run(service.create_deadline(USER, VehicleDeadlineIn(vehicle_id=vehicle["id"], type="revisione", due_date="2026-02-01")))
+    run(
+        service.create_deadline(
+            USER,
+            VehicleDeadlineIn(
+                vehicle_id=vehicle["id"], type="revisione", due_date="2026-02-01"
+            ),
+        )
+    )
 
     assert run(service.next_deadline(USER, vehicle["id"], "revisione")) is None
 
 
 def test_next_deadline_include_la_scadenza_di_oggi(monkeypatch):
-    import services.vehicle_deadline_service as vehicle_deadline_mod
     from datetime import datetime
     from zoneinfo import ZoneInfo
-    monkeypatch.setattr(vehicle_deadline_mod, "now_local", lambda: datetime(2026, 6, 15, tzinfo=ZoneInfo("Europe/Rome")))
+
+    import services.vehicle_deadline_service as vehicle_deadline_mod
+
+    monkeypatch.setattr(
+        vehicle_deadline_mod,
+        "now_local",
+        lambda: datetime(2026, 6, 15, tzinfo=ZoneInfo("Europe/Rome")),
+    )
 
     vservice, vrepo = build_vehicle_service()
     vehicle = run(vservice.create_vehicle(USER, make_vehicle()))
     service, repo = build_deadline_service(vrepo)
-    run(service.create_deadline(USER, VehicleDeadlineIn(vehicle_id=vehicle["id"], type="revisione", due_date="2026-06-15")))
+    run(
+        service.create_deadline(
+            USER,
+            VehicleDeadlineIn(
+                vehicle_id=vehicle["id"], type="revisione", due_date="2026-06-15"
+            ),
+        )
+    )
 
     next_rev = run(service.next_deadline(USER, vehicle["id"], "revisione"))
     assert next_rev["due_date"] == "2026-06-15"

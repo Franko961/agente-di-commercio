@@ -1,12 +1,14 @@
 from core.exceptions import NotFoundError
-from models.order import OrderIn, ORDER_STATUSES, PAYMENT_STATUSES
-from services.ai_service.catalog import _safe_float
+from models.order import ORDER_STATUSES, PAYMENT_STATUSES, OrderIn
 from services.ai_service.actions._shared import resolve_line_items
+from services.ai_service.catalog import _safe_float
 from services.commission_service import calc_offer_total, get_commission_rate
 from services.order_service import order_service
 
 
-async def prepare_add_order(client_repo, mandante_repo, product_repo, tool_input: dict, user_id: str) -> dict:
+async def prepare_add_order(
+    client_repo, mandante_repo, product_repo, tool_input: dict, user_id: str
+) -> dict:
     """Risolve nomi cliente/mandante/prodotti e calcola il totale, SENZA
     scrivere nulla sul DB. Usato per mostrare la scheda di conferma prima
     di registrare un ordine (a differenza di un'offerta, un ordine è già
@@ -22,11 +24,15 @@ async def prepare_add_order(client_repo, mandante_repo, product_repo, tool_input
     if not mand:
         return {"error": f"Mandante '{mandante_name}' non trovato nel CRM."}
 
-    items = await resolve_line_items(product_repo, tool_input, user_id, mand["id"], f"Ordine {cli['company_name']}")
+    items = await resolve_line_items(
+        product_repo, tool_input, user_id, mand["id"], f"Ordine {cli['company_name']}"
+    )
 
     total = calc_offer_total(items)
     if total <= 0:
-        return {"error": "L'importo dell'ordine deve essere maggiore di zero. Specifica un importo o dei prezzi validi."}
+        return {
+            "error": "L'importo dell'ordine deve essere maggiore di zero. Specifica un importo o dei prezzi validi."
+        }
 
     sale_type = tool_input.get("sale_type", "nuovo")
     if sale_type not in ("nuovo", "rinnovo"):
@@ -50,10 +56,16 @@ async def prepare_add_order(client_repo, mandante_repo, product_repo, tool_input
             "payment_status": payment_status,
         },
         "resolved_input": {
-            "client_id": cli["id"], "client_name": cli["company_name"],
-            "mandante_id": mand["id"], "mandante_name": mand["name"],
-            "items": items, "amount": total, "sale_type": sale_type,
-            "status": status, "payment_status": payment_status, "notes": notes,
+            "client_id": cli["id"],
+            "client_name": cli["company_name"],
+            "mandante_id": mand["id"],
+            "mandante_name": mand["name"],
+            "items": items,
+            "amount": total,
+            "sale_type": sale_type,
+            "status": status,
+            "payment_status": payment_status,
+            "notes": notes,
         },
     }
 
@@ -79,8 +91,18 @@ async def finalize_add_order(mandante_repo, user_id: str, resolved: dict) -> str
     client_name = resolved.get("client_name", "")
     if amount is not None and amount != "":
         amount_f = _safe_float(amount, None)
-        if amount_f is not None and (not items or round(calc_offer_total(items), 2) != round(amount_f, 2)):
-            items = [{"product_id": None, "description": f"Ordine {client_name}", "quantity": 1, "unit_price": amount_f, "discount": 0}]
+        if amount_f is not None and (
+            not items or round(calc_offer_total(items), 2) != round(amount_f, 2)
+        ):
+            items = [
+                {
+                    "product_id": None,
+                    "description": f"Ordine {client_name}",
+                    "quantity": 1,
+                    "unit_price": amount_f,
+                    "discount": 0,
+                }
+            ]
 
     total = calc_offer_total(items)
     if total <= 0:
@@ -102,15 +124,19 @@ async def finalize_add_order(mandante_repo, user_id: str, resolved: dict) -> str
 
     try:
         order_in = OrderIn(
-            client_id=resolved["client_id"], mandante_id=resolved["mandante_id"],
-            items=items, sale_type=sale_type, notes=resolved.get("notes", ""),
-            status=status, payment_status=payment_status,
+            client_id=resolved["client_id"],
+            mandante_id=resolved["mandante_id"],
+            items=items,
+            sale_type=sale_type,
+            notes=resolved.get("notes", ""),
+            status=status,
+            payment_status=payment_status,
         )
         order = await order_service.create_order({"id": user_id}, order_in)
     except NotFoundError:
         return "❌ Cliente o mandante non più trovati nel CRM."
 
-    msg = f"✅ Ordine {order.get('numero_ordine','')} registrato: {client_name} - {mand['name']} - €{total:.2f} ({sale_type}), stato: {status}."
+    msg = f"✅ Ordine {order.get('numero_ordine', '')} registrato: {client_name} - {mand['name']} - €{total:.2f} ({sale_type}), stato: {status}."
     if status not in ("annullato", "reso"):
         rate = get_commission_rate(mand, sale_type)
         comm_amount = round(total * rate / 100, 2)

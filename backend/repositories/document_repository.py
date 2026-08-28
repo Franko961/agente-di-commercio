@@ -1,17 +1,24 @@
+from typing import Optional
+
 from core.database import db
 from core.utils import now_iso
-from typing import Optional
 
 
 class DocumentRepository:
     collection = db.documents
 
     async def find_many(self, user_id: str) -> list:
-        return await self.collection.find(
-            {"user_id": user_id, "is_deleted": {"$ne": True}}, {"_id": 0}
-        ).sort("created_at", -1).to_list(2000)
+        return (
+            await self.collection.find(
+                {"user_id": user_id, "is_deleted": {"$ne": True}}, {"_id": 0}
+            )
+            .sort("created_at", -1)
+            .to_list(2000)
+        )
 
-    async def find_one(self, did: str, user_id: str, include_deleted: bool = False) -> Optional[dict]:
+    async def find_one(
+        self, did: str, user_id: str, include_deleted: bool = False
+    ) -> Optional[dict]:
         query = {"id": did, "user_id": user_id}
         if not include_deleted:
             query["is_deleted"] = {"$ne": True}

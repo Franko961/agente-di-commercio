@@ -1,6 +1,8 @@
 from typing import Optional
+
 from pydantic import BaseModel, Field
-from core.validation_limits import SHORT_TEXT_MAX_LENGTH, LONG_TEXT_MAX_LENGTH
+
+from core.validation_limits import LONG_TEXT_MAX_LENGTH, SHORT_TEXT_MAX_LENGTH
 
 
 class EmailLogIn(BaseModel):

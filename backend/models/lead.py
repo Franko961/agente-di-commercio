@@ -1,6 +1,12 @@
-from pydantic import BaseModel, Field
 from typing import Literal, Optional
-from core.validation_limits import SHORT_TEXT_MAX_LENGTH, LONG_TEXT_MAX_LENGTH, MAX_MONETARY_TARGET
+
+from pydantic import BaseModel, Field
+
+from core.validation_limits import (
+    LONG_TEXT_MAX_LENGTH,
+    MAX_MONETARY_TARGET,
+    SHORT_TEXT_MAX_LENGTH,
+)
 
 LEAD_STATUSES = ["nuovo", "contattato", "qualificato", "trattativa", "vinto", "perso"]
 
@@ -35,4 +41,5 @@ class LeadContactIn(BaseModel):
     incontro) — a differenza di una modifica qualunque dei suoi dati,
     questo è il segnale esplicito che serve per non considerarlo più
     'inattivo' nelle automazioni."""
+
     note: Optional[str] = ""

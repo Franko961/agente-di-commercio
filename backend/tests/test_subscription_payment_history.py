@@ -18,8 +18,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_subscription_payment_history.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 sys.path.insert(0, ".")
 
@@ -73,18 +74,29 @@ def _install_fake_stripe(monkeypatch, invoices):
         def list(customer=None, limit=None):
             return {"data": invoices}
 
-    fake_stripe_module = type("FakeStripe", (), {"api_key": None, "Invoice": FakeStripeInvoice})
+    fake_stripe_module = type(
+        "FakeStripe", (), {"api_key": None, "Invoice": FakeStripeInvoice}
+    )
     monkeypatch.setitem(sys.modules, "stripe", fake_stripe_module)
 
 
 # ---------- Stripe ----------
 
+
 def test_storico_stripe_normalizza_le_fatture(monkeypatch):
     monkeypatch.setattr(subscription_mod, "STRIPE_SECRET_KEY", "sk_test_fake")
-    _install_fake_stripe(monkeypatch, [
-        {"created": 1750000000, "amount_paid": 1100, "currency": "eur", "status": "paid",
-         "hosted_invoice_url": "https://stripe.example/inv1"},
-    ])
+    _install_fake_stripe(
+        monkeypatch,
+        [
+            {
+                "created": 1750000000,
+                "amount_paid": 1100,
+                "currency": "eur",
+                "status": "paid",
+                "hosted_invoice_url": "https://stripe.example/inv1",
+            },
+        ],
+    )
 
     user = {"id": "user-1"}
     repo = FakeUserRepo({"user-1": {"id": "user-1", "stripe_customer_id": "cus_123"}})
@@ -111,7 +123,9 @@ def test_storico_senza_stripe_customer_id_non_chiama_stripe(monkeypatch):
             calls.append(customer)
             return {"data": []}
 
-    fake_stripe_module = type("FakeStripe", (), {"api_key": None, "Invoice": FakeStripeInvoice})
+    fake_stripe_module = type(
+        "FakeStripe", (), {"api_key": None, "Invoice": FakeStripeInvoice}
+    )
     monkeypatch.setitem(sys.modules, "stripe", fake_stripe_module)
 
     user = {"id": "user-1"}
@@ -126,19 +140,29 @@ def test_storico_senza_stripe_customer_id_non_chiama_stripe(monkeypatch):
 
 # ---------- PayPal ----------
 
+
 def test_storico_paypal_normalizza_le_transazioni(monkeypatch):
     monkeypatch.setattr(subscription_mod, "STRIPE_SECRET_KEY", "")
     monkeypatch.setattr(subscription_mod, "PAYPAL_CLIENT_ID", "cid")
     monkeypatch.setattr(subscription_mod, "PAYPAL_CLIENT_SECRET", "secret")
 
-    fake_requests = FakeRequestsPayPal([
-        {"time": "2026-06-01T10:00:00Z", "status": "COMPLETED",
-         "amount_with_breakdown": {"gross_amount": {"value": "6.00", "currency_code": "EUR"}}},
-    ])
+    fake_requests = FakeRequestsPayPal(
+        [
+            {
+                "time": "2026-06-01T10:00:00Z",
+                "status": "COMPLETED",
+                "amount_with_breakdown": {
+                    "gross_amount": {"value": "6.00", "currency_code": "EUR"}
+                },
+            },
+        ]
+    )
     monkeypatch.setattr(subscription_mod, "requests", fake_requests)
 
     user = {"id": "user-2"}
-    repo = FakeUserRepo({"user-2": {"id": "user-2", "paypal_subscription_id": "I-FAKE123"}})
+    repo = FakeUserRepo(
+        {"user-2": {"id": "user-2", "paypal_subscription_id": "I-FAKE123"}}
+    )
     service = SubscriptionService(repo=repo)
 
     result = run(service.get_payment_history(user))
@@ -159,25 +183,47 @@ def test_storico_paypal_normalizza_le_transazioni(monkeypatch):
 
 # ---------- Combinato / resilienza ----------
 
+
 def test_storico_combina_e_ordina_dal_piu_recente(monkeypatch):
     monkeypatch.setattr(subscription_mod, "STRIPE_SECRET_KEY", "sk_test_fake")
     monkeypatch.setattr(subscription_mod, "PAYPAL_CLIENT_ID", "cid")
     monkeypatch.setattr(subscription_mod, "PAYPAL_CLIENT_SECRET", "secret")
 
-    _install_fake_stripe(monkeypatch, [
-        {"created": 1700000000, "amount_paid": 600, "currency": "eur", "status": "paid",
-         "hosted_invoice_url": None},
-    ])
-    fake_requests = FakeRequestsPayPal([
-        {"time": "2026-06-01T10:00:00Z", "status": "COMPLETED",
-         "amount_with_breakdown": {"gross_amount": {"value": "6.00", "currency_code": "EUR"}}},
-    ])
+    _install_fake_stripe(
+        monkeypatch,
+        [
+            {
+                "created": 1700000000,
+                "amount_paid": 600,
+                "currency": "eur",
+                "status": "paid",
+                "hosted_invoice_url": None,
+            },
+        ],
+    )
+    fake_requests = FakeRequestsPayPal(
+        [
+            {
+                "time": "2026-06-01T10:00:00Z",
+                "status": "COMPLETED",
+                "amount_with_breakdown": {
+                    "gross_amount": {"value": "6.00", "currency_code": "EUR"}
+                },
+            },
+        ]
+    )
     monkeypatch.setattr(subscription_mod, "requests", fake_requests)
 
     user = {"id": "user-3"}
-    repo = FakeUserRepo({"user-3": {
-        "id": "user-3", "stripe_customer_id": "cus_1", "paypal_subscription_id": "I-FAKE1",
-    }})
+    repo = FakeUserRepo(
+        {
+            "user-3": {
+                "id": "user-3",
+                "stripe_customer_id": "cus_1",
+                "paypal_subscription_id": "I-FAKE1",
+            }
+        }
+    )
     service = SubscriptionService(repo=repo)
 
     result = run(service.get_payment_history(user))
@@ -198,19 +244,34 @@ def test_storico_stripe_fallisce_ma_paypal_resta_disponibile(monkeypatch):
         def list(customer=None, limit=None):
             raise Exception("Stripe non raggiungibile")
 
-    fake_stripe_module = type("FakeStripe", (), {"api_key": None, "Invoice": FailingStripeInvoice})
+    fake_stripe_module = type(
+        "FakeStripe", (), {"api_key": None, "Invoice": FailingStripeInvoice}
+    )
     monkeypatch.setitem(sys.modules, "stripe", fake_stripe_module)
 
-    fake_requests = FakeRequestsPayPal([
-        {"time": "2026-06-01T10:00:00Z", "status": "COMPLETED",
-         "amount_with_breakdown": {"gross_amount": {"value": "6.00", "currency_code": "EUR"}}},
-    ])
+    fake_requests = FakeRequestsPayPal(
+        [
+            {
+                "time": "2026-06-01T10:00:00Z",
+                "status": "COMPLETED",
+                "amount_with_breakdown": {
+                    "gross_amount": {"value": "6.00", "currency_code": "EUR"}
+                },
+            },
+        ]
+    )
     monkeypatch.setattr(subscription_mod, "requests", fake_requests)
 
     user = {"id": "user-4"}
-    repo = FakeUserRepo({"user-4": {
-        "id": "user-4", "stripe_customer_id": "cus_1", "paypal_subscription_id": "I-FAKE1",
-    }})
+    repo = FakeUserRepo(
+        {
+            "user-4": {
+                "id": "user-4",
+                "stripe_customer_id": "cus_1",
+                "paypal_subscription_id": "I-FAKE1",
+            }
+        }
+    )
     service = SubscriptionService(repo=repo)
 
     result = run(service.get_payment_history(user))

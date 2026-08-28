@@ -14,24 +14,24 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     ANTHROPIC_API_KEY=test python -m pytest tests/test_ai_message_quota.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 from fastapi import HTTPException
 
 sys.path.insert(0, ".")
 
+import services.ai_service.orchestrator as orchestrator_mod
+from core.config import PLANS
 from tests.test_ai_tool_forcing import (
+    Payload,
     build_service,
     install_fake_anthropic,
     make_message,
     make_text_block,
-    Payload,
 )
-from core.config import PLANS
-import services.ai_service as ai_service_mod
-import services.ai_service.orchestrator as orchestrator_mod
 
 
 def run(coro):
@@ -51,11 +51,20 @@ def test_utente_base_bloccato_al_limite():
 
 def test_utente_base_sotto_al_limite_passa():
     service, _ = build_service()
-    service.repo.message_count_this_month = PLANS["base"]["ai_monthly_message_limit"] - 1
+    service.repo.message_count_this_month = (
+        PLANS["base"]["ai_monthly_message_limit"] - 1
+    )
 
-    install_fake_anthropic({"responses": [
-        make_message([make_text_block("Ciao! Come posso aiutarti?")], stop_reason="end_turn"),
-    ]})
+    install_fake_anthropic(
+        {
+            "responses": [
+                make_message(
+                    [make_text_block("Ciao! Come posso aiutarti?")],
+                    stop_reason="end_turn",
+                ),
+            ]
+        }
+    )
 
     result = run(service.chat({"id": "user-1", "plan": "base"}, Payload("ciao")))
     assert result["response"] == "Ciao! Come posso aiutarti?"
@@ -67,9 +76,13 @@ def test_utente_pro_senza_limite():
     # comunque mai essere bloccato (ai_monthly_message_limit è None).
     service.repo.message_count_this_month = 100_000
 
-    install_fake_anthropic({"responses": [
-        make_message([make_text_block("Fatto.")], stop_reason="end_turn"),
-    ]})
+    install_fake_anthropic(
+        {
+            "responses": [
+                make_message([make_text_block("Fatto.")], stop_reason="end_turn"),
+            ]
+        }
+    )
 
     result = run(service.chat({"id": "user-1", "plan": "pro"}, Payload("ciao")))
     assert result["response"] == "Fatto."
@@ -79,11 +92,19 @@ def test_admin_non_soggetto_al_limite():
     service, _ = build_service()
     service.repo.message_count_this_month = 100_000
 
-    install_fake_anthropic({"responses": [
-        make_message([make_text_block("Fatto.")], stop_reason="end_turn"),
-    ]})
+    install_fake_anthropic(
+        {
+            "responses": [
+                make_message([make_text_block("Fatto.")], stop_reason="end_turn"),
+            ]
+        }
+    )
 
-    result = run(service.chat({"id": "admin-1", "plan": "base", "role": "admin"}, Payload("ciao")))
+    result = run(
+        service.chat(
+            {"id": "admin-1", "plan": "base", "role": "admin"}, Payload("ciao")
+        )
+    )
     assert result["response"] == "Fatto."
 
 
@@ -96,6 +117,7 @@ def test_troppe_richieste_ravvicinate_vengono_bloccate(monkeypatch):
 
     async def _deny_always(*a, **k):
         return False
+
     monkeypatch.setattr(orchestrator_mod, "check_and_record", _deny_always)
 
     with pytest.raises(HTTPException) as exc_info:

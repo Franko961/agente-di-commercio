@@ -11,8 +11,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_subscription_payment_failure_recovery.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 
@@ -21,7 +22,9 @@ sys.path.insert(0, ".")
 import services.subscription_service as subscription_mod
 from services.subscription_service import SubscriptionService
 from tests.test_subscription_cancel_grace_period import (
-    FakeUserRepo, FakeWebhookEventsCollection, FakeRequest,
+    FakeRequest,
+    FakeUserRepo,
+    FakeWebhookEventsCollection,
 )
 
 
@@ -53,6 +56,7 @@ class TrackingFakeUserRepo(FakeUserRepo):
 
 # ---------- Webhook Stripe: customer.subscription.updated ----------
 
+
 def _stripe_updated_event(sub_id: str, status: str) -> dict:
     return {
         "id": f"evt-{sub_id}-{status}",
@@ -64,14 +68,18 @@ def _stripe_updated_event(sub_id: str, status: str) -> dict:
 def _install_fake_stripe_webhook(monkeypatch, event: dict):
     monkeypatch.setattr(subscription_mod, "STRIPE_SECRET_KEY", "sk_test_fake")
     monkeypatch.setattr(subscription_mod, "STRIPE_WEBHOOK_SECRET", "whsec_fake")
-    monkeypatch.setattr(subscription_mod, "stripe_webhook_events", FakeWebhookEventsCollection())
+    monkeypatch.setattr(
+        subscription_mod, "stripe_webhook_events", FakeWebhookEventsCollection()
+    )
 
     class FakeWebhook:
         @staticmethod
         def construct_event(payload, sig, secret):
             return event
 
-    fake_stripe_module = type("FakeStripe", (), {"api_key": None, "Webhook": FakeWebhook})
+    fake_stripe_module = type(
+        "FakeStripe", (), {"api_key": None, "Webhook": FakeWebhook}
+    )
     monkeypatch.setitem(sys.modules, "stripe", fake_stripe_module)
 
 
@@ -82,12 +90,20 @@ def test_webhook_stripe_rinnovo_fallito_passa_a_past_due(monkeypatch):
     event = _stripe_updated_event("sub_1", "past_due")
     _install_fake_stripe_webhook(monkeypatch, event)
 
-    repo = FakeUserRepo({"user-1": {
-        "id": "user-1", "stripe_subscription_id": "sub_1", "subscription_status": "active",
-    }})
+    repo = FakeUserRepo(
+        {
+            "user-1": {
+                "id": "user-1",
+                "stripe_subscription_id": "sub_1",
+                "subscription_status": "active",
+            }
+        }
+    )
     service = SubscriptionService(repo=repo)
 
-    result = run(service.handle_stripe_webhook(FakeRequest(headers={"stripe-signature": "sig"})))
+    result = run(
+        service.handle_stripe_webhook(FakeRequest(headers={"stripe-signature": "sig"}))
+    )
 
     assert result == {"ok": True}
     assert repo.users_by_id["user-1"]["subscription_status"] == "past_due"
@@ -99,6 +115,7 @@ def test_webhook_stripe_rinnovo_fallito_blocca_davvero_laccesso(monkeypatch):
     lì: qualunque status diverso da 'active'/'trial' è già trattato come
     non attivo)."""
     from core.subscription_utils import is_subscription_active
+
     assert is_subscription_active({"subscription_status": "past_due"}) is False
 
 
@@ -109,9 +126,15 @@ def test_webhook_stripe_rinnovo_recuperato_torna_active(monkeypatch):
     event = _stripe_updated_event("sub_2", "active")
     _install_fake_stripe_webhook(monkeypatch, event)
 
-    repo = FakeUserRepo({"user-2": {
-        "id": "user-2", "stripe_subscription_id": "sub_2", "subscription_status": "past_due",
-    }})
+    repo = FakeUserRepo(
+        {
+            "user-2": {
+                "id": "user-2",
+                "stripe_subscription_id": "sub_2",
+                "subscription_status": "past_due",
+            }
+        }
+    )
     service = SubscriptionService(repo=repo)
 
     run(service.handle_stripe_webhook(FakeRequest(headers={"stripe-signature": "sig"})))
@@ -126,9 +149,15 @@ def test_webhook_stripe_updated_canceled_mappa_su_cancelled(monkeypatch):
     event = _stripe_updated_event("sub_3", "canceled")
     _install_fake_stripe_webhook(monkeypatch, event)
 
-    repo = FakeUserRepo({"user-3": {
-        "id": "user-3", "stripe_subscription_id": "sub_3", "subscription_status": "past_due",
-    }})
+    repo = FakeUserRepo(
+        {
+            "user-3": {
+                "id": "user-3",
+                "stripe_subscription_id": "sub_3",
+                "subscription_status": "past_due",
+            }
+        }
+    )
     service = SubscriptionService(repo=repo)
 
     run(service.handle_stripe_webhook(FakeRequest(headers={"stripe-signature": "sig"})))
@@ -138,14 +167,21 @@ def test_webhook_stripe_updated_canceled_mappa_su_cancelled(monkeypatch):
 
 def test_webhook_stripe_updated_senza_status_non_scrive_nulla(monkeypatch):
     event = {
-        "id": "evt-no-status", "type": "customer.subscription.updated",
+        "id": "evt-no-status",
+        "type": "customer.subscription.updated",
         "data": {"object": {"id": "sub_4"}},
     }
     _install_fake_stripe_webhook(monkeypatch, event)
 
-    repo = TrackingFakeUserRepo({"user-4": {
-        "id": "user-4", "stripe_subscription_id": "sub_4", "subscription_status": "active",
-    }})
+    repo = TrackingFakeUserRepo(
+        {
+            "user-4": {
+                "id": "user-4",
+                "stripe_subscription_id": "sub_4",
+                "subscription_status": "active",
+            }
+        }
+    )
     service = SubscriptionService(repo=repo)
 
     run(service.handle_stripe_webhook(FakeRequest(headers={"stripe-signature": "sig"})))
@@ -156,6 +192,7 @@ def test_webhook_stripe_updated_senza_status_non_scrive_nulla(monkeypatch):
 
 # ---------- Webhook PayPal: recupero da payment_failed ----------
 
+
 def _paypal_event(event_type: str, sub_id: str, event_id: str = "evt-p1") -> dict:
     return {"id": event_id, "event_type": event_type, "resource": {"id": sub_id}}
 
@@ -164,13 +201,23 @@ def test_webhook_paypal_pagamento_riuscito_dopo_fallito_riattiva(monkeypatch):
     """Il caso centrale del fix: prima PAYMENT.SALE.COMPLETED non faceva
     nulla, quindi un cliente rimasto 'payment_failed' restava bloccato
     anche dopo aver pagato con successo al tentativo successivo."""
-    monkeypatch.setattr(subscription_mod, "paypal_webhook_events", FakeWebhookEventsCollection())
+    monkeypatch.setattr(
+        subscription_mod, "paypal_webhook_events", FakeWebhookEventsCollection()
+    )
 
-    repo = FakeUserRepo({"user-5": {
-        "id": "user-5", "paypal_subscription_id": "I-FAIL-THEN-OK", "subscription_status": "payment_failed",
-    }})
+    repo = FakeUserRepo(
+        {
+            "user-5": {
+                "id": "user-5",
+                "paypal_subscription_id": "I-FAIL-THEN-OK",
+                "subscription_status": "payment_failed",
+            }
+        }
+    )
     service = SubscriptionService(repo=repo)
-    monkeypatch.setattr(service, "_verify_paypal_webhook_signature", _verify_signature_always_true)
+    monkeypatch.setattr(
+        service, "_verify_paypal_webhook_signature", _verify_signature_always_true
+    )
 
     event = _paypal_event("PAYMENT.SALE.COMPLETED", "I-FAIL-THEN-OK")
     result = run(service.handle_paypal_webhook(FakeRequest(json_data=event)))
@@ -179,17 +226,29 @@ def test_webhook_paypal_pagamento_riuscito_dopo_fallito_riattiva(monkeypatch):
     assert repo.users_by_id["user-5"]["subscription_status"] == "active"
 
 
-def test_webhook_paypal_pagamento_riuscito_su_abbonamento_gia_attivo_non_lo_tocca(monkeypatch):
+def test_webhook_paypal_pagamento_riuscito_su_abbonamento_gia_attivo_non_lo_tocca(
+    monkeypatch,
+):
     """Un PAYMENT.SALE.COMPLETED su un abbonamento già attivo (il normale
     rinnovo mensile che va a buon fine) non deve scrivere nulla di
     inutile: il ramo si attiva solo per un vero recupero da payment_failed."""
-    monkeypatch.setattr(subscription_mod, "paypal_webhook_events", FakeWebhookEventsCollection())
+    monkeypatch.setattr(
+        subscription_mod, "paypal_webhook_events", FakeWebhookEventsCollection()
+    )
 
-    repo = TrackingFakeUserRepo({"user-6": {
-        "id": "user-6", "paypal_subscription_id": "I-ALREADY-ACTIVE", "subscription_status": "active",
-    }})
+    repo = TrackingFakeUserRepo(
+        {
+            "user-6": {
+                "id": "user-6",
+                "paypal_subscription_id": "I-ALREADY-ACTIVE",
+                "subscription_status": "active",
+            }
+        }
+    )
     service = SubscriptionService(repo=repo)
-    monkeypatch.setattr(service, "_verify_paypal_webhook_signature", _verify_signature_always_true)
+    monkeypatch.setattr(
+        service, "_verify_paypal_webhook_signature", _verify_signature_always_true
+    )
 
     event = _paypal_event("PAYMENT.SALE.COMPLETED", "I-ALREADY-ACTIVE")
     run(service.handle_paypal_webhook(FakeRequest(json_data=event)))
@@ -202,13 +261,23 @@ def test_webhook_paypal_pagamento_riuscito_su_sospeso_non_lo_riattiva(monkeypatc
     """Un evento di pagamento riuscito non deve riattivare un abbonamento
     sospeso o cancellato per altri motivi — solo il caso specifico
     payment_failed -> active è un vero recupero."""
-    monkeypatch.setattr(subscription_mod, "paypal_webhook_events", FakeWebhookEventsCollection())
+    monkeypatch.setattr(
+        subscription_mod, "paypal_webhook_events", FakeWebhookEventsCollection()
+    )
 
-    repo = TrackingFakeUserRepo({"user-7": {
-        "id": "user-7", "paypal_subscription_id": "I-SUSPENDED", "subscription_status": "suspended",
-    }})
+    repo = TrackingFakeUserRepo(
+        {
+            "user-7": {
+                "id": "user-7",
+                "paypal_subscription_id": "I-SUSPENDED",
+                "subscription_status": "suspended",
+            }
+        }
+    )
     service = SubscriptionService(repo=repo)
-    monkeypatch.setattr(service, "_verify_paypal_webhook_signature", _verify_signature_always_true)
+    monkeypatch.setattr(
+        service, "_verify_paypal_webhook_signature", _verify_signature_always_true
+    )
 
     event = _paypal_event("PAYMENT.SALE.COMPLETED", "I-SUSPENDED")
     run(service.handle_paypal_webhook(FakeRequest(json_data=event)))

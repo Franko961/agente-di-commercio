@@ -12,20 +12,21 @@ Il token generato deve:
 Puramente logico, nessuna dipendenza da DB/rete: esegui con
     JWT_SECRET=test python -m pytest tests/test_document_download_token.py -v
 """
+
 import sys
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 import jwt
 import pytest
 
 sys.path.insert(0, ".")
 
+from core.config import JWT_ALG, JWT_SECRET
 from core.security import (
+    DOCUMENT_DOWNLOAD_TOKEN_TTL_MINUTES,
     create_document_download_token,
     decode_document_download_token,
-    DOCUMENT_DOWNLOAD_TOKEN_TTL_MINUTES,
 )
-from core.config import JWT_SECRET, JWT_ALG
 
 
 def test_token_valido_per_il_proprio_documento():
@@ -42,7 +43,9 @@ def test_token_rifiutato_per_un_documento_diverso():
 
 def test_token_scaduto_viene_rifiutato():
     expired_payload = {
-        "sub": "user-1", "doc_id": "doc-1", "purpose": "doc_download",
+        "sub": "user-1",
+        "doc_id": "doc-1",
+        "purpose": "doc_download",
         "exp": datetime.now(timezone.utc) - timedelta(minutes=1),
     }
     expired_token = jwt.encode(expired_payload, JWT_SECRET, algorithm=JWT_ALG)
@@ -55,7 +58,9 @@ def test_token_con_scopo_diverso_viene_rifiutato():
     password) non deve poter essere riusato per scaricare un documento —
     anche se la firma è corretta e non è scaduto."""
     other_purpose_payload = {
-        "sub": "user-1", "doc_id": "doc-1", "purpose": "reset_password",
+        "sub": "user-1",
+        "doc_id": "doc-1",
+        "purpose": "reset_password",
         "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
     }
     token = jwt.encode(other_purpose_payload, JWT_SECRET, algorithm=JWT_ALG)
@@ -73,7 +78,7 @@ def test_token_manomesso_viene_rifiutato():
     # ne altera davvero il contenuto, indipendentemente dalla lunghezza
     # esatta del token generato in questo run.
     mid = len(token) // 2
-    tampered = token[:mid] + ("A" if token[mid] != "A" else "B") + token[mid + 1:]
+    tampered = token[:mid] + ("A" if token[mid] != "A" else "B") + token[mid + 1 :]
     with pytest.raises(jwt.InvalidTokenError):
         decode_document_download_token(tampered, "doc-1")
 

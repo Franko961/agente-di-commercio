@@ -15,14 +15,15 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     ANTHROPIC_API_KEY=test python -m pytest test_ai_morning_briefing.py -v
 """
-import sys
+
 import asyncio
+import sys
 from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, ".")
 
-from services.dashboard_service import DashboardService, _pluralize_it
 import core.utils as utils_mod
+from services.dashboard_service import DashboardService, _pluralize_it
 
 
 def run(coro):
@@ -31,16 +32,26 @@ def run(coro):
 
 # ---------- _pluralize_it ----------
 
+
 def test_pluralize_zero_usa_none_label():
-    assert _pluralize_it(0, "cliente", "clienti", none_label="Nessun cliente") == "Nessun cliente"
+    assert (
+        _pluralize_it(0, "cliente", "clienti", none_label="Nessun cliente")
+        == "Nessun cliente"
+    )
 
 
 def test_pluralize_uno_usa_singolare():
-    assert _pluralize_it(1, "cliente da richiamare", "clienti da richiamare") == "1 cliente da richiamare"
+    assert (
+        _pluralize_it(1, "cliente da richiamare", "clienti da richiamare")
+        == "1 cliente da richiamare"
+    )
 
 
 def test_pluralize_molti_usa_plurale():
-    assert _pluralize_it(5, "cliente da richiamare", "clienti da richiamare") == "5 clienti da richiamare"
+    assert (
+        _pluralize_it(5, "cliente da richiamare", "clienti da richiamare")
+        == "5 clienti da richiamare"
+    )
 
 
 def test_pluralize_zero_senza_none_label_mostra_zero():
@@ -48,6 +59,7 @@ def test_pluralize_zero_senza_none_label_mostra_zero():
 
 
 # ---------- format_morning_briefing ----------
+
 
 def _base_brief(**overrides):
     brief = {
@@ -90,24 +102,34 @@ def test_format_briefing_include_tutte_le_metriche():
 
 def test_format_briefing_prossimo_appuntamento_oltre_unora():
     service = DashboardService()
-    text = service.format_morning_briefing(_base_brief(next_appointment_minutes=125), "Franco")
+    text = service.format_morning_briefing(
+        _base_brief(next_appointment_minutes=125), "Franco"
+    )
     assert "2h 5min" in text
 
 
 def test_format_briefing_nessun_appuntamento_in_programma():
     service = DashboardService()
     text = service.format_morning_briefing(
-        _base_brief(next_appointment_minutes=None, next_appointment_client=None), "Franco",
+        _base_brief(next_appointment_minutes=None, next_appointment_client=None),
+        "Franco",
     )
     assert "Nessun appuntamento in programma" in text
 
 
 def test_format_briefing_zero_ovunque_usa_frasi_naturali():
     service = DashboardService()
-    text = service.format_morning_briefing(_base_brief(
-        clients_to_call=0, offers_expiring=0, payments_to_verify=0, inactive_clients_60d=0,
-        next_appointment_minutes=None, next_appointment_client=None,
-    ), "Franco")
+    text = service.format_morning_briefing(
+        _base_brief(
+            clients_to_call=0,
+            offers_expiring=0,
+            payments_to_verify=0,
+            inactive_clients_60d=0,
+            next_appointment_minutes=None,
+            next_appointment_client=None,
+        ),
+        "Franco",
+    )
     assert "Nessun cliente da richiamare" in text
     assert "Nessuna offerta in scadenza" in text
     assert "Nessuna provvigione da controllare" in text
@@ -118,7 +140,8 @@ def test_format_briefing_zero_ovunque_usa_frasi_naturali():
 def test_format_briefing_previsione_sotto_obiettivo():
     service = DashboardService()
     text = service.format_morning_briefing(
-        _base_brief(revenue_forecast_month=5000.0, monthly_goal=10000), "Franco",
+        _base_brief(revenue_forecast_month=5000.0, monthly_goal=10000),
+        "Franco",
     )
     assert "sotto l'obiettivo" in text
 
@@ -126,12 +149,14 @@ def test_format_briefing_previsione_sotto_obiettivo():
 def test_format_briefing_previsione_sopra_obiettivo():
     service = DashboardService()
     text = service.format_morning_briefing(
-        _base_brief(revenue_forecast_month=15000.0, monthly_goal=10000), "Franco",
+        _base_brief(revenue_forecast_month=15000.0, monthly_goal=10000),
+        "Franco",
     )
     assert "sopra l'obiettivo" in text
 
 
 # ---------- nuove frasi: visite di oggi, focus cliente, proiezione obiettivo ----------
+
 
 def test_format_briefing_conta_le_visite_di_oggi_plurale():
     service = DashboardService()
@@ -154,10 +179,13 @@ def test_format_briefing_nessuna_visita_oggi_frase_naturale():
 def test_format_briefing_suggerisce_focus_client_di_oggi():
     service = DashboardService()
     todays_focus = {
-        "client_name": "Rossi Spa", "reason": "expiry_and_inactivity", "days_since_last_order": 20,
+        "client_name": "Rossi Spa",
+        "reason": "expiry_and_inactivity",
+        "days_since_last_order": 20,
     }
     text = service.format_morning_briefing(
-        _base_brief(appointments_today=3, todays_focus_client=todays_focus), "Franco",
+        _base_brief(appointments_today=3, todays_focus_client=todays_focus),
+        "Franco",
     )
     assert "Ti consiglio di iniziare da Rossi Spa" in text
     assert "offerta in scadenza" in text
@@ -176,7 +204,8 @@ def test_format_briefing_focus_client_non_menziona_mai_il_traffico():
     ]:
         todays_focus = {"client_name": "Rossi Spa", "reason": reason, **extra}
         text = service.format_morning_briefing(
-            _base_brief(appointments_today=1, todays_focus_client=todays_focus), "Franco",
+            _base_brief(appointments_today=1, todays_focus_client=todays_focus),
+            "Franco",
         )
         assert "traffic" not in text.lower() and "traffico" not in text.lower()
 
@@ -184,7 +213,8 @@ def test_format_briefing_focus_client_non_menziona_mai_il_traffico():
 def test_format_briefing_senza_focus_client_di_oggi_non_lo_menziona():
     service = DashboardService()
     text = service.format_morning_briefing(
-        _base_brief(appointments_today=3, todays_focus_client=None), "Franco",
+        _base_brief(appointments_today=3, todays_focus_client=None),
+        "Franco",
     )
     assert "Ti consiglio di iniziare da" not in text
 
@@ -192,15 +222,20 @@ def test_format_briefing_senza_focus_client_di_oggi_non_lo_menziona():
 def test_format_briefing_proiezione_obiettivo_se_chiudi_le_offerte():
     service = DashboardService()
     text = service.format_morning_briefing(
-        _base_brief(offers_expiring=2, projected_pct_if_expiring_closed=96), "Franco",
+        _base_brief(offers_expiring=2, projected_pct_if_expiring_closed=96),
+        "Franco",
     )
-    assert "Se chiudi le 2 offerte in scadenza raggiungeresti il 96% dell'obiettivo mensile." in text
+    assert (
+        "Se chiudi le 2 offerte in scadenza raggiungeresti il 96% dell'obiettivo mensile."
+        in text
+    )
 
 
 def test_format_briefing_proiezione_obiettivo_singolare():
     service = DashboardService()
     text = service.format_morning_briefing(
-        _base_brief(offers_expiring=1, projected_pct_if_expiring_closed=60), "Franco",
+        _base_brief(offers_expiring=1, projected_pct_if_expiring_closed=60),
+        "Franco",
     )
     assert "Se chiudi l'offerta in scadenza raggiungeresti il 60%" in text
 
@@ -208,12 +243,14 @@ def test_format_briefing_proiezione_obiettivo_singolare():
 def test_format_briefing_senza_proiezione_se_nessuna_offerta_in_scadenza():
     service = DashboardService()
     text = service.format_morning_briefing(
-        _base_brief(offers_expiring=0, projected_pct_if_expiring_closed=None), "Franco",
+        _base_brief(offers_expiring=0, projected_pct_if_expiring_closed=None),
+        "Franco",
     )
     assert "raggiungeresti" not in text
 
 
 # ---------- get_today_brief: todays_focus_client, offers_expiring_total, proiezione ----------
+
 
 def test_todays_focus_client_solo_se_ha_una_visita_oggi(monkeypatch):
     """Il cliente prioritario del mese (focus_client) non deve diventare
@@ -241,35 +278,61 @@ def test_todays_focus_client_solo_se_ha_una_visita_oggi(monkeypatch):
     now = FakeDatetime.now()
     fake_db = FakeDB(
         clients=[
-            {"id": "c-priorita", "user_id": "u1", "company_name": "Priorità Mese", "status": "attivo"},
-            {"id": "c-oggi", "user_id": "u1", "company_name": "Visita Oggi", "status": "attivo"},
+            {
+                "id": "c-priorita",
+                "user_id": "u1",
+                "company_name": "Priorità Mese",
+                "status": "attivo",
+            },
+            {
+                "id": "c-oggi",
+                "user_id": "u1",
+                "company_name": "Visita Oggi",
+                "status": "attivo",
+            },
         ],
         appointments=[
             {
-                "id": "a-oggi", "user_id": "u1", "client_id": "c-oggi",
-                "start": _iso(now + timedelta(hours=1)), "status": "pianificato",
+                "id": "a-oggi",
+                "user_id": "u1",
+                "client_id": "c-oggi",
+                "start": _iso(now + timedelta(hours=1)),
+                "status": "pianificato",
             },
             {  # visita recente: c-oggi non risulta trascurato
-                "id": "a-oggi-passata", "user_id": "u1", "client_id": "c-oggi",
-                "start": _iso(now - timedelta(days=3)), "status": "pianificato",
+                "id": "a-oggi-passata",
+                "user_id": "u1",
+                "client_id": "c-oggi",
+                "start": _iso(now - timedelta(days=3)),
+                "status": "pianificato",
             },
         ],
-        offers=[{
-            "id": "o-1", "user_id": "u1", "client_id": "c-priorita", "status": "inviata",
-            "title": "Offerta Priorità", "total": 500,
-            "expires_at": _iso(now + timedelta(days=2)),
-        }],
+        offers=[
+            {
+                "id": "o-1",
+                "user_id": "u1",
+                "client_id": "c-priorita",
+                "status": "inviata",
+                "title": "Offerta Priorità",
+                "total": 500,
+                "expires_at": _iso(now + timedelta(days=2)),
+            }
+        ],
     )
     monkeypatch.setattr(dash_mod, "db", fake_db)
     service = DashboardService()
 
     brief = run(service.get_today_brief({"id": "u1"}))
 
-    assert brief["focus_client"]["client_id"] == "c-priorita"  # priorità mensile invariata
+    assert (
+        brief["focus_client"]["client_id"] == "c-priorita"
+    )  # priorità mensile invariata
     assert brief["todays_focus_client"] is None  # ma non è tra le visite di oggi
 
 
-def test_todays_focus_client_coincide_se_il_cliente_prioritario_e_tra_le_visite_di_oggi(monkeypatch):
+def test_todays_focus_client_coincide_se_il_cliente_prioritario_e_tra_le_visite_di_oggi(
+    monkeypatch,
+):
     """Tempo congelato per lo stesso motivo del test precedente (evitare il
     bordo mezzanotte italiana con un appuntamento a 'adesso + 1 ora')."""
     import services.dashboard_service as dash_mod
@@ -283,16 +346,34 @@ def test_todays_focus_client_coincide_se_il_cliente_prioritario_e_tra_le_visite_
     monkeypatch.setattr(utils_mod, "datetime", FakeDatetime)
     now = FakeDatetime.now()
     fake_db = FakeDB(
-        clients=[{"id": "c-1", "user_id": "u1", "company_name": "Rossi Spa", "status": "attivo"}],
-        appointments=[{
-            "id": "a-1", "user_id": "u1", "client_id": "c-1",
-            "start": _iso(now + timedelta(hours=1)), "status": "pianificato",
-        }],
-        offers=[{
-            "id": "o-1", "user_id": "u1", "client_id": "c-1", "status": "inviata",
-            "title": "Offerta Rossi", "total": 500,
-            "expires_at": _iso(now + timedelta(days=2)),
-        }],
+        clients=[
+            {
+                "id": "c-1",
+                "user_id": "u1",
+                "company_name": "Rossi Spa",
+                "status": "attivo",
+            }
+        ],
+        appointments=[
+            {
+                "id": "a-1",
+                "user_id": "u1",
+                "client_id": "c-1",
+                "start": _iso(now + timedelta(hours=1)),
+                "status": "pianificato",
+            }
+        ],
+        offers=[
+            {
+                "id": "o-1",
+                "user_id": "u1",
+                "client_id": "c-1",
+                "status": "inviata",
+                "title": "Offerta Rossi",
+                "total": 500,
+                "expires_at": _iso(now + timedelta(days=2)),
+            }
+        ],
     )
     monkeypatch.setattr(dash_mod, "db", fake_db)
     service = DashboardService()
@@ -305,17 +386,35 @@ def test_todays_focus_client_coincide_se_il_cliente_prioritario_e_tra_le_visite_
 
 def test_offers_expiring_total_e_proiezione_obiettivo(monkeypatch):
     import services.dashboard_service as dash_mod
+
     now = datetime.now(timezone.utc)
     fake_db = FakeDB(
-        clients=[{"id": "c-1", "user_id": "u1", "company_name": "Cliente A", "status": "attivo"}],
+        clients=[
+            {
+                "id": "c-1",
+                "user_id": "u1",
+                "company_name": "Cliente A",
+                "status": "attivo",
+            }
+        ],
         offers=[
             {
-                "id": "o-1", "user_id": "u1", "client_id": "c-1", "status": "inviata",
-                "title": "Offerta A", "total": 3000, "expires_at": _iso(now + timedelta(days=1)),
+                "id": "o-1",
+                "user_id": "u1",
+                "client_id": "c-1",
+                "status": "inviata",
+                "title": "Offerta A",
+                "total": 3000,
+                "expires_at": _iso(now + timedelta(days=1)),
             },
             {
-                "id": "o-2", "user_id": "u1", "client_id": "c-1", "status": "bozza",
-                "title": "Offerta B", "total": 2600, "expires_at": _iso(now + timedelta(days=3)),
+                "id": "o-2",
+                "user_id": "u1",
+                "client_id": "c-1",
+                "status": "bozza",
+                "title": "Offerta B",
+                "total": 2600,
+                "expires_at": _iso(now + timedelta(days=3)),
             },
         ],
     )
@@ -333,6 +432,7 @@ def test_offers_expiring_total_e_proiezione_obiettivo(monkeypatch):
 
 def test_nessuna_proiezione_se_nessuna_offerta_in_scadenza(monkeypatch):
     import services.dashboard_service as dash_mod
+
     fake_db = FakeDB()
     monkeypatch.setattr(dash_mod, "db", fake_db)
     service = DashboardService()
@@ -344,6 +444,7 @@ def test_nessuna_proiezione_se_nessuna_offerta_in_scadenza(monkeypatch):
 
 
 # ---------- get_today_brief: nuovi calcoli, con un finto DB in memoria ----------
+
 
 class FakeCursor:
     def __init__(self, docs):
@@ -358,13 +459,22 @@ class FakeCollection:
         self._docs = docs
 
     def find(self, query, projection=None):
-        matched = [d for d in self._docs if all(d.get(k) == v for k, v in query.items())]
+        matched = [
+            d for d in self._docs if all(d.get(k) == v for k, v in query.items())
+        ]
         return FakeCursor(matched)
 
 
 class FakeDB:
-    def __init__(self, clients=None, appointments=None, offers=None, commissions=None, orders=None,
-                 manual_commissions=None):
+    def __init__(
+        self,
+        clients=None,
+        appointments=None,
+        offers=None,
+        commissions=None,
+        orders=None,
+        manual_commissions=None,
+    ):
         self.clients = FakeCollection(clients or [])
         self.appointments = FakeCollection(appointments or [])
         self.offers = FakeCollection(offers or [])
@@ -379,14 +489,27 @@ def _iso(dt: datetime) -> str:
 
 def test_next_appointment_minutes_calcolato_correttamente(monkeypatch):
     import services.dashboard_service as dash_mod
+
     now = datetime.now(timezone.utc)
     start = now + timedelta(minutes=40)
     fake_db = FakeDB(
-        clients=[{"id": "c-1", "user_id": "u1", "company_name": "Bar Rossi", "status": "attivo"}],
-        appointments=[{
-            "id": "a-1", "user_id": "u1", "client_id": "c-1",
-            "start": _iso(start), "status": "pianificato",
-        }],
+        clients=[
+            {
+                "id": "c-1",
+                "user_id": "u1",
+                "company_name": "Bar Rossi",
+                "status": "attivo",
+            }
+        ],
+        appointments=[
+            {
+                "id": "a-1",
+                "user_id": "u1",
+                "client_id": "c-1",
+                "start": _iso(start),
+                "status": "pianificato",
+            }
+        ],
     )
     monkeypatch.setattr(dash_mod, "db", fake_db)
     service = DashboardService()
@@ -399,14 +522,27 @@ def test_next_appointment_minutes_calcolato_correttamente(monkeypatch):
 
 def test_nessun_appuntamento_futuro_da_next_appointment_none(monkeypatch):
     import services.dashboard_service as dash_mod
+
     now = datetime.now(timezone.utc)
     past = now - timedelta(hours=2)
     fake_db = FakeDB(
-        clients=[{"id": "c-1", "user_id": "u1", "company_name": "Bar Rossi", "status": "attivo"}],
-        appointments=[{
-            "id": "a-1", "user_id": "u1", "client_id": "c-1",
-            "start": _iso(past), "status": "pianificato",
-        }],
+        clients=[
+            {
+                "id": "c-1",
+                "user_id": "u1",
+                "company_name": "Bar Rossi",
+                "status": "attivo",
+            }
+        ],
+        appointments=[
+            {
+                "id": "a-1",
+                "user_id": "u1",
+                "client_id": "c-1",
+                "start": _iso(past),
+                "status": "pianificato",
+            }
+        ],
     )
     monkeypatch.setattr(dash_mod, "db", fake_db)
     service = DashboardService()
@@ -418,21 +554,43 @@ def test_nessun_appuntamento_futuro_da_next_appointment_none(monkeypatch):
 
 def test_inactive_clients_60d_conta_solo_i_clienti_davvero_trascurati(monkeypatch):
     import services.dashboard_service as dash_mod
+
     now = datetime.now(timezone.utc)
     fake_db = FakeDB(
         clients=[
-            {"id": "c-old", "user_id": "u1", "company_name": "Trascurato", "status": "attivo"},
-            {"id": "c-recent", "user_id": "u1", "company_name": "Recente", "status": "attivo"},
-            {"id": "c-flagged", "user_id": "u1", "company_name": "GiaInattivo", "status": "inattivo"},
+            {
+                "id": "c-old",
+                "user_id": "u1",
+                "company_name": "Trascurato",
+                "status": "attivo",
+            },
+            {
+                "id": "c-recent",
+                "user_id": "u1",
+                "company_name": "Recente",
+                "status": "attivo",
+            },
+            {
+                "id": "c-flagged",
+                "user_id": "u1",
+                "company_name": "GiaInattivo",
+                "status": "inattivo",
+            },
         ],
         appointments=[
             {  # visita di 90 giorni fa: conta come inattivo
-                "id": "a-old", "user_id": "u1", "client_id": "c-old",
-                "start": _iso(now - timedelta(days=90)), "status": "pianificato",
+                "id": "a-old",
+                "user_id": "u1",
+                "client_id": "c-old",
+                "start": _iso(now - timedelta(days=90)),
+                "status": "pianificato",
             },
             {  # visita recente: NON conta
-                "id": "a-recent", "user_id": "u1", "client_id": "c-recent",
-                "start": _iso(now - timedelta(days=5)), "status": "pianificato",
+                "id": "a-recent",
+                "user_id": "u1",
+                "client_id": "c-recent",
+                "start": _iso(now - timedelta(days=5)),
+                "status": "pianificato",
             },
         ],
     )
@@ -449,6 +607,7 @@ def test_inactive_clients_60d_conta_solo_i_clienti_davvero_trascurati(monkeypatc
 
 def test_revenue_forecast_month_proiezione_lineare(monkeypatch):
     import services.dashboard_service as dash_mod
+
     # Fissiamo now al giorno 10 di un mese di 30 giorni per un calcolo
     # prevedibile: 1000 fatturati in 10 giorni -> proiezione 3000 sui 30 gg.
     fake_now = datetime(2026, 6, 10, 12, 0, tzinfo=timezone.utc)
@@ -464,10 +623,14 @@ def test_revenue_forecast_month_proiezione_lineare(monkeypatch):
     # anche lì, altrimenti userebbe ancora l'orologio reale.
     monkeypatch.setattr(utils_mod, "datetime", FakeDatetime)
     fake_db = FakeDB(
-        offers=[{
-            "user_id": "u1", "status": "accettata", "total": 1000,
-            "created_at": "2026-06-05T10:00:00Z",
-        }],
+        offers=[
+            {
+                "user_id": "u1",
+                "status": "accettata",
+                "total": 1000,
+                "created_at": "2026-06-05T10:00:00Z",
+            }
+        ],
     )
     monkeypatch.setattr(dash_mod, "db", fake_db)
     service = DashboardService()
@@ -478,7 +641,9 @@ def test_revenue_forecast_month_proiezione_lineare(monkeypatch):
     assert brief["revenue_forecast_month"] == 3000.0
 
 
-def test_appuntamento_senza_cliente_con_orario_naive_non_fa_esplodere_il_brief(monkeypatch):
+def test_appuntamento_senza_cliente_con_orario_naive_non_fa_esplodere_il_brief(
+    monkeypatch,
+):
     """Regressione da un bug reale in produzione: un appuntamento SENZA
     client_id (es. un promemoria personale, non collegato a nessun cliente)
     con 'start' salvato come datetime "naive" (senza fuso orario, es.
@@ -492,15 +657,23 @@ def test_appuntamento_senza_cliente_con_orario_naive_non_fa_esplodere_il_brief(m
     next_appointment (nuovo) invece non filtra su client_id ed era il primo
     a incontrare il dato malformato."""
     import services.dashboard_service as dash_mod
-    now = datetime.now(timezone.utc)
-    naive_start = (now + timedelta(hours=1)).replace(tzinfo=None).isoformat()  # niente 'Z' né offset
 
-    fake_db = FakeDB(appointments=[
-        {  # promemoria senza cliente, orario naive: il dato che causava il crash
-            "id": "a-naive", "user_id": "u1", "client_id": None,
-            "start": naive_start, "status": "pianificato",
-        },
-    ])
+    now = datetime.now(timezone.utc)
+    naive_start = (
+        (now + timedelta(hours=1)).replace(tzinfo=None).isoformat()
+    )  # niente 'Z' né offset
+
+    fake_db = FakeDB(
+        appointments=[
+            {  # promemoria senza cliente, orario naive: il dato che causava il crash
+                "id": "a-naive",
+                "user_id": "u1",
+                "client_id": None,
+                "start": naive_start,
+                "status": "pianificato",
+            },
+        ]
+    )
     monkeypatch.setattr(dash_mod, "db", fake_db)
     service = DashboardService()
 
@@ -511,21 +684,36 @@ def test_appuntamento_senza_cliente_con_orario_naive_non_fa_esplodere_il_brief(m
     assert brief["next_appointment_minutes"] is None
 
 
-def test_appuntamento_di_un_cliente_con_orario_naive_non_fa_esplodere_il_brief(monkeypatch):
+def test_appuntamento_di_un_cliente_con_orario_naive_non_fa_esplodere_il_brief(
+    monkeypatch,
+):
     """Stessa classe di bug (naive vs aware), ma sul blocco last_appt_by_client
     (usato da clients_to_call e inactive_clients_60d): un appuntamento
     collegato a un cliente con 'start' naive non deve far esplodere il
     brief, anche se questo blocco esisteva già prima del briefing AI."""
     import services.dashboard_service as dash_mod
+
     now = datetime.now(timezone.utc)
     naive_start = (now - timedelta(days=5)).replace(tzinfo=None).isoformat()
 
     fake_db = FakeDB(
-        clients=[{"id": "c-1", "user_id": "u1", "company_name": "Bar Rossi", "status": "attivo"}],
-        appointments=[{
-            "id": "a-naive", "user_id": "u1", "client_id": "c-1",
-            "start": naive_start, "status": "pianificato",
-        }],
+        clients=[
+            {
+                "id": "c-1",
+                "user_id": "u1",
+                "company_name": "Bar Rossi",
+                "status": "attivo",
+            }
+        ],
+        appointments=[
+            {
+                "id": "a-naive",
+                "user_id": "u1",
+                "client_id": "c-1",
+                "start": naive_start,
+                "status": "pianificato",
+            }
+        ],
     )
     monkeypatch.setattr(dash_mod, "db", fake_db)
     service = DashboardService()
@@ -539,4 +727,5 @@ def test_appuntamento_di_un_cliente_con_orario_naive_non_fa_esplodere_il_brief(m
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

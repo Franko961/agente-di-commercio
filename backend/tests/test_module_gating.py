@@ -19,16 +19,17 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_module_gating.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 from fastapi import HTTPException
 
 sys.path.insert(0, ".")
 
-from core.security import require_module, MODULE_KEYS
-from services.admin_service import AdminService, ALLOWED_USER_UPDATE_FIELDS
+from core.security import MODULE_KEYS, require_module
+from services.admin_service import ALLOWED_USER_UPDATE_FIELDS, AdminService
 
 
 def run(coro):
@@ -36,6 +37,7 @@ def run(coro):
 
 
 # ---------- require_module ----------
+
 
 def test_modulo_non_disattivato_passa():
     check = require_module("clienti")
@@ -68,11 +70,15 @@ def test_ogni_modulo_e_bloccabile_singolarmente():
         blocked_user = {"id": "u1", "disabled_modules": [module]}
         with pytest.raises(HTTPException):
             run(check(user=blocked_user))
-        other_user = {"id": "u1", "disabled_modules": [m for m in MODULE_KEYS if m != module]}
+        other_user = {
+            "id": "u1",
+            "disabled_modules": [m for m in MODULE_KEYS if m != module],
+        }
         assert run(check(user=other_user)) is other_user
 
 
 # ---------- admin_service.update_user: validazione disabled_modules ----------
+
 
 class FakeAdminRepo:
     def __init__(self):
@@ -88,7 +94,9 @@ class FakeAdminRepo:
 def build_service():
     repo = FakeAdminRepo()
     service = AdminService(repo=repo)
-    service._record_audit = lambda *a, **kw: asyncio.sleep(0)  # no-op, non è l'oggetto del test
+    service._record_audit = lambda *a, **kw: asyncio.sleep(
+        0
+    )  # no-op, non è l'oggetto del test
     return service, repo
 
 
@@ -98,14 +106,24 @@ def test_disabled_modules_e_nella_whitelist_dei_campi_modificabili():
 
 def test_disabled_modules_valida_accetta_chiavi_note():
     service, repo = build_service()
-    run(service.update_user("u1", {"disabled_modules": ["clienti", "provvigioni"]}, admin={"id": "admin-1"}))
+    run(
+        service.update_user(
+            "u1",
+            {"disabled_modules": ["clienti", "provvigioni"]},
+            admin={"id": "admin-1"},
+        )
+    )
     assert repo.updates == [("u1", {"disabled_modules": ["clienti", "provvigioni"]})]
 
 
 def test_disabled_modules_rifiuta_chiave_sconosciuta():
     service, repo = build_service()
     with pytest.raises(HTTPException) as exc:
-        run(service.update_user("u1", {"disabled_modules": ["non-esiste"]}, admin={"id": "admin-1"}))
+        run(
+            service.update_user(
+                "u1", {"disabled_modules": ["non-esiste"]}, admin={"id": "admin-1"}
+            )
+        )
     assert exc.value.status_code == 400
     assert repo.updates == []
 
@@ -113,12 +131,17 @@ def test_disabled_modules_rifiuta_chiave_sconosciuta():
 def test_disabled_modules_rifiuta_valore_non_lista():
     service, repo = build_service()
     with pytest.raises(HTTPException) as exc:
-        run(service.update_user("u1", {"disabled_modules": "clienti"}, admin={"id": "admin-1"}))
+        run(
+            service.update_user(
+                "u1", {"disabled_modules": "clienti"}, admin={"id": "admin-1"}
+            )
+        )
     assert exc.value.status_code == 400
     assert repo.updates == []
 
 
 # ---------- ai_service: i tool CRM rispettano i moduli disattivati ----------
+
 
 def test_tool_module_copre_tutti_i_tool_scrittura_con_rischio_di_bypass():
     """add_client/add_note_to_client/search_clients -> clienti,
@@ -126,7 +149,9 @@ def test_tool_module_copre_tutti_i_tool_scrittura_con_rischio_di_bypass():
     add_offer/search_offers -> offerte, add_expense -> spese: se un tool
     manca da questa mappa, un modulo disattivato dal form web resta
     comunque azionabile parlando con l'assistente."""
-    from services.ai_service import TOOL_MODULE, CRM_WRITE_TOOLS
+    from services.ai_service import CRM_WRITE_TOOLS, TOOL_MODULE
 
     for tool in CRM_WRITE_TOOLS:
-        assert tool in TOOL_MODULE, f"{tool} scrive dati ma non è mappato a nessun modulo in TOOL_MODULE"
+        assert (
+            tool in TOOL_MODULE
+        ), f"{tool} scrive dati ma non è mappato a nessun modulo in TOOL_MODULE"

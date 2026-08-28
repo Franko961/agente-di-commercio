@@ -1,14 +1,22 @@
-from fastapi import APIRouter, Depends
 from typing import Optional
-from core.security import get_current_user, forbid_demo_write, require_module
-from services.order_service import order_service
-from models.order import OrderIn, OrderStatusIn
 
-router = APIRouter(prefix="/api/orders", tags=["orders"], dependencies=[Depends(require_module("ordini"))])
+from fastapi import APIRouter, Depends
+
+from core.security import forbid_demo_write, get_current_user, require_module
+from models.order import OrderIn, OrderStatusIn
+from services.order_service import order_service
+
+router = APIRouter(
+    prefix="/api/orders",
+    tags=["orders"],
+    dependencies=[Depends(require_module("ordini"))],
+)
 
 
 @router.get("")
-async def list_orders(mandante_id: Optional[str] = None, user=Depends(get_current_user)):
+async def list_orders(
+    mandante_id: Optional[str] = None, user=Depends(get_current_user)
+):
     return await order_service.list_orders(user, mandante_id)
 
 
@@ -34,7 +42,9 @@ async def update_order(oid: str, payload: OrderIn, user=Depends(forbid_demo_writ
 
 
 @router.patch("/{oid}/status")
-async def update_order_status(oid: str, payload: OrderStatusIn, user=Depends(forbid_demo_write)):
+async def update_order_status(
+    oid: str, payload: OrderStatusIn, user=Depends(forbid_demo_write)
+):
     await order_service.update_order_status(user, oid, payload)
     return {"ok": True}
 

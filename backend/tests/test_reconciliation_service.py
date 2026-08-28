@@ -9,8 +9,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_reconciliation_service.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 sys.path.insert(0, ".")
 
@@ -37,6 +38,7 @@ class FakeCollection:
     def find(self, query, projection=None):
         def matches(d):
             return all(d.get(k) == v for k, v in query.items())
+
         return FakeCursor([d for d in self.docs if matches(d)])
 
 
@@ -64,10 +66,17 @@ def build_service(monkeypatch, fake_db):
 def test_nessuna_incoerenza_quando_tutto_e_collegato(monkeypatch):
     fake_db = FakeDb()
     fake_db.expenses.docs = [
-        {"id": "e1", "user_id": "u1", "source": "personale", "employee_compensation_id": "c1"},
+        {
+            "id": "e1",
+            "user_id": "u1",
+            "source": "personale",
+            "employee_compensation_id": "c1",
+        },
         {"id": "e2", "user_id": "u1", "source": "flotta", "vehicle_cost_id": "vc1"},
     ]
-    fake_db.employee_compensation.docs = [{"id": "c1", "user_id": "u1", "expense_id": "e1"}]
+    fake_db.employee_compensation.docs = [
+        {"id": "c1", "user_id": "u1", "expense_id": "e1"}
+    ]
     fake_db.vehicle_costs.docs = [{"id": "vc1", "user_id": "u1", "expense_id": "e2"}]
     service = build_service(monkeypatch, fake_db)
 
@@ -79,7 +88,12 @@ def test_nessuna_incoerenza_quando_tutto_e_collegato(monkeypatch):
 def test_trova_spesa_personale_orfana(monkeypatch):
     fake_db = FakeDb()
     fake_db.expenses.docs = [
-        {"id": "e1", "user_id": "u1", "source": "personale", "employee_compensation_id": "c-non-esiste"},
+        {
+            "id": "e1",
+            "user_id": "u1",
+            "source": "personale",
+            "employee_compensation_id": "c-non-esiste",
+        },
     ]
     fake_db.employee_compensation.docs = []
     fake_db.vehicle_costs.docs = []
@@ -87,7 +101,9 @@ def test_trova_spesa_personale_orfana(monkeypatch):
 
     result = run(service.find_inconsistencies())
 
-    assert result["orphan_expenses"] == [{"expense_id": "e1", "user_id": "u1", "source": "personale"}]
+    assert result["orphan_expenses"] == [
+        {"expense_id": "e1", "user_id": "u1", "source": "personale"}
+    ]
     assert result["orphan_links"] == []
 
 
@@ -102,19 +118,25 @@ def test_trova_spesa_flotta_orfana(monkeypatch):
 
     result = run(service.find_inconsistencies())
 
-    assert result["orphan_expenses"] == [{"expense_id": "e1", "user_id": "u1", "source": "flotta"}]
+    assert result["orphan_expenses"] == [
+        {"expense_id": "e1", "user_id": "u1", "source": "flotta"}
+    ]
 
 
 def test_trova_compenso_senza_spesa_collegata(monkeypatch):
     fake_db = FakeDb()
     fake_db.expenses.docs = []
-    fake_db.employee_compensation.docs = [{"id": "c1", "user_id": "u1", "expense_id": "e-non-esiste"}]
+    fake_db.employee_compensation.docs = [
+        {"id": "c1", "user_id": "u1", "expense_id": "e-non-esiste"}
+    ]
     fake_db.vehicle_costs.docs = []
     service = build_service(monkeypatch, fake_db)
 
     result = run(service.find_inconsistencies())
 
-    assert result["orphan_links"] == [{"id": "c1", "user_id": "u1", "source": "personale"}]
+    assert result["orphan_links"] == [
+        {"id": "c1", "user_id": "u1", "source": "personale"}
+    ]
     assert result["orphan_expenses"] == []
 
 
@@ -122,12 +144,16 @@ def test_trova_costo_flotta_senza_spesa_collegata(monkeypatch):
     fake_db = FakeDb()
     fake_db.expenses.docs = []
     fake_db.employee_compensation.docs = []
-    fake_db.vehicle_costs.docs = [{"id": "vc1", "user_id": "u1", "expense_id": "e-non-esiste"}]
+    fake_db.vehicle_costs.docs = [
+        {"id": "vc1", "user_id": "u1", "expense_id": "e-non-esiste"}
+    ]
     service = build_service(monkeypatch, fake_db)
 
     result = run(service.find_inconsistencies())
 
-    assert result["orphan_links"] == [{"id": "vc1", "user_id": "u1", "source": "flotta"}]
+    assert result["orphan_links"] == [
+        {"id": "vc1", "user_id": "u1", "source": "flotta"}
+    ]
 
 
 def test_non_confonde_spese_di_altre_source(monkeypatch):
@@ -149,4 +175,5 @@ def test_non_confonde_spese_di_altre_source(monkeypatch):
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

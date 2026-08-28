@@ -14,7 +14,9 @@ AI_PRICE_PER_MTOK_OUTPUT_USD = 5.00
 AI_PRICE_PER_1K_WEB_SEARCHES_USD = 10.00
 
 
-def _estimate_cost_usd(input_tokens: int, output_tokens: int, web_searches: int = 0) -> float:
+def _estimate_cost_usd(
+    input_tokens: int, output_tokens: int, web_searches: int = 0
+) -> float:
     return round(
         (input_tokens / 1_000_000) * AI_PRICE_PER_MTOK_INPUT_USD
         + (output_tokens / 1_000_000) * AI_PRICE_PER_MTOK_OUTPUT_USD

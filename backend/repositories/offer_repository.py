@@ -11,7 +11,9 @@ class OfferRepository:
         return await self.collection.find(query, {"_id": 0}).to_list(2000)
 
     async def find_one(self, oid: str, user_id: str):
-        return await self.collection.find_one({"id": oid, "user_id": user_id}, {"_id": 0})
+        return await self.collection.find_one(
+            {"id": oid, "user_id": user_id}, {"_id": 0}
+        )
 
     async def insert(self, doc: dict) -> dict:
         await self.collection.insert_one(doc)
@@ -23,20 +25,28 @@ class OfferRepository:
             await self.collection.insert_many(docs)
 
     async def update(self, oid: str, user_id: str, data: dict) -> None:
-        await self.collection.update_one({"id": oid, "user_id": user_id}, {"$set": data})
+        await self.collection.update_one(
+            {"id": oid, "user_id": user_id}, {"$set": data}
+        )
 
     async def update_status(self, oid: str, user_id: str, status: str) -> None:
-        await self.collection.update_one({"id": oid, "user_id": user_id}, {"$set": {"status": status}})
+        await self.collection.update_one(
+            {"id": oid, "user_id": user_id}, {"$set": {"status": status}}
+        )
 
-    async def sign(self, oid: str, user_id: str, signature: str, signer_name: str, signed_at: str) -> bool:
+    async def sign(
+        self, oid: str, user_id: str, signature: str, signer_name: str, signed_at: str
+    ) -> bool:
         res = await self.collection.update_one(
             {"id": oid, "user_id": user_id},
-            {"$set": {
-                "signature": signature,
-                "signer_name": signer_name,
-                "signed_at": signed_at,
-                "status": "accettata",
-            }}
+            {
+                "$set": {
+                    "signature": signature,
+                    "signer_name": signer_name,
+                    "signed_at": signed_at,
+                    "status": "accettata",
+                }
+            },
         )
         return res.matched_count > 0
 

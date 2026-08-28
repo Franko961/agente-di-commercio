@@ -11,6 +11,7 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_employee_schedule.py -v
 """
+
 import sys
 
 import pytest
@@ -71,8 +72,11 @@ def test_shift_start_time_ora_invalida_e_rifiutato():
 
 # ---------- shift_end_time ----------
 
+
 def test_orario_con_fine_turno_e_valido():
-    e = EmployeeIn(**_payload(work_days=[0], shift_start_time="09:00", shift_end_time="18:00"))
+    e = EmployeeIn(
+        **_payload(work_days=[0], shift_start_time="09:00", shift_end_time="18:00")
+    )
     assert e.shift_end_time == "18:00"
 
 
@@ -92,15 +96,20 @@ def test_fine_turno_senza_inizio_e_rifiutato():
 
 def test_fine_turno_precedente_allinizio_e_rifiutato():
     with pytest.raises(ValidationError, match="deve essere successivo"):
-        EmployeeIn(**_payload(work_days=[0], shift_start_time="18:00", shift_end_time="09:00"))
+        EmployeeIn(
+            **_payload(work_days=[0], shift_start_time="18:00", shift_end_time="09:00")
+        )
 
 
 def test_fine_turno_uguale_allinizio_e_rifiutato():
     with pytest.raises(ValidationError, match="deve essere successivo"):
-        EmployeeIn(**_payload(work_days=[0], shift_start_time="09:00", shift_end_time="09:00"))
+        EmployeeIn(
+            **_payload(work_days=[0], shift_start_time="09:00", shift_end_time="09:00")
+        )
 
 
 # ---------- unpaid_break_minutes ----------
+
 
 def test_pausa_di_default_e_zero():
     e = EmployeeIn(**_payload())
@@ -108,7 +117,14 @@ def test_pausa_di_default_e_zero():
 
 
 def test_pausa_con_turno_completo_e_valida():
-    e = EmployeeIn(**_payload(work_days=[0], shift_start_time="09:00", shift_end_time="18:00", unpaid_break_minutes=60))
+    e = EmployeeIn(
+        **_payload(
+            work_days=[0],
+            shift_start_time="09:00",
+            shift_end_time="18:00",
+            unpaid_break_minutes=60,
+        )
+    )
     assert e.unpaid_break_minutes == 60
 
 
@@ -120,13 +136,31 @@ def test_pausa_senza_alcun_turno_e_valida():
 
 
 def test_pausa_uguale_alla_durata_del_turno_e_rifiutata():
-    with pytest.raises(ValidationError, match="non può durare quanto o più dell'intero turno"):
-        EmployeeIn(**_payload(work_days=[0], shift_start_time="09:00", shift_end_time="10:00", unpaid_break_minutes=60))
+    with pytest.raises(
+        ValidationError, match="non può durare quanto o più dell'intero turno"
+    ):
+        EmployeeIn(
+            **_payload(
+                work_days=[0],
+                shift_start_time="09:00",
+                shift_end_time="10:00",
+                unpaid_break_minutes=60,
+            )
+        )
 
 
 def test_pausa_maggiore_della_durata_del_turno_e_rifiutata():
-    with pytest.raises(ValidationError, match="non può durare quanto o più dell'intero turno"):
-        EmployeeIn(**_payload(work_days=[0], shift_start_time="09:00", shift_end_time="10:00", unpaid_break_minutes=90))
+    with pytest.raises(
+        ValidationError, match="non può durare quanto o più dell'intero turno"
+    ):
+        EmployeeIn(
+            **_payload(
+                work_days=[0],
+                shift_start_time="09:00",
+                shift_end_time="10:00",
+                unpaid_break_minutes=90,
+            )
+        )
 
 
 def test_pausa_negativa_e_rifiutata():

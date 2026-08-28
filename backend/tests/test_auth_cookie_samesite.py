@@ -11,13 +11,14 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_auth_cookie_samesite.py -v
 """
+
 import sys
 
 sys.path.insert(0, ".")
 
 from fastapi import Response
 
-from core.security import set_auth_cookie, clear_auth_cookie, ACCESS_TOKEN_TTL_SECONDS
+from core.security import ACCESS_TOKEN_TTL_SECONDS, clear_auth_cookie, set_auth_cookie
 
 
 def _set_cookie_header(response: Response) -> str:
@@ -60,9 +61,14 @@ def test_clear_auth_cookie_usa_samesite_lax():
     header = _set_cookie_header(response)
     assert "samesite=lax" in header.lower()
     # delete_cookie scade il cookie svuotandolo, non deve più contenere un token
-    assert 'access_token=""' in header or "access_token=;" in header or 'access_token="";' in header
+    assert (
+        'access_token=""' in header
+        or "access_token=;" in header
+        or 'access_token="";' in header
+    )
 
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

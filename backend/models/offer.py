@@ -1,10 +1,16 @@
-from pydantic import BaseModel, Field
 from typing import List, Literal, Optional
-from models.order import SALE_TYPES
+
+from pydantic import BaseModel, Field
+
 from core.validation_limits import (
-    SHORT_TEXT_MAX_LENGTH, MEDIUM_TEXT_MAX_LENGTH, LONG_TEXT_MAX_LENGTH,
-    MAX_QUANTITY, MAX_UNIT_PRICE, MAX_LINE_ITEMS,
+    LONG_TEXT_MAX_LENGTH,
+    MAX_LINE_ITEMS,
+    MAX_QUANTITY,
+    MAX_UNIT_PRICE,
+    MEDIUM_TEXT_MAX_LENGTH,
+    SHORT_TEXT_MAX_LENGTH,
 )
+from models.order import SALE_TYPES
 
 OFFER_STATUSES = ["bozza", "inviata", "accettata", "rifiutata", "scaduta"]
 

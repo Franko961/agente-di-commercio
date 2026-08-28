@@ -12,8 +12,9 @@ event_id — un'unica operazione atomica, nessuna finestra residua.
 Esegui con:
     JWT_SECRET=test python -m pytest tests/test_webhook_idempotency_race.py -v
 """
-import sys
+
 import asyncio
+import sys
 import threading
 
 import pytest
@@ -76,10 +77,14 @@ def test_consegne_concorrenti_dello_stesso_evento_solo_una_lo_reclama():
     coll = FakeUniqueIndexCollection()
 
     async def main():
-        return await asyncio.gather(*[
-            _claim_webhook_event_once(coll, "evt-race", "checkout.session.completed")
-            for _ in range(20)
-        ])
+        return await asyncio.gather(
+            *[
+                _claim_webhook_event_once(
+                    coll, "evt-race", "checkout.session.completed"
+                )
+                for _ in range(20)
+            ]
+        )
 
     results = run(main())
 

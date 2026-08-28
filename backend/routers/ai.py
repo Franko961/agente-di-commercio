@@ -1,10 +1,14 @@
 from typing import Optional
-from fastapi import APIRouter, Depends
-from core.security import get_current_user, forbid_demo_write, require_module
-from services.ai_service import ai_service
-from models.ai import AIQuery, AIExecuteActionIn, AICancelActionIn
 
-router = APIRouter(prefix="/api/ai", tags=["ai"], dependencies=[Depends(require_module("ai"))])
+from fastapi import APIRouter, Depends
+
+from core.security import forbid_demo_write, get_current_user, require_module
+from models.ai import AICancelActionIn, AIExecuteActionIn, AIQuery
+from services.ai_service import ai_service
+
+router = APIRouter(
+    prefix="/api/ai", tags=["ai"], dependencies=[Depends(require_module("ai"))]
+)
 
 
 @router.get("/history")
@@ -24,7 +28,9 @@ async def ai_chat(payload: AIQuery, user=Depends(get_current_user)):
 
 
 @router.post("/execute-action")
-async def ai_execute_action(payload: AIExecuteActionIn, user=Depends(forbid_demo_write)):
+async def ai_execute_action(
+    payload: AIExecuteActionIn, user=Depends(forbid_demo_write)
+):
     """Esegue davvero un'azione economica (vendita/offerta o spesa elevata)
     dopo che l'utente l'ha confermata (eventualmente modificata) sulla scheda
     di conferma mostrata in chat/assistente vocale."""
@@ -58,7 +64,9 @@ async def ai_actions(
 ):
     """Registro azioni AI (audit log): chi ha fatto cosa attraverso l'assistente,
     con quali parametri e con quale esito. Usato dalla pagina Impostazioni."""
-    return await ai_service.list_actions(user["id"], tool_name, status, date_from, date_to, limit)
+    return await ai_service.list_actions(
+        user["id"], tool_name, status, date_from, date_to, limit
+    )
 
 
 @router.get("/briefing")

@@ -1,5 +1,6 @@
-from core.database import db
 from typing import Optional
+
+from core.database import db
 
 
 class ProductRepository:
@@ -11,10 +12,16 @@ class ProductRepository:
             query["mandante_id"] = mandante_id
         return await self.collection.find(query, {"_id": 0}).to_list(1000)
 
-    async def find_by_name_regex(self, user_id: str, mandante_id: str, name: str) -> Optional[dict]:
+    async def find_by_name_regex(
+        self, user_id: str, mandante_id: str, name: str
+    ) -> Optional[dict]:
         return await self.collection.find_one(
-            {"user_id": user_id, "mandante_id": mandante_id, "name": {"$regex": name, "$options": "i"}},
-            {"_id": 0}
+            {
+                "user_id": user_id,
+                "mandante_id": mandante_id,
+                "name": {"$regex": name, "$options": "i"},
+            },
+            {"_id": 0},
         )
 
     async def insert(self, doc: dict) -> dict:
@@ -27,7 +34,9 @@ class ProductRepository:
             await self.collection.insert_many(docs)
 
     async def update(self, pid: str, user_id: str, data: dict) -> None:
-        await self.collection.update_one({"id": pid, "user_id": user_id}, {"$set": data})
+        await self.collection.update_one(
+            {"id": pid, "user_id": user_id}, {"$set": data}
+        )
 
     async def delete(self, pid: str, user_id: str) -> None:
         await self.collection.delete_one({"id": pid, "user_id": user_id})

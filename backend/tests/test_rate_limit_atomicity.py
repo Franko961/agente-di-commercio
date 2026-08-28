@@ -21,16 +21,16 @@ esecuzione della suite.
 Esegui con:
     JWT_SECRET=test python -m pytest tests/test_rate_limit_atomicity.py -v
 """
-import sys
+
 import asyncio
-from datetime import datetime, timezone, timedelta
+import sys
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from pymongo.errors import DuplicateKeyError
 
 sys.path.insert(0, ".")
 
-import core.rate_limit as rate_limit_mod
 from core.rate_limit import check_and_record
 
 
@@ -51,7 +51,9 @@ class FakeAtomicRateLimitCollection:
         self.docs = {}  # (kind, key) -> {"attempts": [...], "last_updated": ...}
         self.fail_next_upsert_for = None  # (kind, key) su cui simulare una corsa
 
-    async def find_one_and_update(self, filter_, pipeline, upsert=False, return_document=None):
+    async def find_one_and_update(
+        self, filter_, pipeline, upsert=False, return_document=None
+    ):
         key = (filter_["kind"], filter_["key"])
         is_new = key not in self.docs
 
@@ -84,10 +86,14 @@ def _iso(dt):
 def test_concede_fino_a_max_attempts_poi_rifiuta():
     coll = FakeAtomicRateLimitCollection()
     import core.rate_limit as m
+
     m_orig = m.COLLECTION
     m.COLLECTION = coll
     try:
-        results = [run(check_and_record("test_kind", "k1", max_attempts=3, window_minutes=15)) for _ in range(5)]
+        results = [
+            run(check_and_record("test_kind", "k1", max_attempts=3, window_minutes=15))
+            for _ in range(5)
+        ]
     finally:
         m.COLLECTION = m_orig
 
@@ -100,6 +106,7 @@ def test_i_tentativi_rifiutati_non_allungano_la_finestra():
     all'infinito, invece di lasciarla scadere."""
     coll = FakeAtomicRateLimitCollection()
     import core.rate_limit as m
+
     m_orig = m.COLLECTION
     m.COLLECTION = coll
     try:
@@ -118,10 +125,13 @@ def test_tentativi_fuori_dalla_finestra_vengono_filtrati_via():
     coll.docs[("test_kind", "k3")] = {"attempts": [old, old, old]}
 
     import core.rate_limit as m
+
     m_orig = m.COLLECTION
     m.COLLECTION = coll
     try:
-        result = run(check_and_record("test_kind", "k3", max_attempts=3, window_minutes=15))
+        result = run(
+            check_and_record("test_kind", "k3", max_attempts=3, window_minutes=15)
+        )
     finally:
         m.COLLECTION = m_orig
 
@@ -134,12 +144,15 @@ def test_tentativi_fuori_dalla_finestra_vengono_filtrati_via():
 def test_chiavi_diverse_sono_indipendenti():
     coll = FakeAtomicRateLimitCollection()
     import core.rate_limit as m
+
     m_orig = m.COLLECTION
     m.COLLECTION = coll
     try:
         for _ in range(2):
             run(check_and_record("test_kind", "k4", max_attempts=2, window_minutes=15))
-        result_altra_chiave = run(check_and_record("test_kind", "k5", max_attempts=2, window_minutes=15))
+        result_altra_chiave = run(
+            check_and_record("test_kind", "k5", max_attempts=2, window_minutes=15)
+        )
     finally:
         m.COLLECTION = m_orig
 
@@ -155,10 +168,13 @@ def test_corsa_su_chiave_nuova_viene_ritentata_dopo_duplicatekeyerror():
     coll.fail_next_upsert_for = ("test_kind", "k6")
 
     import core.rate_limit as m
+
     m_orig = m.COLLECTION
     m.COLLECTION = coll
     try:
-        result = run(check_and_record("test_kind", "k6", max_attempts=3, window_minutes=15))
+        result = run(
+            check_and_record("test_kind", "k6", max_attempts=3, window_minutes=15)
+        )
     finally:
         m.COLLECTION = m_orig
 

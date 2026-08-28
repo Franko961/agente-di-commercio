@@ -1,8 +1,10 @@
 from typing import Optional
+
 from fastapi import HTTPException
+
 from core.utils import gen_id, now_iso
-from repositories.product_repository import product_repository
 from repositories.mandante_repository import mandante_repository
+from repositories.product_repository import product_repository
 
 
 class ProductService:
@@ -10,11 +12,18 @@ class ProductService:
         self.repo = repo
         self.mandante_repo = mandante_repo
 
-    async def list_products(self, user: dict, mandante_id: Optional[str] = None) -> list:
+    async def list_products(
+        self, user: dict, mandante_id: Optional[str] = None
+    ) -> list:
         return await self.repo.find_many(user["id"], mandante_id)
 
     async def create_product(self, user: dict, payload) -> dict:
-        doc = {"id": gen_id(), "user_id": user["id"], **payload.model_dump(), "created_at": now_iso()}
+        doc = {
+            "id": gen_id(),
+            "user_id": user["id"],
+            **payload.model_dump(),
+            "created_at": now_iso(),
+        }
         return await self.repo.insert(doc)
 
     async def update_product(self, user: dict, pid: str, payload) -> None:
@@ -33,9 +42,13 @@ class ProductService:
         duplicato) — così l'endpoint può essere richiamato più volte in modo
         sicuro (es. per completare un'importazione interrotta) senza mai
         creare doppioni."""
-        mand = await self.mandante_repo.find_by_name_regex(user["id"], payload.mandante_name)
+        mand = await self.mandante_repo.find_by_name_regex(
+            user["id"], payload.mandante_name
+        )
         if not mand:
-            raise HTTPException(404, f"Mandante '{payload.mandante_name}' non trovato nel CRM.")
+            raise HTTPException(
+                404, f"Mandante '{payload.mandante_name}' non trovato nel CRM."
+            )
 
         existing = await self.repo.find_many(user["id"], mand["id"])
         existing_skus = {p.get("sku") for p in existing if p.get("sku")}
@@ -46,12 +59,20 @@ class ProductService:
             if item.sku in existing_skus:
                 skipped.append(item.sku)
                 continue
-            to_insert.append({
-                "id": gen_id(), "user_id": user["id"], "mandante_id": mand["id"],
-                "name": item.name, "sku": item.sku, "price": item.price,
-                "cost": item.cost or 0.0, "commission_rate": item.commission_rate,
-                "category": item.category or "", "created_at": now_iso(),
-            })
+            to_insert.append(
+                {
+                    "id": gen_id(),
+                    "user_id": user["id"],
+                    "mandante_id": mand["id"],
+                    "name": item.name,
+                    "sku": item.sku,
+                    "price": item.price,
+                    "cost": item.cost or 0.0,
+                    "commission_rate": item.commission_rate,
+                    "category": item.category or "",
+                    "created_at": now_iso(),
+                }
+            )
 
         await self.repo.insert_many(to_insert)
         return {

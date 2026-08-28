@@ -12,8 +12,9 @@ Esempi attesi:
 - fatturato 3100€  -> base + scaglione 3000 -> totale 500 + 360 = 860€
 - fatturato 5100€  -> base + scaglione 5000 -> totale 500 + 600 = 1100€ (il 360 NON si somma)
 """
-import sys
+
 import asyncio
+import sys
 
 sys.path.insert(0, ".")
 
@@ -46,14 +47,20 @@ class FakeMandanteRepo:
 
 def make_sale_commission(cid, base_amount, rate=10.0):
     return {
-        "id": cid, "user_id": "user-1", "mandante_id": "m-1",
-        "amount": base_amount * rate / 100, "rate": rate, "base_amount": base_amount,
-        "sale_type": "nuovo", "status": "maturato",
+        "id": cid,
+        "user_id": "user-1",
+        "mandante_id": "m-1",
+        "amount": base_amount * rate / 100,
+        "rate": rate,
+        "base_amount": base_amount,
+        "sale_type": "nuovo",
+        "status": "maturato",
     }
 
 
 def build_service(mandante, commissions):
     from services.commission_service import CommissionService
+
     commission_repo = FakeCommissionRepo(commissions)
     mandante_repo = FakeMandanteRepo(mandante)
     service = CommissionService(repo=commission_repo, mandante_repo=mandante_repo)
@@ -61,7 +68,10 @@ def build_service(mandante, commissions):
 
 
 MANDANTE = {
-    "id": "m-1", "user_id": "user-1", "name": "Mandante Test", "commission_rate": 10.0,
+    "id": "m-1",
+    "user_id": "user-1",
+    "name": "Mandante Test",
+    "commission_rate": 10.0,
     "bonus_tiers": [
         {"threshold": 2000, "bonus": 500},
         {"threshold": 3000, "bonus": 360},
@@ -100,7 +110,10 @@ def test_base_piu_scaglione_5000_non_cumula_col_3000():
     bonus_records, _ = _run_and_get_bonus(5100)
     thresholds = sorted(d["bonus_tier_threshold"] for d in bonus_records)
     total = sum(d["amount"] for d in bonus_records)
-    assert thresholds == [2000, 5000], f"Il 3000 non deve comparire, trovato {thresholds}"
+    assert thresholds == [
+        2000,
+        5000,
+    ], f"Il 3000 non deve comparire, trovato {thresholds}"
     assert total == 1100, f"Atteso 500+600=1100 (senza il 360), trovato {total}"
 
 
@@ -110,7 +123,9 @@ def test_transizione_da_3000_a_5000_sostituisce_il_bonus():
     commissions = [make_sale_commission("c1", base_amount=3100)]
     service, repo = build_service(MANDANTE, commissions)
     asyncio.run(service.check_and_award_bonus("user-1", "m-1"))
-    assert sorted(d["bonus_tier_threshold"] for d in repo.docs if d.get("sale_type") == "bonus") == [2000, 3000]
+    assert sorted(
+        d["bonus_tier_threshold"] for d in repo.docs if d.get("sale_type") == "bonus"
+    ) == [2000, 3000]
 
     # il fatturato sale a 5100
     repo.docs = [d for d in repo.docs if d.get("sale_type") != "nuovo"]

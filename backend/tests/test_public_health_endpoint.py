@@ -8,6 +8,7 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_public_health_endpoint.py -v
 """
+
 import asyncio
 
 import server

@@ -10,7 +10,11 @@ class ContactRequestRepository:
         return doc
 
     async def find_many(self, limit: int = 500) -> list:
-        return await self.collection.find({}, {"_id": 0}).sort("created_at", -1).to_list(limit)
+        return (
+            await self.collection.find({}, {"_id": 0})
+            .sort("created_at", -1)
+            .to_list(limit)
+        )
 
     async def delete_older_than(self, cutoff_iso: str) -> int:
         """created_at è salvato come stringa ISO (now_iso()), non una data

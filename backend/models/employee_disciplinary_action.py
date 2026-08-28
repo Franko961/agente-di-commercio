@@ -1,10 +1,24 @@
 from datetime import date
-from pydantic import BaseModel, Field, model_validator
 from typing import Literal, Optional
-from core.validation_limits import SHORT_TEXT_MAX_LENGTH, LONG_TEXT_MAX_LENGTH
 
-DISCIPLINARY_ACTION_TYPES = ("richiamo_verbale", "lettera_richiamo", "contestazione_disciplinare", "sospensione", "altro")
-DISCIPLINARY_ACTION_OUTCOMES = ("in_attesa", "archiviata", "accolta", "sanzione_confermata", "altro")
+from pydantic import BaseModel, Field, model_validator
+
+from core.validation_limits import LONG_TEXT_MAX_LENGTH, SHORT_TEXT_MAX_LENGTH
+
+DISCIPLINARY_ACTION_TYPES = (
+    "richiamo_verbale",
+    "lettera_richiamo",
+    "contestazione_disciplinare",
+    "sospensione",
+    "altro",
+)
+DISCIPLINARY_ACTION_OUTCOMES = (
+    "in_attesa",
+    "archiviata",
+    "accolta",
+    "sanzione_confermata",
+    "altro",
+)
 
 
 class EmployeeDisciplinaryActionIn(BaseModel):

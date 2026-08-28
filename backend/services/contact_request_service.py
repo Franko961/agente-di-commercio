@@ -3,10 +3,10 @@ import logging
 
 from fastapi import HTTPException
 
-from core.utils import gen_id, now_iso
-from core.exceptions import ValidationAppError
 from core.config import CONTACT_NOTIFY_EMAIL
+from core.exceptions import ValidationAppError
 from core.rate_limit import check_and_record
+from core.utils import gen_id, now_iso
 from repositories.contact_request_repository import contact_request_repository
 from services.email_service import send_email
 
@@ -22,9 +22,13 @@ class ContactRequestService:
         # demo_request_service): senza, chiunque potrebbe riempire la casella
         # info@salesfly.it di messaggi automatizzati.
         if ip_address:
-            ip_ok = await check_and_record("contact_request_ip", ip_address, max_attempts=5, window_minutes=60)
+            ip_ok = await check_and_record(
+                "contact_request_ip", ip_address, max_attempts=5, window_minutes=60
+            )
             if not ip_ok:
-                raise HTTPException(429, "Troppe richieste da questo indirizzo, riprova più tardi.")
+                raise HTTPException(
+                    429, "Troppe richieste da questo indirizzo, riprova più tardi."
+                )
 
         if not payload.privacy_consent:
             raise ValidationAppError(

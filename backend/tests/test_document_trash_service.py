@@ -9,8 +9,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_document_trash_service.py -v
 """
-import sys
+
 import asyncio
+import sys
 from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, ".")
@@ -49,6 +50,7 @@ class FakeCollection:
                 elif d.get(k) != v:
                     return False
             return True
+
         return FakeCursor([d for d in self.docs if matches(d)])
 
     async def delete_many(self, query):
@@ -78,14 +80,43 @@ class FakeDb:
 def build_fake_db():
     fake_db = FakeDb()
     fake_db.documents.docs = [
-        {"id": "d-old", "is_deleted": True, "deleted_at": iso_days_ago(31), "storage_path": "salesfly/uploads/u1/old.pdf"},
-        {"id": "d-recent", "is_deleted": True, "deleted_at": iso_days_ago(5), "storage_path": "salesfly/uploads/u1/recent.pdf"},
-        {"id": "d-active", "is_deleted": False, "storage_path": "salesfly/uploads/u1/active.pdf"},
-        {"id": "d-old-nopath", "is_deleted": True, "deleted_at": iso_days_ago(60), "storage_path": None},
+        {
+            "id": "d-old",
+            "is_deleted": True,
+            "deleted_at": iso_days_ago(31),
+            "storage_path": "salesfly/uploads/u1/old.pdf",
+        },
+        {
+            "id": "d-recent",
+            "is_deleted": True,
+            "deleted_at": iso_days_ago(5),
+            "storage_path": "salesfly/uploads/u1/recent.pdf",
+        },
+        {
+            "id": "d-active",
+            "is_deleted": False,
+            "storage_path": "salesfly/uploads/u1/active.pdf",
+        },
+        {
+            "id": "d-old-nopath",
+            "is_deleted": True,
+            "deleted_at": iso_days_ago(60),
+            "storage_path": None,
+        },
     ]
     fake_db.employee_documents.docs = [
-        {"id": "ed-old", "is_deleted": True, "deleted_at": iso_days_ago(45), "storage_path": "salesfly/uploads/u1/employees/e1/old.pdf"},
-        {"id": "ed-recent", "is_deleted": True, "deleted_at": iso_days_ago(1), "storage_path": "salesfly/uploads/u1/employees/e1/recent.pdf"},
+        {
+            "id": "ed-old",
+            "is_deleted": True,
+            "deleted_at": iso_days_ago(45),
+            "storage_path": "salesfly/uploads/u1/employees/e1/old.pdf",
+        },
+        {
+            "id": "ed-recent",
+            "is_deleted": True,
+            "deleted_at": iso_days_ago(1),
+            "storage_path": "salesfly/uploads/u1/employees/e1/recent.pdf",
+        },
     ]
     return fake_db
 
@@ -97,7 +128,9 @@ def build_service(monkeypatch, fake_db, storage_delete_impl=None):
     def default_impl(path):
         deleted_paths.append(path)
 
-    monkeypatch.setattr(trash_mod, "storage_delete", storage_delete_impl or default_impl)
+    monkeypatch.setattr(
+        trash_mod, "storage_delete", storage_delete_impl or default_impl
+    )
     return DocumentTrashService(), deleted_paths
 
 
@@ -107,7 +140,9 @@ def test_purge_cancella_solo_i_soft_deleted_oltre_la_retention(monkeypatch):
 
     purged = run(service.purge_expired(retention_days=30))
 
-    remaining_ids = {d["id"] for d in fake_db.documents.docs} | {d["id"] for d in fake_db.employee_documents.docs}
+    remaining_ids = {d["id"] for d in fake_db.documents.docs} | {
+        d["id"] for d in fake_db.employee_documents.docs
+    }
     assert "d-old" not in remaining_ids
     assert "d-old-nopath" not in remaining_ids
     assert "ed-old" not in remaining_ids
@@ -124,10 +159,12 @@ def test_purge_cancella_il_file_s3_solo_quando_presente(monkeypatch):
 
     run(service.purge_expired(retention_days=30))
 
-    assert sorted(deleted_paths) == sorted([
-        "salesfly/uploads/u1/old.pdf",
-        "salesfly/uploads/u1/employees/e1/old.pdf",
-    ])
+    assert sorted(deleted_paths) == sorted(
+        [
+            "salesfly/uploads/u1/old.pdf",
+            "salesfly/uploads/u1/employees/e1/old.pdf",
+        ]
+    )
 
 
 def test_purge_non_cancella_il_record_se_s3_fallisce(monkeypatch):
@@ -142,7 +179,9 @@ def test_purge_non_cancella_il_record_se_s3_fallisce(monkeypatch):
 
     # Nessun record con storage_path cancellato: solo d-old-nopath (che non
     # ha un file da cancellare) viene rimosso.
-    remaining_ids = {d["id"] for d in fake_db.documents.docs} | {d["id"] for d in fake_db.employee_documents.docs}
+    remaining_ids = {d["id"] for d in fake_db.documents.docs} | {
+        d["id"] for d in fake_db.employee_documents.docs
+    }
     assert "d-old" in remaining_ids
     assert "ed-old" in remaining_ids
     assert "d-old-nopath" not in remaining_ids
@@ -152,7 +191,12 @@ def test_purge_non_cancella_il_record_se_s3_fallisce(monkeypatch):
 def test_purge_senza_documenti_scaduti_non_fa_nulla(monkeypatch):
     fake_db = FakeDb()
     fake_db.documents.docs = [
-        {"id": "d1", "is_deleted": True, "deleted_at": iso_days_ago(1), "storage_path": "x"},
+        {
+            "id": "d1",
+            "is_deleted": True,
+            "deleted_at": iso_days_ago(1),
+            "storage_path": "x",
+        },
     ]
     service, deleted_paths = build_service(monkeypatch, fake_db)
 
@@ -165,4 +209,5 @@ def test_purge_senza_documenti_scaduti_non_fa_nulla(monkeypatch):
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

@@ -9,7 +9,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from core.italian_holidays import is_italian_holiday
-from core.utils import local_date_str, LOCAL_TZ
+from core.utils import LOCAL_TZ, local_date_str
 from services.export_service import sanitize_cell_text
 from services.leave_request_service import LEAVE_TYPE_LABELS
 
@@ -24,31 +24,52 @@ def _local_time_str(iso_ts: str) -> str:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(LOCAL_TZ).strftime("%H:%M")
 
+
 # Stessi colori (senza #) e stesse etichette già usati nella griglia live
 # (frontend/src/pages/Presenze.jsx ALL_TYPE_COLORS/ALL_TYPE_LABELS):
 # duplicati qui deliberatamente, stesso principio già adottato per
 # core/italian_holidays.py (JS e Python restano runtime separati, niente
 # modulo condiviso tra frontend e backend).
 TYPE_LABELS = {
-    "ferie": "Ferie", "permesso": "Permesso", "malattia": "Malattia",
-    "smartworking": "Smartworking", "trasferta": "Trasferta",
-    "straordinari": "Straordinari", "reperibilita": "Reperibilità",
+    "ferie": "Ferie",
+    "permesso": "Permesso",
+    "malattia": "Malattia",
+    "smartworking": "Smartworking",
+    "trasferta": "Trasferta",
+    "straordinari": "Straordinari",
+    "reperibilita": "Reperibilità",
 }
 TYPE_COLORS = {
-    "ferie": "FF5A00", "permesso": "0A192F", "malattia": "DC2626",
-    "smartworking": "D97706", "trasferta": "78350F",
-    "straordinari": "DB2777", "reperibilita": "6366F1",
+    "ferie": "FF5A00",
+    "permesso": "0A192F",
+    "malattia": "DC2626",
+    "smartworking": "D97706",
+    "trasferta": "78350F",
+    "straordinari": "DB2777",
+    "reperibilita": "6366F1",
 }
 PRESENTE_COLOR = "16A34A"
 
 _MONTH_LABELS_IT = (
-    "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-    "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
+    "Gennaio",
+    "Febbraio",
+    "Marzo",
+    "Aprile",
+    "Maggio",
+    "Giugno",
+    "Luglio",
+    "Agosto",
+    "Settembre",
+    "Ottobre",
+    "Novembre",
+    "Dicembre",
 )
 
 
 def _fill(hex_color: str) -> PatternFill:
-    return PatternFill(start_color="FF" + hex_color, end_color="FF" + hex_color, fill_type="solid")
+    return PatternFill(
+        start_color="FF" + hex_color, end_color="FF" + hex_color, fill_type="solid"
+    )
 
 
 def _is_ferie_excluded_day(mode: str, day: date) -> bool:
@@ -113,10 +134,15 @@ def build_attendance_workbook(
     for s in sessions:
         name = s.get("employee_name") or ""
         day_iso = local_date_str(s["clock_in"])
-        h = (datetime.fromisoformat(s["clock_out"]) - datetime.fromisoformat(s["clock_in"])).total_seconds() / 3600
+        h = (
+            datetime.fromisoformat(s["clock_out"])
+            - datetime.fromisoformat(s["clock_in"])
+        ).total_seconds() / 3600
         hours_by_key[(name, day_iso)] = hours_by_key.get((name, day_iso), 0) + h
 
-    names = sorted(({n for n in requests_by_employee} | {n for n, _ in hours_by_key}) - {""})
+    names = sorted(
+        ({n for n in requests_by_employee} | {n for n, _ in hours_by_key}) - {""}
+    )
 
     wb = Workbook()
     ws = wb.active
@@ -124,7 +150,11 @@ def build_attendance_workbook(
 
     _add_logo(ws, company_logo)
 
-    ws.cell(row=1, column=4, value=sanitize_cell_text(f"Cartellino presenze — {company_name}")).font = Font(bold=True, size=14)
+    ws.cell(
+        row=1,
+        column=4,
+        value=sanitize_cell_text(f"Cartellino presenze — {company_name}"),
+    ).font = Font(bold=True, size=14)
     ws.cell(row=2, column=4, value=month_label).font = Font(size=11, italic=True)
 
     header_row = 5
@@ -134,8 +164,12 @@ def build_attendance_workbook(
         ws.column_dimensions[get_column_letter(1 + day)].width = 4
     totals_col = 1 + days_in_month + 1
     ferie_col = totals_col + 1
-    ws.cell(row=header_row, column=totals_col, value="Ore totali").font = Font(bold=True)
-    ws.cell(row=header_row, column=ferie_col, value="Giorni ferie").font = Font(bold=True)
+    ws.cell(row=header_row, column=totals_col, value="Ore totali").font = Font(
+        bold=True
+    )
+    ws.cell(row=header_row, column=ferie_col, value="Giorni ferie").font = Font(
+        bold=True
+    )
     ws.column_dimensions["A"].width = 24
     ws.column_dimensions[get_column_letter(totals_col)].width = 12
     ws.column_dimensions[get_column_letter(ferie_col)].width = 12
@@ -163,7 +197,9 @@ def build_attendance_workbook(
                     extra_hours = (extra_hours or 0) + (r.get("hours") or 0)
                     continue
                 if match is None:
-                    if r["type"] == "ferie" and _is_ferie_excluded_day(ferie_count_mode, d):
+                    if r["type"] == "ferie" and _is_ferie_excluded_day(
+                        ferie_count_mode, d
+                    ):
                         continue
                     match = r
             worked_hours = hours_by_key.get((name, iso))
@@ -183,7 +219,9 @@ def build_attendance_workbook(
                 # quel giorno; lo straordinario dichiarato (senza una
                 # timbratura separata) usa il proprio colore — in entrambi
                 # i casi il valore mostrato è la SOMMA, non l'uno o l'altro.
-                cell.fill = _fill(PRESENTE_COLOR if worked_hours else TYPE_COLORS["straordinari"])
+                cell.fill = _fill(
+                    PRESENTE_COLOR if worked_hours else TYPE_COLORS["straordinari"]
+                )
                 cell.font = Font(color="FFFFFFFF")
                 cell.value = round((worked_hours or 0) + (extra_hours or 0), 2)
                 cell.alignment = Alignment(horizontal="center")
@@ -211,12 +249,23 @@ def build_attendance_workbook(
     return wb
 
 
-def _build_dettaglio_sheet(wb: Workbook, month: str, leave_requests: list, sessions: list) -> None:
+def _build_dettaglio_sheet(
+    wb: Workbook, month: str, leave_requests: list, sessions: list
+) -> None:
     """Stessa lista piatta (una riga per sessione/assenza) del precedente
     export CSV — vedi attendance_service.export_xlsx, che chiama questa
     funzione tramite build_attendance_workbook."""
     ws = wb.create_sheet("Dettaglio")
-    headers = ["Dipendente", "Tipo", "Data", "Data fine", "Entrata", "Uscita", "Ore", "Note"]
+    headers = [
+        "Dipendente",
+        "Tipo",
+        "Data",
+        "Data fine",
+        "Entrata",
+        "Uscita",
+        "Ore",
+        "Note",
+    ]
     for col, h in enumerate(headers, start=1):
         ws.cell(row=1, column=col, value=h).font = Font(bold=True)
 
@@ -227,18 +276,35 @@ def _build_dettaglio_sheet(wb: Workbook, month: str, leave_requests: list, sessi
     rows = []
     for s in sessions:
         day = local_date_str(s["clock_in"])
-        hours = (datetime.fromisoformat(s["clock_out"]) - datetime.fromisoformat(s["clock_in"])).total_seconds() / 3600
-        rows.append([
-            s.get("employee_name", ""), "Presenza", day, "",
-            _local_time_str(s["clock_in"]), _local_time_str(s["clock_out"]),
-            round(hours, 2), s.get("note", ""),
-        ])
+        hours = (
+            datetime.fromisoformat(s["clock_out"])
+            - datetime.fromisoformat(s["clock_in"])
+        ).total_seconds() / 3600
+        rows.append(
+            [
+                s.get("employee_name", ""),
+                "Presenza",
+                day,
+                "",
+                _local_time_str(s["clock_in"]),
+                _local_time_str(s["clock_out"]),
+                round(hours, 2),
+                s.get("note", ""),
+            ]
+        )
     for r in leave_requests:
-        rows.append([
-            r.get("employee_name", ""), LEAVE_TYPE_LABELS.get(r["type"], r["type"]),
-            max(r["date_from"], month_start), min(r["date_to"], month_end),
-            "", "", r.get("hours") if r.get("hours") is not None else "", r.get("note", ""),
-        ])
+        rows.append(
+            [
+                r.get("employee_name", ""),
+                LEAVE_TYPE_LABELS.get(r["type"], r["type"]),
+                max(r["date_from"], month_start),
+                min(r["date_to"], month_end),
+                "",
+                "",
+                r.get("hours") if r.get("hours") is not None else "",
+                r.get("note", ""),
+            ]
+        )
     rows.sort(key=lambda r: (r[0], r[2]))
 
     for row_idx, r in enumerate(rows, start=2):

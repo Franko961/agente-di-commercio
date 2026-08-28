@@ -30,30 +30,40 @@ assenza si comporta esattamente come prima):
 Tutto avvolto in try/except a grana fine: un'automazione o un'entità che
 falliscono non devono mai interrompere il ciclo delle altre.
 """
+
 import html
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from core.config import AUTOMATION_MAX_ATTEMPTS, AUTOMATION_ENGINE_INTERVAL_SECONDS
+from core.config import AUTOMATION_ENGINE_INTERVAL_SECONDS, AUTOMATION_MAX_ATTEMPTS
 from core.observability import record_event
-from core.utils import gen_id, now_iso, now_local, local_wallclock_to_utc_iso, local_month_str, local_date_str
+from core.utils import (
+    gen_id,
+    local_date_str,
+    local_month_str,
+    local_wallclock_to_utc_iso,
+    now_iso,
+    now_local,
+)
+from models.leave_request import LEAVE_TYPES
+from repositories.appointment_repository import appointment_repository
+from repositories.attendance_repository import attendance_repository
+from repositories.automation_notification_repository import (
+    automation_notification_repository,
+)
 from repositories.automation_repository import automation_repository
 from repositories.automation_run_repository import automation_run_repository
-from repositories.automation_notification_repository import automation_notification_repository
 from repositories.client_repository import client_repository
-from repositories.offer_repository import offer_repository
-from repositories.lead_repository import lead_repository
-from repositories.appointment_repository import appointment_repository
-from repositories.order_repository import order_repository
 from repositories.commission_repository import commission_repository
+from repositories.employee_repository import employee_repository
+from repositories.lead_repository import lead_repository
+from repositories.leave_request_repository import leave_request_repository
 from repositories.manual_commission_repository import manual_commission_repository
+from repositories.offer_repository import offer_repository
+from repositories.order_repository import order_repository
 from repositories.user_repository import user_repository
 from repositories.vehicle_deadline_repository import vehicle_deadline_repository
-from repositories.employee_repository import employee_repository
-from repositories.attendance_repository import attendance_repository
-from repositories.leave_request_repository import leave_request_repository
-from models.leave_request import LEAVE_TYPES
 from services.commission_service import normalize_manual_commission
 from services.email_service import send_email
 
@@ -84,6 +94,7 @@ class _SafeDict(dict):
     dell'utente tipo '{nom}') viene lasciato letterale nel testo invece di
     far fallire l'invio con un KeyError — un errore di battitura nel
     contenuto personalizzato non deve mai bloccare un'automazione."""
+
     def __missing__(self, key):
         return "{" + key + "}"
 
@@ -93,9 +104,17 @@ def _placeholder_values(target_type: str, context: dict) -> dict:
     (config['email_subject']/config['email_message']): {nome}, {scadenza}
     (solo per le offerte), {citta} (solo per clienti/lead)."""
     if target_type == "offer":
-        return {"nome": context.get("title", ""), "scadenza": (context.get("expires_at") or "")[:10], "citta": ""}
+        return {
+            "nome": context.get("title", ""),
+            "scadenza": (context.get("expires_at") or "")[:10],
+            "citta": "",
+        }
     if target_type in ("client", "lead"):
-        return {"nome": context.get("company_name", ""), "scadenza": "", "citta": context.get("city", "")}
+        return {
+            "nome": context.get("company_name", ""),
+            "scadenza": "",
+            "citta": context.get("city", ""),
+        }
     if target_type == "employee_attendance":
         nome = f"{context.get('name', '')} {context.get('surname', '')}".strip()
         return {"nome": nome, "scadenza": "", "citta": ""}
@@ -192,8 +211,15 @@ class AutomationEngine:
             except Exception as e:
                 # Un'automazione mal configurata (trigger/azione sconosciuti,
                 # config malformata) non deve bloccare le altre.
-                logger.error(f"Automazione {automation.get('id')} fallita per errore inatteso: {e}")
-                await record_event("automation_run", "failure", automation_id=automation.get("id"), error=str(e)[:300])
+                logger.error(
+                    f"Automazione {automation.get('id')} fallita per errore inatteso: {e}"
+                )
+                await record_event(
+                    "automation_run",
+                    "failure",
+                    automation_id=automation.get("id"),
+                    error=str(e)[:300],
+                )
                 summary["errors"] += 1
 
         return summary
@@ -215,21 +241,37 @@ class AutomationEngine:
 
         evaluator = _TRIGGER_EVALUATORS.get(trigger)
         if not evaluator:
-            logger.warning(f"Automazione {aid}: trigger sconosciuto '{trigger}', ignorata")
-            await self.automation_repo.update_last_run(aid, {
-                "last_run_at": now_iso(), "last_run_status": "error",
-                "last_run_error": f"trigger sconosciuto: {trigger}",
-                "last_run_executed": 0, "last_run_skipped": 0, "last_run_errors": 1,
-            })
+            logger.warning(
+                f"Automazione {aid}: trigger sconosciuto '{trigger}', ignorata"
+            )
+            await self.automation_repo.update_last_run(
+                aid,
+                {
+                    "last_run_at": now_iso(),
+                    "last_run_status": "error",
+                    "last_run_error": f"trigger sconosciuto: {trigger}",
+                    "last_run_executed": 0,
+                    "last_run_skipped": 0,
+                    "last_run_errors": 1,
+                },
+            )
             return {"executed": 0, "skipped": 0, "errors": 1}
 
         if action not in _ACTION_EXECUTORS:
-            logger.warning(f"Automazione {aid}: azione sconosciuta '{action}', ignorata")
-            await self.automation_repo.update_last_run(aid, {
-                "last_run_at": now_iso(), "last_run_status": "error",
-                "last_run_error": f"azione sconosciuta: {action}",
-                "last_run_executed": 0, "last_run_skipped": 0, "last_run_errors": 1,
-            })
+            logger.warning(
+                f"Automazione {aid}: azione sconosciuta '{action}', ignorata"
+            )
+            await self.automation_repo.update_last_run(
+                aid,
+                {
+                    "last_run_at": now_iso(),
+                    "last_run_status": "error",
+                    "last_run_error": f"azione sconosciuta: {action}",
+                    "last_run_executed": 0,
+                    "last_run_skipped": 0,
+                    "last_run_errors": 1,
+                },
+            )
             return {"executed": 0, "skipped": 0, "errors": 1}
 
         candidates = await evaluator(self, user_id, config)
@@ -246,35 +288,83 @@ class AutomationEngine:
                 # l'azione (due email, due appuntamenti...) prima che una
                 # delle due registri il risultato. Solo l'istanza che vince
                 # questa prenotazione procede.
-                claimed = await self.run_repo.try_claim(aid, user_id, target_type, target_id, cooldown_days=cooldown_days)
+                claimed = await self.run_repo.try_claim(
+                    aid, user_id, target_type, target_id, cooldown_days=cooldown_days
+                )
                 if not claimed:
                     skipped += 1
                     continue
-                await _ACTION_EXECUTORS[action](self, automation, target_type, target_id, context)
-                await self.run_repo.upsert(aid, user_id, target_type, target_id, {
-                    "status": "ok", "attempts": 0, "last_error": None, "updated_at": now_iso(),
-                })
-                await record_event("automation_run", "success", automation_id=aid, trigger=trigger, action=action)
+                await _ACTION_EXECUTORS[action](
+                    self, automation, target_type, target_id, context
+                )
+                await self.run_repo.upsert(
+                    aid,
+                    user_id,
+                    target_type,
+                    target_id,
+                    {
+                        "status": "ok",
+                        "attempts": 0,
+                        "last_error": None,
+                        "updated_at": now_iso(),
+                    },
+                )
+                await record_event(
+                    "automation_run",
+                    "success",
+                    automation_id=aid,
+                    trigger=trigger,
+                    action=action,
+                )
                 executed += 1
             except Exception as e:
                 prev = await self.run_repo.find_one(aid, target_id)
                 attempts = (prev.get("attempts", 0) if prev else 0) + 1
-                status = "error" if attempts < AUTOMATION_MAX_ATTEMPTS else "failed_permanent"
-                await self.run_repo.upsert(aid, user_id, target_type, target_id, {
-                    "status": status, "attempts": attempts, "last_error": str(e)[:500], "updated_at": now_iso(),
-                })
-                await record_event("automation_run", "failure", automation_id=aid, trigger=trigger, action=action, error=str(e)[:300])
-                logger.error(f"Automazione {aid} fallita su {target_type} {target_id} (tentativo {attempts}): {e}")
+                status = (
+                    "error"
+                    if attempts < AUTOMATION_MAX_ATTEMPTS
+                    else "failed_permanent"
+                )
+                await self.run_repo.upsert(
+                    aid,
+                    user_id,
+                    target_type,
+                    target_id,
+                    {
+                        "status": status,
+                        "attempts": attempts,
+                        "last_error": str(e)[:500],
+                        "updated_at": now_iso(),
+                    },
+                )
+                await record_event(
+                    "automation_run",
+                    "failure",
+                    automation_id=aid,
+                    trigger=trigger,
+                    action=action,
+                    error=str(e)[:300],
+                )
+                logger.error(
+                    f"Automazione {aid} fallita su {target_type} {target_id} (tentativo {attempts}): {e}"
+                )
                 errors += 1
 
-        await self.automation_repo.update_last_run(aid, {
-            "last_run_at": now_iso(),
-            "last_run_status": "error" if errors else "ok",
-            "last_run_error": None if not errors else f"{errors} esecuzione/i fallita/e nell'ultimo ciclo",
-            "last_run_executed": executed,
-            "last_run_skipped": skipped,
-            "last_run_errors": errors,
-        })
+        await self.automation_repo.update_last_run(
+            aid,
+            {
+                "last_run_at": now_iso(),
+                "last_run_status": "error" if errors else "ok",
+                "last_run_error": (
+                    None
+                    if not errors
+                    else f"{errors} esecuzione/i fallita/e nell'ultimo ciclo"
+                ),
+                "last_run_executed": executed,
+                "last_run_skipped": skipped,
+                "last_run_errors": errors,
+            },
+        )
         return {"executed": executed, "skipped": skipped, "errors": errors}
 
     # ------------------------------------------------------------------
@@ -340,7 +430,9 @@ class AutomationEngine:
             # riflette la VERA ultima interazione, non solo quando è stato
             # creato. created_at resta come fallback solo per i lead creati
             # prima dell'introduzione di questo campo, che ne sono privi.
-            last_activity = _parse_iso(lead.get("last_interaction_at")) or _parse_iso(lead.get("created_at"))
+            last_activity = _parse_iso(lead.get("last_interaction_at")) or _parse_iso(
+                lead.get("created_at")
+            )
             if last_activity and last_activity <= threshold:
                 out.append(("lead", lead["id"], lead))
         return out
@@ -437,8 +529,10 @@ class AutomationEngine:
         tomorrow = (now_local() + timedelta(days=1)).strftime("%Y-%m-%d")
         appts = await self.appointment_repo.find_many(user_id)
         tomorrow_appts = [
-            a for a in appts
-            if a.get("status") == "pianificato" and local_date_str(a.get("start")) == tomorrow
+            a
+            for a in appts
+            if a.get("status") == "pianificato"
+            and local_date_str(a.get("start")) == tomorrow
         ]
         if not tomorrow_appts:
             return []
@@ -455,7 +549,9 @@ class AutomationEngine:
         context = {"count": len(tomorrow_appts), "client_names": client_names}
         return [("digest_appointments", f"{user_id}:{today_str}", context)]
 
-    async def _eval_commissions_below_target_mid_month(self, user_id: str, config: dict) -> list:
+    async def _eval_commissions_below_target_mid_month(
+        self, user_id: str, config: dict
+    ) -> list:
         """Digest 'provvigioni sotto obiettivo': valutato solo il giorno del
         mese configurato (default 15, check_day) — _matches_schedule copre
         solo l'orario, non il giorno del mese, quindi il controllo va fatto
@@ -482,9 +578,12 @@ class AutomationEngine:
         # Le provvigioni manuali contano come vere anche qui, per lo stesso
         # motivo spiegato dove sono state introdotte nel briefing AI/dashboard.
         manual_commissions = await self.manual_commission_repo.find_many(user_id)
-        commissions = commissions + [normalize_manual_commission(user_id, m) for m in manual_commissions]
+        commissions = commissions + [
+            normalize_manual_commission(user_id, m) for m in manual_commissions
+        ]
         commissions_month = sum(
-            c.get("amount", 0) for c in commissions
+            c.get("amount", 0)
+            for c in commissions
             if local_month_str(c.get("created_at")) == current_month_key
         )
         pct = (commissions_month / goal_commissions * 100) if goal_commissions else 0
@@ -519,7 +618,13 @@ class AutomationEngine:
                 continue
             days_until = (due - today).days
             if days_until in reminder_days:
-                out.append(("vehicle_deadline", f"{d['id']}:{days_until}", {**d, "days_until": days_until}))
+                out.append(
+                    (
+                        "vehicle_deadline",
+                        f"{d['id']}:{days_until}",
+                        {**d, "days_until": days_until},
+                    )
+                )
         return out
 
     async def _eval_attendance_missing(self, user_id: str, config: dict) -> list:
@@ -555,7 +660,9 @@ class AutomationEngine:
                 hour, minute = (int(p) for p in shift_start.split(":"))
             except (ValueError, AttributeError):
                 continue  # orario malformato: non blocca il ciclo, semplicemente non monitorato
-            threshold = now.replace(hour=hour, minute=minute, second=0, microsecond=0) + timedelta(hours=1)
+            threshold = now.replace(
+                hour=hour, minute=minute, second=0, microsecond=0
+            ) + timedelta(hours=1)
             if now < threshold:
                 continue
 
@@ -565,7 +672,9 @@ class AutomationEngine:
 
             leave_requests = await self.leave_request_repo.find_by_employee(e["id"])
             if any(
-                r["type"] in LEAVE_TYPES and r["status"] == "approvata" and r["date_from"] <= today_str <= r["date_to"]
+                r["type"] in LEAVE_TYPES
+                and r["status"] == "approvata"
+                and r["date_from"] <= today_str <= r["date_to"]
                 for r in leave_requests
             ):
                 continue  # assenza approvata che copre oggi: esclusa dal controllo
@@ -579,11 +688,15 @@ class AutomationEngine:
     async def _get_user(self, user_id: str) -> Optional[dict]:
         return await self.user_repo.find_by_id(user_id)
 
-    async def _recipient_email_for(self, target_type: str, context: dict, user: dict) -> str:
+    async def _recipient_email_for(
+        self, target_type: str, context: dict, user: dict
+    ) -> str:
         """Determina il destinatario di un'email di follow-up: il cliente o
         il lead coinvolto se ha un'email, altrimenti l'agente stesso."""
         if target_type == "offer":
-            client = await self.client_repo.find_one(context.get("client_id"), context.get("user_id", ""))
+            client = await self.client_repo.find_one(
+                context.get("client_id"), context.get("user_id", "")
+            )
             if client and client.get("email"):
                 return client["email"]
         elif target_type == "client" and context.get("email"):
@@ -592,7 +705,9 @@ class AutomationEngine:
             return context["email"]
         return user.get("email", "")
 
-    async def _action_send_reminder(self, automation: dict, target_type: str, target_id: str, context: dict) -> None:
+    async def _action_send_reminder(
+        self, automation: dict, target_type: str, target_id: str, context: dict
+    ) -> None:
         user = await self._get_user(automation["user_id"])
         if not user:
             raise RuntimeError("Utente dell'automazione non trovato")
@@ -601,14 +716,30 @@ class AutomationEngine:
         label = _describe_target(target_type, context)
         custom_subject = config.get("email_subject")
         custom_message = config.get("email_message")
-        title = _render_template(custom_subject, target_type, context) if custom_subject else (automation.get("name") or "Promemoria automazione")
-        message = _render_template(custom_message, target_type, context) if custom_message else f"{title}: {label}"
+        title = (
+            _render_template(custom_subject, target_type, context)
+            if custom_subject
+            else (automation.get("name") or "Promemoria automazione")
+        )
+        message = (
+            _render_template(custom_message, target_type, context)
+            if custom_message
+            else f"{title}: {label}"
+        )
 
-        await self.notification_repo.insert({
-            "id": gen_id(), "user_id": automation["user_id"], "automation_id": automation["id"],
-            "title": title, "message": message, "target_type": target_type, "target_id": target_id,
-            "read": False, "created_at": now_iso(),
-        })
+        await self.notification_repo.insert(
+            {
+                "id": gen_id(),
+                "user_id": automation["user_id"],
+                "automation_id": automation["id"],
+                "title": title,
+                "message": message,
+                "target_type": target_type,
+                "target_id": target_id,
+                "read": False,
+                "created_at": now_iso(),
+            }
+        )
 
         if user.get("is_demo"):
             return  # niente invii reali per l'account demo condiviso
@@ -622,20 +753,24 @@ class AutomationEngine:
             f"<p>{html.escape(message)}</p>",
         )
 
-    async def _action_create_task(self, automation: dict, target_type: str, target_id: str, context: dict) -> None:
+    async def _action_create_task(
+        self, automation: dict, target_type: str, target_id: str, context: dict
+    ) -> None:
         user = await self._get_user(automation["user_id"])
         if not user or user.get("is_demo"):
             return  # non scrive appuntamenti reali sull'account demo condiviso
 
-        from services.appointment_service import appointment_service
         from models.appointment import AppointmentIn
+        from services.appointment_service import appointment_service
 
         # context["id"] invece di target_id per target_type=="client": per il
         # trigger compleanno target_id è composito ("<client_id>:<anno>", per
         # far ripetere l'automazione ogni anno — vedi _eval_client_birthday),
         # mentre context è sempre il documento cliente vero e proprio, il cui
         # "id" coincide con target_id per tutti gli altri trigger su cliente.
-        client_id = context.get("id") if target_type == "client" else context.get("client_id")
+        client_id = (
+            context.get("id") if target_type == "client" else context.get("client_id")
+        )
         start = _next_task_datetime_utc_iso(automation.get("config") or {})
         payload = AppointmentIn(
             client_id=client_id,
@@ -646,7 +781,9 @@ class AutomationEngine:
         )
         await appointment_service.create_appointment(user, payload)
 
-    async def _action_send_email(self, automation: dict, target_type: str, target_id: str, context: dict) -> None:
+    async def _action_send_email(
+        self, automation: dict, target_type: str, target_id: str, context: dict
+    ) -> None:
         user = await self._get_user(automation["user_id"])
         if not user:
             raise RuntimeError("Utente dell'automazione non trovato")
@@ -661,8 +798,16 @@ class AutomationEngine:
         custom_subject = config.get("email_subject")
         custom_message = config.get("email_message")
         label = _describe_target(target_type, context)
-        subject = _render_template(custom_subject, target_type, context) if custom_subject else (automation.get("name") or "Follow-up")
-        body_text = _render_template(custom_message, target_type, context) if custom_message else label
+        subject = (
+            _render_template(custom_subject, target_type, context)
+            if custom_subject
+            else (automation.get("name") or "Follow-up")
+        )
+        body_text = (
+            _render_template(custom_message, target_type, context)
+            if custom_message
+            else label
+        )
         # body_text può contenere dati del CRM (nome cliente, titolo offerta,
         # ecc.) o il testo del template configurato dall'utente: va sempre
         # HTML-escaped prima di finire nel corpo dell'email, altrimenti un
@@ -729,7 +874,12 @@ def _describe_target(target_type: str, context: dict) -> str:
             f"— mancano €{context.get('missing', 0):,.0f}".replace(",", ".")
         )
     if target_type == "vehicle_deadline":
-        labels = {"assicurazione": "Assicurazione", "revisione": "Revisione", "bollo": "Bollo", "altro": "Scadenza"}
+        labels = {
+            "assicurazione": "Assicurazione",
+            "revisione": "Revisione",
+            "bollo": "Bollo",
+            "altro": "Scadenza",
+        }
         label = labels.get(context.get("type"), "Scadenza")
         return f"{label} di {context.get('vehicle_plate', '')} tra {context.get('days_until', '?')} giorni"
     if target_type == "employee_attendance":

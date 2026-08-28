@@ -7,14 +7,16 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     ANTHROPIC_API_KEY=test python -m pytest test_products_bulk_import.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 sys.path.insert(0, ".")
 
 from fastapi import HTTPException
-from services.product_service import ProductService
+
 from models.product import ProductBulkIn, ProductBulkItem
+from services.product_service import ProductService
 
 
 def run(coro):
@@ -65,10 +67,22 @@ def _payload(items):
 
 def test_importa_prodotti_nuovi_correttamente():
     service, product_repo, mandante = build_service()
-    payload = _payload([
-        {"sku": "AI-ADISET", "name": "Assistente Digitale Intelligente set", "price": 1118, "category": "Intelligenza Artificiale"},
-        {"sku": "GBP", "name": "Scheda Google Business Profile", "price": 211, "category": "Google Business Profile"},
-    ])
+    payload = _payload(
+        [
+            {
+                "sku": "AI-ADISET",
+                "name": "Assistente Digitale Intelligente set",
+                "price": 1118,
+                "category": "Intelligenza Artificiale",
+            },
+            {
+                "sku": "GBP",
+                "name": "Scheda Google Business Profile",
+                "price": 211,
+                "category": "Google Business Profile",
+            },
+        ]
+    )
 
     result = run(service.bulk_import(FAKE_USER, payload))
 
@@ -99,9 +113,16 @@ def test_reimportare_gli_stessi_sku_non_crea_doppioni():
     """L'endpoint deve essere idempotente: richiamarlo due volte con lo
     stesso listino non deve duplicare i prodotti già presenti."""
     service, product_repo, mandante = build_service()
-    payload = _payload([
-        {"sku": "AI-ADISET", "name": "Assistente Digitale Intelligente set", "price": 1118, "category": "Intelligenza Artificiale"},
-    ])
+    payload = _payload(
+        [
+            {
+                "sku": "AI-ADISET",
+                "name": "Assistente Digitale Intelligente set",
+                "price": 1118,
+                "category": "Intelligenza Artificiale",
+            },
+        ]
+    )
 
     run(service.bulk_import(FAKE_USER, payload))
     result2 = run(service.bulk_import(FAKE_USER, payload))
@@ -114,14 +135,40 @@ def test_reimportare_gli_stessi_sku_non_crea_doppioni():
 
 def test_import_parziale_salta_solo_gli_sku_gia_presenti():
     service, product_repo, mandante = build_service()
-    run(service.bulk_import(FAKE_USER, _payload([
-        {"sku": "GBP", "name": "Scheda Google Business Profile", "price": 211},
-    ])))
+    run(
+        service.bulk_import(
+            FAKE_USER,
+            _payload(
+                [
+                    {
+                        "sku": "GBP",
+                        "name": "Scheda Google Business Profile",
+                        "price": 211,
+                    },
+                ]
+            ),
+        )
+    )
 
-    result = run(service.bulk_import(FAKE_USER, _payload([
-        {"sku": "GBP", "name": "Scheda Google Business Profile", "price": 211},
-        {"sku": "GBPM", "name": "Scheda Google Business Profile Mantenim.", "price": 211},
-    ])))
+    result = run(
+        service.bulk_import(
+            FAKE_USER,
+            _payload(
+                [
+                    {
+                        "sku": "GBP",
+                        "name": "Scheda Google Business Profile",
+                        "price": 211,
+                    },
+                    {
+                        "sku": "GBPM",
+                        "name": "Scheda Google Business Profile Mantenim.",
+                        "price": 211,
+                    },
+                ]
+            ),
+        )
+    )
 
     assert result["imported"] == 1
     assert result["skipped_existing"] == 1
@@ -132,18 +179,37 @@ def test_prodotti_di_un_altro_utente_non_influenzano_lo_sku_check():
     service, product_repo, mandante = build_service()
     # Prodotto con lo stesso sku ma di un altro utente: non deve bloccare
     # l'import per l'utente corrente.
-    product_repo.docs.append({
-        "id": "p-other", "user_id": "user-2", "mandante_id": "m-1",
-        "sku": "GBP", "name": "...", "price": 211, "category": "",
-    })
+    product_repo.docs.append(
+        {
+            "id": "p-other",
+            "user_id": "user-2",
+            "mandante_id": "m-1",
+            "sku": "GBP",
+            "name": "...",
+            "price": 211,
+            "category": "",
+        }
+    )
 
-    result = run(service.bulk_import(FAKE_USER, _payload([
-        {"sku": "GBP", "name": "Scheda Google Business Profile", "price": 211},
-    ])))
+    result = run(
+        service.bulk_import(
+            FAKE_USER,
+            _payload(
+                [
+                    {
+                        "sku": "GBP",
+                        "name": "Scheda Google Business Profile",
+                        "price": 211,
+                    },
+                ]
+            ),
+        )
+    )
 
     assert result["imported"] == 1
 
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends
-from core.security import get_current_user, forbid_demo_write
-from services.settings_service import settings_service
-from services.attendance_service import attendance_service
-from models.goals import GoalsIn
+
+from core.security import forbid_demo_write, get_current_user
 from models.addresses import AddressesIn
-from models.leave_settings import LeaveSettingsIn
 from models.company_settings import CompanySettingsIn
+from models.goals import GoalsIn
+from models.leave_settings import LeaveSettingsIn
+from services.attendance_service import attendance_service
+from services.settings_service import settings_service
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -36,7 +37,9 @@ async def get_leave_settings(user=Depends(get_current_user)):
 
 
 @router.put("/leave")
-async def update_leave_settings(payload: LeaveSettingsIn, user=Depends(forbid_demo_write)):
+async def update_leave_settings(
+    payload: LeaveSettingsIn, user=Depends(forbid_demo_write)
+):
     return await settings_service.update_leave_settings(user, payload)
 
 
@@ -46,7 +49,9 @@ async def get_company_settings(user=Depends(get_current_user)):
 
 
 @router.put("/company")
-async def update_company_settings(payload: CompanySettingsIn, user=Depends(forbid_demo_write)):
+async def update_company_settings(
+    payload: CompanySettingsIn, user=Depends(forbid_demo_write)
+):
     return await settings_service.update_company_settings(user, payload)
 
 

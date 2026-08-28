@@ -1,11 +1,13 @@
-import bcrypt
-import jwt
 import hashlib
 import secrets
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
-from fastapi import HTTPException, Request, Depends
-from core.config import JWT_SECRET, JWT_ALG, TRUSTED_PROXY_HOPS
+
+import bcrypt
+import jwt
+from fastapi import Depends, HTTPException, Request
+
+from core.config import JWT_ALG, JWT_SECRET, TRUSTED_PROXY_HOPS
 from core.database import db
 from core.subscription_utils import is_subscription_active
 
@@ -85,15 +87,21 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def create_access_token(user_id: str, email: str) -> str:
-    payload = {"sub": user_id, "email": email, "type": "access",
-               "exp": datetime.now(timezone.utc) + timedelta(days=7)}
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "type": "access",
+        "exp": datetime.now(timezone.utc) + timedelta(days=7),
+    }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
 
 
 ACCESS_TOKEN_TTL_SECONDS = 7 * 24 * 3600
 
 
-def set_auth_cookie(response, token: str, max_age: int = ACCESS_TOKEN_TTL_SECONDS) -> None:
+def set_auth_cookie(
+    response, token: str, max_age: int = ACCESS_TOKEN_TTL_SECONDS
+) -> None:
     """Imposta il cookie di sessione con gli stessi attributi ovunque venga
     emesso (login/registrazione/exit-impersonation/impersonate). SameSite=Lax
     e non "none": il frontend chiama sempre /api/* con URL relativo (mai
@@ -105,8 +113,15 @@ def set_auth_cookie(response, token: str, max_age: int = ACCESS_TOKEN_TTL_SECOND
     cross-site che non corrisponde a come il frontend chiama davvero
     l'API, e avrebbe richiesto una vera protezione CSRF (assente oggi) per
     essere sicura sul serio."""
-    response.set_cookie("access_token", token, httponly=True, secure=True,
-                         samesite="lax", max_age=max_age, path="/")
+    response.set_cookie(
+        "access_token",
+        token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=max_age,
+        path="/",
+    )
 
 
 def clear_auth_cookie(response) -> None:
@@ -120,7 +135,9 @@ def clear_auth_cookie(response) -> None:
 IMPERSONATION_TOKEN_TTL_MINUTES = 60
 
 
-def create_impersonation_token(admin_id: str, target_user_id: str, target_email: str, mode: str = "view") -> str:
+def create_impersonation_token(
+    admin_id: str, target_user_id: str, target_email: str, mode: str = "view"
+) -> str:
     """Token che fa autenticare il chiamante COME target_user_id, con in più
     il claim impersonated_by: è quel claim (letto da get_current_user sotto)
     a rendere possibile tornare all'account admin originale senza dover
@@ -132,10 +149,14 @@ def create_impersonation_token(admin_id: str, target_user_id: str, target_email:
     solo) per poter calcolare la durata della sessione quando termina — vedi
     admin_service.record_impersonation_exit."""
     payload = {
-        "sub": target_user_id, "email": target_email, "type": "access",
-        "impersonated_by": admin_id, "impersonation_mode": mode,
+        "sub": target_user_id,
+        "email": target_email,
+        "type": "access",
+        "impersonated_by": admin_id,
+        "impersonation_mode": mode,
         "iat": datetime.now(timezone.utc),
-        "exp": datetime.now(timezone.utc) + timedelta(minutes=IMPERSONATION_TOKEN_TTL_MINUTES),
+        "exp": datetime.now(timezone.utc)
+        + timedelta(minutes=IMPERSONATION_TOKEN_TTL_MINUTES),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
 
@@ -163,7 +184,9 @@ async def get_current_user(request: Request) -> dict:
     # solo per lo scopo ristretto per cui è stato emesso.
     if payload.get("type") != "access":
         raise HTTPException(status_code=401, detail="Invalid token")
-    user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
+    user = await db.users.find_one(
+        {"id": payload["sub"]}, {"_id": 0, "password_hash": 0}
+    )
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
@@ -177,7 +200,9 @@ async def get_current_user(request: Request) -> dict:
         user["impersonated_by"] = payload["impersonated_by"]
         user["impersonation_mode"] = payload.get("impersonation_mode", "view")
         if payload.get("iat"):
-            user["impersonation_started_at"] = datetime.fromtimestamp(payload["iat"], tz=timezone.utc)
+            user["impersonation_started_at"] = datetime.fromtimestamp(
+                payload["iat"], tz=timezone.utc
+            )
 
     # scope["path"] (non request.url.path, ricostruito da starlette a partire
     # dall'header Host) per evitare che un Host header malformato/malevolo
@@ -192,7 +217,12 @@ async def get_current_user(request: Request) -> dict:
     # dell'utente che sta aiutando — anzi è spesso proprio il motivo per cui
     # serve assistenza. Non riguarda l'utente impersonificato quando accede
     # con il proprio login normale (lì il token non porta questo claim).
-    if not is_exempt and not payload.get("impersonated_by") and user.get("role") != "admin" and not is_subscription_active(user):
+    if (
+        not is_exempt
+        and not payload.get("impersonated_by")
+        and user.get("role") != "admin"
+        and not is_subscription_active(user)
+    ):
         raise HTTPException(
             status_code=402,
             detail={
@@ -215,7 +245,8 @@ def create_document_download_token(user_id: str, document_id: str) -> str:
         "sub": user_id,
         "doc_id": document_id,
         "purpose": "doc_download",
-        "exp": datetime.now(timezone.utc) + timedelta(minutes=DOCUMENT_DOWNLOAD_TOKEN_TTL_MINUTES),
+        "exp": datetime.now(timezone.utc)
+        + timedelta(minutes=DOCUMENT_DOWNLOAD_TOKEN_TTL_MINUTES),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
 
@@ -239,7 +270,9 @@ def generate_reset_token() -> tuple:
     scadenza (ISO string, UTC)."""
     token = secrets.token_urlsafe(32)
     token_hash = hash_reset_token(token)
-    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=RESET_TOKEN_TTL_MINUTES)).isoformat()
+    expires_at = (
+        datetime.now(timezone.utc) + timedelta(minutes=RESET_TOKEN_TTL_MINUTES)
+    ).isoformat()
     return token, token_hash, expires_at
 
 
@@ -253,7 +286,9 @@ def is_admin(user: dict) -> bool:
 
 async def require_admin(user: dict = Depends(get_current_user)) -> dict:
     if not is_admin(user):
-        raise HTTPException(status_code=403, detail="Accesso riservato agli amministratori")
+        raise HTTPException(
+            status_code=403, detail="Accesso riservato agli amministratori"
+        )
     return user
 
 
@@ -263,9 +298,19 @@ async def require_admin(user: dict = Depends(get_current_user)) -> dict:
 # altrimenti un utente con tutto disattivato non potrebbe più navigare
 # l'app né riattivarsi da solo un modulo.
 MODULE_KEYS = (
-    "clienti", "lead", "agenda", "mappa", "offerte", "ordini",
-    "provvigioni", "spese", "mandanti", "prodotti", "documenti",
-    "automazioni", "ai",
+    "clienti",
+    "lead",
+    "agenda",
+    "mappa",
+    "offerte",
+    "ordini",
+    "provvigioni",
+    "spese",
+    "mandanti",
+    "prodotti",
+    "documenti",
+    "automazioni",
+    "ai",
 )
 
 # Moduli verticali costruiti per un cliente specifico (es. CACI SRL), non
@@ -299,10 +344,15 @@ def require_module(module: str):
     bloccare l'intero router se quel modulo non è disponibile per
     l'utente. A differenza del semplice nascondere la voce di menu in
     sidebar, questo impedisce anche di raggiungere l'API direttamente."""
+
     async def _check(user: dict = Depends(get_current_user)) -> dict:
         if not module_enabled(user, module):
-            raise HTTPException(status_code=403, detail=f"Il modulo \"{module}\" non è disponibile per questo account.")
+            raise HTTPException(
+                status_code=403,
+                detail=f'Il modulo "{module}" non è disponibile per questo account.',
+            )
         return user
+
     return _check
 
 
@@ -316,7 +366,12 @@ async def forbid_demo_write(user: dict = Depends(get_current_user)) -> dict:
     sono pensati per essere esplorabili senza poter scrivere (vedi
     services/demo_reset_service.py per la strategia demo completa)."""
     if user.get("is_demo"):
-        raise HTTPException(status_code=403, detail="Questa azione non è disponibile nell'account demo")
+        raise HTTPException(
+            status_code=403, detail="Questa azione non è disponibile nell'account demo"
+        )
     if user.get("impersonation_mode") == "view":
-        raise HTTPException(status_code=403, detail="Modalità sola lettura: passa a \"Accedi e modifica\" per apportare modifiche")
+        raise HTTPException(
+            status_code=403,
+            detail='Modalità sola lettura: passa a "Accedi e modifica" per apportare modifiche',
+        )
     return user

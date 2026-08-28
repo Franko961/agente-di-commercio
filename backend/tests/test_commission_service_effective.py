@@ -12,8 +12,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_commission_service_effective.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 sys.path.insert(0, ".")
 
@@ -53,14 +54,25 @@ def build_service(real=None, manual=None):
 
 
 REAL = {
-    "id": "c-1", "user_id": "user-1", "mandante_id": "m-A", "client_id": "cl-1",
-    "period": "2026-08", "amount": 100, "status": "maturato", "sale_type": "nuovo",
+    "id": "c-1",
+    "user_id": "user-1",
+    "mandante_id": "m-A",
+    "client_id": "cl-1",
+    "period": "2026-08",
+    "amount": 100,
+    "status": "maturato",
+    "sale_type": "nuovo",
     "created_at": "2026-08-05T10:00:00+00:00",
 }
 
 MANUAL = {
-    "user_id": "user-1", "period": "2026-08", "amount": 500,
-    "mandante_id": None, "client_id": None, "stato": "maturato", "tipo": "ordinaria",
+    "user_id": "user-1",
+    "period": "2026-08",
+    "amount": 500,
+    "mandante_id": None,
+    "client_id": None,
+    "stato": "maturato",
+    "tipo": "ordinaria",
 }
 
 
@@ -72,7 +84,9 @@ def test_unisce_reali_e_manuali():
 
 
 def test_manuale_normalizzata_ha_status_e_sale_type():
-    service = build_service(manual=[{**MANUAL, "stato": "incassato", "tipo": "rettifica"}])
+    service = build_service(
+        manual=[{**MANUAL, "stato": "incassato", "tipo": "rettifica"}]
+    )
     result = run(service.get_effective_commissions({"id": "user-1"}))
     assert result[0]["status"] == "incassato"
     assert result[0]["sale_type"] == "rettifica"
@@ -80,7 +94,9 @@ def test_manuale_normalizzata_ha_status_e_sale_type():
 
 
 def test_manuale_senza_stato_default_maturato():
-    service = build_service(manual=[{"user_id": "user-1", "period": "2026-08", "amount": 200}])
+    service = build_service(
+        manual=[{"user_id": "user-1", "period": "2026-08", "amount": 200}]
+    )
     result = run(service.get_effective_commissions({"id": "user-1"}))
     assert result[0]["status"] == "maturato"
 
@@ -105,8 +121,12 @@ def test_manuale_senza_mandante_esclusa_se_filtro_mandante_specifico():
 def test_manuale_taggata_inclusa_solo_per_il_suo_mandante():
     tagged = {**MANUAL, "mandante_id": "m-A"}
     service = build_service(manual=[tagged])
-    result_a = run(service.get_effective_commissions({"id": "user-1"}, mandante_id="m-A"))
-    result_b = run(service.get_effective_commissions({"id": "user-1"}, mandante_id="m-B"))
+    result_a = run(
+        service.get_effective_commissions({"id": "user-1"}, mandante_id="m-A")
+    )
+    result_b = run(
+        service.get_effective_commissions({"id": "user-1"}, mandante_id="m-B")
+    )
     assert len(result_a) == 1
     assert result_b == []
 
@@ -122,7 +142,9 @@ def test_reale_filtrata_per_mandante_tramite_repo():
 def test_filtro_client_id_si_applica_a_reali_e_manuali():
     manual_for_client = {**MANUAL, "client_id": "cl-1"}
     manual_other_client = {**MANUAL, "client_id": "cl-2"}
-    service = build_service(real=[REAL], manual=[manual_for_client, manual_other_client])
+    service = build_service(
+        real=[REAL], manual=[manual_for_client, manual_other_client]
+    )
     result = run(service.get_effective_commissions({"id": "user-1"}, client_id="cl-1"))
     assert len(result) == 2  # la reale (client_id=cl-1) + la manuale taggata cl-1
     assert all(c.get("client_id") == "cl-1" for c in result)

@@ -1,5 +1,7 @@
-from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
+
+from pydantic import BaseModel, EmailStr, Field
+
 from core.validation_limits import SHORT_TEXT_MAX_LENGTH
 
 # bcrypt (usato in core/security.py per l'hashing) tronca silenziosamente

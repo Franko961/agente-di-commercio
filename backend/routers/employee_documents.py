@@ -1,16 +1,34 @@
-import jwt
 from typing import Literal, Optional
-from fastapi import APIRouter, Depends, UploadFile, File, Form, Header, Query, HTTPException, Request
-from fastapi.responses import StreamingResponse
-from core.security import (
-    get_current_user, forbid_demo_write, require_module,
-    create_document_download_token, decode_document_download_token,
-    DOCUMENT_DOWNLOAD_TOKEN_TTL_MINUTES,
+
+import jwt
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
 )
-from core.config import JWT_SECRET, JWT_ALG
+from fastapi.responses import StreamingResponse
+
+from core.config import JWT_ALG, JWT_SECRET
+from core.security import (
+    DOCUMENT_DOWNLOAD_TOKEN_TTL_MINUTES,
+    create_document_download_token,
+    decode_document_download_token,
+    forbid_demo_write,
+    get_current_user,
+    require_module,
+)
+from models.employee_document import (
+    EMPLOYEE_DOCUMENT_CATEGORIES,
+    EmployeeDocumentMetaUpdate,
+)
 from services.employee_document_service import employee_document_service
-from services.storage_service import storage_get_stream, sanitize_filename
-from models.employee_document import EmployeeDocumentMetaUpdate, EMPLOYEE_DOCUMENT_CATEGORIES
+from services.storage_service import sanitize_filename, storage_get_stream
 
 # Gated da "personale" (non da "documenti", a differenza del modulo
 # Documenti aziendale): un account con Personale attivo ma Documenti
@@ -34,17 +52,26 @@ async def upload_employee_document(
     notes: str = Form(""),
     user=Depends(forbid_demo_write),
 ):
-    return await employee_document_service.upload_document(user, eid, file, name, category, notes)
+    return await employee_document_service.upload_document(
+        user, eid, file, name, category, notes
+    )
 
 
 @router.patch("/{did}", dependencies=[MODULE_DEP])
-async def update_employee_document_meta(eid: str, did: str, payload: EmployeeDocumentMetaUpdate, user=Depends(forbid_demo_write)):
+async def update_employee_document_meta(
+    eid: str,
+    did: str,
+    payload: EmployeeDocumentMetaUpdate,
+    user=Depends(forbid_demo_write),
+):
     await employee_document_service.update_meta(user, eid, did, payload)
     return {"ok": True}
 
 
 @router.get("/{did}/signed-url", dependencies=[MODULE_DEP])
-async def get_employee_document_signed_url(eid: str, did: str, user=Depends(get_current_user)):
+async def get_employee_document_signed_url(
+    eid: str, did: str, user=Depends(get_current_user)
+):
     await employee_document_service.get_document_for_download(user["id"], eid, did)
     token = create_document_download_token(user["id"], did)
     return {
@@ -85,8 +112,14 @@ async def download_employee_document(
 
     doc = await employee_document_service.get_document_for_download(user_id, eid, did)
     chunk_iterator, ctype, content_length = storage_get_stream(doc["storage_path"])
-    filename = sanitize_filename(doc.get("original_filename") or doc.get("name") or "file")
-    disposition = "inline" if (ctype == "application/pdf" or ctype.startswith("image/")) else "attachment"
+    filename = sanitize_filename(
+        doc.get("original_filename") or doc.get("name") or "file"
+    )
+    disposition = (
+        "inline"
+        if (ctype == "application/pdf" or ctype.startswith("image/"))
+        else "attachment"
+    )
     headers = {
         "Content-Disposition": f'{disposition}; filename="{filename}"',
         "Cache-Control": "private, max-age=300",

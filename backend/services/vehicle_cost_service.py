@@ -1,8 +1,8 @@
-from core.utils import gen_id, now_iso
 from core.exceptions import NotFoundError, ValidationAppError
+from core.utils import gen_id, now_iso
+from repositories.expense_repository import expense_repository
 from repositories.vehicle_cost_repository import vehicle_cost_repository
 from repositories.vehicle_repository import vehicle_repository
-from repositories.expense_repository import expense_repository
 
 # La tassonomia categorie di Spese (vedi models/expense.py EXPENSE_CATEGORIES)
 # è pensata per le spese personali dell'agente (vitto, alloggio, enasarco...),
@@ -21,7 +21,12 @@ def _expense_description(plate: str, description: str) -> str:
 
 
 class VehicleCostService:
-    def __init__(self, repo=vehicle_cost_repository, vehicles=vehicle_repository, expenses=expense_repository):
+    def __init__(
+        self,
+        repo=vehicle_cost_repository,
+        vehicles=vehicle_repository,
+        expenses=expense_repository,
+    ):
         self.repo = repo
         self.vehicles = vehicles
         self.expenses = expenses
@@ -95,22 +100,30 @@ class VehicleCostService:
         description = (payload.description or "").strip()
         date_iso = payload.date.isoformat()
 
-        await self.repo.update(cid, user["id"], {
-            "vehicle_id": payload.vehicle_id,
-            "vehicle_plate": vehicle["plate"],
-            "category": payload.category,
-            "amount": payload.amount,
-            "date": date_iso,
-            "description": description,
-        })
+        await self.repo.update(
+            cid,
+            user["id"],
+            {
+                "vehicle_id": payload.vehicle_id,
+                "vehicle_plate": vehicle["plate"],
+                "category": payload.category,
+                "amount": payload.amount,
+                "date": date_iso,
+                "description": description,
+            },
+        )
 
         if existing.get("expense_id"):
-            await self.expenses.update(existing["expense_id"], user["id"], {
-                "date": date_iso,
-                "category": _expense_category_for(payload.category),
-                "description": _expense_description(vehicle["plate"], description),
-                "amount": payload.amount,
-            })
+            await self.expenses.update(
+                existing["expense_id"],
+                user["id"],
+                {
+                    "date": date_iso,
+                    "category": _expense_category_for(payload.category),
+                    "description": _expense_description(vehicle["plate"], description),
+                    "amount": payload.amount,
+                },
+            )
 
     async def delete_cost(self, user: dict, cid: str) -> None:
         existing = await self.repo.find_one(cid, user["id"])

@@ -33,8 +33,13 @@ class AutomationRunRepository:
         )
 
     async def try_claim(
-        self, automation_id: str, user_id: str, target_type: str, target_id: str,
-        cooldown_days: Optional[int] = None, stale_after_seconds: int = 300,
+        self,
+        automation_id: str,
+        user_id: str,
+        target_type: str,
+        target_id: str,
+        cooldown_days: Optional[int] = None,
+        stale_after_seconds: int = 300,
     ) -> bool:
         """Prenota atomicamente il diritto a eseguire l'azione per questa
         coppia (automazione, target), PRIMA che l'azione venga eseguita.
@@ -65,12 +70,19 @@ class AutomationRunRepository:
         stale_before_iso = (now - timedelta(seconds=stale_after_seconds)).isoformat()
 
         try:
-            await self.collection.insert_one({
-                "automation_id": automation_id, "user_id": user_id,
-                "target_type": target_type, "target_id": target_id,
-                "status": "processing", "attempts": 0, "last_error": None,
-                "claimed_at": now_iso_str, "updated_at": now_iso_str,
-            })
+            await self.collection.insert_one(
+                {
+                    "automation_id": automation_id,
+                    "user_id": user_id,
+                    "target_type": target_type,
+                    "target_id": target_id,
+                    "status": "processing",
+                    "attempts": 0,
+                    "last_error": None,
+                    "claimed_at": now_iso_str,
+                    "updated_at": now_iso_str,
+                }
+            )
             return True
         except DuplicateKeyError:
             pass  # un record esiste già: proviamo comunque a "rubarlo" sotto, se in uno stato riprenotabile
@@ -81,36 +93,64 @@ class AutomationRunRepository:
         ]
         if cooldown_days:
             cooldown_cutoff_iso = (now - timedelta(days=cooldown_days)).isoformat()
-            or_conditions.append({"status": "ok", "updated_at": {"$lt": cooldown_cutoff_iso}})
+            or_conditions.append(
+                {"status": "ok", "updated_at": {"$lt": cooldown_cutoff_iso}}
+            )
 
         result = await self.collection.update_one(
-            {"automation_id": automation_id, "target_id": target_id, "$or": or_conditions},
-            {"$set": {"status": "processing", "claimed_at": now_iso_str, "updated_at": now_iso_str}},
+            {
+                "automation_id": automation_id,
+                "target_id": target_id,
+                "$or": or_conditions,
+            },
+            {
+                "$set": {
+                    "status": "processing",
+                    "claimed_at": now_iso_str,
+                    "updated_at": now_iso_str,
+                }
+            },
         )
         return result.matched_count == 1
 
-    async def upsert(self, automation_id: str, user_id: str, target_type: str, target_id: str, data: dict) -> None:
+    async def upsert(
+        self,
+        automation_id: str,
+        user_id: str,
+        target_type: str,
+        target_id: str,
+        data: dict,
+    ) -> None:
         await self.collection.update_one(
             {"automation_id": automation_id, "target_id": target_id},
-            {"$set": {
-                "automation_id": automation_id,
-                "user_id": user_id,
-                "target_type": target_type,
-                "target_id": target_id,
-                **data,
-            }},
+            {
+                "$set": {
+                    "automation_id": automation_id,
+                    "user_id": user_id,
+                    "target_type": target_type,
+                    "target_id": target_id,
+                    **data,
+                }
+            },
             upsert=True,
         )
 
-    async def find_many_by_automation(self, automation_id: str, user_id: str, limit: int = 200) -> list:
+    async def find_many_by_automation(
+        self, automation_id: str, user_id: str, limit: int = 200
+    ) -> list:
         # Filtrato anche per user_id: automation_id da solo non basta a
         # isolare i tenant (stesso principio già applicato a
         # delete_by_automation sopra) — il service verifica già che
         # l'automazione appartenga al chiamante, ma questo repository deve
         # restare tenant-scoped di per sé, non solo per merito di chi lo
         # chiama.
-        return await self.collection.find({"automation_id": automation_id, "user_id": user_id}, {"_id": 0}) \
-            .sort("updated_at", -1).to_list(limit)
+        return (
+            await self.collection.find(
+                {"automation_id": automation_id, "user_id": user_id}, {"_id": 0}
+            )
+            .sort("updated_at", -1)
+            .to_list(limit)
+        )
 
     async def delete_by_automation(self, automation_id: str, user_id: str) -> None:
         """Ripulisce lo storico esecuzioni quando l'automazione stessa viene
@@ -119,7 +159,9 @@ class AutomationRunRepository:
         isolare i tenant, un id valido per un altro account non deve poter
         cancellare le sue esecuzioni (stesso principio già applicato al
         repository automation_repository.delete)."""
-        await self.collection.delete_many({"automation_id": automation_id, "user_id": user_id})
+        await self.collection.delete_many(
+            {"automation_id": automation_id, "user_id": user_id}
+        )
 
 
 automation_run_repository = AutomationRunRepository()

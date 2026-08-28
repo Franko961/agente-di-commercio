@@ -10,9 +10,10 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_exit_impersonation.py -v
 """
-import sys
+
 import asyncio
-from datetime import datetime, timezone, timedelta
+import sys
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi import HTTPException
@@ -47,19 +48,28 @@ class FakeAdminService:
     def __init__(self):
         self.calls = []
 
-    async def record_impersonation_exit(self, actor, target_user_id, target_email, mode, started_at):
-        self.calls.append({
-            "actor": actor, "target_user_id": target_user_id, "target_email": target_email,
-            "mode": mode, "started_at": started_at,
-        })
+    async def record_impersonation_exit(
+        self, actor, target_user_id, target_email, mode, started_at
+    ):
+        self.calls.append(
+            {
+                "actor": actor,
+                "target_user_id": target_user_id,
+                "target_email": target_email,
+                "mode": mode,
+                "started_at": started_at,
+            }
+        )
 
 
 ADMIN = {"id": "admin-1", "email": "admin@salesfly.it", "role": "admin"}
 DEMOTED_ADMIN = {"id": "admin-1", "email": "admin@salesfly.it", "role": "agent"}
 
 IMPERSONATED_USER = {
-    "id": "user-42", "email": "utente@esempio.it",
-    "impersonated_by": "admin-1", "impersonation_mode": "view",
+    "id": "user-42",
+    "email": "utente@esempio.it",
+    "impersonated_by": "admin-1",
+    "impersonation_mode": "view",
     "impersonation_started_at": datetime.now(timezone.utc) - timedelta(minutes=12),
 }
 
@@ -83,7 +93,9 @@ def test_rifiuta_se_admin_non_trovato(monkeypatch):
 
 
 def test_rifiuta_se_il_ruolo_admin_e_stato_revocato(monkeypatch):
-    monkeypatch.setattr(auth_router_mod, "user_repository", FakeUserRepo({"admin-1": DEMOTED_ADMIN}))
+    monkeypatch.setattr(
+        auth_router_mod, "user_repository", FakeUserRepo({"admin-1": DEMOTED_ADMIN})
+    )
     fake_admin_service = FakeAdminService()
     monkeypatch.setattr(auth_router_mod, "admin_service", fake_admin_service)
 
@@ -95,7 +107,9 @@ def test_rifiuta_se_il_ruolo_admin_e_stato_revocato(monkeypatch):
 
 
 def test_uscita_riuscita_riemette_il_token_e_traccia_luscita(monkeypatch):
-    monkeypatch.setattr(auth_router_mod, "user_repository", FakeUserRepo({"admin-1": ADMIN}))
+    monkeypatch.setattr(
+        auth_router_mod, "user_repository", FakeUserRepo({"admin-1": ADMIN})
+    )
     fake_admin_service = FakeAdminService()
     monkeypatch.setattr(auth_router_mod, "admin_service", fake_admin_service)
     response = FakeResponse()

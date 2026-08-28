@@ -12,6 +12,7 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_ai_cost_estimate.py -v
 """
+
 import sys
 from types import SimpleNamespace
 
@@ -33,7 +34,9 @@ def test_costo_include_ricerche_web():
 
 
 def test_costo_combinato_token_e_ricerche():
-    cost = _estimate_cost_usd(input_tokens=500_000, output_tokens=100_000, web_searches=3)
+    cost = _estimate_cost_usd(
+        input_tokens=500_000, output_tokens=100_000, web_searches=3
+    )
     # 0.5*$1 + 0.1*$5 + (3/1000)*$10 = 0.5 + 0.5 + 0.03
     assert round(cost, 6) == 1.03
 
@@ -43,17 +46,22 @@ def test_costo_zero_se_nessun_uso():
 
 
 def test_usage_tokens_legge_i_valori_reali():
-    message = SimpleNamespace(usage=SimpleNamespace(
-        input_tokens=1200, output_tokens=340,
-        server_tool_use=SimpleNamespace(web_search_requests=2),
-    ))
+    message = SimpleNamespace(
+        usage=SimpleNamespace(
+            input_tokens=1200,
+            output_tokens=340,
+            server_tool_use=SimpleNamespace(web_search_requests=2),
+        )
+    )
     input_t, output_t, web_searches = _usage_tokens(message)
     assert (input_t, output_t, web_searches) == (1200, 340, 2)
 
 
 def test_usage_tokens_senza_server_tool_use():
     # Risposta senza ricerche web: server_tool_use può essere assente
-    message = SimpleNamespace(usage=SimpleNamespace(input_tokens=500, output_tokens=100))
+    message = SimpleNamespace(
+        usage=SimpleNamespace(input_tokens=500, output_tokens=100)
+    )
     input_t, output_t, web_searches = _usage_tokens(message)
     assert (input_t, output_t, web_searches) == (500, 100, 0)
 

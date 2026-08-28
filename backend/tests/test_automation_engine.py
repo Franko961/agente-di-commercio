@@ -14,16 +14,17 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_automation_engine.py -v
 """
-import sys
+
 import asyncio
+import sys
 from datetime import datetime, timedelta, timezone
 
 import pytest
 
 sys.path.insert(0, ".")
 
-from services.automation_engine import AutomationEngine
 from core.config import AUTOMATION_MAX_ATTEMPTS
+from services.automation_engine import AutomationEngine
 
 
 def run(coro):
@@ -43,6 +44,7 @@ def _days_from_now(n: float) -> str:
 
 
 # ---------- Repository finti ----------
+
 
 class FakeAutomationRepo:
     def __init__(self, docs=None):
@@ -72,7 +74,15 @@ class FakeRunRepo:
         d = self.docs.get(self._key(automation_id, target_id))
         return dict(d) if d else None
 
-    async def try_claim(self, automation_id, user_id, target_type, target_id, cooldown_days=None, stale_after_seconds=300):
+    async def try_claim(
+        self,
+        automation_id,
+        user_id,
+        target_type,
+        target_id,
+        cooldown_days=None,
+        stale_after_seconds=300,
+    ):
         self.claim_calls += 1
         key = self._key(automation_id, target_id)
         now = datetime.now(timezone.utc)
@@ -81,10 +91,15 @@ class FakeRunRepo:
 
         if existing is None:
             self.docs[key] = {
-                "automation_id": automation_id, "user_id": user_id,
-                "target_type": target_type, "target_id": target_id,
-                "status": "processing", "attempts": 0, "last_error": None,
-                "claimed_at": now_iso_str, "updated_at": now_iso_str,
+                "automation_id": automation_id,
+                "user_id": user_id,
+                "target_type": target_type,
+                "target_id": target_id,
+                "status": "processing",
+                "attempts": 0,
+                "last_error": None,
+                "claimed_at": now_iso_str,
+                "updated_at": now_iso_str,
             }
             return True
 
@@ -94,32 +109,55 @@ class FakeRunRepo:
             can_claim = True
         elif status == "processing":
             claimed_at = existing.get("claimed_at")
-            if claimed_at and now - datetime.fromisoformat(claimed_at) >= timedelta(seconds=stale_after_seconds):
+            if claimed_at and now - datetime.fromisoformat(claimed_at) >= timedelta(
+                seconds=stale_after_seconds
+            ):
                 can_claim = True
         elif status == "ok" and cooldown_days:
             updated_at = existing.get("updated_at")
-            if updated_at and now - datetime.fromisoformat(updated_at) >= timedelta(days=cooldown_days):
+            if updated_at and now - datetime.fromisoformat(updated_at) >= timedelta(
+                days=cooldown_days
+            ):
                 can_claim = True
 
         if can_claim:
-            existing.update({"status": "processing", "claimed_at": now_iso_str, "updated_at": now_iso_str})
+            existing.update(
+                {
+                    "status": "processing",
+                    "claimed_at": now_iso_str,
+                    "updated_at": now_iso_str,
+                }
+            )
             return True
         return False
 
     async def upsert(self, automation_id, user_id, target_type, target_id, data):
         key = self._key(automation_id, target_id)
         existing = self.docs.get(key, {})
-        existing.update({
-            "automation_id": automation_id, "user_id": user_id,
-            "target_type": target_type, "target_id": target_id, **data,
-        })
+        existing.update(
+            {
+                "automation_id": automation_id,
+                "user_id": user_id,
+                "target_type": target_type,
+                "target_id": target_id,
+                **data,
+            }
+        )
         self.docs[key] = existing
 
     async def find_many_by_automation(self, automation_id, user_id, limit=200):
-        return [dict(d) for d in self.docs.values() if d["automation_id"] == automation_id and d["user_id"] == user_id]
+        return [
+            dict(d)
+            for d in self.docs.values()
+            if d["automation_id"] == automation_id and d["user_id"] == user_id
+        ]
 
     async def delete_by_automation(self, automation_id, user_id):
-        self.docs = {k: v for k, v in self.docs.items() if not (v["automation_id"] == automation_id and v["user_id"] == user_id)}
+        self.docs = {
+            k: v
+            for k, v in self.docs.items()
+            if not (v["automation_id"] == automation_id and v["user_id"] == user_id)
+        }
 
 
 class FakeNotificationRepo:
@@ -142,6 +180,7 @@ class FakeNotificationRepo:
 class FakeSimpleRepo:
     """Repo generico find_many/find_one su una lista fissa di dict — usato
     per client/offer/lead/appointment nei test."""
+
     def __init__(self, docs=None):
         self.docs = docs or []
 
@@ -166,16 +205,22 @@ class FakeUserRepo:
 class FakeAttendanceRepoForEngine:
     """find_many(employee_id, user_id) — firma diversa da FakeSimpleRepo
     (che filtra solo per user_id), quindi non riusabile qui."""
+
     def __init__(self, docs=None):
         self.docs = docs or []
 
     async def find_many(self, employee_id, user_id):
-        return [dict(d) for d in self.docs if d["employee_id"] == employee_id and d["user_id"] == user_id]
+        return [
+            dict(d)
+            for d in self.docs
+            if d["employee_id"] == employee_id and d["user_id"] == user_id
+        ]
 
 
 class FakeLeaveRequestRepoForEngine:
     """find_by_employee(employee_id) — nessun filtro per user_id, stessa
     firma di leave_request_repository.find_by_employee."""
+
     def __init__(self, docs=None):
         self.docs = docs or []
 
@@ -183,10 +228,22 @@ class FakeLeaveRequestRepoForEngine:
         return [dict(d) for d in self.docs if d["employee_id"] == employee_id]
 
 
-def build_engine(automations=None, offers=None, clients=None, leads=None,
-                  appointments=None, orders=None, commissions=None, manual_commissions=None,
-                  users=None, vehicle_deadlines=None, employees=None, attendance_sessions=None,
-                  leave_requests=None, send_email_fn=None):
+def build_engine(
+    automations=None,
+    offers=None,
+    clients=None,
+    leads=None,
+    appointments=None,
+    orders=None,
+    commissions=None,
+    manual_commissions=None,
+    users=None,
+    vehicle_deadlines=None,
+    employees=None,
+    attendance_sessions=None,
+    leave_requests=None,
+    send_email_fn=None,
+):
     sent_emails = []
 
     async def default_send_email(to, subject, html):
@@ -204,7 +261,9 @@ def build_engine(automations=None, offers=None, clients=None, leads=None,
         order_repo=FakeSimpleRepo(orders or []),
         commission_repo=FakeSimpleRepo(commissions or []),
         manual_commission_repo=FakeSimpleRepo(manual_commissions or []),
-        user_repo=FakeUserRepo(users or [{"id": "user-1", "email": "agente@example.com"}]),
+        user_repo=FakeUserRepo(
+            users or [{"id": "user-1", "email": "agente@example.com"}]
+        ),
         vehicle_deadline_repo=FakeSimpleRepo(vehicle_deadlines or []),
         employee_repo=FakeSimpleRepo(employees or []),
         attendance_repo=FakeAttendanceRepoForEngine(attendance_sessions or []),
@@ -217,16 +276,29 @@ def build_engine(automations=None, offers=None, clients=None, leads=None,
 
 # ---------- offer_expiring + send_reminder ----------
 
+
 def test_offerta_in_scadenza_genera_promemoria_e_notifica():
-    automations = [{
-        "id": "auto-1", "user_id": "user-1", "name": "Promemoria scadenza",
-        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
-        "config": {"days_before": 3},
-    }]
-    offers = [{
-        "id": "offer-1", "user_id": "user-1", "client_id": "c-1", "title": "Offerta Rossi",
-        "status": "inviata", "expires_at": _days_from_now(2),
-    }]
+    automations = [
+        {
+            "id": "auto-1",
+            "user_id": "user-1",
+            "name": "Promemoria scadenza",
+            "trigger": "offer_expiring",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"days_before": 3},
+        }
+    ]
+    offers = [
+        {
+            "id": "offer-1",
+            "user_id": "user-1",
+            "client_id": "c-1",
+            "title": "Offerta Rossi",
+            "status": "inviata",
+            "expires_at": _days_from_now(2),
+        }
+    ]
     engine = build_engine(automations=automations, offers=offers)
 
     summary = run(engine.run_cycle())
@@ -239,15 +311,27 @@ def test_offerta_in_scadenza_genera_promemoria_e_notifica():
 
 
 def test_offerta_non_in_scadenza_non_genera_nulla():
-    automations = [{
-        "id": "auto-1", "user_id": "user-1", "name": "Promemoria scadenza",
-        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
-        "config": {"days_before": 3},
-    }]
-    offers = [{
-        "id": "offer-1", "user_id": "user-1", "client_id": "c-1", "title": "Offerta lontana",
-        "status": "inviata", "expires_at": _days_from_now(20),
-    }]
+    automations = [
+        {
+            "id": "auto-1",
+            "user_id": "user-1",
+            "name": "Promemoria scadenza",
+            "trigger": "offer_expiring",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"days_before": 3},
+        }
+    ]
+    offers = [
+        {
+            "id": "offer-1",
+            "user_id": "user-1",
+            "client_id": "c-1",
+            "title": "Offerta lontana",
+            "status": "inviata",
+            "expires_at": _days_from_now(20),
+        }
+    ]
     engine = build_engine(automations=automations, offers=offers)
 
     summary = run(engine.run_cycle())
@@ -257,15 +341,27 @@ def test_offerta_non_in_scadenza_non_genera_nulla():
 
 
 def test_offerta_gia_accettata_viene_ignorata():
-    automations = [{
-        "id": "auto-1", "user_id": "user-1", "name": "Promemoria scadenza",
-        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
-        "config": {"days_before": 3},
-    }]
-    offers = [{
-        "id": "offer-1", "user_id": "user-1", "client_id": "c-1", "title": "Offerta chiusa",
-        "status": "accettata", "expires_at": _days_from_now(1),
-    }]
+    automations = [
+        {
+            "id": "auto-1",
+            "user_id": "user-1",
+            "name": "Promemoria scadenza",
+            "trigger": "offer_expiring",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"days_before": 3},
+        }
+    ]
+    offers = [
+        {
+            "id": "offer-1",
+            "user_id": "user-1",
+            "client_id": "c-1",
+            "title": "Offerta chiusa",
+            "status": "accettata",
+            "expires_at": _days_from_now(1),
+        }
+    ]
     engine = build_engine(automations=automations, offers=offers)
 
     summary = run(engine.run_cycle())
@@ -275,16 +371,29 @@ def test_offerta_gia_accettata_viene_ignorata():
 
 # ---------- Dedup: stessa entità non rieseguita due volte ----------
 
+
 def test_stessa_offerta_non_genera_due_promemoria_in_due_cicli():
-    automations = [{
-        "id": "auto-1", "user_id": "user-1", "name": "Promemoria scadenza",
-        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
-        "config": {"days_before": 3},
-    }]
-    offers = [{
-        "id": "offer-1", "user_id": "user-1", "client_id": "c-1", "title": "Offerta Rossi",
-        "status": "inviata", "expires_at": _days_from_now(2),
-    }]
+    automations = [
+        {
+            "id": "auto-1",
+            "user_id": "user-1",
+            "name": "Promemoria scadenza",
+            "trigger": "offer_expiring",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"days_before": 3},
+        }
+    ]
+    offers = [
+        {
+            "id": "offer-1",
+            "user_id": "user-1",
+            "client_id": "c-1",
+            "title": "Offerta Rossi",
+            "status": "inviata",
+            "expires_at": _days_from_now(2),
+        }
+    ]
     engine = build_engine(automations=automations, offers=offers)
 
     first = run(engine.run_cycle())
@@ -297,15 +406,27 @@ def test_stessa_offerta_non_genera_due_promemoria_in_due_cicli():
 
 
 def test_cooldown_permette_di_ripetere_il_promemoria_dopo_n_giorni():
-    automations = [{
-        "id": "auto-1", "user_id": "user-1", "name": "Promemoria ricorrente",
-        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
-        "config": {"days_before": 10, "cooldown_days": 5},
-    }]
-    offers = [{
-        "id": "offer-1", "user_id": "user-1", "client_id": "c-1", "title": "Offerta Rossi",
-        "status": "inviata", "expires_at": _days_from_now(9),
-    }]
+    automations = [
+        {
+            "id": "auto-1",
+            "user_id": "user-1",
+            "name": "Promemoria ricorrente",
+            "trigger": "offer_expiring",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"days_before": 10, "cooldown_days": 5},
+        }
+    ]
+    offers = [
+        {
+            "id": "offer-1",
+            "user_id": "user-1",
+            "client_id": "c-1",
+            "title": "Offerta Rossi",
+            "status": "inviata",
+            "expires_at": _days_from_now(9),
+        }
+    ]
     engine = build_engine(automations=automations, offers=offers)
 
     run(engine.run_cycle())
@@ -321,18 +442,39 @@ def test_cooldown_permette_di_ripetere_il_promemoria_dopo_n_giorni():
 
 # ---------- no_visit_30d + create_task ----------
 
+
 def test_cliente_non_visitato_da_30_giorni_crea_task(monkeypatch):
-    automations = [{
-        "id": "auto-2", "user_id": "user-1", "name": "Cliente non visitato",
-        "trigger": "no_visit_30d", "action": "create_task", "enabled": True,
-        "config": {},
-    }]
-    clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Rossi Srl", "created_at": _days_ago(200)}]
-    appointments = [{
-        "id": "a-1", "user_id": "user-1", "client_id": "c-1",
-        "status": "completato", "start": _days_ago(45),
-    }]
-    engine = build_engine(automations=automations, clients=clients, appointments=appointments)
+    automations = [
+        {
+            "id": "auto-2",
+            "user_id": "user-1",
+            "name": "Cliente non visitato",
+            "trigger": "no_visit_30d",
+            "action": "create_task",
+            "enabled": True,
+            "config": {},
+        }
+    ]
+    clients = [
+        {
+            "id": "c-1",
+            "user_id": "user-1",
+            "company_name": "Rossi Srl",
+            "created_at": _days_ago(200),
+        }
+    ]
+    appointments = [
+        {
+            "id": "a-1",
+            "user_id": "user-1",
+            "client_id": "c-1",
+            "status": "completato",
+            "start": _days_ago(45),
+        }
+    ]
+    engine = build_engine(
+        automations=automations, clients=clients, appointments=appointments
+    )
 
     created = []
 
@@ -342,6 +484,7 @@ def test_cliente_non_visitato_da_30_giorni_crea_task(monkeypatch):
             return {"id": "new-appt"}
 
     import services.appointment_service as appt_mod
+
     monkeypatch.setattr(appt_mod, "appointment_service", FakeAppointmentService())
 
     summary = run(engine.run_cycle())
@@ -352,17 +495,37 @@ def test_cliente_non_visitato_da_30_giorni_crea_task(monkeypatch):
 
 
 def test_cliente_visitato_di_recente_non_genera_task():
-    automations = [{
-        "id": "auto-2", "user_id": "user-1", "name": "Cliente non visitato",
-        "trigger": "no_visit_30d", "action": "create_task", "enabled": True,
-        "config": {},
-    }]
-    clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Rossi Srl", "created_at": _days_ago(200)}]
-    appointments = [{
-        "id": "a-1", "user_id": "user-1", "client_id": "c-1",
-        "status": "completato", "start": _days_ago(5),
-    }]
-    engine = build_engine(automations=automations, clients=clients, appointments=appointments)
+    automations = [
+        {
+            "id": "auto-2",
+            "user_id": "user-1",
+            "name": "Cliente non visitato",
+            "trigger": "no_visit_30d",
+            "action": "create_task",
+            "enabled": True,
+            "config": {},
+        }
+    ]
+    clients = [
+        {
+            "id": "c-1",
+            "user_id": "user-1",
+            "company_name": "Rossi Srl",
+            "created_at": _days_ago(200),
+        }
+    ]
+    appointments = [
+        {
+            "id": "a-1",
+            "user_id": "user-1",
+            "client_id": "c-1",
+            "status": "completato",
+            "start": _days_ago(5),
+        }
+    ]
+    engine = build_engine(
+        automations=automations, clients=clients, appointments=appointments
+    )
 
     summary = run(engine.run_cycle())
 
@@ -374,15 +537,29 @@ def test_create_task_usa_le_09_del_mattino_in_ora_italiana_di_default(monkeypatc
     24 ore', che produceva un task all'orario esatto in cui capitava di
     girare il ciclo (es. le 21:30 di notte) invece di un orario lavorativo.
     Di default deve finire domani alle 09:00 ora italiana."""
-    from core.utils import now_local, local_wallclock_to_utc_iso
     from datetime import timedelta as td
 
-    automations = [{
-        "id": "auto-2", "user_id": "user-1", "name": "Cliente non visitato",
-        "trigger": "no_visit_30d", "action": "create_task", "enabled": True,
-        "config": {},
-    }]
-    clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Rossi Srl", "created_at": _days_ago(200)}]
+    from core.utils import local_wallclock_to_utc_iso, now_local
+
+    automations = [
+        {
+            "id": "auto-2",
+            "user_id": "user-1",
+            "name": "Cliente non visitato",
+            "trigger": "no_visit_30d",
+            "action": "create_task",
+            "enabled": True,
+            "config": {},
+        }
+    ]
+    clients = [
+        {
+            "id": "c-1",
+            "user_id": "user-1",
+            "company_name": "Rossi Srl",
+            "created_at": _days_ago(200),
+        }
+    ]
     engine = build_engine(automations=automations, clients=clients)
 
     created = []
@@ -393,6 +570,7 @@ def test_create_task_usa_le_09_del_mattino_in_ora_italiana_di_default(monkeypatc
             return {"id": "new-appt"}
 
     import services.appointment_service as appt_mod
+
     monkeypatch.setattr(appt_mod, "appointment_service", FakeAppointmentService())
 
     run(engine.run_cycle())
@@ -403,15 +581,29 @@ def test_create_task_usa_le_09_del_mattino_in_ora_italiana_di_default(monkeypatc
 
 
 def test_create_task_rispetta_task_time_e_task_delay_days_configurati(monkeypatch):
-    from core.utils import now_local, local_wallclock_to_utc_iso
     from datetime import timedelta as td
 
-    automations = [{
-        "id": "auto-2", "user_id": "user-1", "name": "Cliente non visitato",
-        "trigger": "no_visit_30d", "action": "create_task", "enabled": True,
-        "config": {"task_time": "14:30", "task_delay_days": 3},
-    }]
-    clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Rossi Srl", "created_at": _days_ago(200)}]
+    from core.utils import local_wallclock_to_utc_iso, now_local
+
+    automations = [
+        {
+            "id": "auto-2",
+            "user_id": "user-1",
+            "name": "Cliente non visitato",
+            "trigger": "no_visit_30d",
+            "action": "create_task",
+            "enabled": True,
+            "config": {"task_time": "14:30", "task_delay_days": 3},
+        }
+    ]
+    clients = [
+        {
+            "id": "c-1",
+            "user_id": "user-1",
+            "company_name": "Rossi Srl",
+            "created_at": _days_ago(200),
+        }
+    ]
     engine = build_engine(automations=automations, clients=clients)
 
     created = []
@@ -422,6 +614,7 @@ def test_create_task_rispetta_task_time_e_task_delay_days_configurati(monkeypatc
             return {"id": "new-appt"}
 
     import services.appointment_service as appt_mod
+
     monkeypatch.setattr(appt_mod, "appointment_service", FakeAppointmentService())
 
     run(engine.run_cycle())
@@ -434,15 +627,29 @@ def test_create_task_rispetta_task_time_e_task_delay_days_configurati(monkeypatc
 def test_create_task_con_task_time_malformato_ricade_sul_default(monkeypatch):
     """Una config['task_time'] scritta male non deve mai far fallire la
     creazione del task: ricade sull'orario di default (09:00)."""
-    from core.utils import now_local, local_wallclock_to_utc_iso
     from datetime import timedelta as td
 
-    automations = [{
-        "id": "auto-2", "user_id": "user-1", "name": "Cliente non visitato",
-        "trigger": "no_visit_30d", "action": "create_task", "enabled": True,
-        "config": {"task_time": "non-un-orario"},
-    }]
-    clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Rossi Srl", "created_at": _days_ago(200)}]
+    from core.utils import local_wallclock_to_utc_iso, now_local
+
+    automations = [
+        {
+            "id": "auto-2",
+            "user_id": "user-1",
+            "name": "Cliente non visitato",
+            "trigger": "no_visit_30d",
+            "action": "create_task",
+            "enabled": True,
+            "config": {"task_time": "non-un-orario"},
+        }
+    ]
+    clients = [
+        {
+            "id": "c-1",
+            "user_id": "user-1",
+            "company_name": "Rossi Srl",
+            "created_at": _days_ago(200),
+        }
+    ]
     engine = build_engine(automations=automations, clients=clients)
 
     created = []
@@ -453,6 +660,7 @@ def test_create_task_con_task_time_malformato_ricade_sul_default(monkeypatch):
             return {"id": "new-appt"}
 
     import services.appointment_service as appt_mod
+
     monkeypatch.setattr(appt_mod, "appointment_service", FakeAppointmentService())
 
     summary = run(engine.run_cycle())
@@ -465,16 +673,29 @@ def test_create_task_con_task_time_malformato_ricade_sul_default(monkeypatch):
 
 # ---------- lead_inactive + send_email ----------
 
+
 def test_lead_inattivo_invia_email_al_lead():
-    automations = [{
-        "id": "auto-3", "user_id": "user-1", "name": "Lead inattivo",
-        "trigger": "lead_inactive", "action": "send_email", "enabled": True,
-        "config": {"days": 7},
-    }]
-    leads = [{
-        "id": "l-1", "user_id": "user-1", "company_name": "Bianchi Spa",
-        "email": "bianchi@example.com", "status": "contattato", "created_at": _days_ago(10),
-    }]
+    automations = [
+        {
+            "id": "auto-3",
+            "user_id": "user-1",
+            "name": "Lead inattivo",
+            "trigger": "lead_inactive",
+            "action": "send_email",
+            "enabled": True,
+            "config": {"days": 7},
+        }
+    ]
+    leads = [
+        {
+            "id": "l-1",
+            "user_id": "user-1",
+            "company_name": "Bianchi Spa",
+            "email": "bianchi@example.com",
+            "status": "contattato",
+            "created_at": _days_ago(10),
+        }
+    ]
     engine = build_engine(automations=automations, leads=leads)
 
     summary = run(engine.run_cycle())
@@ -484,15 +705,27 @@ def test_lead_inattivo_invia_email_al_lead():
 
 
 def test_lead_vinto_non_viene_considerato_inattivo():
-    automations = [{
-        "id": "auto-3", "user_id": "user-1", "name": "Lead inattivo",
-        "trigger": "lead_inactive", "action": "send_email", "enabled": True,
-        "config": {"days": 7},
-    }]
-    leads = [{
-        "id": "l-1", "user_id": "user-1", "company_name": "Bianchi Spa",
-        "email": "bianchi@example.com", "status": "vinto", "created_at": _days_ago(30),
-    }]
+    automations = [
+        {
+            "id": "auto-3",
+            "user_id": "user-1",
+            "name": "Lead inattivo",
+            "trigger": "lead_inactive",
+            "action": "send_email",
+            "enabled": True,
+            "config": {"days": 7},
+        }
+    ]
+    leads = [
+        {
+            "id": "l-1",
+            "user_id": "user-1",
+            "company_name": "Bianchi Spa",
+            "email": "bianchi@example.com",
+            "status": "vinto",
+            "created_at": _days_ago(30),
+        }
+    ]
     engine = build_engine(automations=automations, leads=leads)
 
     summary = run(engine.run_cycle())
@@ -504,16 +737,28 @@ def test_lead_vecchio_ma_contattato_di_recente_non_e_inattivo():
     """Lo scenario che ha motivato il fix: un lead creato 60 giorni fa ma
     contattato ieri non deve essere considerato inattivo — prima veniva
     usato solo created_at, che lo avrebbe segnalato erroneamente."""
-    automations = [{
-        "id": "auto-3", "user_id": "user-1", "name": "Lead inattivo",
-        "trigger": "lead_inactive", "action": "send_email", "enabled": True,
-        "config": {"days": 7},
-    }]
-    leads = [{
-        "id": "l-1", "user_id": "user-1", "company_name": "Bianchi Spa",
-        "email": "bianchi@example.com", "status": "contattato",
-        "created_at": _days_ago(60), "last_interaction_at": _days_ago(1),
-    }]
+    automations = [
+        {
+            "id": "auto-3",
+            "user_id": "user-1",
+            "name": "Lead inattivo",
+            "trigger": "lead_inactive",
+            "action": "send_email",
+            "enabled": True,
+            "config": {"days": 7},
+        }
+    ]
+    leads = [
+        {
+            "id": "l-1",
+            "user_id": "user-1",
+            "company_name": "Bianchi Spa",
+            "email": "bianchi@example.com",
+            "status": "contattato",
+            "created_at": _days_ago(60),
+            "last_interaction_at": _days_ago(1),
+        }
+    ]
     engine = build_engine(automations=automations, leads=leads)
 
     summary = run(engine.run_cycle())
@@ -525,15 +770,27 @@ def test_lead_senza_last_interaction_at_ricade_su_created_at():
     """Retrocompatibilità: un lead creato prima dell'introduzione del
     campo last_interaction_at (quindi privo di quel campo) continua a
     usare created_at come prima, invece di non essere mai valutato."""
-    automations = [{
-        "id": "auto-3", "user_id": "user-1", "name": "Lead inattivo",
-        "trigger": "lead_inactive", "action": "send_email", "enabled": True,
-        "config": {"days": 7},
-    }]
-    leads = [{
-        "id": "l-1", "user_id": "user-1", "company_name": "Bianchi Spa",
-        "email": "bianchi@example.com", "status": "contattato", "created_at": _days_ago(10),
-    }]
+    automations = [
+        {
+            "id": "auto-3",
+            "user_id": "user-1",
+            "name": "Lead inattivo",
+            "trigger": "lead_inactive",
+            "action": "send_email",
+            "enabled": True,
+            "config": {"days": 7},
+        }
+    ]
+    leads = [
+        {
+            "id": "l-1",
+            "user_id": "user-1",
+            "company_name": "Bianchi Spa",
+            "email": "bianchi@example.com",
+            "status": "contattato",
+            "created_at": _days_ago(10),
+        }
+    ]
     engine = build_engine(automations=automations, leads=leads)
 
     summary = run(engine.run_cycle())
@@ -543,21 +800,38 @@ def test_lead_senza_last_interaction_at_ricade_su_created_at():
 
 # ---------- Retry ed errori persistenti ----------
 
+
 def test_errore_persistente_smette_di_essere_ritentato_dopo_max_tentativi():
-    automations = [{
-        "id": "auto-4", "user_id": "user-1", "name": "Lead inattivo (email rotta)",
-        "trigger": "lead_inactive", "action": "send_email", "enabled": True,
-        "config": {"days": 7},
-    }]
-    leads = [{
-        "id": "l-1", "user_id": "user-1", "company_name": "Bianchi Spa",
-        "email": "", "status": "nuovo", "created_at": _days_ago(10),
-    }]
+    automations = [
+        {
+            "id": "auto-4",
+            "user_id": "user-1",
+            "name": "Lead inattivo (email rotta)",
+            "trigger": "lead_inactive",
+            "action": "send_email",
+            "enabled": True,
+            "config": {"days": 7},
+        }
+    ]
+    leads = [
+        {
+            "id": "l-1",
+            "user_id": "user-1",
+            "company_name": "Bianchi Spa",
+            "email": "",
+            "status": "nuovo",
+            "created_at": _days_ago(10),
+        }
+    ]
 
     async def failing_send_email(to, subject, html):
-        raise AssertionError("non dovrebbe mai essere chiamato: nessuna email disponibile")
+        raise AssertionError(
+            "non dovrebbe mai essere chiamato: nessuna email disponibile"
+        )
 
-    engine = build_engine(automations=automations, leads=leads, send_email_fn=failing_send_email)
+    engine = build_engine(
+        automations=automations, leads=leads, send_email_fn=failing_send_email
+    )
     # Nessuna email sul lead e nessuna sull'utente -> _action_send_email solleva
     # RuntimeError("Nessun indirizzo email disponibile...") prima di chiamare send_email_fn.
     engine.user_repo.users["user-1"]["email"] = ""
@@ -574,19 +848,33 @@ def test_errore_persistente_smette_di_essere_ritentato_dopo_max_tentativi():
     assert summary["executed"] == 0
     assert summary["errors"] == 0
     assert summary["skipped"] == 1
-    assert engine.run_repo.docs[("auto-4", "l-1")]["attempts"] == AUTOMATION_MAX_ATTEMPTS
+    assert (
+        engine.run_repo.docs[("auto-4", "l-1")]["attempts"] == AUTOMATION_MAX_ATTEMPTS
+    )
 
 
 def test_errore_transitorio_viene_ritentato_e_puo_riuscire():
-    automations = [{
-        "id": "auto-5", "user_id": "user-1", "name": "Lead inattivo",
-        "trigger": "lead_inactive", "action": "send_email", "enabled": True,
-        "config": {"days": 7},
-    }]
-    leads = [{
-        "id": "l-1", "user_id": "user-1", "company_name": "Bianchi Spa",
-        "email": "bianchi@example.com", "status": "nuovo", "created_at": _days_ago(10),
-    }]
+    automations = [
+        {
+            "id": "auto-5",
+            "user_id": "user-1",
+            "name": "Lead inattivo",
+            "trigger": "lead_inactive",
+            "action": "send_email",
+            "enabled": True,
+            "config": {"days": 7},
+        }
+    ]
+    leads = [
+        {
+            "id": "l-1",
+            "user_id": "user-1",
+            "company_name": "Bianchi Spa",
+            "email": "bianchi@example.com",
+            "status": "nuovo",
+            "created_at": _days_ago(10),
+        }
+    ]
 
     calls = {"n": 0}
 
@@ -596,7 +884,9 @@ def test_errore_transitorio_viene_ritentato_e_puo_riuscire():
             return False  # simula un invio fallito (send_email ritorna False)
         return True
 
-    engine = build_engine(automations=automations, leads=leads, send_email_fn=flaky_send_email)
+    engine = build_engine(
+        automations=automations, leads=leads, send_email_fn=flaky_send_email
+    )
 
     first = run(engine.run_cycle())
     second = run(engine.run_cycle())
@@ -608,16 +898,29 @@ def test_errore_transitorio_viene_ritentato_e_puo_riuscire():
 
 # ---------- Account demo: nessun invio/scrittura reale ----------
 
+
 def test_utente_demo_non_riceve_email_ma_notifica_in_app_si():
-    automations = [{
-        "id": "auto-6", "user_id": "user-demo", "name": "Promemoria scadenza",
-        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
-        "config": {"days_before": 3},
-    }]
-    offers = [{
-        "id": "offer-1", "user_id": "user-demo", "client_id": "c-1", "title": "Offerta demo",
-        "status": "inviata", "expires_at": _days_from_now(2),
-    }]
+    automations = [
+        {
+            "id": "auto-6",
+            "user_id": "user-demo",
+            "name": "Promemoria scadenza",
+            "trigger": "offer_expiring",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"days_before": 3},
+        }
+    ]
+    offers = [
+        {
+            "id": "offer-1",
+            "user_id": "user-demo",
+            "client_id": "c-1",
+            "title": "Offerta demo",
+            "status": "inviata",
+            "expires_at": _days_from_now(2),
+        }
+    ]
     users = [{"id": "user-demo", "email": "demo@example.com", "is_demo": True}]
     engine = build_engine(automations=automations, offers=offers, users=users)
 
@@ -632,15 +935,27 @@ def test_ultima_esecuzione_registra_conteggi_su_automazione():
     """L'automazione stessa deve riportare quante azioni sono state
     eseguite/saltate/fallite nell'ultimo ciclo — usato dall'interfaccia per
     mostrare 'Ultima esecuzione: ... Risultato: N azioni eseguite'."""
-    automations = [{
-        "id": "auto-7", "user_id": "user-1", "name": "Promemoria scadenza",
-        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
-        "config": {"days_before": 3},
-    }]
-    offers = [{
-        "id": "offer-1", "user_id": "user-1", "client_id": "c-1", "title": "Offerta A",
-        "status": "inviata", "expires_at": _days_from_now(2),
-    }]
+    automations = [
+        {
+            "id": "auto-7",
+            "user_id": "user-1",
+            "name": "Promemoria scadenza",
+            "trigger": "offer_expiring",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"days_before": 3},
+        }
+    ]
+    offers = [
+        {
+            "id": "offer-1",
+            "user_id": "user-1",
+            "client_id": "c-1",
+            "title": "Offerta A",
+            "status": "inviata",
+            "expires_at": _days_from_now(2),
+        }
+    ]
     engine = build_engine(automations=automations, offers=offers)
 
     run(engine.run_cycle())
@@ -655,20 +970,34 @@ def test_ultima_esecuzione_registra_conteggi_su_automazione():
 
 # ---------- Oggetto/contenuto email personalizzati ----------
 
+
 def test_send_email_usa_oggetto_e_contenuto_personalizzati():
-    automations = [{
-        "id": "auto-8", "user_id": "user-1", "name": "Lead inattivo",
-        "trigger": "lead_inactive", "action": "send_email", "enabled": True,
-        "config": {
-            "days": 7,
-            "email_subject": "Ciao {nome}, ci sei ancora?",
-            "email_message": "Notiamo che {nome} ({citta}) non risponde da un po'.",
-        },
-    }]
-    leads = [{
-        "id": "l-1", "user_id": "user-1", "company_name": "Bianchi Spa",
-        "email": "bianchi@example.com", "city": "Ancona", "status": "nuovo", "created_at": _days_ago(10),
-    }]
+    automations = [
+        {
+            "id": "auto-8",
+            "user_id": "user-1",
+            "name": "Lead inattivo",
+            "trigger": "lead_inactive",
+            "action": "send_email",
+            "enabled": True,
+            "config": {
+                "days": 7,
+                "email_subject": "Ciao {nome}, ci sei ancora?",
+                "email_message": "Notiamo che {nome} ({citta}) non risponde da un po'.",
+            },
+        }
+    ]
+    leads = [
+        {
+            "id": "l-1",
+            "user_id": "user-1",
+            "company_name": "Bianchi Spa",
+            "email": "bianchi@example.com",
+            "city": "Ancona",
+            "status": "nuovo",
+            "created_at": _days_ago(10),
+        }
+    ]
     engine = build_engine(automations=automations, leads=leads)
 
     run(engine.run_cycle())
@@ -679,25 +1008,40 @@ def test_send_email_usa_oggetto_e_contenuto_personalizzati():
 
 
 def test_send_reminder_usa_oggetto_e_contenuto_personalizzati():
-    automations = [{
-        "id": "auto-9", "user_id": "user-1", "name": "Promemoria scadenza",
-        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
-        "config": {
-            "days_before": 3,
-            "email_subject": "Offerta {nome} in scadenza",
-            "email_message": "L'offerta {nome} scade il {scadenza}, contatta il cliente.",
-        },
-    }]
-    offers = [{
-        "id": "offer-1", "user_id": "user-1", "client_id": "c-1", "title": "Fornitura Uffici",
-        "status": "inviata", "expires_at": _days_from_now(2),
-    }]
+    automations = [
+        {
+            "id": "auto-9",
+            "user_id": "user-1",
+            "name": "Promemoria scadenza",
+            "trigger": "offer_expiring",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {
+                "days_before": 3,
+                "email_subject": "Offerta {nome} in scadenza",
+                "email_message": "L'offerta {nome} scade il {scadenza}, contatta il cliente.",
+            },
+        }
+    ]
+    offers = [
+        {
+            "id": "offer-1",
+            "user_id": "user-1",
+            "client_id": "c-1",
+            "title": "Fornitura Uffici",
+            "status": "inviata",
+            "expires_at": _days_from_now(2),
+        }
+    ]
     engine = build_engine(automations=automations, offers=offers)
 
     run(engine.run_cycle())
 
     assert len(engine._sent_emails) == 1
-    assert "🔔 SALESFLY — Offerta Fornitura Uffici in scadenza" == engine._sent_emails[0]["subject"]
+    assert (
+        "🔔 SALESFLY — Offerta Fornitura Uffici in scadenza"
+        == engine._sent_emails[0]["subject"]
+    )
     assert "Fornitura Uffici" in engine._sent_emails[0]["html"]
     assert len(engine.notification_repo.docs) == 1
     assert "Fornitura Uffici" in engine.notification_repo.docs[0]["message"]
@@ -706,15 +1050,27 @@ def test_send_reminder_usa_oggetto_e_contenuto_personalizzati():
 def test_placeholder_sconosciuto_non_fa_fallire_linvio():
     """Un typo nel placeholder (es. '{nom}' invece di '{nome}') non deve
     mai far fallire l'invio: viene lasciato letterale nel testo."""
-    automations = [{
-        "id": "auto-10", "user_id": "user-1", "name": "Lead inattivo",
-        "trigger": "lead_inactive", "action": "send_email", "enabled": True,
-        "config": {"days": 7, "email_message": "Ciao {nom}, tutto ok?"},
-    }]
-    leads = [{
-        "id": "l-1", "user_id": "user-1", "company_name": "Bianchi Spa",
-        "email": "bianchi@example.com", "status": "nuovo", "created_at": _days_ago(10),
-    }]
+    automations = [
+        {
+            "id": "auto-10",
+            "user_id": "user-1",
+            "name": "Lead inattivo",
+            "trigger": "lead_inactive",
+            "action": "send_email",
+            "enabled": True,
+            "config": {"days": 7, "email_message": "Ciao {nom}, tutto ok?"},
+        }
+    ]
+    leads = [
+        {
+            "id": "l-1",
+            "user_id": "user-1",
+            "company_name": "Bianchi Spa",
+            "email": "bianchi@example.com",
+            "status": "nuovo",
+            "created_at": _days_ago(10),
+        }
+    ]
     engine = build_engine(automations=automations, leads=leads)
 
     summary = run(engine.run_cycle())
@@ -725,21 +1081,33 @@ def test_placeholder_sconosciuto_non_fa_fallire_linvio():
 
 # ---------- HTML escaping nel corpo email ----------
 
+
 def test_send_email_html_escape_dati_crm_malevoli():
     """company_name arriva da un campo del CRM (compilabile dall'utente, o
     da chi ha accesso a quel lead): un valore con markup HTML/script non
     deve mai finire crudo nel corpo dell'email, che qui può essere inviata
     anche a un cliente reale, non solo all'agente stesso."""
-    automations = [{
-        "id": "auto-11", "user_id": "user-1", "name": "Lead inattivo",
-        "trigger": "lead_inactive", "action": "send_email", "enabled": True,
-        "config": {"days": 7},
-    }]
-    leads = [{
-        "id": "l-1", "user_id": "user-1",
-        "company_name": "<img src=x onerror=alert(1)><script>alert(2)</script>",
-        "email": "bianchi@example.com", "status": "nuovo", "created_at": _days_ago(10),
-    }]
+    automations = [
+        {
+            "id": "auto-11",
+            "user_id": "user-1",
+            "name": "Lead inattivo",
+            "trigger": "lead_inactive",
+            "action": "send_email",
+            "enabled": True,
+            "config": {"days": 7},
+        }
+    ]
+    leads = [
+        {
+            "id": "l-1",
+            "user_id": "user-1",
+            "company_name": "<img src=x onerror=alert(1)><script>alert(2)</script>",
+            "email": "bianchi@example.com",
+            "status": "nuovo",
+            "created_at": _days_ago(10),
+        }
+    ]
     engine = build_engine(automations=automations, leads=leads)
 
     run(engine.run_cycle())
@@ -751,16 +1119,27 @@ def test_send_email_html_escape_dati_crm_malevoli():
 
 
 def test_send_reminder_html_escape_dati_crm_malevoli():
-    automations = [{
-        "id": "auto-12", "user_id": "user-1", "name": "Promemoria scadenza",
-        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
-        "config": {"days_before": 3},
-    }]
-    offers = [{
-        "id": "offer-1", "user_id": "user-1", "client_id": "c-1",
-        "title": "<img src=x onerror=alert(1)><script>alert(2)</script>",
-        "status": "inviata", "expires_at": _days_from_now(2),
-    }]
+    automations = [
+        {
+            "id": "auto-12",
+            "user_id": "user-1",
+            "name": "Promemoria scadenza",
+            "trigger": "offer_expiring",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"days_before": 3},
+        }
+    ]
+    offers = [
+        {
+            "id": "offer-1",
+            "user_id": "user-1",
+            "client_id": "c-1",
+            "title": "<img src=x onerror=alert(1)><script>alert(2)</script>",
+            "status": "inviata",
+            "expires_at": _days_from_now(2),
+        }
+    ]
     engine = build_engine(automations=automations, offers=offers)
 
     run(engine.run_cycle())
@@ -776,16 +1155,29 @@ def test_send_reminder_html_escape_dati_crm_malevoli():
 
 # ---------- Orario di esecuzione per regola (config['run_at']) ----------
 
+
 def test_regola_senza_run_at_viene_valutata_sempre():
-    automations = [{
-        "id": "auto-11", "user_id": "user-1", "name": "Promemoria scadenza",
-        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
-        "config": {"days_before": 3},
-    }]
-    offers = [{
-        "id": "offer-1", "user_id": "user-1", "client_id": "c-1", "title": "Offerta A",
-        "status": "inviata", "expires_at": _days_from_now(2),
-    }]
+    automations = [
+        {
+            "id": "auto-11",
+            "user_id": "user-1",
+            "name": "Promemoria scadenza",
+            "trigger": "offer_expiring",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"days_before": 3},
+        }
+    ]
+    offers = [
+        {
+            "id": "offer-1",
+            "user_id": "user-1",
+            "client_id": "c-1",
+            "title": "Offerta A",
+            "status": "inviata",
+            "expires_at": _days_from_now(2),
+        }
+    ]
     engine = build_engine(automations=automations, offers=offers)
 
     summary = run(engine.run_cycle())
@@ -794,20 +1186,35 @@ def test_regola_senza_run_at_viene_valutata_sempre():
 
 
 def test_regola_fuori_dalla_finestra_oraria_non_viene_valutata(monkeypatch):
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
 
-    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 7, 26, 8, 0))
+    import services.automation_engine as automation_engine_mod
 
-    automations = [{
-        "id": "auto-12", "user_id": "user-1", "name": "Promemoria scadenza",
-        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
-        "config": {"days_before": 3, "run_at": "18:00"},
-    }]
-    offers = [{
-        "id": "offer-1", "user_id": "user-1", "client_id": "c-1", "title": "Offerta A",
-        "status": "inviata", "expires_at": _days_from_now(2),
-    }]
+    monkeypatch.setattr(
+        automation_engine_mod, "now_local", lambda: real_datetime(2026, 7, 26, 8, 0)
+    )
+
+    automations = [
+        {
+            "id": "auto-12",
+            "user_id": "user-1",
+            "name": "Promemoria scadenza",
+            "trigger": "offer_expiring",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"days_before": 3, "run_at": "18:00"},
+        }
+    ]
+    offers = [
+        {
+            "id": "offer-1",
+            "user_id": "user-1",
+            "client_id": "c-1",
+            "title": "Offerta A",
+            "status": "inviata",
+            "expires_at": _days_from_now(2),
+        }
+    ]
     engine = build_engine(automations=automations, offers=offers)
 
     summary = run(engine.run_cycle())
@@ -821,8 +1228,9 @@ def test_regola_fuori_dalla_finestra_oraria_non_viene_valutata(monkeypatch):
 
 
 def test_regola_dentro_la_finestra_oraria_viene_valutata(monkeypatch):
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
+
+    import services.automation_engine as automation_engine_mod
 
     # expires_at DEVE essere calcolato a partire dallo stesso "adesso" finto
     # usato da now_local (non da _days_from_now, che usa l'orologio reale di
@@ -834,15 +1242,27 @@ def test_regola_dentro_la_finestra_oraria_viene_valutata(monkeypatch):
     mocked_now = real_datetime(2026, 7, 26, 18, 3)
     monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
 
-    automations = [{
-        "id": "auto-13", "user_id": "user-1", "name": "Promemoria scadenza",
-        "trigger": "offer_expiring", "action": "send_reminder", "enabled": True,
-        "config": {"days_before": 3, "run_at": "18:00"},
-    }]
-    offers = [{
-        "id": "offer-1", "user_id": "user-1", "client_id": "c-1", "title": "Offerta A",
-        "status": "inviata", "expires_at": _iso(mocked_now + timedelta(days=2)),
-    }]
+    automations = [
+        {
+            "id": "auto-13",
+            "user_id": "user-1",
+            "name": "Promemoria scadenza",
+            "trigger": "offer_expiring",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"days_before": 3, "run_at": "18:00"},
+        }
+    ]
+    offers = [
+        {
+            "id": "offer-1",
+            "user_id": "user-1",
+            "client_id": "c-1",
+            "title": "Offerta A",
+            "status": "inviata",
+            "expires_at": _iso(mocked_now + timedelta(days=2)),
+        }
+    ]
     engine = build_engine(automations=automations, offers=offers)
 
     summary = run(engine.run_cycle())
@@ -854,14 +1274,35 @@ def test_regola_dentro_la_finestra_oraria_viene_valutata(monkeypatch):
 
 # ---------- no_order_days ----------
 
+
 def test_cliente_senza_ordini_da_90_giorni_genera_promemoria():
-    automations = [{
-        "id": "auto-20", "user_id": "user-1", "name": "Cliente senza ordini",
-        "trigger": "no_order_days", "action": "send_reminder", "enabled": True,
-        "config": {"days": 90},
-    }]
-    clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Rossi Spa", "created_at": _days_ago(400)}]
-    orders = [{"id": "o-1", "user_id": "user-1", "client_id": "c-1", "created_at": _days_ago(120)}]
+    automations = [
+        {
+            "id": "auto-20",
+            "user_id": "user-1",
+            "name": "Cliente senza ordini",
+            "trigger": "no_order_days",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"days": 90},
+        }
+    ]
+    clients = [
+        {
+            "id": "c-1",
+            "user_id": "user-1",
+            "company_name": "Rossi Spa",
+            "created_at": _days_ago(400),
+        }
+    ]
+    orders = [
+        {
+            "id": "o-1",
+            "user_id": "user-1",
+            "client_id": "c-1",
+            "created_at": _days_ago(120),
+        }
+    ]
     engine = build_engine(automations=automations, clients=clients, orders=orders)
 
     summary = run(engine.run_cycle())
@@ -871,13 +1312,33 @@ def test_cliente_senza_ordini_da_90_giorni_genera_promemoria():
 
 
 def test_cliente_con_ordine_recente_non_genera_nulla():
-    automations = [{
-        "id": "auto-20", "user_id": "user-1", "name": "Cliente senza ordini",
-        "trigger": "no_order_days", "action": "send_reminder", "enabled": True,
-        "config": {"days": 90},
-    }]
-    clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Rossi Spa", "created_at": _days_ago(400)}]
-    orders = [{"id": "o-1", "user_id": "user-1", "client_id": "c-1", "created_at": _days_ago(10)}]
+    automations = [
+        {
+            "id": "auto-20",
+            "user_id": "user-1",
+            "name": "Cliente senza ordini",
+            "trigger": "no_order_days",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"days": 90},
+        }
+    ]
+    clients = [
+        {
+            "id": "c-1",
+            "user_id": "user-1",
+            "company_name": "Rossi Spa",
+            "created_at": _days_ago(400),
+        }
+    ]
+    orders = [
+        {
+            "id": "o-1",
+            "user_id": "user-1",
+            "client_id": "c-1",
+            "created_at": _days_ago(10),
+        }
+    ]
     engine = build_engine(automations=automations, clients=clients, orders=orders)
 
     summary = run(engine.run_cycle())
@@ -886,12 +1347,25 @@ def test_cliente_con_ordine_recente_non_genera_nulla():
 
 
 def test_cliente_senza_alcun_ordine_usa_created_at_come_riferimento():
-    automations = [{
-        "id": "auto-20", "user_id": "user-1", "name": "Cliente senza ordini",
-        "trigger": "no_order_days", "action": "send_reminder", "enabled": True,
-        "config": {"days": 90},
-    }]
-    clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Rossi Spa", "created_at": _days_ago(200)}]
+    automations = [
+        {
+            "id": "auto-20",
+            "user_id": "user-1",
+            "name": "Cliente senza ordini",
+            "trigger": "no_order_days",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"days": 90},
+        }
+    ]
+    clients = [
+        {
+            "id": "c-1",
+            "user_id": "user-1",
+            "company_name": "Rossi Spa",
+            "created_at": _days_ago(200),
+        }
+    ]
     engine = build_engine(automations=automations, clients=clients)
 
     summary = run(engine.run_cycle())
@@ -900,12 +1374,25 @@ def test_cliente_senza_alcun_ordine_usa_created_at_come_riferimento():
 
 
 def test_cliente_appena_creato_senza_ordini_non_e_ancora_segnalato():
-    automations = [{
-        "id": "auto-20", "user_id": "user-1", "name": "Cliente senza ordini",
-        "trigger": "no_order_days", "action": "send_reminder", "enabled": True,
-        "config": {"days": 90},
-    }]
-    clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Rossi Spa", "created_at": _days_ago(5)}]
+    automations = [
+        {
+            "id": "auto-20",
+            "user_id": "user-1",
+            "name": "Cliente senza ordini",
+            "trigger": "no_order_days",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"days": 90},
+        }
+    ]
+    clients = [
+        {
+            "id": "c-1",
+            "user_id": "user-1",
+            "company_name": "Rossi Spa",
+            "created_at": _days_ago(5),
+        }
+    ]
     engine = build_engine(automations=automations, clients=clients)
 
     summary = run(engine.run_cycle())
@@ -915,13 +1402,27 @@ def test_cliente_appena_creato_senza_ordini_non_e_ancora_segnalato():
 
 # ---------- client_created ----------
 
+
 def test_nuovo_cliente_genera_follow_up(monkeypatch):
-    automations = [{
-        "id": "auto-21", "user_id": "user-1", "name": "Nuovo cliente",
-        "trigger": "client_created", "action": "create_task", "enabled": True,
-        "config": {"days": 2},
-    }]
-    clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Bianchi Srl", "created_at": _days_ago(1)}]
+    automations = [
+        {
+            "id": "auto-21",
+            "user_id": "user-1",
+            "name": "Nuovo cliente",
+            "trigger": "client_created",
+            "action": "create_task",
+            "enabled": True,
+            "config": {"days": 2},
+        }
+    ]
+    clients = [
+        {
+            "id": "c-1",
+            "user_id": "user-1",
+            "company_name": "Bianchi Srl",
+            "created_at": _days_ago(1),
+        }
+    ]
     engine = build_engine(automations=automations, clients=clients)
 
     created = []
@@ -932,6 +1433,7 @@ def test_nuovo_cliente_genera_follow_up(monkeypatch):
             return {"id": "new-appt"}
 
     import services.appointment_service as appt_mod
+
     monkeypatch.setattr(appt_mod, "appointment_service", FakeAppointmentService())
 
     summary = run(engine.run_cycle())
@@ -941,12 +1443,25 @@ def test_nuovo_cliente_genera_follow_up(monkeypatch):
 
 
 def test_cliente_creato_troppo_tempo_fa_non_e_piu_nuovo():
-    automations = [{
-        "id": "auto-21", "user_id": "user-1", "name": "Nuovo cliente",
-        "trigger": "client_created", "action": "send_reminder", "enabled": True,
-        "config": {"days": 2},
-    }]
-    clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Bianchi Srl", "created_at": _days_ago(10)}]
+    automations = [
+        {
+            "id": "auto-21",
+            "user_id": "user-1",
+            "name": "Nuovo cliente",
+            "trigger": "client_created",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"days": 2},
+        }
+    ]
+    clients = [
+        {
+            "id": "c-1",
+            "user_id": "user-1",
+            "company_name": "Bianchi Srl",
+            "created_at": _days_ago(10),
+        }
+    ]
     engine = build_engine(automations=automations, clients=clients)
 
     summary = run(engine.run_cycle())
@@ -958,12 +1473,25 @@ def test_nuovo_cliente_genera_follow_up_una_sola_volta():
     """Anche restando nella finestra 'days' della config, lo stesso cliente
     non deve generare un secondo follow-up in un ciclo successivo (dedup su
     automation_runs, nessun cooldown_days impostato -> una sola volta mai)."""
-    automations = [{
-        "id": "auto-21", "user_id": "user-1", "name": "Nuovo cliente",
-        "trigger": "client_created", "action": "send_reminder", "enabled": True,
-        "config": {"days": 2},
-    }]
-    clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Bianchi Srl", "created_at": _days_ago(1)}]
+    automations = [
+        {
+            "id": "auto-21",
+            "user_id": "user-1",
+            "name": "Nuovo cliente",
+            "trigger": "client_created",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"days": 2},
+        }
+    ]
+    clients = [
+        {
+            "id": "c-1",
+            "user_id": "user-1",
+            "company_name": "Bianchi Srl",
+            "created_at": _days_ago(1),
+        }
+    ]
     engine = build_engine(automations=automations, clients=clients)
 
     first = run(engine.run_cycle())
@@ -976,17 +1504,35 @@ def test_nuovo_cliente_genera_follow_up_una_sola_volta():
 
 # ---------- client_birthday ----------
 
-def test_compleanno_oggi_genera_promemoria(monkeypatch):
-    import services.automation_engine as automation_engine_mod
-    from datetime import datetime as real_datetime
-    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 15, 9, 0))
 
-    automations = [{
-        "id": "auto-22", "user_id": "user-1", "name": "Compleanno cliente",
-        "trigger": "client_birthday", "action": "send_reminder", "enabled": True,
-        "config": {"days_before": 0},
-    }]
-    clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Verdi Spa", "birthday": "1980-03-15"}]
+def test_compleanno_oggi_genera_promemoria(monkeypatch):
+    from datetime import datetime as real_datetime
+
+    import services.automation_engine as automation_engine_mod
+
+    monkeypatch.setattr(
+        automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 15, 9, 0)
+    )
+
+    automations = [
+        {
+            "id": "auto-22",
+            "user_id": "user-1",
+            "name": "Compleanno cliente",
+            "trigger": "client_birthday",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"days_before": 0},
+        }
+    ]
+    clients = [
+        {
+            "id": "c-1",
+            "user_id": "user-1",
+            "company_name": "Verdi Spa",
+            "birthday": "1980-03-15",
+        }
+    ]
     engine = build_engine(automations=automations, clients=clients)
 
     summary = run(engine.run_cycle())
@@ -996,16 +1542,33 @@ def test_compleanno_oggi_genera_promemoria(monkeypatch):
 
 
 def test_compleanno_non_oggi_non_genera_nulla(monkeypatch):
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
-    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 15, 9, 0))
 
-    automations = [{
-        "id": "auto-22", "user_id": "user-1", "name": "Compleanno cliente",
-        "trigger": "client_birthday", "action": "send_reminder", "enabled": True,
-        "config": {"days_before": 0},
-    }]
-    clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Verdi Spa", "birthday": "1980-06-20"}]
+    import services.automation_engine as automation_engine_mod
+
+    monkeypatch.setattr(
+        automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 15, 9, 0)
+    )
+
+    automations = [
+        {
+            "id": "auto-22",
+            "user_id": "user-1",
+            "name": "Compleanno cliente",
+            "trigger": "client_birthday",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"days_before": 0},
+        }
+    ]
+    clients = [
+        {
+            "id": "c-1",
+            "user_id": "user-1",
+            "company_name": "Verdi Spa",
+            "birthday": "1980-06-20",
+        }
+    ]
     engine = build_engine(automations=automations, clients=clients)
 
     summary = run(engine.run_cycle())
@@ -1016,21 +1579,39 @@ def test_compleanno_non_oggi_non_genera_nulla(monkeypatch):
 def test_compleanno_si_ripete_lanno_successivo(monkeypatch):
     """Il target_id include l'anno apposta: lo stesso cliente deve generare
     di nuovo un promemoria l'anno dopo, senza bisogno di cooldown_days."""
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
 
-    automations = [{
-        "id": "auto-22", "user_id": "user-1", "name": "Compleanno cliente",
-        "trigger": "client_birthday", "action": "send_reminder", "enabled": True,
-        "config": {"days_before": 0},
-    }]
-    clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Verdi Spa", "birthday": "1980-03-15"}]
+    import services.automation_engine as automation_engine_mod
+
+    automations = [
+        {
+            "id": "auto-22",
+            "user_id": "user-1",
+            "name": "Compleanno cliente",
+            "trigger": "client_birthday",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"days_before": 0},
+        }
+    ]
+    clients = [
+        {
+            "id": "c-1",
+            "user_id": "user-1",
+            "company_name": "Verdi Spa",
+            "birthday": "1980-03-15",
+        }
+    ]
     engine = build_engine(automations=automations, clients=clients)
 
-    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 15, 9, 0))
+    monkeypatch.setattr(
+        automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 15, 9, 0)
+    )
     first = run(engine.run_cycle())
 
-    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2027, 3, 15, 9, 0))
+    monkeypatch.setattr(
+        automation_engine_mod, "now_local", lambda: real_datetime(2027, 3, 15, 9, 0)
+    )
     second = run(engine.run_cycle())
 
     assert first["executed"] == 1
@@ -1038,16 +1619,33 @@ def test_compleanno_si_ripete_lanno_successivo(monkeypatch):
 
 
 def test_compleanno_con_giorni_di_anticipo(monkeypatch):
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
-    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 12, 9, 0))
 
-    automations = [{
-        "id": "auto-22", "user_id": "user-1", "name": "Compleanno cliente",
-        "trigger": "client_birthday", "action": "send_reminder", "enabled": True,
-        "config": {"days_before": 5},
-    }]
-    clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Verdi Spa", "birthday": "1980-03-15"}]
+    import services.automation_engine as automation_engine_mod
+
+    monkeypatch.setattr(
+        automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 12, 9, 0)
+    )
+
+    automations = [
+        {
+            "id": "auto-22",
+            "user_id": "user-1",
+            "name": "Compleanno cliente",
+            "trigger": "client_birthday",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"days_before": 5},
+        }
+    ]
+    clients = [
+        {
+            "id": "c-1",
+            "user_id": "user-1",
+            "company_name": "Verdi Spa",
+            "birthday": "1980-03-15",
+        }
+    ]
     engine = build_engine(automations=automations, clients=clients)
 
     summary = run(engine.run_cycle())
@@ -1057,23 +1655,54 @@ def test_compleanno_con_giorni_di_anticipo(monkeypatch):
 
 # ---------- tomorrow_appointments (digest) ----------
 
-def test_digest_domani_conta_le_visite_di_domani(monkeypatch):
-    import services.automation_engine as automation_engine_mod
-    from datetime import datetime as real_datetime
-    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 15, 18, 0))
 
-    automations = [{
-        "id": "auto-23", "user_id": "user-1", "name": "Domani hai visite",
-        "trigger": "tomorrow_appointments", "action": "send_reminder", "enabled": True,
-        "config": {"run_at": "18:00"},
-    }]
+def test_digest_domani_conta_le_visite_di_domani(monkeypatch):
+    from datetime import datetime as real_datetime
+
+    import services.automation_engine as automation_engine_mod
+
+    monkeypatch.setattr(
+        automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 15, 18, 0)
+    )
+
+    automations = [
+        {
+            "id": "auto-23",
+            "user_id": "user-1",
+            "name": "Domani hai visite",
+            "trigger": "tomorrow_appointments",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"run_at": "18:00"},
+        }
+    ]
     clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Rossi Spa"}]
     appointments = [
-        {"id": "a-1", "user_id": "user-1", "client_id": "c-1", "status": "pianificato", "start": "2026-03-16T09:00:00+01:00"},
-        {"id": "a-2", "user_id": "user-1", "client_id": "c-1", "status": "pianificato", "start": "2026-03-16T11:00:00+01:00"},
-        {"id": "a-3", "user_id": "user-1", "client_id": "c-1", "status": "pianificato", "start": "2026-03-17T09:00:00+01:00"},  # dopodomani, non conta
+        {
+            "id": "a-1",
+            "user_id": "user-1",
+            "client_id": "c-1",
+            "status": "pianificato",
+            "start": "2026-03-16T09:00:00+01:00",
+        },
+        {
+            "id": "a-2",
+            "user_id": "user-1",
+            "client_id": "c-1",
+            "status": "pianificato",
+            "start": "2026-03-16T11:00:00+01:00",
+        },
+        {
+            "id": "a-3",
+            "user_id": "user-1",
+            "client_id": "c-1",
+            "status": "pianificato",
+            "start": "2026-03-17T09:00:00+01:00",
+        },  # dopodomani, non conta
     ]
-    engine = build_engine(automations=automations, clients=clients, appointments=appointments)
+    engine = build_engine(
+        automations=automations, clients=clients, appointments=appointments
+    )
 
     summary = run(engine.run_cycle())
 
@@ -1082,15 +1711,25 @@ def test_digest_domani_conta_le_visite_di_domani(monkeypatch):
 
 
 def test_digest_domani_nessuna_visita_non_genera_nulla(monkeypatch):
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
-    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 15, 18, 0))
 
-    automations = [{
-        "id": "auto-23", "user_id": "user-1", "name": "Domani hai visite",
-        "trigger": "tomorrow_appointments", "action": "send_reminder", "enabled": True,
-        "config": {"run_at": "18:00"},
-    }]
+    import services.automation_engine as automation_engine_mod
+
+    monkeypatch.setattr(
+        automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 15, 18, 0)
+    )
+
+    automations = [
+        {
+            "id": "auto-23",
+            "user_id": "user-1",
+            "name": "Domani hai visite",
+            "trigger": "tomorrow_appointments",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"run_at": "18:00"},
+        }
+    ]
     engine = build_engine(automations=automations)
 
     summary = run(engine.run_cycle())
@@ -1099,20 +1738,38 @@ def test_digest_domani_nessuna_visita_non_genera_nulla(monkeypatch):
 
 
 def test_digest_domani_una_sola_volta_al_giorno(monkeypatch):
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
-    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 15, 18, 0))
 
-    automations = [{
-        "id": "auto-23", "user_id": "user-1", "name": "Domani hai visite",
-        "trigger": "tomorrow_appointments", "action": "send_reminder", "enabled": True,
-        "config": {"run_at": "18:00"},
-    }]
+    import services.automation_engine as automation_engine_mod
+
+    monkeypatch.setattr(
+        automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 15, 18, 0)
+    )
+
+    automations = [
+        {
+            "id": "auto-23",
+            "user_id": "user-1",
+            "name": "Domani hai visite",
+            "trigger": "tomorrow_appointments",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"run_at": "18:00"},
+        }
+    ]
     clients = [{"id": "c-1", "user_id": "user-1", "company_name": "Rossi Spa"}]
     appointments = [
-        {"id": "a-1", "user_id": "user-1", "client_id": "c-1", "status": "pianificato", "start": "2026-03-16T09:00:00+01:00"},
+        {
+            "id": "a-1",
+            "user_id": "user-1",
+            "client_id": "c-1",
+            "status": "pianificato",
+            "start": "2026-03-16T09:00:00+01:00",
+        },
     ]
-    engine = build_engine(automations=automations, clients=clients, appointments=appointments)
+    engine = build_engine(
+        automations=automations, clients=clients, appointments=appointments
+    )
 
     first = run(engine.run_cycle())
     second = run(engine.run_cycle())
@@ -1124,18 +1781,36 @@ def test_digest_domani_una_sola_volta_al_giorno(monkeypatch):
 
 # ---------- commissions_below_target_mid_month (digest) ----------
 
-def test_provvigioni_sotto_obiettivo_a_meta_mese(monkeypatch):
-    import services.automation_engine as automation_engine_mod
-    from datetime import datetime as real_datetime
-    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 15, 9, 0))
 
-    automations = [{
-        "id": "auto-24", "user_id": "user-1", "name": "Provvigioni sotto obiettivo",
-        "trigger": "commissions_below_target_mid_month", "action": "send_reminder", "enabled": True,
-        "config": {"check_day": 15, "threshold_pct": 50},
-    }]
+def test_provvigioni_sotto_obiettivo_a_meta_mese(monkeypatch):
+    from datetime import datetime as real_datetime
+
+    import services.automation_engine as automation_engine_mod
+
+    monkeypatch.setattr(
+        automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 15, 9, 0)
+    )
+
+    automations = [
+        {
+            "id": "auto-24",
+            "user_id": "user-1",
+            "name": "Provvigioni sotto obiettivo",
+            "trigger": "commissions_below_target_mid_month",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"check_day": 15, "threshold_pct": 50},
+        }
+    ]
     users = [{"id": "user-1", "email": "agente@example.com", "goal_commissions": 2000}]
-    commissions = [{"id": "com-1", "user_id": "user-1", "amount": 400, "created_at": "2026-03-05T10:00:00Z"}]
+    commissions = [
+        {
+            "id": "com-1",
+            "user_id": "user-1",
+            "amount": 400,
+            "created_at": "2026-03-05T10:00:00Z",
+        }
+    ]
     engine = build_engine(automations=automations, users=users, commissions=commissions)
 
     summary = run(engine.run_cycle())
@@ -1146,17 +1821,34 @@ def test_provvigioni_sotto_obiettivo_a_meta_mese(monkeypatch):
 
 
 def test_provvigioni_sopra_soglia_non_genera_nulla(monkeypatch):
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
-    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 15, 9, 0))
 
-    automations = [{
-        "id": "auto-24", "user_id": "user-1", "name": "Provvigioni sotto obiettivo",
-        "trigger": "commissions_below_target_mid_month", "action": "send_reminder", "enabled": True,
-        "config": {"check_day": 15, "threshold_pct": 50},
-    }]
+    import services.automation_engine as automation_engine_mod
+
+    monkeypatch.setattr(
+        automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 15, 9, 0)
+    )
+
+    automations = [
+        {
+            "id": "auto-24",
+            "user_id": "user-1",
+            "name": "Provvigioni sotto obiettivo",
+            "trigger": "commissions_below_target_mid_month",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"check_day": 15, "threshold_pct": 50},
+        }
+    ]
     users = [{"id": "user-1", "email": "agente@example.com", "goal_commissions": 2000}]
-    commissions = [{"id": "com-1", "user_id": "user-1", "amount": 1200, "created_at": "2026-03-05T10:00:00Z"}]
+    commissions = [
+        {
+            "id": "com-1",
+            "user_id": "user-1",
+            "amount": 1200,
+            "created_at": "2026-03-05T10:00:00Z",
+        }
+    ]
     engine = build_engine(automations=automations, users=users, commissions=commissions)
 
     summary = run(engine.run_cycle())
@@ -1165,17 +1857,34 @@ def test_provvigioni_sopra_soglia_non_genera_nulla(monkeypatch):
 
 
 def test_provvigioni_non_valutato_fuori_dal_giorno_di_controllo(monkeypatch):
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
-    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 10, 9, 0))
 
-    automations = [{
-        "id": "auto-24", "user_id": "user-1", "name": "Provvigioni sotto obiettivo",
-        "trigger": "commissions_below_target_mid_month", "action": "send_reminder", "enabled": True,
-        "config": {"check_day": 15, "threshold_pct": 50},
-    }]
+    import services.automation_engine as automation_engine_mod
+
+    monkeypatch.setattr(
+        automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 10, 9, 0)
+    )
+
+    automations = [
+        {
+            "id": "auto-24",
+            "user_id": "user-1",
+            "name": "Provvigioni sotto obiettivo",
+            "trigger": "commissions_below_target_mid_month",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"check_day": 15, "threshold_pct": 50},
+        }
+    ]
     users = [{"id": "user-1", "email": "agente@example.com", "goal_commissions": 2000}]
-    commissions = [{"id": "com-1", "user_id": "user-1", "amount": 100, "created_at": "2026-03-05T10:00:00Z"}]
+    commissions = [
+        {
+            "id": "com-1",
+            "user_id": "user-1",
+            "amount": 100,
+            "created_at": "2026-03-05T10:00:00Z",
+        }
+    ]
     engine = build_engine(automations=automations, users=users, commissions=commissions)
 
     summary = run(engine.run_cycle())
@@ -1187,21 +1896,44 @@ def test_provvigioni_manuali_contano_nel_calcolo_obiettivo(monkeypatch):
     """Una provvigione manuale del mese corrente deve alzare
     commissions_month tanto quanto una calcolata dagli ordini — vedi
     normalize_manual_commission/get_effective_commissions."""
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
-    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 15, 9, 0))
 
-    automations = [{
-        "id": "auto-24", "user_id": "user-1", "name": "Provvigioni sotto obiettivo",
-        "trigger": "commissions_below_target_mid_month", "action": "send_reminder", "enabled": True,
-        "config": {"check_day": 15, "threshold_pct": 50},
-    }]
+    import services.automation_engine as automation_engine_mod
+
+    monkeypatch.setattr(
+        automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 15, 9, 0)
+    )
+
+    automations = [
+        {
+            "id": "auto-24",
+            "user_id": "user-1",
+            "name": "Provvigioni sotto obiettivo",
+            "trigger": "commissions_below_target_mid_month",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"check_day": 15, "threshold_pct": 50},
+        }
+    ]
     users = [{"id": "user-1", "email": "agente@example.com", "goal_commissions": 2000}]
-    commissions = [{"id": "com-1", "user_id": "user-1", "amount": 400, "created_at": "2026-03-05T10:00:00Z"}]
+    commissions = [
+        {
+            "id": "com-1",
+            "user_id": "user-1",
+            "amount": 400,
+            "created_at": "2026-03-05T10:00:00Z",
+        }
+    ]
     # 400 (reale) + 800 (manuale) = 1200 = 60% di 2000: sopra soglia 50%, quindi NON deve scattare.
-    manual_commissions = [{"user_id": "user-1", "period": "2026-03", "amount": 800, "stato": "maturato"}]
-    engine = build_engine(automations=automations, users=users, commissions=commissions,
-                           manual_commissions=manual_commissions)
+    manual_commissions = [
+        {"user_id": "user-1", "period": "2026-03", "amount": 800, "stato": "maturato"}
+    ]
+    engine = build_engine(
+        automations=automations,
+        users=users,
+        commissions=commissions,
+        manual_commissions=manual_commissions,
+    )
 
     summary = run(engine.run_cycle())
 
@@ -1209,15 +1941,25 @@ def test_provvigioni_manuali_contano_nel_calcolo_obiettivo(monkeypatch):
 
 
 def test_provvigioni_senza_obiettivo_impostato_non_genera_nulla(monkeypatch):
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
-    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 15, 9, 0))
 
-    automations = [{
-        "id": "auto-24", "user_id": "user-1", "name": "Provvigioni sotto obiettivo",
-        "trigger": "commissions_below_target_mid_month", "action": "send_reminder", "enabled": True,
-        "config": {"check_day": 15, "threshold_pct": 50},
-    }]
+    import services.automation_engine as automation_engine_mod
+
+    monkeypatch.setattr(
+        automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 15, 9, 0)
+    )
+
+    automations = [
+        {
+            "id": "auto-24",
+            "user_id": "user-1",
+            "name": "Provvigioni sotto obiettivo",
+            "trigger": "commissions_below_target_mid_month",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"check_day": 15, "threshold_pct": 50},
+        }
+    ]
     users = [{"id": "user-1", "email": "agente@example.com"}]  # nessun goal_commissions
     engine = build_engine(automations=automations, users=users)
 
@@ -1228,20 +1970,37 @@ def test_provvigioni_senza_obiettivo_impostato_non_genera_nulla(monkeypatch):
 
 # ---------- vehicle_deadline (modulo Flotta) + send_reminder ----------
 
-def test_scadenza_mezzo_alla_soglia_di_7_giorni_genera_promemoria(monkeypatch):
-    import services.automation_engine as automation_engine_mod
-    from datetime import datetime as real_datetime
-    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 1, 9, 0))
 
-    automations = [{
-        "id": "auto-25", "user_id": "user-1", "name": "Scadenze mezzi",
-        "trigger": "vehicle_deadline", "action": "send_reminder", "enabled": True,
-        "config": {"reminder_days": [7, 15, 30]},
-    }]
-    vehicle_deadlines = [{
-        "id": "deadline-1", "user_id": "user-1", "vehicle_id": "v-1", "vehicle_plate": "AB123CD",
-        "type": "assicurazione", "due_date": "2026-03-08",  # esattamente 7 giorni dopo il 2026-03-01
-    }]
+def test_scadenza_mezzo_alla_soglia_di_7_giorni_genera_promemoria(monkeypatch):
+    from datetime import datetime as real_datetime
+
+    import services.automation_engine as automation_engine_mod
+
+    monkeypatch.setattr(
+        automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 1, 9, 0)
+    )
+
+    automations = [
+        {
+            "id": "auto-25",
+            "user_id": "user-1",
+            "name": "Scadenze mezzi",
+            "trigger": "vehicle_deadline",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"reminder_days": [7, 15, 30]},
+        }
+    ]
+    vehicle_deadlines = [
+        {
+            "id": "deadline-1",
+            "user_id": "user-1",
+            "vehicle_id": "v-1",
+            "vehicle_plate": "AB123CD",
+            "type": "assicurazione",
+            "due_date": "2026-03-08",  # esattamente 7 giorni dopo il 2026-03-01
+        }
+    ]
     engine = build_engine(automations=automations, vehicle_deadlines=vehicle_deadlines)
 
     summary = run(engine.run_cycle())
@@ -1252,19 +2011,35 @@ def test_scadenza_mezzo_alla_soglia_di_7_giorni_genera_promemoria(monkeypatch):
 
 
 def test_scadenza_mezzo_fuori_soglia_non_genera_nulla(monkeypatch):
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
-    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 1, 9, 0))
 
-    automations = [{
-        "id": "auto-26", "user_id": "user-1", "name": "Scadenze mezzi",
-        "trigger": "vehicle_deadline", "action": "send_reminder", "enabled": True,
-        "config": {"reminder_days": [7, 15, 30]},
-    }]
-    vehicle_deadlines = [{
-        "id": "deadline-1", "user_id": "user-1", "vehicle_id": "v-1", "vehicle_plate": "AB123CD",
-        "type": "revisione", "due_date": "2026-03-10",  # 9 giorni: nessuna soglia configurata coincide
-    }]
+    import services.automation_engine as automation_engine_mod
+
+    monkeypatch.setattr(
+        automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 1, 9, 0)
+    )
+
+    automations = [
+        {
+            "id": "auto-26",
+            "user_id": "user-1",
+            "name": "Scadenze mezzi",
+            "trigger": "vehicle_deadline",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"reminder_days": [7, 15, 30]},
+        }
+    ]
+    vehicle_deadlines = [
+        {
+            "id": "deadline-1",
+            "user_id": "user-1",
+            "vehicle_id": "v-1",
+            "vehicle_plate": "AB123CD",
+            "type": "revisione",
+            "due_date": "2026-03-10",  # 9 giorni: nessuna soglia configurata coincide
+        }
+    ]
     engine = build_engine(automations=automations, vehicle_deadlines=vehicle_deadlines)
 
     summary = run(engine.run_cycle())
@@ -1273,19 +2048,35 @@ def test_scadenza_mezzo_fuori_soglia_non_genera_nulla(monkeypatch):
 
 
 def test_scadenza_mezzo_soglia_personalizzata(monkeypatch):
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
-    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 1, 9, 0))
 
-    automations = [{
-        "id": "auto-27", "user_id": "user-1", "name": "Scadenze mezzi",
-        "trigger": "vehicle_deadline", "action": "send_reminder", "enabled": True,
-        "config": {"reminder_days": [5]},
-    }]
-    vehicle_deadlines = [{
-        "id": "deadline-1", "user_id": "user-1", "vehicle_id": "v-1", "vehicle_plate": "XY000ZZ",
-        "type": "bollo", "due_date": "2026-03-06",  # 5 giorni: soglia personalizzata
-    }]
+    import services.automation_engine as automation_engine_mod
+
+    monkeypatch.setattr(
+        automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 1, 9, 0)
+    )
+
+    automations = [
+        {
+            "id": "auto-27",
+            "user_id": "user-1",
+            "name": "Scadenze mezzi",
+            "trigger": "vehicle_deadline",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"reminder_days": [5]},
+        }
+    ]
+    vehicle_deadlines = [
+        {
+            "id": "deadline-1",
+            "user_id": "user-1",
+            "vehicle_id": "v-1",
+            "vehicle_plate": "XY000ZZ",
+            "type": "bollo",
+            "due_date": "2026-03-06",  # 5 giorni: soglia personalizzata
+        }
+    ]
     engine = build_engine(automations=automations, vehicle_deadlines=vehicle_deadlines)
 
     summary = run(engine.run_cycle())
@@ -1293,30 +2084,49 @@ def test_scadenza_mezzo_soglia_personalizzata(monkeypatch):
     assert summary["executed"] == 1
 
 
-def test_scadenza_mezzo_due_soglie_diverse_generano_due_promemoria_distinti(monkeypatch):
+def test_scadenza_mezzo_due_soglie_diverse_generano_due_promemoria_distinti(
+    monkeypatch,
+):
     """La stessa scadenza, valutata in due cicli separati (30 giorni prima e
     poi 7 giorni prima), deve generare due promemoria distinti: il
     target_id include la soglia apposta perché quella più vicina non
     risulti già "consumata" da quella più lontana in automation_runs."""
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
 
-    automations = [{
-        "id": "auto-28", "user_id": "user-1", "name": "Scadenze mezzi",
-        "trigger": "vehicle_deadline", "action": "send_reminder", "enabled": True,
-        "config": {"reminder_days": [7, 30]},
-    }]
-    vehicle_deadlines = [{
-        "id": "deadline-1", "user_id": "user-1", "vehicle_id": "v-1", "vehicle_plate": "AB123CD",
-        "type": "assicurazione", "due_date": "2026-03-08",
-    }]
+    import services.automation_engine as automation_engine_mod
+
+    automations = [
+        {
+            "id": "auto-28",
+            "user_id": "user-1",
+            "name": "Scadenze mezzi",
+            "trigger": "vehicle_deadline",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {"reminder_days": [7, 30]},
+        }
+    ]
+    vehicle_deadlines = [
+        {
+            "id": "deadline-1",
+            "user_id": "user-1",
+            "vehicle_id": "v-1",
+            "vehicle_plate": "AB123CD",
+            "type": "assicurazione",
+            "due_date": "2026-03-08",
+        }
+    ]
     engine = build_engine(automations=automations, vehicle_deadlines=vehicle_deadlines)
 
-    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 2, 6, 9, 0))
+    monkeypatch.setattr(
+        automation_engine_mod, "now_local", lambda: real_datetime(2026, 2, 6, 9, 0)
+    )
     summary1 = run(engine.run_cycle())
     assert summary1["executed"] == 1
 
-    monkeypatch.setattr(automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 1, 9, 0))
+    monkeypatch.setattr(
+        automation_engine_mod, "now_local", lambda: real_datetime(2026, 3, 1, 9, 0)
+    )
     summary2 = run(engine.run_cycle())
     assert summary2["executed"] == 1
 
@@ -1326,27 +2136,41 @@ def test_scadenza_mezzo_due_soglie_diverse_generano_due_promemoria_distinti(monk
 
 # ---------- attendance_missing (dipendente che non ha timbrato) ----------
 
+
 def _employee(**overrides):
     base = {
-        "id": "emp-1", "user_id": "user-1", "name": "Mario", "surname": "Rossi",
-        "active": True, "employment_status": "attivo",
-        "work_days": None, "shift_start_time": None,
+        "id": "emp-1",
+        "user_id": "user-1",
+        "name": "Mario",
+        "surname": "Rossi",
+        "active": True,
+        "employment_status": "attivo",
+        "work_days": None,
+        "shift_start_time": None,
     }
     base.update(overrides)
     return base
 
 
 def test_dipendente_senza_timbratura_dopo_un_ora_dal_turno_genera_notifica(monkeypatch):
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
+
+    import services.automation_engine as automation_engine_mod
 
     mocked_now = real_datetime(2026, 3, 16, 10, 5)  # 1h05 dopo le 09:00
     monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
 
-    automations = [{
-        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
-        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
-    }]
+    automations = [
+        {
+            "id": "auto-30",
+            "user_id": "user-1",
+            "name": "Timbratura mancante",
+            "trigger": "attendance_missing",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {},
+        }
+    ]
     employees = [_employee(work_days=[mocked_now.weekday()], shift_start_time="09:00")]
     engine = build_engine(automations=automations, employees=employees)
 
@@ -1358,16 +2182,24 @@ def test_dipendente_senza_timbratura_dopo_un_ora_dal_turno_genera_notifica(monke
 
 
 def test_meno_di_un_ora_dopo_inizio_turno_non_genera_nulla(monkeypatch):
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
+
+    import services.automation_engine as automation_engine_mod
 
     mocked_now = real_datetime(2026, 3, 16, 9, 30)  # solo 30 minuti dopo le 09:00
     monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
 
-    automations = [{
-        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
-        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
-    }]
+    automations = [
+        {
+            "id": "auto-30",
+            "user_id": "user-1",
+            "name": "Timbratura mancante",
+            "trigger": "attendance_missing",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {},
+        }
+    ]
     employees = [_employee(work_days=[mocked_now.weekday()], shift_start_time="09:00")]
     engine = build_engine(automations=automations, employees=employees)
 
@@ -1377,16 +2209,24 @@ def test_meno_di_un_ora_dopo_inizio_turno_non_genera_nulla(monkeypatch):
 
 
 def test_giorno_non_lavorativo_non_genera_nulla(monkeypatch):
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
+
+    import services.automation_engine as automation_engine_mod
 
     mocked_now = real_datetime(2026, 3, 16, 10, 5)
     monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
 
-    automations = [{
-        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
-        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
-    }]
+    automations = [
+        {
+            "id": "auto-30",
+            "user_id": "user-1",
+            "name": "Timbratura mancante",
+            "trigger": "attendance_missing",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {},
+        }
+    ]
     # work_days deliberatamente SENZA il giorno di oggi.
     altro_giorno = (mocked_now.weekday() + 1) % 7
     employees = [_employee(work_days=[altro_giorno], shift_start_time="09:00")]
@@ -1401,16 +2241,26 @@ def test_dipendente_senza_orario_configurato_non_viene_mai_monitorato(monkeypatc
     """Niente falsi allarmi retroattivi: un dipendente senza work_days/
     shift_start_time (es. creato prima dell'introduzione della funzione)
     non genera mai una segnalazione."""
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
 
-    mocked_now = real_datetime(2026, 3, 16, 20, 0)  # a fine giornata, per escludere ogni dubbio
+    import services.automation_engine as automation_engine_mod
+
+    mocked_now = real_datetime(
+        2026, 3, 16, 20, 0
+    )  # a fine giornata, per escludere ogni dubbio
     monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
 
-    automations = [{
-        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
-        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
-    }]
+    automations = [
+        {
+            "id": "auto-30",
+            "user_id": "user-1",
+            "name": "Timbratura mancante",
+            "trigger": "attendance_missing",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {},
+        }
+    ]
     employees = [_employee()]  # work_days/shift_start_time = None
     engine = build_engine(automations=automations, employees=employees)
 
@@ -1420,22 +2270,39 @@ def test_dipendente_senza_orario_configurato_non_viene_mai_monitorato(monkeypatc
 
 
 def test_dipendente_che_ha_gia_timbrato_non_genera_nulla(monkeypatch):
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
+
+    import services.automation_engine as automation_engine_mod
 
     mocked_now = real_datetime(2026, 3, 16, 10, 5)
     monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
 
-    automations = [{
-        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
-        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
-    }]
+    automations = [
+        {
+            "id": "auto-30",
+            "user_id": "user-1",
+            "name": "Timbratura mancante",
+            "trigger": "attendance_missing",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {},
+        }
+    ]
     employees = [_employee(work_days=[mocked_now.weekday()], shift_start_time="09:00")]
-    attendance_sessions = [{
-        "id": "s-1", "user_id": "user-1", "employee_id": "emp-1",
-        "clock_in": "2026-03-16T08:00:00+01:00", "clock_out": "2026-03-16T09:00:00+01:00",
-    }]
-    engine = build_engine(automations=automations, employees=employees, attendance_sessions=attendance_sessions)
+    attendance_sessions = [
+        {
+            "id": "s-1",
+            "user_id": "user-1",
+            "employee_id": "emp-1",
+            "clock_in": "2026-03-16T08:00:00+01:00",
+            "clock_out": "2026-03-16T09:00:00+01:00",
+        }
+    ]
+    engine = build_engine(
+        automations=automations,
+        employees=employees,
+        attendance_sessions=attendance_sessions,
+    )
 
     summary = run(engine.run_cycle())
 
@@ -1443,22 +2310,39 @@ def test_dipendente_che_ha_gia_timbrato_non_genera_nulla(monkeypatch):
 
 
 def test_dipendente_con_assenza_approvata_oggi_non_genera_nulla(monkeypatch):
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
+
+    import services.automation_engine as automation_engine_mod
 
     mocked_now = real_datetime(2026, 3, 16, 10, 5)
     monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
 
-    automations = [{
-        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
-        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
-    }]
+    automations = [
+        {
+            "id": "auto-30",
+            "user_id": "user-1",
+            "name": "Timbratura mancante",
+            "trigger": "attendance_missing",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {},
+        }
+    ]
     employees = [_employee(work_days=[mocked_now.weekday()], shift_start_time="09:00")]
-    leave_requests = [{
-        "id": "lr-1", "user_id": "user-1", "employee_id": "emp-1", "status": "approvata", "type": "ferie",
-        "date_from": "2026-03-16", "date_to": "2026-03-16",
-    }]
-    engine = build_engine(automations=automations, employees=employees, leave_requests=leave_requests)
+    leave_requests = [
+        {
+            "id": "lr-1",
+            "user_id": "user-1",
+            "employee_id": "emp-1",
+            "status": "approvata",
+            "type": "ferie",
+            "date_from": "2026-03-16",
+            "date_to": "2026-03-16",
+        }
+    ]
+    engine = build_engine(
+        automations=automations, employees=employees, leave_requests=leave_requests
+    )
 
     summary = run(engine.run_cycle())
 
@@ -1472,22 +2356,39 @@ def test_dipendente_in_smartworking_oggi_genera_comunque_notifica(monkeypatch):
     — a differenza di ferie/permesso/malattia, che escludono dal controllo
     (vedi test sopra). Stessa distinzione già applicata ad
     attendance_service.expected_hours."""
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
+
+    import services.automation_engine as automation_engine_mod
 
     mocked_now = real_datetime(2026, 3, 16, 10, 5)
     monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
 
-    automations = [{
-        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
-        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
-    }]
+    automations = [
+        {
+            "id": "auto-30",
+            "user_id": "user-1",
+            "name": "Timbratura mancante",
+            "trigger": "attendance_missing",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {},
+        }
+    ]
     employees = [_employee(work_days=[mocked_now.weekday()], shift_start_time="09:00")]
-    leave_requests = [{
-        "id": "lr-1", "user_id": "user-1", "employee_id": "emp-1", "status": "approvata", "type": "smartworking",
-        "date_from": "2026-03-16", "date_to": "2026-03-16",
-    }]
-    engine = build_engine(automations=automations, employees=employees, leave_requests=leave_requests)
+    leave_requests = [
+        {
+            "id": "lr-1",
+            "user_id": "user-1",
+            "employee_id": "emp-1",
+            "status": "approvata",
+            "type": "smartworking",
+            "date_from": "2026-03-16",
+            "date_to": "2026-03-16",
+        }
+    ]
+    engine = build_engine(
+        automations=automations, employees=employees, leave_requests=leave_requests
+    )
 
     summary = run(engine.run_cycle())
 
@@ -1497,22 +2398,39 @@ def test_dipendente_in_smartworking_oggi_genera_comunque_notifica(monkeypatch):
 def test_assenza_in_attesa_non_esclude_dal_controllo(monkeypatch):
     """Solo le assenze APPROVATE escludono dal controllo — una richiesta
     ancora in attesa di decisione non è una scusa valida per non timbrare."""
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
+
+    import services.automation_engine as automation_engine_mod
 
     mocked_now = real_datetime(2026, 3, 16, 10, 5)
     monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
 
-    automations = [{
-        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
-        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
-    }]
+    automations = [
+        {
+            "id": "auto-30",
+            "user_id": "user-1",
+            "name": "Timbratura mancante",
+            "trigger": "attendance_missing",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {},
+        }
+    ]
     employees = [_employee(work_days=[mocked_now.weekday()], shift_start_time="09:00")]
-    leave_requests = [{
-        "id": "lr-1", "user_id": "user-1", "employee_id": "emp-1", "status": "in_attesa", "type": "ferie",
-        "date_from": "2026-03-16", "date_to": "2026-03-16",
-    }]
-    engine = build_engine(automations=automations, employees=employees, leave_requests=leave_requests)
+    leave_requests = [
+        {
+            "id": "lr-1",
+            "user_id": "user-1",
+            "employee_id": "emp-1",
+            "status": "in_attesa",
+            "type": "ferie",
+            "date_from": "2026-03-16",
+            "date_to": "2026-03-16",
+        }
+    ]
+    engine = build_engine(
+        automations=automations, employees=employees, leave_requests=leave_requests
+    )
 
     summary = run(engine.run_cycle())
 
@@ -1520,17 +2438,29 @@ def test_assenza_in_attesa_non_esclude_dal_controllo(monkeypatch):
 
 
 def test_dipendente_non_attivo_non_genera_nulla(monkeypatch):
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
+
+    import services.automation_engine as automation_engine_mod
 
     mocked_now = real_datetime(2026, 3, 16, 10, 5)
     monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
 
-    automations = [{
-        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
-        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
-    }]
-    employees = [_employee(work_days=[mocked_now.weekday()], shift_start_time="09:00", active=False)]
+    automations = [
+        {
+            "id": "auto-30",
+            "user_id": "user-1",
+            "name": "Timbratura mancante",
+            "trigger": "attendance_missing",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {},
+        }
+    ]
+    employees = [
+        _employee(
+            work_days=[mocked_now.weekday()], shift_start_time="09:00", active=False
+        )
+    ]
     engine = build_engine(automations=automations, employees=employees)
 
     summary = run(engine.run_cycle())
@@ -1539,17 +2469,31 @@ def test_dipendente_non_attivo_non_genera_nulla(monkeypatch):
 
 
 def test_dipendente_cessato_non_genera_nulla(monkeypatch):
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
+
+    import services.automation_engine as automation_engine_mod
 
     mocked_now = real_datetime(2026, 3, 16, 10, 5)
     monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
 
-    automations = [{
-        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
-        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
-    }]
-    employees = [_employee(work_days=[mocked_now.weekday()], shift_start_time="09:00", employment_status="cessato")]
+    automations = [
+        {
+            "id": "auto-30",
+            "user_id": "user-1",
+            "name": "Timbratura mancante",
+            "trigger": "attendance_missing",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {},
+        }
+    ]
+    employees = [
+        _employee(
+            work_days=[mocked_now.weekday()],
+            shift_start_time="09:00",
+            employment_status="cessato",
+        )
+    ]
     engine = build_engine(automations=automations, employees=employees)
 
     summary = run(engine.run_cycle())
@@ -1558,16 +2502,24 @@ def test_dipendente_cessato_non_genera_nulla(monkeypatch):
 
 
 def test_stesso_dipendente_non_genera_due_notifiche_lo_stesso_giorno(monkeypatch):
-    import services.automation_engine as automation_engine_mod
     from datetime import datetime as real_datetime
+
+    import services.automation_engine as automation_engine_mod
 
     mocked_now = real_datetime(2026, 3, 16, 10, 5)
     monkeypatch.setattr(automation_engine_mod, "now_local", lambda: mocked_now)
 
-    automations = [{
-        "id": "auto-30", "user_id": "user-1", "name": "Timbratura mancante",
-        "trigger": "attendance_missing", "action": "send_reminder", "enabled": True, "config": {},
-    }]
+    automations = [
+        {
+            "id": "auto-30",
+            "user_id": "user-1",
+            "name": "Timbratura mancante",
+            "trigger": "attendance_missing",
+            "action": "send_reminder",
+            "enabled": True,
+            "config": {},
+        }
+    ]
     employees = [_employee(work_days=[mocked_now.weekday()], shift_start_time="09:00")]
     engine = build_engine(automations=automations, employees=employees)
 

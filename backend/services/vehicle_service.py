@@ -1,8 +1,8 @@
-from core.utils import gen_id, now_iso
 from core.exceptions import NotFoundError, ValidationAppError
 from core.security import module_enabled
-from repositories.vehicle_repository import vehicle_repository
+from core.utils import gen_id, now_iso
 from repositories.employee_repository import employee_repository
+from repositories.vehicle_repository import vehicle_repository
 
 
 class VehicleService:
@@ -23,7 +23,8 @@ class VehicleService:
             raise ValidationAppError(f"Esiste già un mezzo con targa {payload.plate}")
         await self._validate_assigned_employee(user["id"], payload.assigned_employee_id)
         doc = {
-            "id": gen_id(), "user_id": user["id"],
+            "id": gen_id(),
+            "user_id": user["id"],
             **payload.model_dump(),
             "active": True,
             "created_at": now_iso(),
@@ -62,7 +63,9 @@ class VehicleService:
         if not module_enabled(user, "flotta"):
             return None
         vehicles = await self.repo.find_many(user["id"])
-        return next((v for v in vehicles if v.get("assigned_employee_id") == employee_id), None)
+        return next(
+            (v for v in vehicles if v.get("assigned_employee_id") == employee_id), None
+        )
 
 
 vehicle_service = VehicleService()

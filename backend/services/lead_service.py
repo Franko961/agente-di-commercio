@@ -2,6 +2,7 @@ from core.exceptions import NotFoundError
 from core.utils import gen_id, now_iso
 from repositories.lead_repository import lead_repository
 
+
 class LeadService:
     def __init__(self, repo=lead_repository):
         self.repo = repo
@@ -12,8 +13,12 @@ class LeadService:
     async def create_lead(self, user: dict, payload) -> dict:
         now = now_iso()
         doc = {
-            "id": gen_id(), "user_id": user["id"], **payload.model_dump(),
-            "created_at": now, "updated_at": now, "last_interaction_at": now,
+            "id": gen_id(),
+            "user_id": user["id"],
+            **payload.model_dump(),
+            "created_at": now,
+            "updated_at": now,
+            "last_interaction_at": now,
         }
         return await self.repo.insert(doc)
 

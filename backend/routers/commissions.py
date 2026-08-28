@@ -1,14 +1,22 @@
-from fastapi import APIRouter, Depends, Body
 from typing import Optional
-from core.security import get_current_user, forbid_demo_write, require_module
-from services.commission_service import commission_service
-from models.commission import ManualCommissionIn
 
-router = APIRouter(prefix="/api/commissions", tags=["commissions"], dependencies=[Depends(require_module("provvigioni"))])
+from fastapi import APIRouter, Body, Depends
+
+from core.security import forbid_demo_write, get_current_user, require_module
+from models.commission import ManualCommissionIn
+from services.commission_service import commission_service
+
+router = APIRouter(
+    prefix="/api/commissions",
+    tags=["commissions"],
+    dependencies=[Depends(require_module("provvigioni"))],
+)
 
 
 @router.get("")
-async def list_commissions(mandante_id: Optional[str] = None, user=Depends(get_current_user)):
+async def list_commissions(
+    mandante_id: Optional[str] = None, user=Depends(get_current_user)
+):
     return await commission_service.list_commissions(user, mandante_id)
 
 
@@ -28,12 +36,16 @@ async def list_manual_commissions(user=Depends(get_current_user)):
 
 
 @router.post("/manual")
-async def create_manual_commission(payload: ManualCommissionIn, user=Depends(forbid_demo_write)):
+async def create_manual_commission(
+    payload: ManualCommissionIn, user=Depends(forbid_demo_write)
+):
     return await commission_service.create_manual_commission(user, payload.model_dump())
 
 
 @router.put("/manual/{cid}")
-async def update_manual_commission(cid: str, payload: ManualCommissionIn, user=Depends(forbid_demo_write)):
+async def update_manual_commission(
+    cid: str, payload: ManualCommissionIn, user=Depends(forbid_demo_write)
+):
     await commission_service.update_manual_commission(user, cid, payload.model_dump())
     return {"ok": True}
 
@@ -45,7 +57,9 @@ async def delete_manual_commission(cid: str, user=Depends(forbid_demo_write)):
 
 
 @router.patch("/{cid}/status")
-async def update_commission_status(cid: str, payload: dict = Body(...), user=Depends(forbid_demo_write)):
+async def update_commission_status(
+    cid: str, payload: dict = Body(...), user=Depends(forbid_demo_write)
+):
     await commission_service.update_status(user, cid, payload.get("status"))
     return {"ok": True}
 

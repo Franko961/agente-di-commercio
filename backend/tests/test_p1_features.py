@@ -4,13 +4,15 @@ Iteration 2 - P1 features:
  - Email mock /api/email/send + /api/email/logs
  - Offer signature /api/offers/{id}/sign with auto-commission (idempotent)
 """
-import os
+
 import csv
 import io
+import os
+
 import pytest
 import requests
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL').rstrip('/')
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL").rstrip("/")
 API = f"{BASE_URL}/api"
 EMAIL = "agente@demo.it"
 PASSWORD = "demo1234"
@@ -18,11 +20,18 @@ PASSWORD = "demo1234"
 
 @pytest.fixture(scope="module")
 def client():
-    r = requests.post(f"{API}/auth/login", json={"email": EMAIL, "password": PASSWORD}, timeout=30)
+    r = requests.post(
+        f"{API}/auth/login", json={"email": EMAIL, "password": PASSWORD}, timeout=30
+    )
     if r.status_code != 200:
         pytest.skip(f"Login failed: {r.status_code}")
     s = requests.Session()
-    s.headers.update({"Authorization": f"Bearer {r.json()['token']}", "Content-Type": "application/json"})
+    s.headers.update(
+        {
+            "Authorization": f"Bearer {r.json()['token']}",
+            "Content-Type": "application/json",
+        }
+    )
     return s
 
 
@@ -33,7 +42,9 @@ class TestAuthRequired:
         assert r.status_code == 401
 
     def test_email_send_requires_auth(self):
-        r = requests.post(f"{API}/email/send", json={"to": "x@x.it", "subject": "s", "body": "b"})
+        r = requests.post(
+            f"{API}/email/send", json={"to": "x@x.it", "subject": "s", "body": "b"}
+        )
         assert r.status_code == 401
 
 
@@ -60,8 +71,20 @@ class TestCsvExports:
         r = client.get(f"{API}/export/clients.csv")
         rows = self._check_csv(
             r,
-            ["company_name", "contact_name", "email", "phone", "vat_number",
-             "address", "city", "province", "zone", "sector", "potential", "notes"],
+            [
+                "company_name",
+                "contact_name",
+                "email",
+                "phone",
+                "vat_number",
+                "address",
+                "city",
+                "province",
+                "zone",
+                "sector",
+                "potential",
+                "notes",
+            ],
             "clienti.csv",
         )
         assert len(rows) >= 8
@@ -70,7 +93,16 @@ class TestCsvExports:
         r = client.get(f"{API}/export/offers.csv")
         rows = self._check_csv(
             r,
-            ["title", "client", "mandante", "total", "status", "items_count", "expires_at", "created_at"],
+            [
+                "title",
+                "client",
+                "mandante",
+                "total",
+                "status",
+                "items_count",
+                "expires_at",
+                "created_at",
+            ],
             "offerte.csv",
         )
         assert len(rows) >= 3
@@ -91,8 +123,17 @@ class TestCsvExports:
         r = client.get(f"{API}/export/leads.csv")
         self._check_csv(
             r,
-            ["company_name", "contact_name", "email", "phone", "source",
-             "estimated_value", "status", "notes", "created_at"],
+            [
+                "company_name",
+                "contact_name",
+                "email",
+                "phone",
+                "source",
+                "estimated_value",
+                "status",
+                "notes",
+                "created_at",
+            ],
             "lead.csv",
         )
 
@@ -100,7 +141,11 @@ class TestCsvExports:
 # ---------- Email Mock ----------
 class TestEmailMock:
     def test_send_and_log(self, client):
-        payload = {"to": "test_p1@example.com", "subject": "TEST_P1 subject", "body": "ciao"}
+        payload = {
+            "to": "test_p1@example.com",
+            "subject": "TEST_P1 subject",
+            "body": "ciao",
+        }
         r = client.post(f"{API}/email/send", json=payload)
         assert r.status_code == 200
         d = r.json()
@@ -112,8 +157,12 @@ class TestEmailMock:
         r2 = client.get(f"{API}/email/logs")
         assert r2.status_code == 200
         logs = r2.json()
-        assert any(l["id"] == d["id"] and l["subject"] == "TEST_P1 subject"
-                   and l.get("mocked") is True for l in logs)
+        assert any(
+            l["id"] == d["id"]
+            and l["subject"] == "TEST_P1 subject"
+            and l.get("mocked") is True
+            for l in logs
+        )
 
     def test_logs_isolated_per_user(self, client):
         # Logs should be scoped to current user; ensure no cross-user data leaks
@@ -134,7 +183,9 @@ class TestOfferSignature:
             "mandante_id": mandanti[0]["id"],
             "title": "TEST_SignOffer",
             "status": "bozza",
-            "items": [{"description": "Item", "quantity": 1, "unit_price": 500, "discount": 0}],
+            "items": [
+                {"description": "Item", "quantity": 1, "unit_price": 500, "discount": 0}
+            ],
         }
         r = client.post(f"{API}/offers", json=payload)
         assert r.status_code == 200
@@ -145,7 +196,10 @@ class TestOfferSignature:
         # First sign — should create commission and set status
         r = client.post(
             f"{API}/offers/{oid}/sign",
-            json={"signature": "data:image/png;base64,iVBORw0KGgo=", "signer_name": "Mario Rossi"},
+            json={
+                "signature": "data:image/png;base64,iVBORw0KGgo=",
+                "signer_name": "Mario Rossi",
+            },
         )
         assert r.status_code == 200
         assert r.json().get("ok") is True
@@ -164,7 +218,10 @@ class TestOfferSignature:
         # Sign again — should NOT duplicate commission
         r = client.post(
             f"{API}/offers/{oid}/sign",
-            json={"signature": "data:image/png;base64,iVBORw0KGgo=", "signer_name": "Mario Rossi"},
+            json={
+                "signature": "data:image/png;base64,iVBORw0KGgo=",
+                "signer_name": "Mario Rossi",
+            },
         )
         assert r.status_code == 200
         after2 = len(client.get(f"{API}/commissions").json())

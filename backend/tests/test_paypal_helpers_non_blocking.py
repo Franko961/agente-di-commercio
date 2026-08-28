@@ -11,16 +11,17 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_paypal_helpers_non_blocking.py -v
 """
-import sys
+
 import asyncio
 import inspect
+import sys
 import time
 
 sys.path.insert(0, ".")
 
-from services.subscription_service import SubscriptionService
-from tests.test_subscription_cancel_grace_period import FakeUserRepo, FakeResponse
 import services.subscription_service as subscription_mod
+from services.subscription_service import SubscriptionService
+from tests.test_subscription_cancel_grace_period import FakeResponse, FakeUserRepo
 
 
 def run(coro):
@@ -36,7 +37,9 @@ def test_paypal_get_subscription_e_una_coroutine_function():
 
 
 def test_verify_paypal_webhook_signature_e_una_coroutine_function():
-    assert inspect.iscoroutinefunction(SubscriptionService._verify_paypal_webhook_signature)
+    assert inspect.iscoroutinefunction(
+        SubscriptionService._verify_paypal_webhook_signature
+    )
 
 
 def test_chiamata_paypal_lenta_non_blocca_un_altro_coroutine_concorrente(monkeypatch):
@@ -80,4 +83,5 @@ def test_chiamata_paypal_lenta_non_blocca_un_altro_coroutine_concorrente(monkeyp
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

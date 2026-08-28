@@ -10,8 +10,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_manual_commission_id_backfill.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 sys.path.insert(0, ".")
 
@@ -60,8 +61,19 @@ class FakeDb:
 
 def test_backfilla_id_sui_documenti_che_non_ce_lhanno(monkeypatch):
     docs = [
-        {"_id": "mongo-1", "user_id": "user-1", "period": "2026-08", "amount": 300},  # legacy, nessun id
-        {"_id": "mongo-2", "user_id": "user-1", "period": "2026-08", "amount": 150, "id": "already-has-one"},
+        {
+            "_id": "mongo-1",
+            "user_id": "user-1",
+            "period": "2026-08",
+            "amount": 300,
+        },  # legacy, nessun id
+        {
+            "_id": "mongo-2",
+            "user_id": "user-1",
+            "period": "2026-08",
+            "amount": 150,
+            "id": "already-has-one",
+        },
     ]
     fake_db = FakeDb(docs)
     monkeypatch.setattr(startup_service_mod, "db", fake_db)
@@ -94,7 +106,15 @@ def test_i_backfillati_ottengono_id_diversi_anche_con_lo_stesso_periodo(monkeypa
 
 
 def test_nessuna_azione_se_tutti_i_documenti_hanno_gia_un_id(monkeypatch):
-    docs = [{"_id": "mongo-1", "user_id": "user-1", "period": "2026-08", "amount": 300, "id": "abc"}]
+    docs = [
+        {
+            "_id": "mongo-1",
+            "user_id": "user-1",
+            "period": "2026-08",
+            "amount": 300,
+            "id": "abc",
+        }
+    ]
     fake_db = FakeDb(docs)
     monkeypatch.setattr(startup_service_mod, "db", fake_db)
 
@@ -105,4 +125,5 @@ def test_nessuna_azione_se_tutti_i_documenti_hanno_gia_un_id(monkeypatch):
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

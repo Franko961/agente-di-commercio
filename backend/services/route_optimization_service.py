@@ -20,6 +20,7 @@ sotto le 20-30 tappe) nearest-neighbor + 2-opt dà risultati vicini
 all'ottimo in tempo trascurabile, senza bisogno di librerie di ottimizzazione
 pesanti (es. OR-Tools).
 """
+
 import asyncio
 import logging
 import math
@@ -67,7 +68,10 @@ def haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
     dlambda = math.radians(lng2 - lng1)
-    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    a = (
+        math.sin(dphi / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    )
     return 2 * r * math.asin(math.sqrt(a))
 
 
@@ -85,7 +89,9 @@ def _haversine_matrix(coords: List[Tuple[float, float]]) -> Tuple[list, list]:
     return distances_km, durations_min
 
 
-async def _fetch_ors_matrix(coords: List[Tuple[float, float]]) -> Optional[Tuple[list, list]]:
+async def _fetch_ors_matrix(
+    coords: List[Tuple[float, float]],
+) -> Optional[Tuple[list, list]]:
     """Interroga la Matrix API di OpenRouteService per le distanze/tempi
     reali su strada tra tutte le coppie di coordinate. Ritorna None (invece
     di sollevare un'eccezione) se ORS non è configurato o la chiamata
@@ -115,13 +121,17 @@ async def _fetch_ors_matrix(coords: List[Tuple[float, float]]) -> Optional[Tuple
     try:
         data = await asyncio.to_thread(_call)
     except requests.RequestException as e:
-        logger.warning(f"OpenRouteService non disponibile, uso stima in linea d'aria: {e}")
+        logger.warning(
+            f"OpenRouteService non disponibile, uso stima in linea d'aria: {e}"
+        )
         return None
 
     distances_m = data.get("distances")
     durations_s = data.get("durations")
     if not distances_m or not durations_s:
-        logger.warning("Risposta OpenRouteService senza distanze/durate valide, uso stima in linea d'aria")
+        logger.warning(
+            "Risposta OpenRouteService senza distanze/durate valide, uso stima in linea d'aria"
+        )
         return None
 
     distances_km = [[(d or 0) / 1000 for d in row] for row in distances_m]
@@ -129,7 +139,9 @@ async def _fetch_ors_matrix(coords: List[Tuple[float, float]]) -> Optional[Tuple
     return distances_km, durations_min
 
 
-async def get_distance_duration_matrix(coords: List[Tuple[float, float]]) -> Tuple[list, list, bool]:
+async def get_distance_duration_matrix(
+    coords: List[Tuple[float, float]],
+) -> Tuple[list, list, bool]:
     """Ritorna (distanze_km, durate_min, usato_routing_reale). La terza
     componente indica se i valori vengono da OpenRouteService (True) o dalla
     stima in linea d'aria (False) — il chiamante la espone all'utente, che
@@ -151,7 +163,9 @@ def _nearest_neighbor_order(matrix: list, start: int = 0) -> List[int]:
     visited[start] = True
     current = start
     for _ in range(n - 1):
-        next_idx = min((j for j in range(n) if not visited[j]), key=lambda j: matrix[current][j])
+        next_idx = min(
+            (j for j in range(n) if not visited[j]), key=lambda j: matrix[current][j]
+        )
         order.append(next_idx)
         visited[next_idx] = True
         current = next_idx
@@ -175,7 +189,7 @@ def _two_opt(order: List[int], matrix: list) -> List[int]:
         current_length = _path_length(order, matrix)
         for i in range(1, n - 1):
             for j in range(i + 1, n):
-                candidate = order[:i] + order[i:j + 1][::-1] + order[j + 1:]
+                candidate = order[:i] + order[i : j + 1][::-1] + order[j + 1 :]
                 candidate_length = _path_length(candidate, matrix)
                 if candidate_length < current_length - 1e-9:
                     order = candidate
@@ -197,7 +211,12 @@ def _has_valid_coords(client: dict) -> bool:
         lat, lng = float(lat), float(lng)
     except (TypeError, ValueError):
         return False
-    return math.isfinite(lat) and math.isfinite(lng) and -90 <= lat <= 90 and -180 <= lng <= 180
+    return (
+        math.isfinite(lat)
+        and math.isfinite(lng)
+        and -90 <= lat <= 90
+        and -180 <= lng <= 180
+    )
 
 
 _START_MODE_LABELS = {
@@ -212,7 +231,9 @@ class RouteOptimizationService:
     def __init__(self, client_repo=client_repository):
         self.client_repo = client_repo
 
-    def _resolve_start(self, user: dict, start_mode: str, start_lat, start_lng) -> Optional[Tuple[float, float]]:
+    def _resolve_start(
+        self, user: dict, start_mode: str, start_lat, start_lng
+    ) -> Optional[Tuple[float, float]]:
         """Ritorna la coordinata di partenza "virtuale" (non una delle tappe
         da visitare) da usare come ancora del giro, oppure None se il punto di
         partenza resta il primo cliente selezionato (comportamento storico)."""
@@ -226,7 +247,11 @@ class RouteOptimizationService:
                 )
             return float(start_lat), float(start_lng)
         if start_mode in ("home", "office"):
-            lat_key, lng_key = (("home_lat", "home_lng") if start_mode == "home" else ("office_lat", "office_lng"))
+            lat_key, lng_key = (
+                ("home_lat", "home_lng")
+                if start_mode == "home"
+                else ("office_lat", "office_lng")
+            )
             coord = {"lat": user.get(lat_key), "lng": user.get(lng_key)}
             if not _has_valid_coords(coord):
                 label = "casa" if start_mode == "home" else "ufficio"
@@ -237,10 +262,15 @@ class RouteOptimizationService:
         raise ValidationAppError("Modalità di partenza non valida")
 
     async def plan_day(
-        self, user: dict, client_ids: List[str],
-        start_time: str = DEFAULT_START_TIME, visit_minutes: int = DEFAULT_VISIT_MINUTES,
-        start_mode: str = "first_client", start_lat: Optional[float] = None,
-        start_lng: Optional[float] = None, round_trip: bool = False,
+        self,
+        user: dict,
+        client_ids: List[str],
+        start_time: str = DEFAULT_START_TIME,
+        visit_minutes: int = DEFAULT_VISIT_MINUTES,
+        start_mode: str = "first_client",
+        start_lat: Optional[float] = None,
+        start_lng: Optional[float] = None,
+        round_trip: bool = False,
     ) -> dict:
         user_id = user["id"]
         if not client_ids:
@@ -282,15 +312,23 @@ class RouteOptimizationService:
             client = selected[0]
             departure = current_time + timedelta(minutes=visit_minutes)
             return {
-                "stops": [{
-                    "client_id": client["id"], "company_name": client["company_name"],
-                    "address": client.get("address", ""), "city": client.get("city", ""),
-                    "lat": client["lat"], "lng": client["lng"],
-                    "distance_from_prev_km": 0.0, "travel_minutes_from_prev": 0,
-                    "eta": current_time.strftime("%H:%M"), "departure": departure.strftime("%H:%M"),
-                    "suspicious_distance": False,
-                }],
-                "total_distance_km": 0.0, "total_travel_minutes": 0,
+                "stops": [
+                    {
+                        "client_id": client["id"],
+                        "company_name": client["company_name"],
+                        "address": client.get("address", ""),
+                        "city": client.get("city", ""),
+                        "lat": client["lat"],
+                        "lng": client["lng"],
+                        "distance_from_prev_km": 0.0,
+                        "travel_minutes_from_prev": 0,
+                        "eta": current_time.strftime("%H:%M"),
+                        "departure": departure.strftime("%H:%M"),
+                        "suspicious_distance": False,
+                    }
+                ],
+                "total_distance_km": 0.0,
+                "total_travel_minutes": 0,
                 "total_visit_minutes": visit_minutes,
                 "estimated_end_time": departure.strftime("%H:%M"),
                 "used_real_routing": False,
@@ -311,7 +349,9 @@ class RouteOptimizationService:
             client_of_idx = {i: selected[i] for i in range(len(selected))}
         origin_idx = 0
 
-        distances_km, durations_min, used_real_routing = await get_distance_duration_matrix(coords)
+        distances_km, durations_min, used_real_routing = (
+            await get_distance_duration_matrix(coords)
+        )
 
         order_idx = _nearest_neighbor_order(distances_km, start=0)
         order_idx = _two_opt(order_idx, distances_km)
@@ -341,7 +381,7 @@ class RouteOptimizationService:
                     suspicious = True
                     warnings.append(
                         f"Distanza implausibile ({round(distance_km)} km) tra "
-                        f"\"{_label(prev_idx)}\" e \"{_label(idx)}\": "
+                        f'"{_label(prev_idx)}" e "{_label(idx)}": '
                         "controlla l'indirizzo geolocalizzato di questi clienti, probabilmente errato."
                     )
             if is_virtual_origin:
@@ -353,15 +393,21 @@ class RouteOptimizationService:
             client = client_of_idx[idx]
             eta = current_time
             departure = eta + timedelta(minutes=visit_minutes)
-            stops.append({
-                "client_id": client["id"], "company_name": client["company_name"],
-                "address": client.get("address", ""), "city": client.get("city", ""),
-                "lat": client["lat"], "lng": client["lng"],
-                "distance_from_prev_km": round(distance_km, 1),
-                "travel_minutes_from_prev": round(travel_minutes),
-                "eta": eta.strftime("%H:%M"), "departure": departure.strftime("%H:%M"),
-                "suspicious_distance": suspicious,
-            })
+            stops.append(
+                {
+                    "client_id": client["id"],
+                    "company_name": client["company_name"],
+                    "address": client.get("address", ""),
+                    "city": client.get("city", ""),
+                    "lat": client["lat"],
+                    "lng": client["lng"],
+                    "distance_from_prev_km": round(distance_km, 1),
+                    "travel_minutes_from_prev": round(travel_minutes),
+                    "eta": eta.strftime("%H:%M"),
+                    "departure": departure.strftime("%H:%M"),
+                    "suspicious_distance": suspicious,
+                }
+            )
             current_time = departure
             prev_idx = idx
 
@@ -377,14 +423,20 @@ class RouteOptimizationService:
             "round_trip": round_trip,
         }
         if origin is not None:
-            result["origin"] = {"lat": origin[0], "lng": origin[1], "label": _START_MODE_LABELS.get(start_mode, "Punto di partenza")}
+            result["origin"] = {
+                "lat": origin[0],
+                "lng": origin[1],
+                "label": _START_MODE_LABELS.get(start_mode, "Punto di partenza"),
+            }
 
         if round_trip and prev_idx is not None and prev_idx != origin_idx:
             return_km = distances_km[prev_idx][origin_idx]
             return_minutes = durations_min[prev_idx][origin_idx]
             current_time += timedelta(minutes=return_minutes)
             result["total_distance_km"] = round(total_km + return_km, 1)
-            result["total_travel_minutes"] = round(total_travel_minutes + return_minutes)
+            result["total_travel_minutes"] = round(
+                total_travel_minutes + return_minutes
+            )
             result["estimated_end_time"] = current_time.strftime("%H:%M")
             result["return_leg"] = {
                 "distance_km": round(return_km, 1),

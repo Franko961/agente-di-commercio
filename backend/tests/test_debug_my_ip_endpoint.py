@@ -12,6 +12,7 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_debug_my_ip_endpoint.py -v
 """
+
 import asyncio
 
 import server
@@ -57,7 +58,9 @@ def test_richiede_autenticazione_admin():
 
 
 def test_espone_ip_risolto_header_grezzo_e_peer_diretto():
-    request = FakeRequest(headers={"x-forwarded-for": "203.0.113.9"}, client_host="10.0.0.5")
+    request = FakeRequest(
+        headers={"x-forwarded-for": "203.0.113.9"}, client_host="10.0.0.5"
+    )
 
     result = run(server.debug_my_ip(request, admin=FAKE_ADMIN))
 
@@ -83,7 +86,13 @@ def test_nessun_campo_extra_oltre_ai_cinque_previsti():
 
     result = run(server.debug_my_ip(request, admin=FAKE_ADMIN))
 
-    assert set(result.keys()) == {"resolved_ip", "x_forwarded_for", "direct_peer", "trusted_proxy_hops", "headers"}
+    assert set(result.keys()) == {
+        "resolved_ip",
+        "x_forwarded_for",
+        "direct_peer",
+        "trusted_proxy_hops",
+        "headers",
+    }
 
 
 def test_headers_esclude_cookie_e_authorization():
@@ -92,11 +101,14 @@ def test_headers_esclude_cookie_e_authorization():
     require_admin): il proprio token di sessione non deve mai finire
     riflesso indietro nella risposta JSON — difesa in profondità, non deve
     dipendere solo dal controllo di autenticazione a monte."""
-    request = FakeRequest(headers={
-        "cookie": "access_token=segreto-non-deve-uscire",
-        "authorization": "Bearer segreto-anche-questo",
-        "x-nf-client-connection-ip": "203.0.113.9",
-    }, client_host="10.0.0.5")
+    request = FakeRequest(
+        headers={
+            "cookie": "access_token=segreto-non-deve-uscire",
+            "authorization": "Bearer segreto-anche-questo",
+            "x-nf-client-connection-ip": "203.0.113.9",
+        },
+        client_host="10.0.0.5",
+    )
 
     result = run(server.debug_my_ip(request, admin=FAKE_ADMIN))
 

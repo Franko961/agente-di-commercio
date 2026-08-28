@@ -1,11 +1,16 @@
 import logging
 import re
-from fastapi import HTTPException
+
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
+from fastapi import HTTPException
+
 from core.config import (
-    AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION,
-    S3_BUCKET, S3_ENDPOINT,
+    AWS_ACCESS_KEY_ID,
+    AWS_REGION,
+    AWS_SECRET_ACCESS_KEY,
+    S3_BUCKET,
+    S3_ENDPOINT,
 )
 
 logger = logging.getLogger(__name__)
@@ -20,10 +25,17 @@ ALLOWED_EXT = {
     "doc": "application/msword",
     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "txt": "text/plain",
-    "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
-    "webp": "image/webp", "heic": "image/heic", "heif": "image/heif",
-    "mp4": "video/mp4", "mov": "video/quicktime", "webm": "video/webm",
-    "avi": "video/x-msvideo", "mkv": "video/x-matroska",
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "webp": "image/webp",
+    "heic": "image/heic",
+    "heif": "image/heif",
+    "mp4": "video/mp4",
+    "mov": "video/quicktime",
+    "webm": "video/webm",
+    "avi": "video/x-msvideo",
+    "mkv": "video/x-matroska",
 }
 
 
@@ -34,7 +46,14 @@ def _looks_like_html_or_script(data: bytes) -> bool:
     aggirare un controllo basato solo sull'estensione (es. un file .txt il
     cui contenuto è in realtà <script>...</script>)."""
     head = data[:2048].lstrip().lower()
-    danger_markers = (b"<script", b"<html", b"<!doctype html", b"<iframe", b"<svg", b"<?php")
+    danger_markers = (
+        b"<script",
+        b"<html",
+        b"<!doctype html",
+        b"<iframe",
+        b"<svg",
+        b"<?php",
+    )
     return any(m in head for m in danger_markers)
 
 
@@ -63,7 +82,11 @@ def _sniff_matches_extension(data: bytes, ext: str) -> bool:
         # Contenitore ZIP (Office Open XML). PK\x05\x06 / PK\x07\x08 coprono
         # rispettivamente uno zip vuoto e uno con spanning, casi limite ma
         # innocui da accettare qui.
-        return head[:2] == b"PK" and head[2:4] in (b"\x03\x04", b"\x05\x06", b"\x07\x08")
+        return head[:2] == b"PK" and head[2:4] in (
+            b"\x03\x04",
+            b"\x05\x06",
+            b"\x07\x08",
+        )
     if ext in ("mp4", "mov"):
         # Contenitori ISO-BMFF (MPEG-4/QuickTime): il box 'ftyp' è sempre ai
         # byte 4-8 nei file validi, non c'è un magic number a inizio file.
@@ -73,7 +96,12 @@ def _sniff_matches_extension(data: bytes, ext: str) -> bool:
         # 'ftyp', ma con 'brand' specifico ai byte 8-12 (i valori tipici
         # prodotti da iPhone/fotocamere).
         return data[4:8] == b"ftyp" and data[8:12] in (
-            b"heic", b"heix", b"hevc", b"hevx", b"mif1", b"msf1",
+            b"heic",
+            b"heix",
+            b"hevc",
+            b"hevx",
+            b"mif1",
+            b"msf1",
         )
     if ext == "webp":
         return head.startswith(b"RIFF") and data[8:12] == b"WEBP"
@@ -107,6 +135,7 @@ def sanitize_filename(filename: str, fallback: str = "file") -> str:
     cleaned = cleaned[:200]
     return cleaned or fallback
 
+
 _s3_client = None
 
 
@@ -135,7 +164,10 @@ def init_storage() -> bool:
 def storage_put(path: str, data: bytes, content_type: str) -> dict:
     s3 = get_s3()
     if not s3:
-        raise HTTPException(500, "Storage S3 non disponibile — controlla AWS_ACCESS_KEY_ID e AWS_S3_BUCKET")
+        raise HTTPException(
+            500,
+            "Storage S3 non disponibile — controlla AWS_ACCESS_KEY_ID e AWS_S3_BUCKET",
+        )
     try:
         s3.put_object(
             Bucket=S3_BUCKET,
@@ -158,9 +190,14 @@ def storage_put_stream(path: str, fileobj, content_type: str) -> dict:
     a differenza di storage_put(path, data, ...)."""
     s3 = get_s3()
     if not s3:
-        raise HTTPException(500, "Storage S3 non disponibile — controlla AWS_ACCESS_KEY_ID e AWS_S3_BUCKET")
+        raise HTTPException(
+            500,
+            "Storage S3 non disponibile — controlla AWS_ACCESS_KEY_ID e AWS_S3_BUCKET",
+        )
     try:
-        s3.upload_fileobj(fileobj, S3_BUCKET, path, ExtraArgs={"ContentType": content_type})
+        s3.upload_fileobj(
+            fileobj, S3_BUCKET, path, ExtraArgs={"ContentType": content_type}
+        )
         return {"path": path}
     except (BotoCoreError, ClientError) as e:
         logger.error(f"S3 upload_fileobj error: {e}")

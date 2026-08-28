@@ -10,8 +10,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_demo_request_repository.py -v
 """
-import sys
+
 import asyncio
+import sys
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -53,10 +54,12 @@ def build_repo(docs=None):
 
 def test_elimina_solo_le_richieste_piu_vecchie_del_cutoff():
     now = datetime.now(timezone.utc)
-    repo = build_repo([
-        {"id": "r1", "created_at": _iso(now - timedelta(days=800))},
-        {"id": "r2", "created_at": _iso(now - timedelta(days=100))},
-    ])
+    repo = build_repo(
+        [
+            {"id": "r1", "created_at": _iso(now - timedelta(days=800))},
+            {"id": "r2", "created_at": _iso(now - timedelta(days=100))},
+        ]
+    )
     cutoff = _iso(now - timedelta(days=730))
 
     deleted = run(repo.delete_older_than(cutoff))

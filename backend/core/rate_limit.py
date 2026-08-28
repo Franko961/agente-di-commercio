@@ -1,6 +1,8 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
+
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
+
 from core.database import db
 
 # Un documento per (kind, key) — non più uno per tentativo — con un array
@@ -10,7 +12,9 @@ from core.database import db
 COLLECTION = db.rate_limit_events
 
 
-async def check_and_record(kind: str, key: str, max_attempts: int, window_minutes: int) -> bool:
+async def check_and_record(
+    kind: str, key: str, max_attempts: int, window_minutes: int
+) -> bool:
     """Contatore a finestra scorrevole per un tipo di evento + chiave (es. email o IP).
 
     Ritorna True se la richiesta è concessa (e la registra), False se il limite
@@ -30,28 +34,35 @@ async def check_and_record(kind: str, key: str, max_attempts: int, window_minute
     since_iso = (now - timedelta(minutes=window_minutes)).isoformat()
 
     pipeline = [
-        {"$set": {
-            "attempts": {
-                "$filter": {
-                    "input": {"$ifNull": ["$attempts", []]},
-                    "cond": {"$gte": ["$$this", since_iso]},
+        {
+            "$set": {
+                "attempts": {
+                    "$filter": {
+                        "input": {"$ifNull": ["$attempts", []]},
+                        "cond": {"$gte": ["$$this", since_iso]},
+                    },
                 },
-            },
-        }},
-        {"$set": {
-            "attempts": {
-                "$cond": [
-                    {"$lt": [{"$size": "$attempts"}, max_attempts]},
-                    {"$concatArrays": ["$attempts", [now_iso]]},
-                    "$attempts",
-                ],
-            },
-            "last_updated": now,
-        }},
+            }
+        },
+        {
+            "$set": {
+                "attempts": {
+                    "$cond": [
+                        {"$lt": [{"$size": "$attempts"}, max_attempts]},
+                        {"$concatArrays": ["$attempts", [now_iso]]},
+                        "$attempts",
+                    ],
+                },
+                "last_updated": now,
+            }
+        },
     ]
     try:
         doc = await COLLECTION.find_one_and_update(
-            {"kind": kind, "key": key}, pipeline, upsert=True, return_document=ReturnDocument.AFTER,
+            {"kind": kind, "key": key},
+            pipeline,
+            upsert=True,
+            return_document=ReturnDocument.AFTER,
         )
     except DuplicateKeyError:
         # Due chiamate concorrenti su una (kind, key) MAI vista prima possono
@@ -59,7 +70,10 @@ async def check_and_record(kind: str, key: str, max_attempts: int, window_minute
         # univoco. Il documento ormai esiste già, quindi ritentare una volta
         # diventa un semplice update atomico, non più un insert.
         doc = await COLLECTION.find_one_and_update(
-            {"kind": kind, "key": key}, pipeline, upsert=True, return_document=ReturnDocument.AFTER,
+            {"kind": kind, "key": key},
+            pipeline,
+            upsert=True,
+            return_document=ReturnDocument.AFTER,
         )
 
     attempts = doc.get("attempts") or []

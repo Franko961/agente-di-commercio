@@ -1,12 +1,17 @@
-from fastapi import APIRouter, Depends, Response, Request, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+
 from core.security import (
-    get_current_user, forbid_demo_write, get_client_ip, create_access_token,
-    set_auth_cookie, clear_auth_cookie,
+    clear_auth_cookie,
+    create_access_token,
+    forbid_demo_write,
+    get_client_ip,
+    get_current_user,
+    set_auth_cookie,
 )
+from models.auth import ForgotPasswordIn, LoginIn, RegisterIn, ResetPasswordIn
 from repositories.user_repository import user_repository
-from services.auth_service import auth_service
 from services.admin_service import admin_service
-from models.auth import LoginIn, RegisterIn, ForgotPasswordIn, ResetPasswordIn
+from services.auth_service import auth_service
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -61,12 +66,18 @@ async def exit_impersonation(response: Response, user=Depends(get_current_user))
     if not admin_user:
         raise HTTPException(404, "Account amministratore non trovato")
     if admin_user.get("role") != "admin":
-        raise HTTPException(403, "I permessi di amministratore non sono più validi: effettua un nuovo login")
+        raise HTTPException(
+            403,
+            "I permessi di amministratore non sono più validi: effettua un nuovo login",
+        )
     token = create_access_token(admin_user["id"], admin_user["email"])
     set_auth_cookie(response, token)
     await admin_service.record_impersonation_exit(
-        admin_user["email"], user["id"], user.get("email"),
-        user.get("impersonation_mode", "view"), user.get("impersonation_started_at"),
+        admin_user["email"],
+        user["id"],
+        user.get("email"),
+        user.get("impersonation_mode", "view"),
+        user.get("impersonation_started_at"),
     )
     return {"ok": True}
 

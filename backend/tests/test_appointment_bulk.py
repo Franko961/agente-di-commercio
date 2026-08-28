@@ -6,15 +6,16 @@ giro in Agenda" del pianificatore visite.
 Esegui con:
     python -m pytest tests/test_appointment_bulk.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 
 sys.path.insert(0, ".")
 
+from models.appointment import AppointmentBulkIn, AppointmentIn
 from services.appointment_service import AppointmentService
-from models.appointment import AppointmentIn, AppointmentBulkIn
 
 
 def run(coro):
@@ -47,6 +48,7 @@ def build_service(monkeypatch, fake_google):
     # evitare un ciclo di import tra i due servizi): patchando l'attributo sul
     # modulo, il lookup a runtime prende comunque il nostro fake.
     import services.google_calendar_service as gcal_mod
+
     monkeypatch.setattr(gcal_mod, "google_calendar_service", fake_google)
 
     return service, repo
@@ -60,9 +62,21 @@ def test_create_many_crea_un_appuntamento_per_tappa(monkeypatch):
     service, repo = build_service(monkeypatch, fake_google)
 
     payloads = [
-        AppointmentIn(client_id="c1", title="Visita: Cliente Uno", start="2026-07-28T09:00:00.000Z"),
-        AppointmentIn(client_id="c2", title="Visita: Cliente Due", start="2026-07-28T09:30:00.000Z"),
-        AppointmentIn(client_id="c3", title="Visita: Cliente Tre", start="2026-07-28T10:00:00.000Z"),
+        AppointmentIn(
+            client_id="c1",
+            title="Visita: Cliente Uno",
+            start="2026-07-28T09:00:00.000Z",
+        ),
+        AppointmentIn(
+            client_id="c2",
+            title="Visita: Cliente Due",
+            start="2026-07-28T09:30:00.000Z",
+        ),
+        AppointmentIn(
+            client_id="c3",
+            title="Visita: Cliente Tre",
+            start="2026-07-28T10:00:00.000Z",
+        ),
     ]
 
     created = run(service.create_many(USER, payloads))
@@ -90,17 +104,25 @@ def test_create_many_lista_vuota_non_crea_nulla(monkeypatch):
 
 def test_appointment_bulk_in_rifiuta_lista_vuota():
     from pydantic import ValidationError
+
     with pytest.raises(ValidationError):
         AppointmentBulkIn(appointments=[])
 
 
 def test_appointment_bulk_in_rifiuta_piu_di_max_clienti():
     from pydantic import ValidationError
-    many = [AppointmentIn(title=f"Visita {i}", start="2026-07-28T09:00:00.000Z") for i in range(51)]
+
+    many = [
+        AppointmentIn(title=f"Visita {i}", start="2026-07-28T09:00:00.000Z")
+        for i in range(51)
+    ]
     with pytest.raises(ValidationError):
         AppointmentBulkIn(appointments=many)
 
-    ok = [AppointmentIn(title=f"Visita {i}", start="2026-07-28T09:00:00.000Z") for i in range(50)]
+    ok = [
+        AppointmentIn(title=f"Visita {i}", start="2026-07-28T09:00:00.000Z")
+        for i in range(50)
+    ]
     AppointmentBulkIn(appointments=ok)  # non deve sollevare
 
 

@@ -10,8 +10,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_employee_disciplinary_actions.py -v
 """
-import sys
+
 import asyncio
+import sys
 from datetime import date
 
 import pytest
@@ -21,7 +22,9 @@ sys.path.insert(0, ".")
 
 from core.exceptions import NotFoundError, ValidationAppError
 from models.employee_disciplinary_action import EmployeeDisciplinaryActionIn
-from services.employee_disciplinary_action_service import EmployeeDisciplinaryActionService
+from services.employee_disciplinary_action_service import (
+    EmployeeDisciplinaryActionService,
+)
 
 
 def run(coro):
@@ -46,11 +49,19 @@ class FakeDisciplinaryActionRepo:
         self.docs = {}
 
     async def find_many(self, employee_id, user_id):
-        return [d for d in self.docs.values() if d["employee_id"] == employee_id and d["user_id"] == user_id]
+        return [
+            d
+            for d in self.docs.values()
+            if d["employee_id"] == employee_id and d["user_id"] == user_id
+        ]
 
     async def find_one(self, aid, user_id, employee_id):
         d = self.docs.get(aid)
-        return d if d and d["user_id"] == user_id and d["employee_id"] == employee_id else None
+        return (
+            d
+            if d and d["user_id"] == user_id and d["employee_id"] == employee_id
+            else None
+        )
 
     async def insert(self, doc):
         self.docs[doc["id"]] = dict(doc)
@@ -79,17 +90,26 @@ def build_service():
 
 
 def make_payload(**overrides):
-    data = dict(type="richiamo_verbale", subject="Ritardo ripetuto", contestation_date=date(2026, 6, 1))
+    data = dict(
+        type="richiamo_verbale",
+        subject="Ritardo ripetuto",
+        contestation_date=date(2026, 6, 1),
+    )
     data.update(overrides)
     return EmployeeDisciplinaryActionIn(**data)
 
 
 # ---------- create_action ----------
 
+
 def test_create_action_happy_path():
     service, da_repo, _ = build_service()
 
-    item = run(service.create_action(USER, "emp-1", make_payload(description="Tre ritardi nell'ultimo mese")))
+    item = run(
+        service.create_action(
+            USER, "emp-1", make_payload(description="Tre ritardi nell'ultimo mese")
+        )
+    )
 
     assert item["employee_id"] == "emp-1"
     assert item["user_id"] == USER["id"]
@@ -116,18 +136,25 @@ def test_create_action_rejects_other_users_employee():
 
 def test_create_action_strips_subject_and_notes():
     service, _, _ = build_service()
-    item = run(service.create_action(USER, "emp-1", make_payload(subject="  Ritardo  ", notes="  nota  ")))
+    item = run(
+        service.create_action(
+            USER, "emp-1", make_payload(subject="  Ritardo  ", notes="  nota  ")
+        )
+    )
     assert item["subject"] == "Ritardo"
     assert item["notes"] == "nota"
 
 
 def test_create_action_persists_document_id():
     service, _, _ = build_service()
-    item = run(service.create_action(USER, "emp-1", make_payload(document_id="doc-123")))
+    item = run(
+        service.create_action(USER, "emp-1", make_payload(document_id="doc-123"))
+    )
     assert item["document_id"] == "doc-123"
 
 
 # ---------- list_actions ----------
+
 
 def test_list_actions_scoped_to_employee_and_user():
     service, _, _ = build_service()
@@ -147,6 +174,7 @@ def test_list_actions_rejects_unknown_employee():
 
 # ---------- EmployeeDisciplinaryActionIn: validazione ----------
 
+
 def test_in_richiede_contestation_date():
     with pytest.raises(ValidationError):
         EmployeeDisciplinaryActionIn(type="richiamo_verbale", subject="Ritardo")
@@ -154,27 +182,41 @@ def test_in_richiede_contestation_date():
 
 def test_in_azzera_justification_date_se_non_presentate():
     item = EmployeeDisciplinaryActionIn(
-        type="richiamo_verbale", subject="Ritardo", contestation_date=date(2026, 6, 1),
-        justification_submitted=False, justification_date=date(2026, 6, 5),
+        type="richiamo_verbale",
+        subject="Ritardo",
+        contestation_date=date(2026, 6, 1),
+        justification_submitted=False,
+        justification_date=date(2026, 6, 5),
     )
     assert item.justification_date is None
 
 
 def test_in_mantiene_justification_date_se_presentate():
     item = EmployeeDisciplinaryActionIn(
-        type="richiamo_verbale", subject="Ritardo", contestation_date=date(2026, 6, 1),
-        justification_submitted=True, justification_date=date(2026, 6, 5),
+        type="richiamo_verbale",
+        subject="Ritardo",
+        contestation_date=date(2026, 6, 1),
+        justification_submitted=True,
+        justification_date=date(2026, 6, 5),
     )
     assert item.justification_date == date(2026, 6, 5)
 
 
 # ---------- update_action ----------
 
+
 def test_update_action_happy_path():
     service, da_repo, _ = build_service()
     item = run(service.create_action(USER, "emp-1", make_payload()))
 
-    run(service.update_action(USER, "emp-1", item["id"], make_payload(outcome="sanzione_confermata", sanction="Multa")))
+    run(
+        service.update_action(
+            USER,
+            "emp-1",
+            item["id"],
+            make_payload(outcome="sanzione_confermata", sanction="Multa"),
+        )
+    )
 
     updated = da_repo.docs[item["id"]]
     assert updated["outcome"] == "sanzione_confermata"
@@ -197,7 +239,11 @@ def test_update_action_wrong_employee_id_raises_notfound():
     item = run(service.create_action(USER, "emp-1", make_payload()))
 
     with pytest.raises(NotFoundError):
-        run(service.update_action(USER, "emp-2", item["id"], make_payload(outcome="archiviata")))
+        run(
+            service.update_action(
+                USER, "emp-2", item["id"], make_payload(outcome="archiviata")
+            )
+        )
 
     assert da_repo.docs[item["id"]]["outcome"] == "in_attesa"
 
@@ -210,6 +256,7 @@ def test_update_action_other_user_raises_notfound():
 
 
 # ---------- delete_action ----------
+
 
 def test_delete_action_removes_item():
     service, da_repo, _ = build_service()

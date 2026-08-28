@@ -8,10 +8,12 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_manual_commission_service_crud.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
+
 from core.exceptions import NotFoundError
 
 sys.path.insert(0, ".")
@@ -52,12 +54,16 @@ OTHER_USER = {"id": "user-2"}
 
 
 def build_service():
-    return CommissionService(repo=None, mandante_repo=None, manual_repo=FakeManualRepo())
+    return CommissionService(
+        repo=None, mandante_repo=None, manual_repo=FakeManualRepo()
+    )
 
 
 def test_create_genera_un_id_e_salva_lutente():
     service = build_service()
-    doc = run(service.create_manual_commission(USER, {"period": "2026-08", "amount": 300}))
+    doc = run(
+        service.create_manual_commission(USER, {"period": "2026-08", "amount": 300})
+    )
     assert doc["id"]
     assert doc["user_id"] == "user-1"
     assert doc["amount"] == 300
@@ -65,8 +71,16 @@ def test_create_genera_un_id_e_salva_lutente():
 
 def test_create_permette_righe_multiple_sullo_stesso_periodo():
     service = build_service()
-    run(service.create_manual_commission(USER, {"period": "2026-08", "amount": 300, "mandante_id": "m-A"}))
-    run(service.create_manual_commission(USER, {"period": "2026-08", "amount": 150, "mandante_id": "m-B"}))
+    run(
+        service.create_manual_commission(
+            USER, {"period": "2026-08", "amount": 300, "mandante_id": "m-A"}
+        )
+    )
+    run(
+        service.create_manual_commission(
+            USER, {"period": "2026-08", "amount": 150, "mandante_id": "m-B"}
+        )
+    )
     docs = run(service.list_manual_commissions(USER))
     assert len(docs) == 2
     assert sum(d["amount"] for d in docs) == 450
@@ -74,8 +88,14 @@ def test_create_permette_righe_multiple_sullo_stesso_periodo():
 
 def test_update_modifica_la_riga_indicata():
     service = build_service()
-    doc = run(service.create_manual_commission(USER, {"period": "2026-08", "amount": 300}))
-    run(service.update_manual_commission(USER, doc["id"], {"period": "2026-08", "amount": 500}))
+    doc = run(
+        service.create_manual_commission(USER, {"period": "2026-08", "amount": 300})
+    )
+    run(
+        service.update_manual_commission(
+            USER, doc["id"], {"period": "2026-08", "amount": 500}
+        )
+    )
     docs = run(service.list_manual_commissions(USER))
     assert docs[0]["amount"] == 500
 
@@ -88,15 +108,23 @@ def test_update_di_un_id_inesistente_solleva_not_found():
 
 def test_update_non_permette_di_modificare_la_riga_di_un_altro_utente():
     service = build_service()
-    doc = run(service.create_manual_commission(OTHER_USER, {"period": "2026-08", "amount": 300}))
+    doc = run(
+        service.create_manual_commission(
+            OTHER_USER, {"period": "2026-08", "amount": 300}
+        )
+    )
     with pytest.raises(NotFoundError):
         run(service.update_manual_commission(USER, doc["id"], {"amount": 999}))
 
 
 def test_delete_rimuove_solo_la_riga_indicata():
     service = build_service()
-    doc1 = run(service.create_manual_commission(USER, {"period": "2026-08", "amount": 300}))
-    doc2 = run(service.create_manual_commission(USER, {"period": "2026-08", "amount": 150}))
+    doc1 = run(
+        service.create_manual_commission(USER, {"period": "2026-08", "amount": 300})
+    )
+    doc2 = run(
+        service.create_manual_commission(USER, {"period": "2026-08", "amount": 150})
+    )
     run(service.delete_manual_commission(USER, doc1["id"]))
     docs = run(service.list_manual_commissions(USER))
     assert len(docs) == 1

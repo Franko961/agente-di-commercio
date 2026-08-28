@@ -1,16 +1,31 @@
-import jwt
 from typing import Literal, Optional
-from fastapi import APIRouter, Depends, UploadFile, File, Form, Header, Query, HTTPException, Request
-from fastapi.responses import StreamingResponse
-from core.security import (
-    get_current_user, forbid_demo_write, require_module,
-    create_document_download_token, decode_document_download_token,
-    DOCUMENT_DOWNLOAD_TOKEN_TTL_MINUTES,
+
+import jwt
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
 )
-from core.config import JWT_SECRET, JWT_ALG
+from fastapi.responses import StreamingResponse
+
+from core.config import JWT_ALG, JWT_SECRET
+from core.security import (
+    DOCUMENT_DOWNLOAD_TOKEN_TTL_MINUTES,
+    create_document_download_token,
+    decode_document_download_token,
+    forbid_demo_write,
+    get_current_user,
+    require_module,
+)
+from models.document import DOCUMENT_CATEGORIES, DocumentIn, DocumentMetaUpdate
 from services.document_service import document_service
-from services.storage_service import storage_get_stream, sanitize_filename
-from models.document import DocumentIn, DocumentMetaUpdate, DOCUMENT_CATEGORIES
+from services.storage_service import sanitize_filename, storage_get_stream
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -44,11 +59,15 @@ async def upload_document(
     tags: str = Form(""),
     user=Depends(forbid_demo_write),
 ):
-    return await document_service.upload_document(user, file, name, category, client_id, notes, tags)
+    return await document_service.upload_document(
+        user, file, name, category, client_id, notes, tags
+    )
 
 
 @router.patch("/{did}", dependencies=[MODULE_DEP])
-async def update_document_meta(did: str, payload: DocumentMetaUpdate, user=Depends(forbid_demo_write)):
+async def update_document_meta(
+    did: str, payload: DocumentMetaUpdate, user=Depends(forbid_demo_write)
+):
     """Update metadata (tags, name, category, notes, client_id) without re-uploading the file."""
     await document_service.update_document_meta(user, did, payload)
     return {"ok": True}
@@ -62,7 +81,9 @@ async def get_signed_download_url(did: str, user=Depends(get_current_user)):
     — valido 7 giorni per l'intero account — in una query string. Il token
     restituito qui scade dopo pochi minuti e non serve a nient'altro che a
     scaricare questo specifico documento."""
-    await document_service.get_document_for_download(user["id"], did)  # verifica esistenza + proprietà
+    await document_service.get_document_for_download(
+        user["id"], did
+    )  # verifica esistenza + proprietà
     token = create_document_download_token(user["id"], did)
     return {
         "url": f"/api/documents/{did}/download?token={token}",
@@ -113,13 +134,19 @@ async def download_document(
     # sanitize_filename applicato anche qui (non solo all'upload): protegge
     # anche i documenti già caricati prima di questa modifica, il cui
     # original_filename in DB potrebbe non essere ancora stato ripulito.
-    filename = sanitize_filename(doc.get("original_filename") or doc.get("name") or "file")
+    filename = sanitize_filename(
+        doc.get("original_filename") or doc.get("name") or "file"
+    )
     # inline solo per i tipi "sicuri" da mostrare direttamente nel browser
     # (PDF e immagini): tutti gli altri (Office, video, testo, ecc.) vengono
     # forzati come attachment, così il browser li scarica invece di provare
     # a renderizzarli — riduce la superficie d'attacco anche se Content-Type
     # è già vincolato alla whitelist e servito con nosniff.
-    disposition = "inline" if (ctype == "application/pdf" or ctype.startswith("image/")) else "attachment"
+    disposition = (
+        "inline"
+        if (ctype == "application/pdf" or ctype.startswith("image/"))
+        else "attachment"
+    )
     headers = {
         "Content-Disposition": f'{disposition}; filename="{filename}"',
         "Cache-Control": "private, max-age=300",

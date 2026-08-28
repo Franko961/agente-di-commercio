@@ -15,8 +15,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_manual_commission_repository.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 
@@ -92,8 +93,18 @@ def test_piu_righe_coesistono_sullo_stesso_mese():
     diverse nello stesso periodo (es. un premio per un mandante e una
     rettifica per un altro)."""
     repo = build_repo()
-    run(repo.insert(make_doc("m-1", "user-1", "2026-08", 300, mandante_id="m-A", tipo="bonus")))
-    run(repo.insert(make_doc("m-2", "user-1", "2026-08", 150, mandante_id="m-B", tipo="rettifica")))
+    run(
+        repo.insert(
+            make_doc("m-1", "user-1", "2026-08", 300, mandante_id="m-A", tipo="bonus")
+        )
+    )
+    run(
+        repo.insert(
+            make_doc(
+                "m-2", "user-1", "2026-08", 150, mandante_id="m-B", tipo="rettifica"
+            )
+        )
+    )
     docs = run(repo.find_many("user-1"))
     assert len(docs) == 2
     assert {d["id"] for d in docs} == {"m-1", "m-2"}
@@ -179,18 +190,30 @@ def test_mandante_id_assente_di_default():
 
 def test_mandante_id_salvato_se_fornito():
     repo = build_repo()
-    run(repo.insert(make_doc("m-1", "user-1", "2026-08", 450, mandante_id="mandante-1")))
+    run(
+        repo.insert(make_doc("m-1", "user-1", "2026-08", 450, mandante_id="mandante-1"))
+    )
     docs = run(repo.find_many("user-1"))
     assert docs[0]["mandante_id"] == "mandante-1"
 
 
 def test_campi_aggiuntivi_salvati_se_forniti():
     repo = build_repo()
-    run(repo.insert(make_doc(
-        "m-1", "user-1", "2026-08", 450,
-        client_id="client-1", descrizione="Accordo fuori sistema",
-        stato="incassato", note="Pagato in contanti", tipo="rettifica",
-    )))
+    run(
+        repo.insert(
+            make_doc(
+                "m-1",
+                "user-1",
+                "2026-08",
+                450,
+                client_id="client-1",
+                descrizione="Accordo fuori sistema",
+                stato="incassato",
+                note="Pagato in contanti",
+                tipo="rettifica",
+            )
+        )
+    )
     docs = run(repo.find_many("user-1"))
     assert docs[0]["client_id"] == "client-1"
     assert docs[0]["descrizione"] == "Accordo fuori sistema"

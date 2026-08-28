@@ -1,6 +1,8 @@
 from datetime import datetime
-from pydantic import BaseModel, Field, model_validator
 from typing import Optional
+
+from pydantic import BaseModel, Field, model_validator
+
 from core.validation_limits import LONG_TEXT_MAX_LENGTH
 
 
@@ -11,6 +13,7 @@ class AttendanceKioskClockIn(BaseModel):
     timbrando (scelto da un elenco, non digitato a mano) — il PIN serve
     a evitare che un collega timbri al posto di un altro avendo solo
     accesso fisico al QR."""
+
     employee_id: str
     pin: str = Field(pattern=r"^\d{4}$")
 
@@ -27,6 +30,7 @@ class AttendanceCorrectionIn(BaseModel):
     AppointmentIn.start/end in models/appointment.py), non oggetti
     datetime: evita una doppia conversione di fuso orario tra pydantic e
     il valore già prodotto da `new Date(...).toISOString()` in JS."""
+
     clock_in: str
     clock_out: Optional[str] = None
     note: Optional[str] = Field("", max_length=LONG_TEXT_MAX_LENGTH)

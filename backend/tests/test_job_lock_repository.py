@@ -25,8 +25,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_job_lock_repository.py -v
 """
-import sys
+
 import asyncio
+import sys
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -70,7 +71,10 @@ class FakeMongoCollection:
             if field == "_id":
                 continue
             if isinstance(expected, dict) and "$lt" in expected:
-                if not (existing.get(field) is not None and existing[field] < expected["$lt"]):
+                if not (
+                    existing.get(field) is not None
+                    and existing[field] < expected["$lt"]
+                ):
                     return _UpdateResult(matched_count=0)
             elif existing.get(field) != expected:
                 return _UpdateResult(matched_count=0)
@@ -110,7 +114,9 @@ def test_owner_id_diverso_ad_ogni_prenotazione_vinta():
     per il perché."""
     repo = build_repo()
     prima = run(repo.try_acquire("demo_reset", ttl_seconds=1))
-    repo.collection.docs["demo_reset"]["locked_until"] = _iso(datetime.now(timezone.utc) - timedelta(seconds=1))
+    repo.collection.docs["demo_reset"]["locked_until"] = _iso(
+        datetime.now(timezone.utc) - timedelta(seconds=1)
+    )
     seconda = run(repo.try_acquire("demo_reset", ttl_seconds=60))
     assert seconda is not None
     assert seconda != prima
@@ -122,7 +128,8 @@ def test_lock_scaduto_puo_essere_riacquisito():
     successivo senza bisogno di un unlock esplicito."""
     repo = build_repo()
     repo.collection.docs["stuck_ai_action_cleanup"] = {
-        "_id": "stuck_ai_action_cleanup", "owner_id": "vecchio-owner",
+        "_id": "stuck_ai_action_cleanup",
+        "owner_id": "vecchio-owner",
         "locked_until": _iso(datetime.now(timezone.utc) - timedelta(seconds=5)),
     }
     owner = run(repo.try_acquire("stuck_ai_action_cleanup", ttl_seconds=45))
@@ -133,7 +140,8 @@ def test_lock_scaduto_puo_essere_riacquisito():
 def test_lock_ancora_valido_non_viene_rubato():
     repo = build_repo()
     repo.collection.docs["stuck_ai_action_cleanup"] = {
-        "_id": "stuck_ai_action_cleanup", "owner_id": "altro-owner",
+        "_id": "stuck_ai_action_cleanup",
+        "owner_id": "altro-owner",
         "locked_until": _iso(datetime.now(timezone.utc) + timedelta(seconds=30)),
     }
     owner = run(repo.try_acquire("stuck_ai_action_cleanup", ttl_seconds=45))
@@ -158,7 +166,9 @@ def test_extend_allunga_la_scadenza_di_un_lock_gia_posseduto():
     extended = run(repo.extend("health_alert", owner, ttl_seconds=3600))
     assert extended is True
 
-    locked_until = datetime.fromisoformat(repo.collection.docs["health_alert"]["locked_until"])
+    locked_until = datetime.fromisoformat(
+        repo.collection.docs["health_alert"]["locked_until"]
+    )
     assert locked_until > datetime.now(timezone.utc) + timedelta(seconds=3000)
 
     ancora_bloccato = run(repo.try_acquire("health_alert", ttl_seconds=60))
@@ -176,7 +186,9 @@ def test_extend_fallisce_se_il_lock_e_stato_riassegnato_ad_altra_istanza():
     owner_a = run(repo.try_acquire("health_alert", ttl_seconds=60))
 
     # Il lock di A scade, e B lo riconquista legittimamente.
-    repo.collection.docs["health_alert"]["locked_until"] = _iso(datetime.now(timezone.utc) - timedelta(seconds=1))
+    repo.collection.docs["health_alert"]["locked_until"] = _iso(
+        datetime.now(timezone.utc) - timedelta(seconds=1)
+    )
     owner_b = run(repo.try_acquire("health_alert", ttl_seconds=900))
     assert owner_b is not None
     assert owner_b != owner_a

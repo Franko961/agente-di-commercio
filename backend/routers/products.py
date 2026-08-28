@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends
 from typing import Optional
-from core.security import get_current_user, forbid_demo_write, require_module
+
+from fastapi import APIRouter, Depends
+
+from core.security import forbid_demo_write, get_current_user, require_module
+from models.product import ProductBulkIn, ProductIn
 from services.product_service import product_service
-from models.product import ProductIn, ProductBulkIn
 
 router = APIRouter(prefix="/api/products", tags=["products"])
 
@@ -14,7 +16,9 @@ MODULE_DEP = Depends(require_module("prodotti"))
 
 
 @router.get("")
-async def list_products(mandante_id: Optional[str] = None, user=Depends(get_current_user)):
+async def list_products(
+    mandante_id: Optional[str] = None, user=Depends(get_current_user)
+):
     return await product_service.list_products(user, mandante_id)
 
 

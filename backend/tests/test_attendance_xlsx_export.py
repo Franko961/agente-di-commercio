@@ -7,6 +7,7 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_attendance_xlsx_export.py -v
 """
+
 import base64
 import io
 import sys
@@ -17,6 +18,7 @@ from services.attendance_xlsx_export import build_attendance_workbook
 
 try:
     from PIL import Image as PILImage
+
     _PIL_AVAILABLE = True
 except ImportError:
     _PIL_AVAILABLE = False
@@ -38,8 +40,12 @@ def _find_row(ws, name, max_row=50):
 
 def build(**overrides):
     defaults = dict(
-        month="2028-08", company_name="CACI SRL", company_logo=None,
-        ferie_count_mode="calendario", leave_requests=[], sessions=[],
+        month="2028-08",
+        company_name="CACI SRL",
+        company_logo=None,
+        ferie_count_mode="calendario",
+        leave_requests=[],
+        sessions=[],
     )
     defaults.update(overrides)
     return build_attendance_workbook(**defaults)
@@ -62,9 +68,18 @@ def test_intestazione_cartellino_contiene_i_numeri_dei_giorni():
 
 
 def test_cella_di_un_giorno_di_ferie_ha_il_colore_atteso():
-    wb = build(leave_requests=[
-        {"employee_name": "Mario Rossi", "type": "ferie", "date_from": "2028-08-10", "date_to": "2028-08-12", "hours": None, "note": ""},
-    ])
+    wb = build(
+        leave_requests=[
+            {
+                "employee_name": "Mario Rossi",
+                "type": "ferie",
+                "date_from": "2028-08-10",
+                "date_to": "2028-08-12",
+                "hours": None,
+                "note": "",
+            },
+        ]
+    )
     ws = wb["Cartellino"]
     row = _find_row(ws, "Mario Rossi")
     assert row is not None
@@ -78,9 +93,19 @@ def test_giorno_escluso_da_ferie_count_mode_festivita_non_ha_fill_ne_entra_nel_t
     giorni contati su 14), il sabato resta incluso — stesso identico
     scenario già verificato per leave_request_service._days_in_year e per
     la griglia live in Presenze.jsx."""
-    wb = build(ferie_count_mode="festivita", leave_requests=[
-        {"employee_name": "Mario Rossi", "type": "ferie", "date_from": "2028-08-14", "date_to": "2028-08-27", "hours": None, "note": ""},
-    ])
+    wb = build(
+        ferie_count_mode="festivita",
+        leave_requests=[
+            {
+                "employee_name": "Mario Rossi",
+                "type": "ferie",
+                "date_from": "2028-08-14",
+                "date_to": "2028-08-27",
+                "hours": None,
+                "note": "",
+            },
+        ],
+    )
     ws = wb["Cartellino"]
     row = _find_row(ws, "Mario Rossi")
     ferragosto_cell = ws.cell(row=row, column=1 + 15)  # martedì, festivo
@@ -95,10 +120,22 @@ def test_giorno_escluso_da_ferie_count_mode_festivita_non_ha_fill_ne_entra_nel_t
 
 
 def test_ore_totali_riga_e_la_somma_delle_sessioni_chiuse_del_mese():
-    wb = build(sessions=[
-        {"employee_name": "Anna Bianchi", "clock_in": "2028-08-03T07:00:00+00:00", "clock_out": "2028-08-03T15:00:00+00:00", "note": ""},
-        {"employee_name": "Anna Bianchi", "clock_in": "2028-08-04T07:00:00+00:00", "clock_out": "2028-08-04T11:00:00+00:00", "note": ""},
-    ])
+    wb = build(
+        sessions=[
+            {
+                "employee_name": "Anna Bianchi",
+                "clock_in": "2028-08-03T07:00:00+00:00",
+                "clock_out": "2028-08-03T15:00:00+00:00",
+                "note": "",
+            },
+            {
+                "employee_name": "Anna Bianchi",
+                "clock_in": "2028-08-04T07:00:00+00:00",
+                "clock_out": "2028-08-04T11:00:00+00:00",
+                "note": "",
+            },
+        ]
+    )
     ws = wb["Cartellino"]
     row = _find_row(ws, "Anna Bianchi")
     assert ws.cell(row=row, column=33).value == 12.0  # 8h + 4h
@@ -110,16 +147,30 @@ def test_straordinari_si_somma_alle_ore_ordinarie_non_le_sostituisce():
     dello straordinario."""
     wb = build(
         sessions=[
-            {"employee_name": "Mario Rossi", "clock_in": "2028-08-10T07:00:00+00:00", "clock_out": "2028-08-10T15:00:00+00:00", "note": ""},
+            {
+                "employee_name": "Mario Rossi",
+                "clock_in": "2028-08-10T07:00:00+00:00",
+                "clock_out": "2028-08-10T15:00:00+00:00",
+                "note": "",
+            },
         ],
         leave_requests=[
-            {"employee_name": "Mario Rossi", "type": "straordinari", "date_from": "2028-08-10", "date_to": "2028-08-10", "hours": 2, "note": ""},
+            {
+                "employee_name": "Mario Rossi",
+                "type": "straordinari",
+                "date_from": "2028-08-10",
+                "date_to": "2028-08-10",
+                "hours": 2,
+                "note": "",
+            },
         ],
     )
     ws = wb["Cartellino"]
     row = _find_row(ws, "Mario Rossi")
     cell = ws.cell(row=row, column=1 + 10)
-    assert cell.fill.fgColor.rgb == "FF16A34A"  # verde presente, non il rosa dello straordinario
+    assert (
+        cell.fill.fgColor.rgb == "FF16A34A"
+    )  # verde presente, non il rosa dello straordinario
     assert cell.value == 10.0  # 8 ordinarie + 2 straordinarie, sommate
     assert ws.cell(row=row, column=33).value == 10.0  # Ore totali di riga
 
@@ -128,9 +179,18 @@ def test_straordinari_senza_timbratura_separata_resta_col_proprio_colore():
     """Uno straordinario dichiarato senza una sessione presenze quel
     giorno (nessuna timbratura) mantiene il comportamento di sempre: cella
     del colore proprio dello straordinario, valore le sue sole ore."""
-    wb = build(leave_requests=[
-        {"employee_name": "Mario Rossi", "type": "straordinari", "date_from": "2028-08-10", "date_to": "2028-08-10", "hours": 2, "note": ""},
-    ])
+    wb = build(
+        leave_requests=[
+            {
+                "employee_name": "Mario Rossi",
+                "type": "straordinari",
+                "date_from": "2028-08-10",
+                "date_to": "2028-08-10",
+                "hours": 2,
+                "note": "",
+            },
+        ]
+    )
     ws = wb["Cartellino"]
     row = _find_row(ws, "Mario Rossi")
     cell = ws.cell(row=row, column=1 + 10)
@@ -143,15 +203,33 @@ def test_straordinari_si_somma_ai_totali_anche_se_coincide_con_unassenza():
     """Uno straordinario lo stesso giorno di un'altra assenza/modalità
     (caso raro) continua comunque a sommarsi al totale ore, anche se la
     cella mostra il colore dell'altro tipo."""
-    wb = build(leave_requests=[
-        {"employee_name": "Mario Rossi", "type": "malattia", "date_from": "2028-08-10", "date_to": "2028-08-10", "hours": None, "note": ""},
-        {"employee_name": "Mario Rossi", "type": "straordinari", "date_from": "2028-08-10", "date_to": "2028-08-10", "hours": 2, "note": ""},
-    ])
+    wb = build(
+        leave_requests=[
+            {
+                "employee_name": "Mario Rossi",
+                "type": "malattia",
+                "date_from": "2028-08-10",
+                "date_to": "2028-08-10",
+                "hours": None,
+                "note": "",
+            },
+            {
+                "employee_name": "Mario Rossi",
+                "type": "straordinari",
+                "date_from": "2028-08-10",
+                "date_to": "2028-08-10",
+                "hours": 2,
+                "note": "",
+            },
+        ]
+    )
     ws = wb["Cartellino"]
     row = _find_row(ws, "Mario Rossi")
     cell = ws.cell(row=row, column=1 + 10)
     assert cell.fill.fgColor.rgb == "FFDC2626"  # rosso malattia, non sostituito
-    assert ws.cell(row=row, column=33).value == 2.0  # le 2h di straordinario restano comunque nel totale
+    assert (
+        ws.cell(row=row, column=33).value == 2.0
+    )  # le 2h di straordinario restano comunque nel totale
 
 
 def test_logo_incluso_solo_se_impostato():
@@ -170,18 +248,34 @@ def test_logo_malformato_non_fa_fallire_lexport():
 
 
 def test_nota_che_inizia_con_carattere_formula_viene_protetta():
-    wb = build(leave_requests=[
-        {"employee_name": "Mario Rossi", "type": "permesso", "date_from": "2028-08-10", "date_to": "2028-08-10", "hours": 2, "note": "=cmd|'/c calc'!A1"},
-    ])
+    wb = build(
+        leave_requests=[
+            {
+                "employee_name": "Mario Rossi",
+                "type": "permesso",
+                "date_from": "2028-08-10",
+                "date_to": "2028-08-10",
+                "hours": 2,
+                "note": "=cmd|'/c calc'!A1",
+            },
+        ]
+    )
     ws = wb["Dettaglio"]
     note_values = [ws.cell(row=r, column=8).value for r in range(2, 5)]
     assert any(isinstance(v, str) and v.startswith("'=") for v in note_values)
 
 
 def test_dettaglio_contiene_gli_orari_locali_delle_sessioni():
-    wb = build(sessions=[
-        {"employee_name": "Anna Bianchi", "clock_in": "2028-08-03T07:00:00+00:00", "clock_out": "2028-08-03T15:00:00+00:00", "note": ""},
-    ])
+    wb = build(
+        sessions=[
+            {
+                "employee_name": "Anna Bianchi",
+                "clock_in": "2028-08-03T07:00:00+00:00",
+                "clock_out": "2028-08-03T15:00:00+00:00",
+                "note": "",
+            },
+        ]
+    )
     ws = wb["Dettaglio"]
     row = [ws.cell(row=2, column=c).value for c in range(1, 9)]
     assert row[0] == "Anna Bianchi"

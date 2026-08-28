@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Depends, Request
+
+from core.security import get_client_ip, require_admin
 from models.contact_request import ContactRequestIn
 from services.contact_request_service import contact_request_service
-from core.security import require_admin, get_client_ip
 
 router = APIRouter(prefix="/api/contact-requests", tags=["contact-requests"])
 

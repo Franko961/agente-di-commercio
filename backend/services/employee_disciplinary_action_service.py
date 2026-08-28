@@ -1,11 +1,17 @@
-from core.utils import gen_id, now_iso
 from core.exceptions import NotFoundError, ValidationAppError
-from repositories.employee_disciplinary_action_repository import employee_disciplinary_action_repository
+from core.utils import gen_id, now_iso
+from repositories.employee_disciplinary_action_repository import (
+    employee_disciplinary_action_repository,
+)
 from repositories.employee_repository import employee_repository
 
 
 class EmployeeDisciplinaryActionService:
-    def __init__(self, repo=employee_disciplinary_action_repository, employees=employee_repository):
+    def __init__(
+        self,
+        repo=employee_disciplinary_action_repository,
+        employees=employee_repository,
+    ):
         self.repo = repo
         self.employees = employees
 
@@ -24,12 +30,24 @@ class EmployeeDisciplinaryActionService:
             "type": payload.type,
             "subject": payload.subject.strip(),
             "description": (payload.description or "").strip(),
-            "event_date": payload.event_date.isoformat() if payload.event_date else None,
+            "event_date": (
+                payload.event_date.isoformat() if payload.event_date else None
+            ),
             "contestation_date": payload.contestation_date.isoformat(),
-            "received_date": payload.received_date.isoformat() if payload.received_date else None,
-            "justification_deadline": payload.justification_deadline.isoformat() if payload.justification_deadline else None,
+            "received_date": (
+                payload.received_date.isoformat() if payload.received_date else None
+            ),
+            "justification_deadline": (
+                payload.justification_deadline.isoformat()
+                if payload.justification_deadline
+                else None
+            ),
             "justification_submitted": payload.justification_submitted,
-            "justification_date": payload.justification_date.isoformat() if payload.justification_date else None,
+            "justification_date": (
+                payload.justification_date.isoformat()
+                if payload.justification_date
+                else None
+            ),
             "outcome": payload.outcome,
             "sanction": (payload.sanction or "").strip(),
             "notes": (payload.notes or "").strip(),
@@ -49,11 +67,18 @@ class EmployeeDisciplinaryActionService:
         }
         return await self.repo.insert(doc)
 
-    async def update_action(self, user: dict, employee_id: str, aid: str, payload) -> None:
-        ok = await self.repo.update(aid, user["id"], employee_id, {
-            **self._payload_to_doc(payload),
-            "updated_at": now_iso(),
-        })
+    async def update_action(
+        self, user: dict, employee_id: str, aid: str, payload
+    ) -> None:
+        ok = await self.repo.update(
+            aid,
+            user["id"],
+            employee_id,
+            {
+                **self._payload_to_doc(payload),
+                "updated_at": now_iso(),
+            },
+        )
         if not ok:
             raise NotFoundError("Contestazione non trovata")
 

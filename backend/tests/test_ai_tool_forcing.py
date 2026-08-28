@@ -16,17 +16,15 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     ANTHROPIC_API_KEY=test python -m pytest test_ai_tool_forcing.py -v
 """
+
+import asyncio
 import sys
 import types
-import asyncio
 from types import SimpleNamespace
-from unittest.mock import MagicMock, AsyncMock, patch
-
-import pytest
+from unittest.mock import AsyncMock, patch
 
 sys.path.insert(0, ".")
 
-import services.ai_service as ai_service_mod
 import services.ai_service.orchestrator as orchestrator_mod
 
 
@@ -35,6 +33,7 @@ async def _allow_ai_chat_rate_limit(*a, **k):
 
 
 # ---------- Fake Anthropic SDK ----------
+
 
 def make_tool_use_block(name, input_, block_id="tool_1"):
     return SimpleNamespace(type="tool_use", name=name, input=input_, id=block_id)
@@ -79,6 +78,7 @@ def install_fake_anthropic(responses_holder):
 
 
 # ---------- Fake repositories (in-memory, nessun DB reale) ----------
+
 
 class FakeClientRepo:
     def __init__(self):
@@ -190,14 +190,26 @@ class FakeActionLogRepo:
 
     async def transition(self, log_id, user_id, from_status, data, extra_match=None):
         for d in self.docs:
-            if d["id"] == log_id and d["user_id"] == user_id and d["status"] == from_status:
+            if (
+                d["id"] == log_id
+                and d["user_id"] == user_id
+                and d["status"] == from_status
+            ):
                 if extra_match and any(d.get(k) != v for k, v in extra_match.items()):
                     continue
                 d.update(data)
                 return True
         return False
 
-    async def find_many(self, user_id, tool_name=None, status=None, date_from=None, date_to=None, limit=200):
+    async def find_many(
+        self,
+        user_id,
+        tool_name=None,
+        status=None,
+        date_from=None,
+        date_to=None,
+        limit=200,
+    ):
         results = [d for d in self.docs if d["user_id"] == user_id]
         if tool_name:
             results = [d for d in results if d["tool_name"] == tool_name]
@@ -208,7 +220,10 @@ class FakeActionLogRepo:
     async def reclaim_stale_executions(self, threshold_iso, result_message):
         count = 0
         for d in self.docs:
-            if d.get("status") == "in_esecuzione" and d.get("execution_started_at", "") < threshold_iso:
+            if (
+                d.get("status") == "in_esecuzione"
+                and d.get("execution_started_at", "") < threshold_iso
+            ):
                 d["status"] = "fallita"
                 d["result"] = result_message
                 count += 1
@@ -217,6 +232,7 @@ class FakeActionLogRepo:
 
 def build_service():
     from services.ai_service import AiService
+
     orchestrator_mod.check_and_record = _allow_ai_chat_rate_limit
     client_repo = FakeClientRepo()
     service = AiService(
@@ -247,9 +263,12 @@ def build_service_with_offer():
     """Variante di build_service() con mandante/offerta reali (fittizi) per
     testare il flusso di conferma economica di add_offer."""
     from services.ai_service import AiService
+
     orchestrator_mod.check_and_record = _allow_ai_chat_rate_limit
     client_repo = FakeClientRepo()
-    client_repo.docs.append({"id": "c-1", "user_id": "user-1", "company_name": "Rossi Srl"})
+    client_repo.docs.append(
+        {"id": "c-1", "user_id": "user-1", "company_name": "Rossi Srl"}
+    )
     mandante = {"id": "m-1", "name": "Paginesi", "commission_rate": 10}
     offer_repo = FakeOfferRepo()
     service = AiService(
@@ -270,32 +289,50 @@ def build_service_with_offer():
 
 # ---------- Scenari ----------
 
+
 def test_forza_tool_choice_quando_il_modello_racconta_senza_eseguire():
     """Scenario del bug reale: web_search + risposta testuale che 'finge' il successo."""
     responses = {
         "responses": [
             # Turno 1: il modello fa una web_search per raccogliere i dati dal sito
             make_message(
-                [make_tool_use_block("web_search", {"query": "carrozzeriapalandrani.com"}, "ws_1")],
+                [
+                    make_tool_use_block(
+                        "web_search", {"query": "carrozzeriapalandrani.com"}, "ws_1"
+                    )
+                ],
                 stop_reason="tool_use",
             ),
             # Turno 2: NON chiama add_client, risponde solo con testo (l'hallucination)
             make_message(
-                [make_text_block("# ✅ Cliente Aggiunto al CRM\n(in realtà non l'ho fatto)")],
+                [
+                    make_text_block(
+                        "# ✅ Cliente Aggiunto al CRM\n(in realtà non l'ho fatto)"
+                    )
+                ],
                 stop_reason="end_turn",
             ),
             # Turno 3 (FORZATO con tool_choice): ora chiama davvero add_client
             make_message(
-                [make_tool_use_block(
-                    "add_client",
-                    {"company_name": "Carrozzeria Palandrani Michele", "city": "Teramo"},
-                    "tu_2",
-                )],
+                [
+                    make_tool_use_block(
+                        "add_client",
+                        {
+                            "company_name": "Carrozzeria Palandrani Michele",
+                            "city": "Teramo",
+                        },
+                        "tu_2",
+                    )
+                ],
                 stop_reason="tool_use",
             ),
             # Turno 4: risposta finale dopo il tool_result
             make_message(
-                [make_text_block("✅ Cliente Carrozzeria Palandrani Michele aggiunto con successo.")],
+                [
+                    make_text_block(
+                        "✅ Cliente Carrozzeria Palandrani Michele aggiunto con successo."
+                    )
+                ],
                 stop_reason="end_turn",
             ),
         ]
@@ -312,7 +349,7 @@ def test_forza_tool_choice_quando_il_modello_racconta_senza_eseguire():
     assert client_repo.docs[0]["user_id"] == "user-1"
 
     # La chiamata forzata deve aver usato tool_choice esplicito su add_client
-    forced_call = responses["responses"]  # ormai vuoto, controlliamo le call registrate altrove
+    # (ormai vuoto, controlliamo le call registrate altrove)
     assert "✅" in result["response"]
     assert any("aggiunto" in a.lower() for a in result["actions"])
 
@@ -322,7 +359,11 @@ def test_nessuna_forzatura_se_il_tool_giusto_viene_gia_chiamato():
     responses = {
         "responses": [
             make_message(
-                [make_tool_use_block("add_client", {"company_name": "Bar Rossi"}, "tu_1")],
+                [
+                    make_tool_use_block(
+                        "add_client", {"company_name": "Bar Rossi"}, "tu_1"
+                    )
+                ],
                 stop_reason="tool_use",
             ),
             make_message(
@@ -335,7 +376,7 @@ def test_nessuna_forzatura_se_il_tool_giusto_viene_gia_chiamato():
     service, client_repo = build_service()
 
     payload = Payload("aggiungi cliente Bar Rossi")
-    result = asyncio.run(service.chat(FAKE_USER, payload))
+    asyncio.run(service.chat(FAKE_USER, payload))
 
     assert len(client_repo.docs) == 1
     assert client_repo.docs[0]["company_name"] == "Bar Rossi"
@@ -370,16 +411,26 @@ def test_add_offer_non_scrive_subito_ma_richiede_conferma():
     responses = {
         "responses": [
             make_message(
-                [make_tool_use_block(
-                    "add_offer",
-                    {"client_name": "Rossi", "mandante_name": "Paginesi",
-                     "total_amount": 15000, "accepted": True},
-                    "tu_1",
-                )],
+                [
+                    make_tool_use_block(
+                        "add_offer",
+                        {
+                            "client_name": "Rossi",
+                            "mandante_name": "Paginesi",
+                            "total_amount": 15000,
+                            "accepted": True,
+                        },
+                        "tu_1",
+                    )
+                ],
                 stop_reason="tool_use",
             ),
             make_message(
-                [make_text_block("Ho preparato la vendita per Rossi Srl da 15.000€, conferma per registrarla.")],
+                [
+                    make_text_block(
+                        "Ho preparato la vendita per Rossi Srl da 15.000€, conferma per registrarla."
+                    )
+                ],
                 stop_reason="end_turn",
             ),
         ]
@@ -387,7 +438,9 @@ def test_add_offer_non_scrive_subito_ma_richiede_conferma():
     install_fake_anthropic(responses)
     service, offer_repo = build_service_with_offer()
 
-    payload = Payload("registra una vendita accettata da 15000 euro per Rossi con Paginesi")
+    payload = Payload(
+        "registra una vendita accettata da 15000 euro per Rossi con Paginesi"
+    )
     result = asyncio.run(service.chat(FAKE_USER, payload))
 
     # Nessuna scrittura reale: né azione "eseguita", né offerta nel repository
@@ -405,12 +458,19 @@ def test_add_offer_non_scrive_subito_ma_richiede_conferma():
     # l'importo frainteso, es. 15.000 -> 1.500), l'offerta viene scritta
     resolved = dict(pending["resolved_input"])
     resolved["amount"] = 1500
-    with patch("services.ai_service.actions.offers.order_service") as mock_order_service:
+    with patch(
+        "services.ai_service.actions.offers.order_service"
+    ) as mock_order_service:
         mock_order_service.create_from_offer = AsyncMock(return_value={"total": 1500})
         confirm_result = asyncio.run(
-            service.execute_confirmed_action(FAKE_USER, {
-                "tool_name": "add_offer", "resolved_input": resolved, "log_id": pending["log_id"],
-            })
+            service.execute_confirmed_action(
+                FAKE_USER,
+                {
+                    "tool_name": "add_offer",
+                    "resolved_input": resolved,
+                    "log_id": pending["log_id"],
+                },
+            )
         )
     assert len(offer_repo.docs) == 1
     assert offer_repo.docs[0]["total"] == 1500

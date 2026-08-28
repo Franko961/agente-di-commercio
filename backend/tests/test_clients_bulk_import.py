@@ -7,12 +7,13 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_clients_bulk_import.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 sys.path.insert(0, ".")
 
-from models.client import ClientBulkItem, ClientBulkIn
+from models.client import ClientBulkIn, ClientBulkItem
 from services.client_service import ClientService
 
 
@@ -55,14 +56,21 @@ def build_service(existing_clients=None, mandanti=None):
 
 
 def _item(**overrides):
-    base = dict(company_name="Bar Centrale", city="Bologna", vat_number="", mandante_names="")
+    base = dict(
+        company_name="Bar Centrale", city="Bologna", vat_number="", mandante_names=""
+    )
     base.update(overrides)
     return ClientBulkItem(**base)
 
 
 def test_import_semplice_va_a_buon_fine():
     service, repo = build_service()
-    payload = ClientBulkIn(clients=[_item(company_name="Bar Centrale"), _item(company_name="Ristorante Roma", city="Roma")])
+    payload = ClientBulkIn(
+        clients=[
+            _item(company_name="Bar Centrale"),
+            _item(company_name="Ristorante Roma", city="Roma"),
+        ]
+    )
 
     result = run(service.bulk_import(USER, payload))
 
@@ -72,9 +80,19 @@ def test_import_semplice_va_a_buon_fine():
 
 
 def test_deduplica_per_partita_iva_contro_clienti_esistenti():
-    existing = [{"id": "c1", "user_id": "u1", "company_name": "Bar Vecchio", "vat_number": "12345678901", "city": "Bologna"}]
+    existing = [
+        {
+            "id": "c1",
+            "user_id": "u1",
+            "company_name": "Bar Vecchio",
+            "vat_number": "12345678901",
+            "city": "Bologna",
+        }
+    ]
     service, repo = build_service(existing_clients=existing)
-    payload = ClientBulkIn(clients=[_item(company_name="Bar Vecchio SRL", vat_number="12345678901")])
+    payload = ClientBulkIn(
+        clients=[_item(company_name="Bar Vecchio SRL", vat_number="12345678901")]
+    )
 
     result = run(service.bulk_import(USER, payload))
 
@@ -84,22 +102,39 @@ def test_deduplica_per_partita_iva_contro_clienti_esistenti():
 
 
 def test_deduplica_per_ragione_sociale_e_citta_senza_piva():
-    existing = [{"id": "c1", "user_id": "u1", "company_name": "Bar Centrale", "city": "Bologna", "vat_number": ""}]
+    existing = [
+        {
+            "id": "c1",
+            "user_id": "u1",
+            "company_name": "Bar Centrale",
+            "city": "Bologna",
+            "vat_number": "",
+        }
+    ]
     service, repo = build_service(existing_clients=existing)
-    payload = ClientBulkIn(clients=[_item(company_name="bar centrale", city="BOLOGNA")])  # case diverso, stesso cliente
+    payload = ClientBulkIn(
+        clients=[_item(company_name="bar centrale", city="BOLOGNA")]
+    )  # case diverso, stesso cliente
 
     result = run(service.bulk_import(USER, payload))
 
     assert result["imported"] == 0
-    assert "città" in result["skipped"][0]["reason"] or "citt" in result["skipped"][0]["reason"]
+    assert (
+        "città" in result["skipped"][0]["reason"]
+        or "citt" in result["skipped"][0]["reason"]
+    )
 
 
 def test_deduplica_anche_tra_righe_dello_stesso_file():
     service, repo = build_service()
-    payload = ClientBulkIn(clients=[
-        _item(company_name="Bar Centrale", vat_number="11111111111"),
-        _item(company_name="Bar Centrale Srl", vat_number="11111111111"),  # stessa P.IVA, riga duplicata nel file
-    ])
+    payload = ClientBulkIn(
+        clients=[
+            _item(company_name="Bar Centrale", vat_number="11111111111"),
+            _item(
+                company_name="Bar Centrale Srl", vat_number="11111111111"
+            ),  # stessa P.IVA, riga duplicata nel file
+        ]
+    )
 
     result = run(service.bulk_import(USER, payload))
 
@@ -109,7 +144,9 @@ def test_deduplica_anche_tra_righe_dello_stesso_file():
 
 def test_riga_senza_ragione_sociale_viene_saltata():
     service, repo = build_service()
-    payload = ClientBulkIn(clients=[_item(company_name=""), _item(company_name="Valido Srl")])
+    payload = ClientBulkIn(
+        clients=[_item(company_name=""), _item(company_name="Valido Srl")]
+    )
 
     result = run(service.bulk_import(USER, payload))
 
@@ -119,7 +156,11 @@ def test_riga_senza_ragione_sociale_viene_saltata():
 
 def test_mandante_risolto_per_nome_case_insensitive():
     service, repo = build_service()
-    payload = ClientBulkIn(clients=[_item(company_name="Cliente Test", mandante_names="rossi spa, Bianchi Srl")])
+    payload = ClientBulkIn(
+        clients=[
+            _item(company_name="Cliente Test", mandante_names="rossi spa, Bianchi Srl")
+        ]
+    )
 
     run(service.bulk_import(USER, payload))
 
@@ -128,7 +169,13 @@ def test_mandante_risolto_per_nome_case_insensitive():
 
 def test_mandante_non_trovato_non_blocca_la_riga():
     service, repo = build_service()
-    payload = ClientBulkIn(clients=[_item(company_name="Cliente Test", mandante_names="Mandante Inesistente Srl")])
+    payload = ClientBulkIn(
+        clients=[
+            _item(
+                company_name="Cliente Test", mandante_names="Mandante Inesistente Srl"
+            )
+        ]
+    )
 
     result = run(service.bulk_import(USER, payload))
 
@@ -138,7 +185,9 @@ def test_mandante_non_trovato_non_blocca_la_riga():
 
 def test_insert_avviene_in_batch_non_riga_per_riga():
     service, repo = build_service()
-    payload = ClientBulkIn(clients=[_item(company_name=f"Cliente {i}") for i in range(5)])
+    payload = ClientBulkIn(
+        clients=[_item(company_name=f"Cliente {i}") for i in range(5)]
+    )
 
     run(service.bulk_import(USER, payload))
 

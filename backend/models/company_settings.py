@@ -1,5 +1,7 @@
-from pydantic import BaseModel, Field
 from typing import Optional
+
+from pydantic import BaseModel, Field
+
 from core.validation_limits import PHOTO_MAX_LENGTH
 
 
@@ -10,4 +12,5 @@ class CompanySettingsIn(BaseModel):
     (models/employee.py): va ridimensionato/compresso lato client prima
     dell'invio. Opzionale: senza logo l'export si genera comunque, solo
     senza l'immagine in testa."""
+
     logo: Optional[str] = Field(None, max_length=PHOTO_MAX_LENGTH)

@@ -10,12 +10,13 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     ANTHROPIC_API_KEY=test python -m pytest test_ai_amount_validation.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 sys.path.insert(0, ".")
 
-from services.ai_service import ai_service, _safe_float
+from services.ai_service import _safe_float, ai_service
 
 
 def run(coro):
@@ -23,6 +24,7 @@ def run(coro):
 
 
 # ---------- _safe_float ----------
+
 
 def test_safe_float_su_valori_validi():
     assert _safe_float("42") == 42.0
@@ -63,23 +65,34 @@ def test_safe_float_formato_anglosassone_resta_invariato():
 
 # ---------- prepare_add_expense ----------
 
+
 def test_prepare_expense_rifiuta_importo_testuale():
-    result = run(ai_service.prepare_add_expense({"category": "carburante", "amount": "quaranta"}, "u1"))
+    result = run(
+        ai_service.prepare_add_expense(
+            {"category": "carburante", "amount": "quaranta"}, "u1"
+        )
+    )
     assert "error" in result
 
 
 def test_prepare_expense_rifiuta_importo_zero():
-    result = run(ai_service.prepare_add_expense({"category": "carburante", "amount": 0}, "u1"))
+    result = run(
+        ai_service.prepare_add_expense({"category": "carburante", "amount": 0}, "u1")
+    )
     assert "error" in result
 
 
 def test_prepare_expense_rifiuta_importo_negativo():
-    result = run(ai_service.prepare_add_expense({"category": "carburante", "amount": -50}, "u1"))
+    result = run(
+        ai_service.prepare_add_expense({"category": "carburante", "amount": -50}, "u1")
+    )
     assert "error" in result
 
 
 def test_prepare_expense_accetta_importo_valido():
-    result = run(ai_service.prepare_add_expense({"category": "carburante", "amount": 45.5}, "u1"))
+    result = run(
+        ai_service.prepare_add_expense({"category": "carburante", "amount": 45.5}, "u1")
+    )
     assert "error" not in result
     assert result["resolved_input"]["amount"] == 45.5
 
@@ -88,29 +101,40 @@ def test_prepare_expense_accetta_importo_in_formato_italiano():
     """Caso reale: un importo dettato a voce o trascritto dal modello nel
     formato italiano ('45,90' invece di '45.9') non deve essere respinto
     come importo non valido."""
-    result = run(ai_service.prepare_add_expense({"category": "carburante", "amount": "45,90"}, "u1"))
+    result = run(
+        ai_service.prepare_add_expense(
+            {"category": "carburante", "amount": "45,90"}, "u1"
+        )
+    )
     assert "error" not in result
     assert result["resolved_input"]["amount"] == 45.90
 
 
 # ---------- _finalize_expense (chiamato anche direttamente da /execute-action) ----------
 
+
 def test_finalize_expense_con_importo_malformato_non_scrive_e_non_esplode():
     msg = asyncio.run(
-        ai_service._finalize_expense("u1", {"category": "vitto", "amount": "abc", "date": "2026-07-17"})
+        ai_service._finalize_expense(
+            "u1", {"category": "vitto", "amount": "abc", "date": "2026-07-17"}
+        )
     )
     assert msg.startswith("❌")
 
 
 # ---------- execute_crm_tool (percorso diretto per spese sotto soglia) ----------
 
+
 def test_execute_crm_tool_add_expense_con_importo_testuale_non_esplode():
     result = asyncio.run(
-        ai_service.execute_crm_tool("add_expense", {"category": "vitto", "amount": "non è un numero"}, "u1")
+        ai_service.execute_crm_tool(
+            "add_expense", {"category": "vitto", "amount": "non è un numero"}, "u1"
+        )
     )
     assert result.startswith("❌")
 
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

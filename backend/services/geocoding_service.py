@@ -1,6 +1,8 @@
 import logging
+
 import requests
 from fastapi import HTTPException
+
 from core.rate_limit import check_and_record
 
 logger = logging.getLogger(__name__)
@@ -23,9 +25,14 @@ class GeocodingService:
         # Limite per utente (non globale): un agente che digita un indirizzo
         # per cliente non si avvicina mai a questa soglia in condizioni
         # normali; serve solo a restare entro l'uso equo del servizio gratuito.
-        allowed = await check_and_record("geocode", user_id, max_attempts=30, window_minutes=10)
+        allowed = await check_and_record(
+            "geocode", user_id, max_attempts=30, window_minutes=10
+        )
         if not allowed:
-            raise HTTPException(429, "Troppe ricerche indirizzo in poco tempo, riprova tra qualche minuto")
+            raise HTTPException(
+                429,
+                "Troppe ricerche indirizzo in poco tempo, riprova tra qualche minuto",
+            )
 
         try:
             resp = requests.get(
@@ -37,7 +44,10 @@ class GeocodingService:
             resp.raise_for_status()
         except requests.RequestException as e:
             logger.error(f"geocoding: errore chiamata Nominatim: {e}")
-            raise HTTPException(502, "Servizio di ricerca indirizzi non disponibile al momento, riprova più tardi")
+            raise HTTPException(
+                502,
+                "Servizio di ricerca indirizzi non disponibile al momento, riprova più tardi",
+            )
 
         try:
             results = resp.json()
@@ -45,7 +55,11 @@ class GeocodingService:
             return []
 
         return [
-            {"display_name": r.get("display_name", ""), "lat": float(r["lat"]), "lng": float(r["lon"])}
+            {
+                "display_name": r.get("display_name", ""),
+                "lat": float(r["lat"]),
+                "lng": float(r["lon"]),
+            }
             for r in results
             if r.get("lat") and r.get("lon")
         ]

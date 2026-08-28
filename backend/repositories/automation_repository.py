@@ -27,7 +27,9 @@ class AutomationRepository:
             await self.collection.insert_many(docs)
 
     async def update(self, aid: str, user_id: str, data: dict) -> None:
-        await self.collection.update_one({"id": aid, "user_id": user_id}, {"$set": data})
+        await self.collection.update_one(
+            {"id": aid, "user_id": user_id}, {"$set": data}
+        )
 
     async def delete(self, aid: str, user_id: str) -> None:
         await self.collection.delete_one({"id": aid, "user_id": user_id})

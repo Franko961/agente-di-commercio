@@ -1,6 +1,12 @@
-from pydantic import BaseModel, Field
 from typing import List, Optional
-from core.validation_limits import SHORT_TEXT_MAX_LENGTH, MAX_UNIT_PRICE, MAX_BULK_IMPORT_ITEMS
+
+from pydantic import BaseModel, Field
+
+from core.validation_limits import (
+    MAX_BULK_IMPORT_ITEMS,
+    MAX_UNIT_PRICE,
+    SHORT_TEXT_MAX_LENGTH,
+)
 
 
 class ProductIn(BaseModel):
@@ -14,7 +20,9 @@ class ProductIn(BaseModel):
     # campi, non un vincolo di business.
     price: float = Field(ge=0, le=MAX_UNIT_PRICE)
     cost: Optional[float] = Field(0.0, ge=0, le=MAX_UNIT_PRICE)
-    commission_rate: Optional[float] = Field(None, ge=0, le=100)  # override mandante if set
+    commission_rate: Optional[float] = Field(
+        None, ge=0, le=100
+    )  # override mandante if set
     category: Optional[str] = Field("", max_length=SHORT_TEXT_MAX_LENGTH)
 
 
@@ -22,6 +30,7 @@ class ProductBulkItem(BaseModel):
     """Un prodotto da importare in blocco (es. da un listino fornitore in
     PDF/Excel): stessi campi di ProductIn ma senza mandante_id, risolto una
     sola volta a livello di richiesta tramite mandante_name."""
+
     sku: str = Field(max_length=SHORT_TEXT_MAX_LENGTH)
     name: str = Field(max_length=SHORT_TEXT_MAX_LENGTH)
     price: float = Field(ge=0, le=MAX_UNIT_PRICE)

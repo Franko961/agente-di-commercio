@@ -1,7 +1,13 @@
 from fastapi import APIRouter, Depends, Request
-from core.security import get_current_user, forbid_demo_write, require_module, get_client_ip
-from services.attendance_service import attendance_service
+
+from core.security import (
+    forbid_demo_write,
+    get_client_ip,
+    get_current_user,
+    require_module,
+)
 from models.attendance import AttendanceCorrectionIn, AttendanceKioskClockIn
+from services.attendance_service import attendance_service
 
 # Gated da "personale", come employee_documents.py/employee_equipment.py:
 # le sessioni presenze sono un dato del dipendente, non un modulo a parte.
@@ -15,7 +21,9 @@ async def list_attendance(eid: str, user=Depends(get_current_user)):
 
 
 @router.post("", dependencies=[MODULE_DEP])
-async def create_attendance(eid: str, payload: AttendanceCorrectionIn, user=Depends(forbid_demo_write)):
+async def create_attendance(
+    eid: str, payload: AttendanceCorrectionIn, user=Depends(forbid_demo_write)
+):
     """Sessione inserita a mano dal responsabile (es. il dipendente ha
     dimenticato di timbrare quel giorno) — marcata corrected_by_admin
     dentro attendance_service.create_manual_session."""
@@ -23,7 +31,9 @@ async def create_attendance(eid: str, payload: AttendanceCorrectionIn, user=Depe
 
 
 @router.patch("/{sid}", dependencies=[MODULE_DEP])
-async def correct_attendance(eid: str, sid: str, payload: AttendanceCorrectionIn, user=Depends(forbid_demo_write)):
+async def correct_attendance(
+    eid: str, sid: str, payload: AttendanceCorrectionIn, user=Depends(forbid_demo_write)
+):
     await attendance_service.correct_session(user, eid, sid, payload)
     return {"ok": True}
 
@@ -87,10 +97,16 @@ async def list_kiosk_employees(token: str):
 @kiosk_router.post("/{token}/clock-in")
 async def kiosk_clock_in(token: str, payload: AttendanceKioskClockIn, request: Request):
     ip_address = get_client_ip(request)
-    return await attendance_service.clock_in_kiosk(token, payload.employee_id, payload.pin, ip_address=ip_address)
+    return await attendance_service.clock_in_kiosk(
+        token, payload.employee_id, payload.pin, ip_address=ip_address
+    )
 
 
 @kiosk_router.post("/{token}/clock-out")
-async def kiosk_clock_out(token: str, payload: AttendanceKioskClockIn, request: Request):
+async def kiosk_clock_out(
+    token: str, payload: AttendanceKioskClockIn, request: Request
+):
     ip_address = get_client_ip(request)
-    return await attendance_service.clock_out_kiosk(token, payload.employee_id, payload.pin, ip_address=ip_address)
+    return await attendance_service.clock_out_kiosk(
+        token, payload.employee_id, payload.pin, ip_address=ip_address
+    )

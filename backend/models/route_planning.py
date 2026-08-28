@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field
 from typing import List, Optional
+
+from pydantic import BaseModel, Field
 
 # Oltre questo numero di tappe la matrice distanze (O(n^2) chiamate/celle) e
 # il miglioramento 2-opt (O(n^3) per iterazione) diventano troppo pesanti per
@@ -22,8 +23,12 @@ class RoutePlanIn(BaseModel):
     # reso insensato il calcolo degli orari proposti (visite sovrapposte o
     # a ritroso), uno enorme (o negativo con moltiplicatore MAX_ROUTE_CLIENTS)
     # avrebbe prodotto orari assurdi per l'intero giro.
-    visit_minutes: int = Field(30, ge=1, le=480)  # durata assunta per ogni visita (max 8 ore), usata per calcolare gli orari proposti
-    start_mode: str = "first_client"  # first_client | current_location | home | office | custom
+    visit_minutes: int = Field(
+        30, ge=1, le=480
+    )  # durata assunta per ogni visita (max 8 ore), usata per calcolare gli orari proposti
+    start_mode: str = (
+        "first_client"  # first_client | current_location | home | office | custom
+    )
     start_lat: Optional[float] = None  # richiesto per current_location/custom
     start_lng: Optional[float] = None  # richiesto per current_location/custom
     round_trip: bool = False  # se True, il giro include il ritorno al punto di partenza

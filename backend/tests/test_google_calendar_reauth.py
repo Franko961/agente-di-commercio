@@ -10,21 +10,22 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_google_calendar_reauth.py -v
 """
+
+import asyncio
 import sys
 import time
-import asyncio
 from datetime import datetime, timedelta, timezone
 
 import jwt
-import requests
 import pytest
+import requests
 
 sys.path.insert(0, ".")
 
 import services.google_calendar_service as gcal_mod
-from services.google_calendar_service import GoogleCalendarService
+from core.config import GOOGLE_REAUTH_NOTIFY_COOLDOWN_HOURS, JWT_ALG, JWT_SECRET
 from core.crypto import encrypt_str
-from core.config import GOOGLE_REAUTH_NOTIFY_COOLDOWN_HOURS, JWT_SECRET, JWT_ALG
+from services.google_calendar_service import GoogleCalendarService
 
 
 def run(coro):
@@ -55,7 +56,9 @@ class FakeGcalRepo:
         self.conn = dict(conn) if conn else None
 
     async def find_by_user(self, user_id):
-        return dict(self.conn) if self.conn and self.conn["user_id"] == user_id else None
+        return (
+            dict(self.conn) if self.conn and self.conn["user_id"] == user_id else None
+        )
 
     async def upsert(self, user_id, data):
         if self.conn is None:
@@ -153,8 +156,11 @@ def test_refresh_riuscito_dopo_fallimento_resetta_needs_reauth(monkeypatch):
     service = build_service(conn)
 
     monkeypatch.setattr(
-        gcal_mod.requests, "post",
-        lambda *a, **k: FakeResponse(200, {"access_token": "nuovo-token", "expires_in": 3600}),
+        gcal_mod.requests,
+        "post",
+        lambda *a, **k: FakeResponse(
+            200, {"access_token": "nuovo-token", "expires_in": 3600}
+        ),
     )
 
     token = run(service._valid_access_token(service.repo.conn))
@@ -187,10 +193,15 @@ def test_get_status_espone_needs_reauth():
 
     status = run(service.get_status("user-1"))
 
-    assert status == {"connected": True, "google_email": "agente@gmail.com", "needs_reauth": True}
+    assert status == {
+        "connected": True,
+        "google_email": "agente@gmail.com",
+        "needs_reauth": True,
+    }
 
 
 # ---------- push_create/update/delete: nessuna sincronizzazione reale per il demo ----------
+
 
 class FakeApptRepo:
     def __init__(self):
@@ -204,8 +215,10 @@ def _connected_valid_conn():
     # access_token già valido (nessun refresh necessario): isola il test sul
     # comportamento di push_create/update/delete, non su _valid_access_token.
     return {
-        "user_id": "user-1", "calendar_id": "primary",
-        "access_token": "token-valido", "access_token_expiry": time.time() + 3600,
+        "user_id": "user-1",
+        "calendar_id": "primary",
+        "access_token": "token-valido",
+        "access_token_expiry": time.time() + 3600,
         "refresh_token_enc": encrypt_str("refresh-token-fittizio"),
     }
 
@@ -213,7 +226,8 @@ def _connected_valid_conn():
 def build_push_service(conn, user, appt_repo=None):
     repo = FakeGcalRepo(conn)
     return GoogleCalendarService(
-        repo=repo, appt_repo=appt_repo or FakeApptRepo(),
+        repo=repo,
+        appt_repo=appt_repo or FakeApptRepo(),
         notification_repo=FakeNotificationRepo(),
         user_repo=FakeUserRepo([user]),
         send_email_fn=lambda *a, **k: None,
@@ -221,51 +235,88 @@ def build_push_service(conn, user, appt_repo=None):
 
 
 def _fail_if_called(*a, **k):
-    raise AssertionError("nessuna chiamata reale a Google doveva partire per l'account demo")
+    raise AssertionError(
+        "nessuna chiamata reale a Google doveva partire per l'account demo"
+    )
 
 
 def test_push_create_non_chiama_google_per_account_demo(monkeypatch):
     monkeypatch.setattr(gcal_mod.requests, "post", _fail_if_called)
-    service = build_push_service(_connected_valid_conn(), {"id": "user-1", "is_demo": True})
+    service = build_push_service(
+        _connected_valid_conn(), {"id": "user-1", "is_demo": True}
+    )
 
-    run(service.push_create("user-1", {"id": "appt-1", "title": "Visita", "start": "2026-01-01T09:00:00"}))
+    run(
+        service.push_create(
+            "user-1",
+            {"id": "appt-1", "title": "Visita", "start": "2026-01-01T09:00:00"},
+        )
+    )
     # Nessuna eccezione = nessuna chiamata HTTP tentata (il fake alza AssertionError se chiamato).
 
 
 def test_push_update_non_chiama_google_per_account_demo(monkeypatch):
     monkeypatch.setattr(gcal_mod.requests, "patch", _fail_if_called)
     monkeypatch.setattr(gcal_mod.requests, "post", _fail_if_called)
-    service = build_push_service(_connected_valid_conn(), {"id": "user-1", "is_demo": True})
+    service = build_push_service(
+        _connected_valid_conn(), {"id": "user-1", "is_demo": True}
+    )
 
-    run(service.push_update("user-1", {"id": "appt-1", "title": "Visita", "start": "2026-01-01T09:00:00", "google_event_id": "evt-1"}))
+    run(
+        service.push_update(
+            "user-1",
+            {
+                "id": "appt-1",
+                "title": "Visita",
+                "start": "2026-01-01T09:00:00",
+                "google_event_id": "evt-1",
+            },
+        )
+    )
 
 
 def test_push_delete_non_chiama_google_per_account_demo(monkeypatch):
     monkeypatch.setattr(gcal_mod.requests, "delete", _fail_if_called)
-    service = build_push_service(_connected_valid_conn(), {"id": "user-1", "is_demo": True})
+    service = build_push_service(
+        _connected_valid_conn(), {"id": "user-1", "is_demo": True}
+    )
 
     run(service.push_delete("user-1", "evt-1"))
 
 
 def test_push_create_funziona_normalmente_per_utente_non_demo(monkeypatch):
     monkeypatch.setattr(
-        gcal_mod.requests, "post",
+        gcal_mod.requests,
+        "post",
         lambda *a, **k: FakeResponse(200, {"id": "evt-nuovo"}),
     )
     appt_repo = FakeApptRepo()
-    service = build_push_service(_connected_valid_conn(), {"id": "user-1", "is_demo": False}, appt_repo=appt_repo)
+    service = build_push_service(
+        _connected_valid_conn(), {"id": "user-1", "is_demo": False}, appt_repo=appt_repo
+    )
 
-    run(service.push_create("user-1", {"id": "appt-1", "title": "Visita", "start": "2026-01-01T09:00:00"}))
+    run(
+        service.push_create(
+            "user-1",
+            {"id": "appt-1", "title": "Visita", "start": "2026-01-01T09:00:00"},
+        )
+    )
 
     assert appt_repo.updates == [("appt-1", "user-1", {"google_event_id": "evt-nuovo"})]
 
 
 # ---------- handle_oauth_callback: connessione rifiutata per l'account demo ----------
 
+
 def _gcal_connect_state(user_id: str) -> str:
     return jwt.encode(
-        {"uid": user_id, "purpose": "gcal_connect", "exp": datetime.utcnow() + timedelta(minutes=10)},
-        JWT_SECRET, algorithm=JWT_ALG,
+        {
+            "uid": user_id,
+            "purpose": "gcal_connect",
+            "exp": datetime.utcnow() + timedelta(minutes=10),
+        },
+        JWT_SECRET,
+        algorithm=JWT_ALG,
     )
 
 
@@ -274,9 +325,15 @@ def test_callback_rifiuta_la_connessione_per_account_demo(monkeypatch):
     protezione, o per altra via), il callback non deve mai completare una
     connessione Google reale per l'account demo condiviso: i suoi eventi
     finirebbero sincronizzati e visibili a chiunque altro visiti la demo."""
-    monkeypatch.setattr(gcal_mod, "OAuth2Session", lambda *a, **k: (_ for _ in ()).throw(
-        AssertionError("nessuno scambio OAuth reale doveva partire per l'account demo")
-    ))
+    monkeypatch.setattr(
+        gcal_mod,
+        "OAuth2Session",
+        lambda *a, **k: (_ for _ in ()).throw(
+            AssertionError(
+                "nessuno scambio OAuth reale doveva partire per l'account demo"
+            )
+        ),
+    )
     service = build_push_service(None, {"id": "demo-user", "is_demo": True})
 
     state = _gcal_connect_state("demo-user")
@@ -290,7 +347,11 @@ def test_callback_funziona_normalmente_per_utente_non_demo(monkeypatch):
             pass
 
         def fetch_token(self, *a, **k):
-            return {"access_token": "tok", "refresh_token": "refresh", "expires_at": time.time() + 3600}
+            return {
+                "access_token": "tok",
+                "refresh_token": "refresh",
+                "expires_at": time.time() + 3600,
+            }
 
         def get(self, *a, **k):
             return FakeResponse(200, {"email": "agente@example.com"})
@@ -307,9 +368,12 @@ def test_callback_funziona_normalmente_per_utente_non_demo(monkeypatch):
 
 # ---------- _pull_for_connection: nessuna sincronizzazione in pull per il demo ----------
 
+
 def test_pull_non_chiama_google_per_account_demo(monkeypatch):
     monkeypatch.setattr(gcal_mod.requests, "get", _fail_if_called)
-    service = build_push_service(_connected_valid_conn(), {"id": "user-1", "is_demo": True})
+    service = build_push_service(
+        _connected_valid_conn(), {"id": "user-1", "is_demo": True}
+    )
 
     run(service._pull_for_connection(service.repo.conn))
     # Nessuna eccezione = nessuna chiamata HTTP tentata (il fake alza AssertionError se chiamato).

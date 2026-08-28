@@ -10,12 +10,20 @@ class FeedbackRepository:
         return doc
 
     async def find_many(self, limit: int = 500) -> list:
-        return await self.collection.find({}, {"_id": 0}).sort("created_at", -1).to_list(limit)
+        return (
+            await self.collection.find({}, {"_id": 0})
+            .sort("created_at", -1)
+            .to_list(limit)
+        )
 
     async def find_public(self, limit: int = 20) -> list:
-        return await self.collection.find(
-            {"approved": True, "publish_consent": True}, {"_id": 0}
-        ).sort("created_at", -1).to_list(limit)
+        return (
+            await self.collection.find(
+                {"approved": True, "publish_consent": True}, {"_id": 0}
+            )
+            .sort("created_at", -1)
+            .to_list(limit)
+        )
 
     async def find_one(self, fid: str):
         return await self.collection.find_one({"id": fid}, {"_id": 0})

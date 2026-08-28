@@ -1,10 +1,16 @@
 from core.utils import now_local
-from core.validation_limits import MAX_MONETARY_TARGET, SHORT_TEXT_MAX_LENGTH, LONG_TEXT_MAX_LENGTH
+from core.validation_limits import (
+    LONG_TEXT_MAX_LENGTH,
+    MAX_MONETARY_TARGET,
+    SHORT_TEXT_MAX_LENGTH,
+)
 from services.ai_service.catalog import _safe_float, _validate_commission_period
 from services.commission_service import commission_service
 
 
-async def prepare_add_commission(mandante_repo, client_repo, tool_input: dict, user_id: str) -> dict:
+async def prepare_add_commission(
+    mandante_repo, client_repo, tool_input: dict, user_id: str
+) -> dict:
     """Normalizza i campi di una provvigione manuale SENZA scrivere sul
     DB. Usato per mostrare la scheda di conferma: una provvigione manuale
     è sempre un record economico (non solo un tracciamento come una
@@ -65,14 +71,27 @@ async def prepare_add_commission(mandante_repo, client_repo, tool_input: dict, u
     return {
         "tool_name": "add_commission",
         "summary": {
-            "period": period, "amount": amount, "stato": stato, "tipo": tipo,
-            "descrizione": descrizione, "mandante_name": mandante_name, "client_name": client_name,
+            "period": period,
+            "amount": amount,
+            "stato": stato,
+            "tipo": tipo,
+            "descrizione": descrizione,
+            "mandante_name": mandante_name,
+            "client_name": client_name,
         },
         "resolved_input": {
-            "period": period, "amount": amount, "stato": stato, "tipo": tipo,
-            "descrizione": descrizione, "note": note,
-            "mandante_id": mandante_id, "mandante_name": mandante_name, "mandante_not_found": mandante_not_found,
-            "client_id": client_id, "client_name": client_name, "client_not_found": client_not_found,
+            "period": period,
+            "amount": amount,
+            "stato": stato,
+            "tipo": tipo,
+            "descrizione": descrizione,
+            "note": note,
+            "mandante_id": mandante_id,
+            "mandante_name": mandante_name,
+            "mandante_not_found": mandante_not_found,
+            "client_id": client_id,
+            "client_name": client_name,
+            "client_not_found": client_not_found,
         },
     }
 
@@ -104,9 +123,14 @@ async def finalize_add_commission(user_id: str, resolved: dict) -> str:
     note = (resolved.get("note") or "")[:LONG_TEXT_MAX_LENGTH]
 
     fields = {
-        "period": period, "amount": amount, "mandante_id": resolved.get("mandante_id"),
-        "client_id": resolved.get("client_id"), "descrizione": descrizione,
-        "stato": stato, "note": note, "tipo": tipo,
+        "period": period,
+        "amount": amount,
+        "mandante_id": resolved.get("mandante_id"),
+        "client_id": resolved.get("client_id"),
+        "descrizione": descrizione,
+        "stato": stato,
+        "note": note,
+        "tipo": tipo,
     }
     await commission_service.create_manual_commission({"id": user_id}, fields)
 

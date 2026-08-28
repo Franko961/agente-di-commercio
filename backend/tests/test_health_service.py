@@ -9,8 +9,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_health_service.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 sys.path.insert(0, ".")
 
@@ -55,8 +56,22 @@ def test_get_health_calcola_tasso_di_fallimento_ai(monkeypatch):
     fake_db = FakeDb(
         endpoints_rows=[],
         category_rows_sequence=[
-            [{"_id": "success", "count": 8, "sum_cost_usd": 0.01, "sum_tokens_in": 800, "sum_tokens_out": 400},
-             {"_id": "failure", "count": 2, "sum_cost_usd": 0.0, "sum_tokens_in": 0, "sum_tokens_out": 0}],
+            [
+                {
+                    "_id": "success",
+                    "count": 8,
+                    "sum_cost_usd": 0.01,
+                    "sum_tokens_in": 800,
+                    "sum_tokens_out": 400,
+                },
+                {
+                    "_id": "failure",
+                    "count": 2,
+                    "sum_cost_usd": 0.0,
+                    "sum_tokens_in": 0,
+                    "sum_tokens_out": 0,
+                },
+            ],
             [],  # email
             [],  # calendar_sync
         ],
@@ -88,10 +103,26 @@ def test_get_health_nessun_dato_non_rompe(monkeypatch):
 
 def test_get_health_ordina_endpoint_piu_lenti(monkeypatch):
     endpoints_rows = [
-        {"method": "GET", "path": "/api/dashboard/stats", "count": 100,
-         "avg_duration_ms": 850.0, "max_duration_ms": 1200.0, "status_4xx": 0, "status_5xx": 0, "error_rate_pct": 0.0},
-        {"method": "GET", "path": "/api/clients", "count": 500,
-         "avg_duration_ms": 45.0, "max_duration_ms": 200.0, "status_4xx": 0, "status_5xx": 0, "error_rate_pct": 0.0},
+        {
+            "method": "GET",
+            "path": "/api/dashboard/stats",
+            "count": 100,
+            "avg_duration_ms": 850.0,
+            "max_duration_ms": 1200.0,
+            "status_4xx": 0,
+            "status_5xx": 0,
+            "error_rate_pct": 0.0,
+        },
+        {
+            "method": "GET",
+            "path": "/api/clients",
+            "count": 500,
+            "avg_duration_ms": 45.0,
+            "max_duration_ms": 200.0,
+            "status_4xx": 0,
+            "status_5xx": 0,
+            "error_rate_pct": 0.0,
+        },
     ]
     fake_db = FakeDb(endpoints_rows=endpoints_rows, category_rows_sequence=[[], [], []])
     monkeypatch.setattr(health_service_mod, "db", fake_db)
@@ -105,10 +136,26 @@ def test_get_health_ordina_endpoint_piu_lenti(monkeypatch):
 
 def test_get_health_filtra_solo_endpoint_con_errori(monkeypatch):
     endpoints_rows = [
-        {"method": "GET", "path": "/api/ok", "count": 50,
-         "avg_duration_ms": 20.0, "max_duration_ms": 40.0, "status_4xx": 0, "status_5xx": 0, "error_rate_pct": 0.0},
-        {"method": "POST", "path": "/api/orders", "count": 20,
-         "avg_duration_ms": 30.0, "max_duration_ms": 60.0, "status_4xx": 1, "status_5xx": 2, "error_rate_pct": 15.0},
+        {
+            "method": "GET",
+            "path": "/api/ok",
+            "count": 50,
+            "avg_duration_ms": 20.0,
+            "max_duration_ms": 40.0,
+            "status_4xx": 0,
+            "status_5xx": 0,
+            "error_rate_pct": 0.0,
+        },
+        {
+            "method": "POST",
+            "path": "/api/orders",
+            "count": 20,
+            "avg_duration_ms": 30.0,
+            "max_duration_ms": 60.0,
+            "status_4xx": 1,
+            "status_5xx": 2,
+            "error_rate_pct": 15.0,
+        },
     ]
     fake_db = FakeDb(endpoints_rows=endpoints_rows, category_rows_sequence=[[], [], []])
     monkeypatch.setattr(health_service_mod, "db", fake_db)

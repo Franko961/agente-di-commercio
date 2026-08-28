@@ -16,20 +16,21 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     ANTHROPIC_API_KEY=test python -m pytest test_ai_pending_actions.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 sys.path.insert(0, ".")
 
 from tests.test_ai_tool_forcing import (
+    FAKE_USER,
+    Payload,
     build_service,
     build_service_with_offer,
     install_fake_anthropic,
     make_message,
     make_text_block,
     make_tool_use_block,
-    Payload,
-    FAKE_USER,
 )
 
 
@@ -44,12 +45,18 @@ def test_azione_in_attesa_viene_restituita_nel_formato_atteso_dal_frontend():
     responses = {
         "responses": [
             make_message(
-                [make_tool_use_block(
-                    "add_offer",
-                    {"client_name": "Rossi", "mandante_name": "Paginesi",
-                     "total_amount": 1500, "accepted": False},
-                    "tu_1",
-                )],
+                [
+                    make_tool_use_block(
+                        "add_offer",
+                        {
+                            "client_name": "Rossi",
+                            "mandante_name": "Paginesi",
+                            "total_amount": 1500,
+                            "accepted": False,
+                        },
+                        "tu_1",
+                    )
+                ],
                 stop_reason="tool_use",
             ),
             make_message(
@@ -79,11 +86,17 @@ def test_azione_confermata_non_compare_piu_tra_le_pendenti():
     responses = {
         "responses": [
             make_message(
-                [make_tool_use_block(
-                    "add_offer",
-                    {"client_name": "Rossi", "mandante_name": "Paginesi", "total_amount": 800},
-                    "tu_1",
-                )],
+                [
+                    make_tool_use_block(
+                        "add_offer",
+                        {
+                            "client_name": "Rossi",
+                            "mandante_name": "Paginesi",
+                            "total_amount": 800,
+                        },
+                        "tu_1",
+                    )
+                ],
                 stop_reason="tool_use",
             ),
             make_message([make_text_block("Ok.")], stop_reason="end_turn"),
@@ -97,9 +110,16 @@ def test_azione_confermata_non_compare_piu_tra_le_pendenti():
     pending = result["pending_actions"][0]
     log_id = pending["log_id"]
 
-    run(service.execute_confirmed_action(FAKE_USER, {
-        "tool_name": "add_offer", "resolved_input": pending["resolved_input"], "log_id": log_id,
-    }))
+    run(
+        service.execute_confirmed_action(
+            FAKE_USER,
+            {
+                "tool_name": "add_offer",
+                "resolved_input": pending["resolved_input"],
+                "log_id": log_id,
+            },
+        )
+    )
 
     still_pending = run(service.list_pending_actions(FAKE_USER["id"]))
     assert still_pending == []
@@ -109,11 +129,17 @@ def test_azione_annullata_non_compare_piu_tra_le_pendenti():
     responses = {
         "responses": [
             make_message(
-                [make_tool_use_block(
-                    "add_offer",
-                    {"client_name": "Rossi", "mandante_name": "Paginesi", "total_amount": 800},
-                    "tu_1",
-                )],
+                [
+                    make_tool_use_block(
+                        "add_offer",
+                        {
+                            "client_name": "Rossi",
+                            "mandante_name": "Paginesi",
+                            "total_amount": 800,
+                        },
+                        "tu_1",
+                    )
+                ],
                 stop_reason="tool_use",
             ),
             make_message([make_text_block("Ok.")], stop_reason="end_turn"),
@@ -138,7 +164,11 @@ def test_azioni_gia_eseguite_subito_non_compaiono_tra_le_pendenti():
     responses = {
         "responses": [
             make_message(
-                [make_tool_use_block("add_client", {"company_name": "Bar Rossi"}, "tu_1")],
+                [
+                    make_tool_use_block(
+                        "add_client", {"company_name": "Bar Rossi"}, "tu_1"
+                    )
+                ],
                 stop_reason="tool_use",
             ),
             make_message([make_text_block("Fatto.")], stop_reason="end_turn"),
@@ -156,14 +186,30 @@ def test_azioni_gia_eseguite_subito_non_compaiono_tra_le_pendenti():
 
 def test_pending_actions_filtra_per_utente():
     service, _ = build_service()
-    run(service.action_log_repo.insert({
-        "id": "l1", "user_id": "user-1", "tool_name": "add_offer", "status": "in_attesa",
-        "resolved_params": {"client_name": "Rossi"}, "channel": "voice",
-    }))
-    run(service.action_log_repo.insert({
-        "id": "l2", "user_id": "user-2", "tool_name": "add_offer", "status": "in_attesa",
-        "resolved_params": {"client_name": "Verdi"}, "channel": "chat",
-    }))
+    run(
+        service.action_log_repo.insert(
+            {
+                "id": "l1",
+                "user_id": "user-1",
+                "tool_name": "add_offer",
+                "status": "in_attesa",
+                "resolved_params": {"client_name": "Rossi"},
+                "channel": "voice",
+            }
+        )
+    )
+    run(
+        service.action_log_repo.insert(
+            {
+                "id": "l2",
+                "user_id": "user-2",
+                "tool_name": "add_offer",
+                "status": "in_attesa",
+                "resolved_params": {"client_name": "Verdi"},
+                "channel": "chat",
+            }
+        )
+    )
     pending = run(service.list_pending_actions("user-1"))
     assert len(pending) == 1
     assert pending[0]["log_id"] == "l1"
@@ -171,4 +217,5 @@ def test_pending_actions_filtra_per_utente():
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

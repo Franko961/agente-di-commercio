@@ -13,16 +13,17 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_trial_gate_host_header_spoofing.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 from fastapi import HTTPException
 
 sys.path.insert(0, ".")
 
-from core.security import create_access_token, get_current_user
 import core.security as security_mod
+from core.security import create_access_token, get_current_user
 from tests.test_impersonation import FakeDb
 
 
@@ -42,15 +43,23 @@ class SpoofedRequest:
         self.scope = {"path": real_scope_path}
 
 
-def test_gate_trial_usa_il_path_reale_non_quello_ricostruito_da_host_spoofato(monkeypatch):
+def test_gate_trial_usa_il_path_reale_non_quello_ricostruito_da_host_spoofato(
+    monkeypatch,
+):
     user_doc = {
-        "id": "user-42", "email": "utente@esempio.it", "role": "agent",
+        "id": "user-42",
+        "email": "utente@esempio.it",
+        "role": "agent",
         "subscription_status": "cancelled",
     }
     monkeypatch.setattr(security_mod, "db", FakeDb(user_doc))
     token = create_access_token("user-42", "utente@esempio.it")
 
-    request = SpoofedRequest(token, spoofed_url_path="/api/subscription/status", real_scope_path="/api/clients")
+    request = SpoofedRequest(
+        token,
+        spoofed_url_path="/api/subscription/status",
+        real_scope_path="/api/clients",
+    )
 
     with pytest.raises(HTTPException) as exc_info:
         run(get_current_user(request))
@@ -59,13 +68,19 @@ def test_gate_trial_usa_il_path_reale_non_quello_ricostruito_da_host_spoofato(mo
 
 def test_gate_trial_esenta_correttamente_quando_il_path_reale_e_esente(monkeypatch):
     user_doc = {
-        "id": "user-42", "email": "utente@esempio.it", "role": "agent",
+        "id": "user-42",
+        "email": "utente@esempio.it",
+        "role": "agent",
         "subscription_status": "cancelled",
     }
     monkeypatch.setattr(security_mod, "db", FakeDb(user_doc))
     token = create_access_token("user-42", "utente@esempio.it")
 
-    request = SpoofedRequest(token, spoofed_url_path="/api/clients", real_scope_path="/api/subscription/status")
+    request = SpoofedRequest(
+        token,
+        spoofed_url_path="/api/clients",
+        real_scope_path="/api/subscription/status",
+    )
 
     result = run(get_current_user(request))
     assert result["id"] == "user-42"

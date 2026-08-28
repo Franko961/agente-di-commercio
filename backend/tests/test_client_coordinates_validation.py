@@ -10,6 +10,7 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_client_coordinates_validation.py -v
 """
+
 import sys
 
 import pytest
