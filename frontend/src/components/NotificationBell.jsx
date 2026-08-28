@@ -4,7 +4,7 @@ import { Bell, CheckCheck } from "lucide-react";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { it } from "date-fns/locale";
 import { Popover, PopoverTrigger, PopoverContent } from "./ui/popover";
-import api from "../api";
+import { listNotifications, markNotificationRead } from "../api/automations";
 
 // Intervallo di aggiornamento del contatore: le automazioni girano ogni 10
 // minuti lato server (vedi backend/services/startup_service.py), quindi non
@@ -17,8 +17,7 @@ export default function NotificationBell() {
 
   const load = useCallback(async () => {
     try {
-      const { data } = await api.get("/automations/notifications");
-      setNotifications(data);
+      setNotifications(await listNotifications());
     } catch {
       // Silenzioso: la campanella non deve mai rompere il resto dell'app
       // se la chiamata fallisce occasionalmente (es. rete instabile).
@@ -36,7 +35,7 @@ export default function NotificationBell() {
   const markRead = async (id) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
     try {
-      await api.put(`/automations/notifications/${id}/read`);
+      await markNotificationRead(id);
     } catch {
       load(); // in caso di errore, riallinea allo stato reale del server
     }
@@ -45,7 +44,7 @@ export default function NotificationBell() {
   const markAllRead = async () => {
     const ids = unread.map((n) => n.id);
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    await Promise.all(ids.map((id) => api.put(`/automations/notifications/${id}/read`).catch(() => {})));
+    await Promise.all(ids.map((id) => markNotificationRead(id).catch(() => {})));
     load();
   };
 

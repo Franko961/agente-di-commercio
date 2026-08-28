@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState } from "react";
-import api from "../api";
+import { listAutomations, createAutomation, updateAutomation, deleteAutomation, getAutomationRuns } from "../api/automations";
 import { Plus, Trash2, Zap, Clock, CheckCircle2, AlertTriangle, History, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { Switch } from "../components/ui/switch";
@@ -67,11 +67,11 @@ export default function Automations() {
   const [editing, setEditing] = useState(null);
   const [historyFor, setHistoryFor] = useState(null);
 
-  const load = async () => { const { data } = await api.get("/automations"); setItems(data); };
+  const load = async () => { setItems(await listAutomations()); };
   useEffect(() => { load(); }, []);
 
   const toggle = async (a) => {
-    await api.put(`/automations/${a.id}`, { ...a, enabled: !a.enabled });
+    await updateAutomation(a.id, { ...a, enabled: !a.enabled });
     load();
   };
 
@@ -91,7 +91,7 @@ export default function Automations() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Nuova automazione</DialogTitle></DialogHeader>
-            <AutoForm onSave={async (f) => { await api.post("/automations", f); load(); toast.success("Regola creata"); setOpen(false); }} />
+            <AutoForm onSave={async (f) => { await createAutomation(f); load(); toast.success("Regola creata"); setOpen(false); }} />
           </DialogContent>
         </Dialog>
       </div>
@@ -116,7 +116,7 @@ export default function Automations() {
                 className="p-1.5 -m-1.5 text-[#6B6B72] hover:text-[#0A192F] hover:bg-[#F3F3F1] rounded transition-colors">
                 <Pencil className="w-4 h-4" />
               </button>
-              <button onClick={async () => { await api.delete(`/automations/${a.id}`); load(); }} title="Elimina automazione" aria-label="Elimina automazione"
+              <button onClick={async () => { await deleteAutomation(a.id); load(); }} title="Elimina automazione" aria-label="Elimina automazione"
                 className="p-1.5 -m-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded transition-colors">
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -139,7 +139,7 @@ export default function Automations() {
             <AutoForm
               initial={editing}
               onSave={async (f) => {
-                await api.put(`/automations/${editing.id}`, f);
+                await updateAutomation(editing.id, f);
                 load();
                 toast.success("Regola aggiornata");
                 setEditing(null);
@@ -216,7 +216,7 @@ function RunHistoryDialog({ automation, onClose }) {
   const [runs, setRuns] = useState(null);
 
   useEffect(() => {
-    api.get(`/automations/${automation.id}/runs`).then(({ data }) => setRuns(data));
+    getAutomationRuns(automation.id).then(setRuns);
   }, [automation.id]);
 
   return (
