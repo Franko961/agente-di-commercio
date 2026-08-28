@@ -5,9 +5,16 @@ import {
 } from "lucide-react";
 import SignatureCanvas from "react-signature-canvas";
 import { toast } from "sonner";
-import api from "../api";
 import { useAuth } from "../contexts/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
+import { listClients } from "../api/clients";
+import { listOrders } from "../api/orders";
+import { listEmployees } from "../api/employees";
+import { listAutomations, createAutomation, updateAutomation } from "../api/automations";
+import useVehicles from "../hooks/useVehicles";
+import useVehicleDeadlines from "../hooks/useVehicleDeadlines";
+import useVehicleCosts from "../hooks/useVehicleCosts";
+import useCargoLoads from "../hooks/useCargoLoads";
 
 const VEHICLE_TYPE_LABELS = { furgone: "Furgone", camion: "Camion", auto: "Auto", altro: "Altro" };
 const DEADLINE_TYPE_LABELS = { assicurazione: "Assicurazione", revisione: "Revisione", bollo: "Bollo", altro: "Altro" };
@@ -62,10 +69,19 @@ export default function Flotta() {
   const personaleEnabled = enabledExtraModules.includes("personale");
 
   const [tab, setTab] = useState("mezzi"); // mezzi | scadenze | costi | carico
-  const [vehicles, setVehicles] = useState([]);
-  const [deadlines, setDeadlines] = useState([]);
-  const [costs, setCosts] = useState([]);
-  const [loads, setLoads] = useState([]);
+  const {
+    vehicles, create: createVehicleApi, update: updateVehicleApi,
+    setActive: setVehicleActiveApi, remove: removeVehicleApi,
+  } = useVehicles();
+  const {
+    deadlines, create: createDeadlineApi, update: updateDeadlineApi, remove: removeDeadlineApi,
+  } = useVehicleDeadlines();
+  const {
+    costs, create: createCostApi, update: updateCostApi, remove: removeCostApi,
+  } = useVehicleCosts();
+  const {
+    loads, create: createLoadApi, update: updateLoadApi, sign: signLoadApi, remove: removeLoadApi,
+  } = useCargoLoads();
   const [clients, setClients] = useState([]);
   const [orders, setOrders] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -85,16 +101,12 @@ export default function Flotta() {
   const [reminderAutomation, setReminderAutomation] = useState(null);
   const [reminderDays, setReminderDays] = useState(REMINDER_DAY_OPTIONS);
 
-  const loadVehicles = async () => { const { data } = await api.get("/vehicles"); setVehicles(data); };
-  const loadDeadlines = async () => { const { data } = await api.get("/vehicle-deadlines"); setDeadlines(data); };
-  const loadCosts = async () => { const { data } = await api.get("/vehicle-costs"); setCosts(data); };
-  const loadLoads = async () => { const { data } = await api.get("/cargo-loads"); setLoads(data); };
-  const loadClients = async () => { if (!clientiEnabled) return; const { data } = await api.get("/clients"); setClients(data); };
-  const loadOrders = async () => { if (!ordiniEnabled) return; const { data } = await api.get("/orders"); setOrders(data); };
-  const loadEmployees = async () => { if (!personaleEnabled) return; const { data } = await api.get("/employees"); setEmployees(data); };
+  const loadClients = async () => { if (!clientiEnabled) return; setClients(await listClients()); };
+  const loadOrders = async () => { if (!ordiniEnabled) return; setOrders(await listOrders()); };
+  const loadEmployees = async () => { if (!personaleEnabled) return; setEmployees(await listEmployees()); };
   const loadReminderAutomation = async () => {
     if (!automazioniEnabled) return;
-    const { data } = await api.get("/automations");
+    const data = await listAutomations();
     const existing = data.find((a) => a.trigger === "vehicle_deadline");
     if (existing) {
       setReminderAutomation(existing);
@@ -103,7 +115,6 @@ export default function Flotta() {
   };
 
   useEffect(() => {
-    loadVehicles(); loadDeadlines(); loadCosts(); loadLoads();
     loadClients(); loadOrders(); loadEmployees(); loadReminderAutomation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -131,9 +142,9 @@ export default function Flotta() {
       enabled: true, config: { reminder_days: next },
     };
     if (reminderAutomation) {
-      await api.put(`/automations/${reminderAutomation.id}`, payload);
+      await updateAutomation(reminderAutomation.id, payload);
     } else {
-      const { data } = await api.post("/automations", payload);
+      const data = await createAutomation(payload);
       setReminderAutomation(data);
     }
     toast.success("Promemoria aggiornati");
@@ -141,77 +152,69 @@ export default function Flotta() {
 
   // ---------- firma consegna ----------
   const signLoad = async (signature, signerName) => {
-    await api.post(`/cargo-loads/${signTarget.id}/sign`, { signature, signer_name: signerName });
+    await signLoadApi(signTarget.id, { signature, signer_name: signerName });
     toast.success("Consegna firmata");
     setSignTarget(null);
-    loadLoads();
   };
 
   // ---------- mezzi ----------
   const saveVehicle = async (f) => {
     if (vehicleEditTarget) {
-      await api.put(`/vehicles/${vehicleEditTarget.id}`, f);
+      await updateVehicleApi(vehicleEditTarget.id, f);
       toast.success("Mezzo aggiornato");
       setVehicleEditTarget(null);
     } else {
-      await api.post("/vehicles", f);
+      await createVehicleApi(f);
       toast.success("Mezzo aggiunto");
       setVehicleOpen(false);
     }
-    loadVehicles();
   };
   const toggleVehicleActive = async (v) => {
-    await api.patch(`/vehicles/${v.id}/active`, { active: !v.active });
+    await setVehicleActiveApi(v.id, !v.active);
     toast.success(v.active ? "Mezzo disattivato" : "Mezzo riattivato");
-    loadVehicles();
   };
   const deleteVehicle = async (v) => {
     if (!window.confirm(`Eliminare "${v.plate}"? Scadenze, costi e carichi già registrati restano nello storico. Se vuoi solo toglierlo dalla flotta attiva, puoi disattivarlo invece.`)) return;
-    await api.delete(`/vehicles/${v.id}`);
+    await removeVehicleApi(v.id);
     toast.success("Mezzo eliminato");
-    loadVehicles();
   };
 
   // ---------- scadenze ----------
   const saveDeadline = async (f) => {
     const payload = { ...f };
     if (deadlineEditTarget) {
-      await api.put(`/vehicle-deadlines/${deadlineEditTarget.id}`, payload);
+      await updateDeadlineApi(deadlineEditTarget.id, payload);
       toast.success("Scadenza aggiornata");
       setDeadlineEditTarget(null);
     } else {
-      await api.post("/vehicle-deadlines", payload);
+      await createDeadlineApi(payload);
       toast.success("Scadenza aggiunta");
       setDeadlineOpen(false);
     }
-    loadDeadlines();
   };
   const deleteDeadline = async (id) => {
     if (!window.confirm("Eliminare questa scadenza?")) return;
-    await api.delete(`/vehicle-deadlines/${id}`);
+    await removeDeadlineApi(id);
     toast.success("Scadenza eliminata");
-    loadDeadlines();
   };
 
   // ---------- costi ----------
   const saveCost = async (f) => {
     const payload = { ...f, amount: parseFloat(f.amount) };
     if (costEditTarget) {
-      await api.put(`/vehicle-costs/${costEditTarget.id}`, payload);
+      await updateCostApi(costEditTarget.id, payload);
       toast.success("Costo aggiornato");
       setCostEditTarget(null);
     } else {
-      await api.post("/vehicle-costs", payload);
+      await createCostApi(payload);
       toast.success("Costo aggiunto");
       setCostOpen(false);
     }
-    loadCosts();
   };
   const deleteCost = async (id) => {
     if (!window.confirm("Eliminare questo costo?")) return;
-    await api.delete(`/vehicle-costs/${id}`);
+    await removeCostApi(id);
     toast.success("Costo eliminato");
-    loadCosts();
   };
 
   // ---------- carico ----------
@@ -225,21 +228,19 @@ export default function Flotta() {
       peso: f.peso ? parseFloat(f.peso) : null,
     };
     if (loadEditTarget) {
-      await api.put(`/cargo-loads/${loadEditTarget.id}`, payload);
+      await updateLoadApi(loadEditTarget.id, payload);
       toast.success("Carico aggiornato");
       setLoadEditTarget(null);
     } else {
-      await api.post("/cargo-loads", payload);
+      await createLoadApi(payload);
       toast.success("Carico aggiunto");
       setLoadOpen(false);
     }
-    loadLoads();
   };
   const deleteLoad = async (id) => {
     if (!window.confirm("Eliminare questo carico?")) return;
-    await api.delete(`/cargo-loads/${id}`);
+    await removeLoadApi(id);
     toast.success("Carico eliminato");
-    loadLoads();
   };
 
   return (
