@@ -4,10 +4,11 @@ import {
   Users, AlertTriangle, RefreshCw, Power, PowerOff,
 } from "lucide-react";
 import { toast } from "sonner";
-import api from "../api";
+import { listLeaveRequests, decideLeaveRequest, deleteLeaveRequest } from "../api/employees";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { exportLeaveRequests } from "../utils/export";
 import EmployeeDetailSheet from "../components/EmployeeDetailSheet";
+import useEmployees from "../hooks/useEmployees";
 
 const TYPE_LABELS = { ferie: "Ferie", permesso: "Permesso", malattia: "Malattia" };
 const TYPE_COLORS = { ferie: "#B23E00", permesso: "#0A192F", malattia: "#DC2626" };
@@ -31,30 +32,26 @@ function formatApiError(err, fallback = "Operazione non riuscita") {
 
 export default function Personale() {
   const [tab, setTab] = useState("richieste"); // richieste | dipendenti
-  const [employees, setEmployees] = useState([]);
+  const { employees, create: createEmployee, remove: removeEmployee, setActive, regenerateToken: regenerateEmployeeToken, reload: loadEmployees } = useEmployees();
   const [requests, setRequests] = useState([]);
   const [open, setOpen] = useState(false);
   const [detailTarget, setDetailTarget] = useState(null);
   const [newLink, setNewLink] = useState(null); // { name, token } — mostrato una sola volta dopo creazione/rigenerazione
   const [deleteTarget, setDeleteTarget] = useState(null); // dipendente per cui è aperta la scelta disattiva/elimina
 
-  const loadEmployees = async () => {
-    const { data } = await api.get("/employees");
-    setEmployees(data);
-  };
   const loadRequests = async () => {
-    const { data } = await api.get("/leave-requests");
+    const data = await listLeaveRequests();
     setRequests(data);
   };
 
-  useEffect(() => { loadEmployees(); loadRequests(); }, []);
+  useEffect(() => { loadRequests(); }, []);
 
   const pending = requests.filter((r) => r.status === "in_attesa");
   const decided = requests.filter((r) => r.status !== "in_attesa");
 
   const decide = async (id, status) => {
     try {
-      await api.patch(`/leave-requests/${id}/decision`, { status });
+      await decideLeaveRequest(id, { status });
       toast.success(status === "approvata" ? "Richiesta approvata" : "Richiesta rifiutata");
       loadRequests();
     } catch (err) {
@@ -65,7 +62,7 @@ export default function Personale() {
   const deleteRequest = async (r) => {
     if (!window.confirm(`Eliminare la richiesta di ${TYPE_LABELS[r.type].toLowerCase()} di ${r.employee_name}?`)) return;
     try {
-      await api.delete(`/leave-requests/${r.id}`);
+      await deleteLeaveRequest(r.id);
       toast.success("Richiesta eliminata");
       loadRequests();
     } catch (err) {
@@ -75,11 +72,10 @@ export default function Personale() {
 
   const saveEmployee = async (f) => {
     try {
-      const { data } = await api.post("/employees", f);
+      const data = await createEmployee(f);
       toast.success("Dipendente aggiunto");
       setOpen(false);
       setNewLink({ name: data.name, token: data.request_token });
-      loadEmployees();
     } catch (err) {
       toast.error(formatApiError(err, "Salvataggio non riuscito"));
     }
@@ -92,10 +88,9 @@ export default function Personale() {
 
   const confirmDelete = async () => {
     try {
-      await api.delete(`/employees/${deleteTarget.id}`);
+      await removeEmployee(deleteTarget.id);
       toast.success("Dipendente eliminato");
       setDeleteTarget(null);
-      loadEmployees();
     } catch (err) {
       toast.error(err?.response?.data?.detail || "Eliminazione non riuscita");
     }
@@ -104,7 +99,7 @@ export default function Personale() {
   const regenerateToken = async (emp) => {
     if (!window.confirm(`Rigenerare il link di "${emp.name}"? Il link precedente smetterà subito di funzionare.`)) return;
     try {
-      const { data } = await api.post(`/employees/${emp.id}/regenerate-token`);
+      const data = await regenerateEmployeeToken(emp.id);
       toast.success("Nuovo link generato");
       setNewLink({ name: emp.name, token: data.request_token });
     } catch (err) {
@@ -114,9 +109,8 @@ export default function Personale() {
 
   const toggleActive = async (emp) => {
     try {
-      await api.patch(`/employees/${emp.id}/active`, { active: !emp.active });
+      await setActive(emp.id, !emp.active);
       toast.success(emp.active ? "Dipendente disattivato" : "Dipendente riattivato");
-      loadEmployees();
     } catch (err) {
       toast.error(err?.response?.data?.detail || "Operazione non riuscita");
     }
