@@ -1,5 +1,4 @@
 ﻿import { useEffect, useState } from "react";
-import api from "../api";
 import { Plus, Trash2, FileText, Send, Check, X, Download, PenLine } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { format, parseISO } from "date-fns";
@@ -9,6 +8,10 @@ import { exportOffers } from "../utils/export";
 import SignaturePad from "../components/SignaturePad";
 import ProductCombobox from "../components/ProductCombobox";
 import { useMandante } from "../contexts/MandanteContext";
+import { listClients } from "../api/clients";
+import { listMandanti } from "../api/mandanti";
+import { listProducts } from "../api/products";
+import useOffers from "../hooks/useOffers";
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
 
@@ -19,33 +22,28 @@ const STATUS_COLORS = {
 export default function Offers() {
   const { activeMandante } = useMandante();
   const mandanteParam = activeMandante && activeMandante !== "all" ? activeMandante : undefined;
-  const [offers, setOffers] = useState([]);
+  const { offers: rawOffers, create: createOffer, remove: removeOffer, setStatus: setOfferStatus, sign: signOfferApi } = useOffers({ mandante_id: mandanteParam });
+  const offers = [...rawOffers].sort((a, b) => b.created_at.localeCompare(a.created_at));
   const [clients, setClients] = useState([]);
   const [mandanti, setMandanti] = useState([]);
   const [products, setProducts] = useState([]);
   const [open, setOpen] = useState(false);
   const [signOffer, setSignOffer] = useState(null);
 
-  const load = async () => {
-    const [o, c, m, p] = await Promise.all([
-      api.get("/offers", { params: { mandante_id: mandanteParam } }),
-      api.get("/clients"), api.get("/mandanti"), api.get("/products"),
-    ]);
-    setOffers(o.data.sort((a, b) => b.created_at.localeCompare(a.created_at)));
-    setClients(c.data); setMandanti(m.data); setProducts(p.data);
-  };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [mandanteParam]);
+  useEffect(() => {
+    Promise.all([listClients(), listMandanti(), listProducts()]).then(([c, m, p]) => {
+      setClients(c); setMandanti(m); setProducts(p);
+    });
+  }, []);
 
   const setStatus = async (id, status) => {
-    await api.patch(`/offers/${id}/status`, { status });
+    await setOfferStatus(id, status);
     toast.success(status === "accettata" ? "Offerta accettata — ordine e provvigione generati" : `Offerta ${status}`);
-    load();
   };
 
   const onSignSubmit = async (signatureDataUrl, signerName) => {
-    await api.post(`/offers/${signOffer.id}/sign`, { signature: signatureDataUrl, signer_name: signerName });
+    await signOfferApi(signOffer.id, { signature: signatureDataUrl, signer_name: signerName });
     toast.success("Offerta firmata — ordine e provvigione generati. PDF in download.");
-    load();
   };
 
   return (
@@ -71,7 +69,7 @@ export default function Offers() {
           </DialogTrigger>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Nuova offerta</DialogTitle></DialogHeader>
-            <OfferForm clients={clients} mandanti={mandanti} products={products} onSave={async (f) => { await api.post("/offers", f); load(); toast.success("Offerta creata"); setOpen(false); }} />
+            <OfferForm clients={clients} mandanti={mandanti} products={products} onSave={async (f) => { await createOffer(f); toast.success("Offerta creata"); setOpen(false); }} />
           </DialogContent>
         </Dialog>
         </div>
@@ -86,7 +84,7 @@ export default function Offers() {
             <div key={o.id} data-testid={`offer-card-${o.id}`} className="bg-white border border-[#E4E4E1] rounded-md p-4">
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div className="font-mono text-[10px] uppercase tracking-widest" style={{ color: STATUS_COLORS[o.status] }}>{o.status}</div>
-                <button onClick={async () => { await api.delete(`/offers/${o.id}`); load(); }} title="Elimina offerta" aria-label="Elimina offerta"
+                <button onClick={() => removeOffer(o.id)} title="Elimina offerta" aria-label="Elimina offerta"
                   className="p-1.5 -m-1.5 text-[#6B6B72] hover:text-red-500 hover:bg-red-50 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
               <div className="font-cabinet font-bold text-[15px] leading-tight mb-2">{o.title}</div>
