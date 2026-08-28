@@ -1,9 +1,14 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import api from "../api";
 import { Coins, Download, Trash2, Pencil, Trophy, ChevronRight, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { exportCommissions } from "../utils/export";
 import { useMandante } from "../contexts/MandanteContext";
+import { listClients } from "../api/clients";
+import { listMandanti } from "../api/mandanti";
+import {
+  listCommissions, getBonusSummary, updateCommissionStatus, deleteCommission as deleteCommissionApi,
+  listManualCommissions, createManualCommission, updateManualCommission, deleteManualCommission,
+} from "../api/commissions";
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
 // Mese di calendario locale, non new Date().toISOString().slice(0,7): quel
@@ -79,17 +84,17 @@ export default function Commissions() {
 
   const load = async () => {
     const [c, cl, m, bs, mc] = await Promise.all([
-      api.get("/commissions", { params: { mandante_id: mandanteParam } }),
-      api.get("/clients"),
-      api.get("/mandanti"),
-      api.get("/commissions/bonus-summary").catch(() => ({ data: [] })),
-      api.get("/commissions/manual").catch(() => ({ data: [] })),
+      listCommissions({ mandante_id: mandanteParam }),
+      listClients(),
+      listMandanti(),
+      getBonusSummary().catch(() => []),
+      listManualCommissions().catch(() => []),
     ]);
-    setCommissions(c.data);
-    setClients(cl.data);
-    setMandanti(m.data);
-    setBonusSummary(bs.data);
-    setManualCommissions(mc.data);
+    setCommissions(c);
+    setClients(cl);
+    setMandanti(m);
+    setBonusSummary(bs);
+    setManualCommissions(mc);
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [mandanteParam]);
 
@@ -151,7 +156,7 @@ const periodGroups = useMemo(
 );
 
   const setStatus = async (id, status) => {
-    await api.patch(`/commissions/${id}/status`, { status });
+    await updateCommissionStatus(id, status);
     toast.success("Stato aggiornato");
     load();
   };
@@ -179,10 +184,10 @@ const periodGroups = useMemo(
         tipo: manualForm.tipo,
       };
       if (editingManualId) {
-        await api.put(`/commissions/manual/${editingManualId}`, payload);
+        await updateManualCommission(editingManualId, payload);
         toast.success("Provvigione manuale aggiornata");
       } else {
-        await api.post("/commissions/manual", payload);
+        await createManualCommission(payload);
         toast.success("Provvigione manuale aggiunta");
       }
       setExpandedPeriods((prev) => new Set(prev).add(manualForm.period));
@@ -197,7 +202,7 @@ const periodGroups = useMemo(
 
   const removeManualCommission = async (id, period) => {
     if (!window.confirm(`Rimuovere questa provvigione manuale di ${periodLabel(period)}?`)) return;
-    await api.delete(`/commissions/manual/${id}`);
+    await deleteManualCommission(id);
     if (editingManualId === id) startNewManualEntry();
     toast.success("Provvigione manuale rimossa");
     load();
@@ -205,7 +210,7 @@ const periodGroups = useMemo(
 
   const deleteCommission = async (id) => {
     if (!window.confirm("Eliminare questa provvigione?")) return;
-    await api.delete(`/commissions/${id}`);
+    await deleteCommissionApi(id);
     toast.success("Provvigione eliminata");
     load();
   };
