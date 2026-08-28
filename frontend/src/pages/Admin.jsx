@@ -1,5 +1,9 @@
 ﻿import { useEffect, useState } from "react";
-import api from "../api";
+import {
+  getAdminStats, listAdminUsers, updateAdminUser, deleteAdminUser,
+  impersonateUser, getAdminHealth, getAuditLog,
+} from "../api/admin";
+import { listFeedbackAdmin, setFeedbackApproved, deleteFeedback } from "../api/feedback";
 import {
   Users, TrendingUp, CreditCard, Pencil, Trash2, Check, X,
   Activity, AlertTriangle, Mail, CalendarClock, Bot, ShieldCheck, Clock, LogIn, Eye, Star, ToggleLeft,
@@ -104,18 +108,18 @@ function BusinessTab() {
 
   const load = async () => {
     const [s, u] = await Promise.all([
-      api.get("/admin/stats"),
-      api.get(`/admin/users?page=${page}&limit=50`),
+      getAdminStats(),
+      listAdminUsers(page, 50),
     ]);
-    setStats(s.data);
-    setUsers(u.data.users);
-    setTotal(u.data.total);
+    setStats(s);
+    setUsers(u.users);
+    setTotal(u.total);
   };
 
   useEffect(() => { load(); }, [page]);
 
   const updateUser = async (id, payload) => {
-    await api.patch(`/admin/users/${id}`, payload);
+    await updateAdminUser(id, payload);
     toast.success("Utente aggiornato");
     setEditUser(null);
     load();
@@ -123,7 +127,7 @@ function BusinessTab() {
 
   const deleteUser = async (id, email) => {
     if (!window.confirm(`Eliminare l'utente ${email}?`)) return;
-    await api.delete(`/admin/users/${id}`);
+    await deleteAdminUser(id);
     toast.success("Utente eliminato");
     load();
   };
@@ -185,7 +189,7 @@ function BusinessTab() {
     }
     setSubmittingImpersonate(true);
     try {
-      await api.post(`/admin/users/${impersonateTarget.id}/impersonate`, {
+      await impersonateUser(impersonateTarget.id, {
         mode: impersonateTarget.mode,
         category: impersonateCategory,
         reason: impersonateTarget.mode === "edit" ? impersonateReason.trim() : undefined,
@@ -470,8 +474,7 @@ function HealthTab() {
   const load = async (h) => {
     setLoading(true);
     try {
-      const { data } = await api.get("/admin/health", { params: { hours: h } });
-      setHealth(data);
+      setHealth(await getAdminHealth(h));
     } catch {
       toast.error("Impossibile caricare i dati di salute applicativa");
     } finally {
@@ -628,7 +631,7 @@ function AuditTab() {
   const load = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get("/admin/audit-log", { params: { page, limit: 50 } });
+      const data = await getAuditLog(page, 50);
       setEntries(data.entries);
       setTotal(data.total);
     } finally {
@@ -705,8 +708,7 @@ function FeedbackTab() {
   const load = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get("/admin/feedback");
-      setItems(data);
+      setItems(await listFeedbackAdmin());
     } finally {
       setLoading(false);
     }
@@ -715,14 +717,14 @@ function FeedbackTab() {
   useEffect(() => { load(); }, []);
 
   const setApproved = async (id, approved) => {
-    await api.patch(`/admin/feedback/${id}`, { approved });
+    await setFeedbackApproved(id, approved);
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, approved } : i)));
     toast.success(approved ? "Feedback approvato" : "Approvazione revocata");
   };
 
   const remove = async (id) => {
     if (!window.confirm("Eliminare definitivamente questo feedback?")) return;
-    await api.delete(`/admin/feedback/${id}`);
+    await deleteFeedback(id);
     setItems((prev) => prev.filter((i) => i.id !== id));
     toast.success("Feedback eliminato");
   };
