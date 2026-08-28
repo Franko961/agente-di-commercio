@@ -1,7 +1,7 @@
 ﻿import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Mic, MicOff, Loader2, X, Volume2, VolumeX, Sparkles } from "lucide-react";
-import api from "../api";
+import { getAiPendingActions, sendAiChatMessage, executeAiAction, cancelAiAction } from "../api/ai";
 import { cleanForSpeech } from "../utils/speechClean";
 import AIActionConfirm from "./AIActionConfirm";
 
@@ -41,7 +41,7 @@ export default function VoiceAssistant() {
   // pagina, pur restando "in_attesa" sul DB e potenzialmente eseguibili in
   // un secondo momento senza che l'utente se ne accorgesse.
   useEffect(() => {
-    api.get("/ai/pending-actions").then(({ data }) => {
+    getAiPendingActions().then((data) => {
       if (Array.isArray(data) && data.length > 0) {
         setPendingActions(data);
         setAnswer("Hai operazioni in sospeso da una richiesta precedente, non ancora confermate:");
@@ -82,7 +82,7 @@ export default function VoiceAssistant() {
     setQuestion(text);
     setStatus("sending");
     try {
-      const { data } = await api.post("/ai/chat", { message: text, channel: "voice" });
+      const data = await sendAiChatMessage({ message: text, channel: "voice" });
       const actions = data.actions || [];
       const fullText = actions.length > 0 ? actions.join("\n") + (data.response ? "\n\n" + data.response : "") : data.response;
       setAnswer(fullText || "Fatto.");
@@ -100,7 +100,7 @@ export default function VoiceAssistant() {
     const action = pendingActions[idx];
     setExecutingIdx(idx);
     try {
-      const { data } = await api.post("/ai/execute-action", {
+      const data = await executeAiAction({
         tool_name: action.tool_name, resolved_input: resolvedInput, log_id: action.log_id,
       });
       setAnswer((prev) => `${prev}\n\n${data.message}`);
@@ -126,7 +126,7 @@ export default function VoiceAssistant() {
     const action = pendingActions[idx];
     setExecutingIdx(idx);
     try {
-      await api.post("/ai/cancel-action", { log_id: action.log_id });
+      await cancelAiAction({ log_id: action.log_id });
       setPendingActions((prev) => prev.filter((_, i) => i !== idx));
     } catch (e) {
       // Non rimuoviamo la scheda se l'annullamento non è confermato dal

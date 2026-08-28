@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from "react";
-import api from "../api";
+import { getAttendanceTodaySummary } from "../api/attendance";
+import { getDashboardStats, getDashboardToday } from "../api/dashboard";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   LineChart, Line, PieChart, Pie, Cell
@@ -44,7 +45,7 @@ function PresenzeWidget() {
   const [summary, setSummary] = useState(null);
 
   useEffect(() => {
-    api.get("/attendance/today-summary").then(({ data }) => setSummary(data)).catch(() => {});
+    getAttendanceTodaySummary().then(setSummary).catch(() => {});
   }, []);
 
   // Nessun dipendente registrato: il widget non aggiungerebbe informazione utile.
@@ -219,12 +220,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (noCoreModules) return;
-    api.get("/dashboard/stats", { params: { mandante_id: mandanteParam } }).then(({ data }) => setData(data));
+    getDashboardStats(mandanteParam).then(setData);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mandanteParam, noCoreModules]);
   useEffect(() => {
     if (noCoreModules) return;
-    api.get("/dashboard/today", { params: { mandante_id: mandanteParam } }).then(({ data }) => setToday(data)).catch(() => {});
+    getDashboardToday(mandanteParam).then(setToday).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mandanteParam, noCoreModules]);
 
