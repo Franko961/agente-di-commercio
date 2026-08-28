@@ -3,7 +3,7 @@ import { useNavigate, Navigate, useSearchParams, Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import { Eye, EyeOff, CreditCard } from "lucide-react";
-import api from "../api";
+import { checkoutExpired } from "../api/subscription";
 import usePlans from "../hooks/usePlans";
 import CountUp from "../components/CountUp";
 
@@ -34,7 +34,7 @@ export default function Login() {
   const startCheckout = async (checkoutPlan) => {
     setCheckingOut(true);
     try {
-      const { data } = await api.post("/subscription/checkout-expired", {
+      const data = await checkoutExpired({
         email: email.trim().toLowerCase(),
         password,
         plan: checkoutPlan,

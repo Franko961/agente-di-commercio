@@ -1,5 +1,8 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import api from "../api";
+import {
+  getMe, login as loginApi, register as registerApi, logout as logoutApi,
+  exitImpersonation as exitImpersonationApi, markOnboardingSeen as markOnboardingSeenApi,
+} from "../api/auth";
 
 const AuthContext = createContext(null);
 
@@ -23,8 +26,8 @@ export function AuthProvider({ children }) {
       setLoading(false);
       return;
     }
-    api.get("/auth/me")
-      .then(({ data }) => setUser(data))
+    getMe()
+      .then((data) => setUser(data))
       .catch(() => {
         // Suggerimento non più valido (es. cookie di sessione scaduto dopo
         // 7 giorni): lo rimuoviamo per non ripetere la chiamata a vuoto a
@@ -35,21 +38,21 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (email, password) => {
-    const { data } = await api.post("/auth/login", { email, password });
+    const data = await loginApi(email, password);
     localStorage.setItem(HAS_SESSION_HINT_KEY, "1");
     setUser(data);
     return data;
   };
 
   const register = async (name, email, password, plan="base") => {
-    const { data } = await api.post("/auth/register", { name, email, password, plan });
+    const data = await registerApi(name, email, password, plan);
     localStorage.setItem(HAS_SESSION_HINT_KEY, "1");
     setUser(data);
     return data;
   };
 
   const logout = async () => {
-    try { await api.post("/auth/logout"); } catch (e) {}
+    try { await logoutApi(); } catch (e) {}
     localStorage.removeItem(HAS_SESSION_HINT_KEY);
     setUser(null);
   };
@@ -61,7 +64,7 @@ export function AuthProvider({ children }) {
   // dall'utente sparso nell'app (mandanti, notifiche, ecc.), non solo
   // "user" in questo context.
   const exitImpersonation = async () => {
-    try { await api.post("/auth/exit-impersonation"); } catch (e) {}
+    try { await exitImpersonationApi(); } catch (e) {}
     window.location.href = "/app/admin";
   };
 
@@ -69,7 +72,7 @@ export function AuthProvider({ children }) {
     // Ottimista: nasconde subito la guida anche se la chiamata al backend
     // fallisse o fosse lenta, così l'utente non resta bloccato a guardarla.
     setUser((prev) => (prev ? { ...prev, onboarding_seen: true } : prev));
-    try { await api.post("/auth/onboarding-seen"); } catch (e) {}
+    try { await markOnboardingSeenApi(); } catch (e) {}
   };
 
   return (

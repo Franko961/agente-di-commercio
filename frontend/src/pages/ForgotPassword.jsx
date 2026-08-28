@@ -1,7 +1,7 @@
 ﻿import { useState } from "react";
 import { Link } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
-import api from "../api";
+import { forgotPassword } from "../api/auth";
 import { toast } from "sonner";
 
 export default function ForgotPassword() {
@@ -15,7 +15,7 @@ export default function ForgotPassword() {
     setError("");
     setBusy(true);
     try {
-      await api.post("/auth/forgot-password", { email: email.trim().toLowerCase() });
+      await forgotPassword(email.trim().toLowerCase());
       // Il backend risponde sempre con lo stesso messaggio generico, esista o
       // meno l'email, per non rivelare quali indirizzi sono registrati.
       setSent(true);

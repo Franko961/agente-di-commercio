@@ -1,7 +1,7 @@
 ﻿import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Eye, EyeOff, CheckCircle2 } from "lucide-react";
-import api from "../api";
+import { resetPassword } from "../api/auth";
 import { toast } from "sonner";
 
 export default function ResetPassword() {
@@ -29,7 +29,7 @@ export default function ResetPassword() {
     }
     setBusy(true);
     try {
-      await api.post("/auth/reset-password", { token, new_password: password });
+      await resetPassword(token, password);
       setDone(true);
       toast.success("Password aggiornata con successo");
       setTimeout(() => navigate("/login"), 2000);
