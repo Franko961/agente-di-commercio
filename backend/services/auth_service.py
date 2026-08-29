@@ -27,7 +27,7 @@ class AuthService:
     def __init__(self, repo=user_repository):
         self.repo = repo
 
-    async def register(self, payload, ip_address: Optional[str] = None) -> dict:
+    async def register(self, payload, ip_address: Optional[str] = None) -> tuple:
         # Endpoint pubblico che crea un account VERO (con dati demo seminati)
         # e manda un'email di benvenuto: stesso rischio già sistemato su
         # /api/demo-requests — senza un limite di frequenza, uno script

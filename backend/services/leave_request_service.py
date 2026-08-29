@@ -209,7 +209,7 @@ class LeaveRequestService:
         volo ad ogni lettura (non salvato sul documento) così resta
         corretto anche quando lo stato di una delle richieste coinvolte
         cambia in seguito."""
-        by_employee = {}
+        by_employee: dict[str, list] = {}
         for r in requests:
             if r["status"] != "rifiutata":
                 by_employee.setdefault(r["employee_id"], []).append(r)

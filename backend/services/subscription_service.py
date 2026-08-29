@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime, timezone
+from typing import Optional
 
 import requests
 from fastapi import HTTPException, Request
@@ -96,7 +97,7 @@ class SubscriptionService:
         }
 
     async def create_checkout_for_expired_account(
-        self, payload: dict, ip_address: str = None
+        self, payload: dict, ip_address: Optional[str] = None
     ) -> dict:
         """Avvia un checkout Stripe per un account con trial scaduto (quindi bloccato al
         login). Non richiede un cookie di sessione valido: verifica email+password una
@@ -162,7 +163,7 @@ class SubscriptionService:
                 customer=customer_id,
                 payment_method_types=["card"],
                 mode="subscription",
-                line_items=[{"price": plan["stripe_price_id"], "quantity": 1}],
+                line_items=[{"price": str(plan["stripe_price_id"]), "quantity": 1}],
                 success_url=f"{payload.get('return_url', FRONTEND_URL)}/abbonamento?success=stripe",
                 cancel_url=f"{payload.get('return_url', FRONTEND_URL)}/abbonamento?cancelled=1",
                 metadata={"user_id": user["id"], "plan": plan_id},
@@ -344,7 +345,7 @@ class SubscriptionService:
                 f"{PAYPAL_API_BASE}/v1/billing/subscriptions",
                 headers={"Authorization": f"Bearer {token}"},
                 json={
-                    "plan_id": plan["paypal_plan_id"],
+                    "plan_id": str(plan["paypal_plan_id"]),
                     "application_context": {
                         "brand_name": "Salesfly",
                         "return_url": f"{return_base}/abbonamento?paypal_return=1",
@@ -571,7 +572,12 @@ class SubscriptionService:
                 sub = stripe.Subscription.modify(
                     u["stripe_subscription_id"], cancel_at_period_end=True
                 )
-                period_end = sub.get("current_period_end")
+                # stripe.Subscription supporta .get() a runtime (eredita da un
+                # mixin dict-like) ed è quello che i test si aspettano di poter
+                # mockare con un semplice dict — getattr() qui romperebbe
+                # silenziosamente entrambi i casi, restituendo sempre None.
+                # Gli stub di tipo non dichiarano .get(), da cui il type: ignore.
+                period_end = sub.get("current_period_end")  # type: ignore[attr-defined]
                 if period_end:
                     cancel_at = datetime.fromtimestamp(
                         period_end, tz=timezone.utc

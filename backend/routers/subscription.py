@@ -24,7 +24,9 @@ async def create_stripe_session(
 
 
 @router.post("/checkout-expired")
-async def checkout_expired(payload: dict = Body(...), request: Request = None):
+# FastAPI riconosce l'iniezione automatica di Request solo con l'annotazione
+# esatta `Request` (vedi lo stesso caso in routers/admin.py::make_admin).
+async def checkout_expired(payload: dict = Body(...), request: Request = None):  # type: ignore[assignment]
     """Endpoint pubblico: permette di avviare un pagamento Stripe a un utente il cui
     trial è scaduto e che quindi non può più autenticarsi. Richiede email+password
     nel body per verificare che sia il titolare dell'account (vedi payload atteso:

@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
-from typing import Optional
+from typing import Optional, overload
 
 from models.expense import EXPENSE_CATEGORIES
 from models.order import ORDER_STATUSES, PAYMENT_STATUSES
@@ -65,7 +65,11 @@ TOOL_MODULE = {
 }
 
 
-def _safe_float(value, default: float = 0.0) -> float:
+@overload
+def _safe_float(value, default: float = 0.0) -> float: ...
+@overload
+def _safe_float(value, default: None) -> Optional[float]: ...
+def _safe_float(value, default=0.0):
     """Converte in float in modo sicuro un valore che può arrivare dall'AI
     (quindi potenzialmente testuale, mancante o malformato: es. un numero
     scritto in lettere, una stringa vuota, None) o da una modifica manuale

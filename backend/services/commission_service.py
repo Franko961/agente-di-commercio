@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from core.exceptions import NotFoundError
 from core.utils import gen_id, now_iso, now_local
@@ -139,7 +139,9 @@ class CommissionService:
             }
             await self.repo.insert(bonus_comm)
 
-    async def list_commissions(self, user: dict, mandante_id: str = None) -> list:
+    async def list_commissions(
+        self, user: dict, mandante_id: Optional[str] = None
+    ) -> list:
         return await self.repo.find_many(user["id"], mandante_id)
 
     async def bonus_summary(self, user: dict) -> list:
@@ -185,7 +187,7 @@ class CommissionService:
             )
         return result
 
-    async def update_status(self, user: dict, cid: str, status: str) -> None:
+    async def update_status(self, user: dict, cid: str, status: Optional[str]) -> None:
         await self.repo.update_status(cid, user["id"], status)
 
     async def delete_commission(self, user: dict, cid: str) -> None:
@@ -209,7 +211,10 @@ class CommissionService:
         await self.manual_repo.delete(cid, user["id"])
 
     async def get_effective_commissions(
-        self, user: dict, mandante_id: str = None, client_id: str = None
+        self,
+        user: dict,
+        mandante_id: Optional[str] = None,
+        client_id: Optional[str] = None,
     ) -> list:
         """Provvigioni "vere" per dashboard/obiettivi/briefing AI/export/
         report: unisce quelle calcolate dagli ordini con quelle inserite

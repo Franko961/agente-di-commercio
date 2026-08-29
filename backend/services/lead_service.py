@@ -1,3 +1,5 @@
+from typing import Optional
+
 from core.exceptions import NotFoundError
 from core.utils import gen_id, now_iso
 from repositories.lead_repository import lead_repository
@@ -37,7 +39,7 @@ class LeadService:
     async def update_status(self, user: dict, lid: str, status: str) -> None:
         await self.repo.update_status(lid, user["id"], status, now_iso())
 
-    async def log_contact(self, user: dict, lid: str, note: str = "") -> None:
+    async def log_contact(self, user: dict, lid: str, note: Optional[str] = "") -> None:
         """Registra esplicitamente un contatto avvenuto (chiamata, email,
         incontro) con il lead — l'azione da usare quando si vuole segnalare
         un'interazione reale senza necessariamente cambiare altri dati."""

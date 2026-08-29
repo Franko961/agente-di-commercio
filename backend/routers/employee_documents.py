@@ -48,7 +48,9 @@ async def upload_employee_document(
     eid: str,
     file: UploadFile = File(...),
     name: str = Form(""),
-    category: Literal[*EMPLOYEE_DOCUMENT_CATEGORIES] = Form("altro"),
+    # Stesso caso di routers/documents.py: mypy non risolve lo star-unpack di
+    # un tuple non-Final in Literal[...], pur funzionando a runtime.
+    category: Literal[*EMPLOYEE_DOCUMENT_CATEGORIES] = Form("altro"),  # type: ignore[valid-type]
     notes: str = Form(""),
     user=Depends(forbid_demo_write),
 ):

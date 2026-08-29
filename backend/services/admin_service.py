@@ -28,7 +28,11 @@ class AdminService:
         self.repo = repo
 
     async def _record_audit(
-        self, actor: str, action: str, target_user_id: str = None, detail: dict = None
+        self,
+        actor: str,
+        action: str,
+        target_user_id: Optional[str] = None,
+        detail: Optional[dict] = None,
     ) -> None:
         """Traccia ogni azione amministrativa distruttiva/sensibile (chi,
         cosa, su chi, quando) — distinto dal registro azioni AI già
@@ -125,7 +129,9 @@ class AdminService:
         total = await self.repo.count_agents()
         return {"users": users, "total": total, "page": page}
 
-    async def update_user(self, uid: str, payload: dict, admin: dict = None) -> None:
+    async def update_user(
+        self, uid: str, payload: dict, admin: Optional[dict] = None
+    ) -> None:
         update = {k: v for k, v in payload.items() if k in ALLOWED_USER_UPDATE_FIELDS}
         if not update:
             raise HTTPException(400, "Nessun campo valido")
@@ -143,13 +149,13 @@ class AdminService:
                 raise HTTPException(400, "enabled_extra_modules non valido")
         await self.repo.update_user(uid, update)
         await self._record_audit(
-            admin.get("email", admin.get("id")) if admin else "sconosciuto",
+            str(admin.get("email", admin.get("id"))) if admin else "sconosciuto",
             "update_user",
             target_user_id=uid,
             detail=update,
         )
 
-    async def delete_user(self, uid: str, admin: dict = None) -> None:
+    async def delete_user(self, uid: str, admin: Optional[dict] = None) -> None:
         # Riusa lo stesso nucleo di cancellazione della cancellazione
         # self-service (services/gdpr_service._erase_user_data): prima
         # cancellava solo il documento utente, lasciando un eventuale
@@ -159,7 +165,7 @@ class AdminService:
         # molto più superficiale a seconda di chi la avviava.
         await gdpr_service._erase_user_data(uid)
         await self._record_audit(
-            admin.get("email", admin.get("id")) if admin else "sconosciuto",
+            str(admin.get("email", admin.get("id"))) if admin else "sconosciuto",
             "delete_user",
             target_user_id=uid,
         )
@@ -215,7 +221,7 @@ class AdminService:
         if mode == "edit":
             detail["reason"] = reason
         await self._record_audit(
-            admin.get("email", admin.get("id")),
+            str(admin.get("email", admin.get("id"))),
             "impersonate_user",
             target_user_id=uid,
             detail=detail,
@@ -228,7 +234,7 @@ class AdminService:
         target_user_id: str,
         target_email: str,
         mode: str,
-        started_at: datetime = None,
+        started_at: Optional[datetime] = None,
     ) -> None:
         """Traccia la FINE di una sessione di impersonificazione (vedi
         impersonate_user per l'inizio): senza questo, l'audit log diceva solo

@@ -410,7 +410,11 @@ class GoogleCalendarService:
         if not token:
             return
 
-        params = {"singleEvents": "true", "showDeleted": "true", "maxResults": 250}
+        # maxResults come stringa (non int): requests la stringificherebbe
+        # comunque nella query, ma così il dict resta dict[str, str] invece
+        # di dict[str, object] (misto str/int), che requests.get(params=...)
+        # non accetta secondo i suoi stub di tipo.
+        params = {"singleEvents": "true", "showDeleted": "true", "maxResults": "250"}
         sync_token = conn.get("sync_token")
         if sync_token:
             params["syncToken"] = sync_token

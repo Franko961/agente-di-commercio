@@ -6,12 +6,17 @@ from dotenv import load_dotenv
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / ".env")
 
-JWT_SECRET = os.environ.get("JWT_SECRET")
-if not JWT_SECRET:
+_jwt_secret = os.environ.get("JWT_SECRET")
+if not _jwt_secret:
     raise RuntimeError(
         "JWT_SECRET non impostata. Imposta la variabile d'ambiente JWT_SECRET "
         "prima di avviare l'app — è obbligatoria per la sicurezza dei token di accesso."
     )
+# Tipizzato esplicitamente str (non Optional[str] come os.environ.get()): il
+# controllo sopra garantisce già a runtime che non sia mai None qui in poi —
+# senza questa annotazione ogni modulo che importa JWT_SECRET lo vedrebbe
+# comunque come Optional[str] per mypy, pur essendo sempre valorizzato.
+JWT_SECRET: str = _jwt_secret
 JWT_ALG = "HS256"
 
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")

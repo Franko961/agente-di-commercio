@@ -16,3 +16,7 @@ exclude = .venv,.git,__pycache__
 per-file-ignores =
     # __init__.py di services/ai_service re-esporta simboli da catalog.py/pricing.py per uso esterno.
     __init__.py: F401
+    # catalog.py usa @overload per _safe_float (due firme distinte a seconda del
+    # default): black tiene volutamente compatta la catena, senza le 2 righe
+    # vuote che E302 vorrebbe tra funzioni di primo livello.
+    services/ai_service/catalog.py: E302

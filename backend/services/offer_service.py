@@ -1,3 +1,5 @@
+from typing import Optional
+
 from core.exceptions import NotFoundError
 from core.utils import gen_id, now_iso
 from repositories.client_repository import client_repository
@@ -29,7 +31,7 @@ class OfferService:
         if not await self.mandante_repo.find_one(mandante_id, user_id):
             raise NotFoundError("Mandante non trovato")
 
-    async def list_offers(self, user: dict, mandante_id: str = None) -> list:
+    async def list_offers(self, user: dict, mandante_id: Optional[str] = None) -> list:
         return await self.repo.find_many(user["id"], mandante_id)
 
     async def create_offer(self, user: dict, payload) -> dict:
@@ -63,7 +65,7 @@ class OfferService:
         await self.repo.delete(oid, user["id"])
 
     async def sign_offer(
-        self, user: dict, oid: str, signature: str, signer_name: str
+        self, user: dict, oid: str, signature: str, signer_name: Optional[str]
     ) -> None:
         signed_at = now_iso()
         matched = await self.repo.sign(

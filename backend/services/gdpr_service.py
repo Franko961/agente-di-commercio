@@ -161,7 +161,7 @@ class GdprService:
             # inclusi in dati.json. Recuperati singolarmente da S3 — se uno
             # fallisce (file mancante/corrotto), l'export prosegue comunque
             # con gli altri, annotando l'errore invece di far fallire tutto.
-            seen_names = {}
+            seen_names: dict[str, int] = {}
             for doc in bundle["documenti"]:
                 storage_path = doc.get("storage_path")
                 if not storage_path:
@@ -195,7 +195,7 @@ class GdprService:
             # Stessa logica per i documenti caricati sulla scheda dipendente
             # (contratti, documenti d'identità, patenti — vedi
             # routers/employee_documents.py), in una sottocartella separata.
-            seen_names_emp = {}
+            seen_names_emp: dict[str, int] = {}
             for doc in bundle["documenti_dipendenti"]:
                 storage_path = doc.get("storage_path")
                 if not storage_path:

@@ -104,12 +104,19 @@ async def chat(service, user: dict, payload) -> dict:
         total_web_searches = 0
 
         # Primo turno — potrebbe usare tool
+        # tools/messages sono costruiti dinamicamente (catalogo tool + storico
+        # conversazione) come dict "grezzi" nella forma JSON che l'SDK accetta
+        # davvero a runtime, non come i TypedDict esatti (ToolParam/
+        # MessageParam) che i suoi stub di tipo richiedono — riscrivere tutta
+        # la costruzione di catalog.py/context.py per farli combaciare
+        # staticamente è un refactor a sé, troppo rischioso su questo codice
+        # da fare qui.
         message = client_ai.messages.create(
             model=AI_MODEL,
             max_tokens=1024,
             system=system,
-            tools=all_tools,
-            messages=messages,
+            tools=all_tools,  # type: ignore[arg-type]
+            messages=messages,  # type: ignore[arg-type]
         )
         _in, _out, _ws = _usage_tokens(message)
         total_input_tokens += _in
@@ -232,12 +239,15 @@ async def chat(service, user: dict, payload) -> dict:
                     {"role": "assistant", "content": message.content},
                     {"role": "user", "content": tool_results},
                 ]
+                # Stesso motivo del type: ignore sul primo message.create()
+                # più sopra: tools/messages sono dict costruiti dinamicamente,
+                # non i TypedDict esatti attesi dagli stub dell'SDK.
                 message = client_ai.messages.create(
                     model=AI_MODEL,
                     max_tokens=1024,
                     system=system,
-                    tools=all_tools,
-                    messages=messages,
+                    tools=all_tools,  # type: ignore[arg-type]
+                    messages=messages,  # type: ignore[arg-type]
                 )
                 _in, _out, _ws = _usage_tokens(message)
                 total_input_tokens += _in
@@ -259,7 +269,11 @@ async def chat(service, user: dict, payload) -> dict:
                 messages = messages + [
                     {"role": "assistant", "content": message.content}
                 ]
-                message = client_ai.messages.create(
+                # Stesso motivo dei due type: ignore più sopra — qui in più
+                # tool_choice fa risolvere a mypy un overload diverso di
+                # create(), che fallisce sull'intera chiamata invece che sui
+                # singoli argomenti.
+                message = client_ai.messages.create(  # type: ignore[call-overload]
                     model=AI_MODEL,
                     max_tokens=1024,
                     system=system,

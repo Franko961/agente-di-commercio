@@ -53,7 +53,11 @@ async def create_document(payload: DocumentIn, user=Depends(forbid_demo_write)):
 async def upload_document(
     file: UploadFile = File(...),
     name: str = Form(...),
-    category: Literal[*DOCUMENT_CATEGORIES] = Form("altro"),
+    # DOCUMENT_CATEGORIES è una list, non un tuple Final di letterali: mypy
+    # non riesce a risolvere staticamente lo star-unpack in Literal[...],
+    # anche se funziona correttamente a runtime (FastAPI/Pydantic valutano
+    # Literal[*DOCUMENT_CATEGORIES] normalmente in fase di definizione).
+    category: Literal[*DOCUMENT_CATEGORIES] = Form("altro"),  # type: ignore[valid-type]
     client_id: Optional[str] = Form(None),
     notes: str = Form(""),
     tags: str = Form(""),

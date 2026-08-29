@@ -1,3 +1,5 @@
+from typing import Optional
+
 from core.exceptions import ConflictError, NotFoundError
 from core.utils import gen_id, now_iso, now_local
 from repositories.client_repository import client_repository
@@ -65,7 +67,7 @@ class OrderService:
             o["commission"] = by_order_id.get(o["id"])
         return orders
 
-    async def list_orders(self, user: dict, mandante_id: str = None) -> list:
+    async def list_orders(self, user: dict, mandante_id: Optional[str] = None) -> list:
         orders = await self.repo.find_many(user["id"], mandante_id)
         return await self._attach_commissions(user["id"], orders)
 
