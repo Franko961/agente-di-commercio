@@ -1,5 +1,5 @@
 """
-Verifica _endpoint_problems() (services.startup_service): la logica che
+Verifica _endpoint_problems() (services.startup.monitoring_jobs): la logica che
 decide quali endpoint con errori finiscono nell'email di allerta anomalie.
 
 Il caso che ha motivato questo fix: GET /api/auth/me risponde 401 ogni volta
@@ -17,7 +17,7 @@ import sys
 
 sys.path.insert(0, ".")
 
-from services.startup_service import (
+from services.startup.monitoring_jobs import (
     ALERT_MIN_SAMPLE_SIZE,
     _endpoint_problems,
 )

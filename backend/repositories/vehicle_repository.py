@@ -28,7 +28,7 @@ class VehicleRepository:
         )
 
     async def insert(self, doc: dict) -> dict:
-        # L'indice univoco su (user_id, plate) — vedi startup_service.run_startup
+        # L'indice univoco su (user_id, plate) — vedi services.startup.indexes
         # — è l'ultima linea di difesa contro due mezzi con la stessa targa:
         # find_by_plate() in vehicle_service è già un check preventivo, ma da
         # solo è un check-then-act che due richieste concorrenti potrebbero

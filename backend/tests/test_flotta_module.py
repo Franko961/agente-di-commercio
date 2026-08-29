@@ -72,7 +72,7 @@ class FakeVehicleRepo:
 
     async def insert(self, doc):
         # Simula l'indice univoco MongoDB su (user_id, plate) — vedi
-        # startup_service.run_startup e vehicle_repository.insert: al
+        # services.startup.indexes e vehicle_repository.insert: al
         # massimo un mezzo per targa/utente, indipendentemente da cosa
         # abbia visto find_by_plate() poco prima.
         for d in self.docs.values():

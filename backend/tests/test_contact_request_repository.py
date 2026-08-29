@@ -1,7 +1,7 @@
 """
 Verifica ContactRequestRepository.delete_older_than(): la pulizia periodica
 dei messaggi dal form contatti vecchi (vedi
-startup_service._contact_request_cleanup_loop). Stesso schema di
+services.startup.cleanup_jobs._contact_request_cleanup_loop). Stesso schema di
 test_demo_request_repository.py: created_at è salvato come stringa ISO (non
 una data BSON nativa), quindi il filtro è un confronto testuale — questo
 test verifica che tale confronto selezioni davvero solo i record più

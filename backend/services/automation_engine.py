@@ -4,7 +4,7 @@ Il modello/servizio/router delle automazioni (models.automation,
 services.automation_service, repositories.automation_repository) gestiscono
 solo il CRUD della regola: nome, trigger, azione, config, enabled. Questo
 modulo è il pezzo che mancava — chiamato periodicamente da
-services.startup_service — e che:
+services.startup.monitoring_jobs — e che:
 
   1. scorre le automazioni ATTIVE di tutti gli utenti;
   2. per ognuna, valuta la condizione del trigger (offer_expiring,

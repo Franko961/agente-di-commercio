@@ -33,7 +33,7 @@ class OrderRepository:
 
     async def insert(self, doc: dict) -> dict:
         # L'indice univoco su (user_id, numero_ordine) — vedi
-        # startup_service.run_startup — è l'ultima linea di difesa contro i
+        # services.startup.indexes — è l'ultima linea di difesa contro i
         # duplicati: next_order_number() è atomico e non collide mai da
         # solo, ma numero_ordine resta un campo modificabile a mano da form
         # (creazione/modifica), quindi un valore digitato dall'utente
@@ -42,7 +42,7 @@ class OrderRepository:
             await self.collection.insert_one(doc)
         except DuplicateKeyError as e:
             # Distingue quale dei due indici univoci ha bloccato l'insert
-            # (vedi startup_service.run_startup): stesso doc, due possibili
+            # (vedi services.startup.indexes): stesso doc, due possibili
             # collisioni con causa e messaggio diversi.
             key_pattern = (e.details or {}).get("keyPattern", {})
             if "source_offer_id" in key_pattern:

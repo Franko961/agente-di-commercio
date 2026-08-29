@@ -72,7 +72,7 @@ EXCLUDED_FROM_USER_SCOPED_COLLECTIONS = {
     # Telemetria operativa a breve termine, già con TTL nativo che la
     # elimina automaticamente indipendentemente da qualunque account
     # (rate_limit_events: 2 ore; system_events: 30 giorni; api_metrics_minute:
-    # 7 giorni — vedi startup_service.py/core/observability.py) — non è
+    # 7 giorni — vedi services/startup/indexes.py/core/observability.py) — non è
     # "il dato dell'utente" nel senso della portabilità, è un cruscotto di
     # salute del servizio.
     "rate_limit_events",
@@ -96,7 +96,7 @@ EXCLUDED_FROM_USER_SCOPED_COLLECTIONS = {
     # raggiungibili da un export/cancellazione account — non c'è uno user_id
     # da seguire. La loro retention è comunque limitata: pulizia periodica a
     # 24 mesi, stesso principio di demo_requests (vedi
-    # CONTACT_REQUEST_RETENTION_DAYS in startup_service.py).
+    # CONTACT_REQUEST_RETENTION_DAYS in services/startup/cleanup_jobs.py).
     "contact_requests",
     # Lock distribuiti per i cicli periodici multi-replica (vedi
     # repositories/job_lock_repository.py): un documento per NOME DI JOB
@@ -311,7 +311,7 @@ class GdprService:
         # questi casi:
         # - retention definita, non indefinita: TTL parziale dedicato solo
         #   a questo tipo di voce (SELF_DELETE_AUDIT_RETENTION_DAYS in
-        #   startup_service.py, 12 mesi), diverso dall'audit amministrativo
+        #   services/startup/indexes.py, 12 mesi), diverso dall'audit amministrativo
         #   "normale" (azioni di uno staff admin su un altro utente), che
         #   resta senza scadenza per un motivo diverso (responsabilità
         #   verso terzi, non verso l'interessato stesso);

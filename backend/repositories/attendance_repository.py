@@ -74,7 +74,7 @@ class AttendanceRepository:
 
     async def insert(self, doc: dict) -> dict:
         # L'indice parziale univoco su (employee_id, user_id) con
-        # clock_out=null (vedi startup_service.run_startup) è l'ultima
+        # clock_out=null (vedi services.startup.indexes) è l'ultima
         # linea di difesa contro due sessioni aperte per lo stesso
         # dipendente: il controllo find_open_session()+insert() in
         # attendance_service non è atomico da solo, quindi due timbrature

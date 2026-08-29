@@ -18,7 +18,7 @@ _CANCELLED_STATUSES = ("annullato", "reso")
 
 # Quante volte ritentare con il numero ordine successivo se quello generato
 # automaticamente da next_order_number() collide con un numero già esistente
-# (indice univoco su user_id+numero_ordine — vedi startup_service). Può
+# (indice univoco su user_id+numero_ordine — vedi services.startup.indexes). Può
 # succedere solo se un numero è stato in precedenza inserito a mano con un
 # valore che il contatore automatico raggiunge più avanti (es. l'utente
 # digita "ORD-0050" quando il contatore è ancora a 10): un caso raro ma
@@ -221,7 +221,7 @@ class OrderService:
             # Rete di sicurezza per la race condition che il check sopra da
             # solo non copre (due richieste concorrenti sulla stessa offerta
             # arrivate quasi insieme): l'indice univoco DB su
-            # (user_id, source_offer_id) — vedi startup_service — ha bloccato
+            # (user_id, source_offer_id) — vedi services.startup.indexes — ha bloccato
             # l'insert duplicato. Non è un vero errore per l'utente: l'altra
             # richiesta ha già creato l'ordine, lo recuperiamo e restituiamo
             # invece di propagare un 409, per restare idempotente anche qui.

@@ -9,7 +9,7 @@ from core.database import db
 # Un documento per (kind, key) — non più uno per tentativo — con un array
 # "attempts" dei soli timestamp ancora dentro la finestra (i vecchi vengono
 # filtrati via ad ogni chiamata). L'indice univoco su (kind, key) e il TTL su
-# last_updated sono creati in startup_service.py.
+# last_updated sono creati in services/startup/indexes.py.
 COLLECTION = db.rate_limit_events
 
 
