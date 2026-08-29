@@ -174,7 +174,9 @@ class DashboardService:
                 months[key] = months.get(key, 0) + o.get("total", 0)
         monthly = sorted(
             [{"month": k, "revenue": round(v, 2)} for k, v in months.items()],
-            key=lambda m: m["month"],
+            # cast a str: il dict ha valori misti (month: str, revenue: float),
+            # mypy inferisce ogni valore come "object", non ordinabile.
+            key=lambda m: str(m["month"]),
         )[-6:]
 
         # Monthly expenses by category (last 6 months) — per grafico a barre impilate
@@ -210,7 +212,9 @@ class DashboardService:
                 {"category": k, "amount": round(v, 2)}
                 for k, v in exp_by_category.items()
             ],
-            key=lambda x: -x["amount"],
+            # stesso motivo del cast sopra: dict a valori misti (category:
+            # str, amount: float) -> object non tipizzato per l'operatore -.
+            key=lambda x: -float(x["amount"]),
         )
 
         # Upcoming appointments (next 7 days). Qui "today"/"week_later" sono

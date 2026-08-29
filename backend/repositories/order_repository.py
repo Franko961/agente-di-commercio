@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
@@ -8,7 +10,7 @@ from core.exceptions import ConflictError
 class OrderRepository:
     collection = db.orders
 
-    async def find_many(self, user_id: str, mandante_id: str = None) -> list:
+    async def find_many(self, user_id: str, mandante_id: Optional[str] = None) -> list:
         query = {"user_id": user_id}
         if mandante_id:
             query["mandante_id"] = mandante_id

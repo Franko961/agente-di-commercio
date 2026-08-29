@@ -68,3 +68,27 @@ check_untyped_defs = true
 # di test deliberato, non un bug, che mypy non può verificare staticamente.
 # pytest è già una rete di sicurezza molto più efficace per il codice dei test.
 exclude = ["^tests/"]
+
+[[tool.mypy.overrides]]
+# Motor (il driver MongoDB async) ha una compatibilità mypy nota per essere
+# incompleta: i suoi metodi generici (es. find_one) risolvono a "None" invece
+# di "Optional[_DocumentType]" quando la collection non è parametrizzata
+# esplicitamente (com'è ovunque in questo codebase — vedi core/database.py),
+# causando falsi "Function does not return a value" su ogni find_one/
+# find_one_and_update del repository layer. follow_imports = "skip" dice a
+# mypy di non fidarsi dei tipi di motor invece di far collassare a None ogni
+# funzione che ne usa il risultato.
+module = "motor.*"
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+# Stesso motivo del type: ignore già usato in routers/documents.py e
+# routers/employee_documents.py: molti modelli usano Literal[*TUPLE_DI_STATI]
+# per derivare un Literal dalle costanti di stato/categoria già definite
+# altrove (single source of truth), invece di duplicarle come stringhe
+# letterali nell'annotazione — funziona correttamente a runtime (Pydantic
+# valuta lo star-unpack), ma mypy non risolve staticamente lo star-unpack
+# senza un tuple Final di soli letterali. disable_error_code invece di
+# type: ignore su ~17 righe sparse in altrettanti modelli.
+module = "models.*"
+disable_error_code = ["valid-type"]

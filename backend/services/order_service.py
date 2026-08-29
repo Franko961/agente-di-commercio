@@ -130,12 +130,12 @@ class OrderService:
         items: list,
         sale_type: str = "nuovo",
         notes: str = "",
-        source_offer_id: str = None,
-        numero_ordine: str = None,
+        source_offer_id: Optional[str] = None,
+        numero_ordine: Optional[str] = None,
         status: str = "confermato",
         payment_status: str = "non_pagato",
-        expected_delivery_date: str = None,
-        delivery_date: str = None,
+        expected_delivery_date: Optional[str] = None,
+        delivery_date: Optional[str] = None,
     ) -> dict:
         total = calc_offer_total(items)
         auto_generate = not numero_ordine

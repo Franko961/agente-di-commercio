@@ -13,7 +13,7 @@ class ExpenseRepository:
         date_from: Optional[str] = None,
         date_to: Optional[str] = None,
     ) -> list:
-        query = {"user_id": user_id}
+        query: dict = {"user_id": user_id}
         if category:
             query["category"] = category
         if date_from or date_to:

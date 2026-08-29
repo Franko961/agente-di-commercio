@@ -37,7 +37,16 @@ class GeocodingService:
         try:
             resp = requests.get(
                 NOMINATIM_URL,
-                params={"format": "json", "q": query, "limit": 5, "countrycodes": "it"},
+                # "limit" come stringa (non int): requests la stringificherebbe
+                # comunque nella query, ma così il dict resta dict[str, str]
+                # invece di dict[str, object] (misto str/int), che
+                # requests.get(params=...) non accetta secondo i suoi stub.
+                params={
+                    "format": "json",
+                    "q": query,
+                    "limit": "5",
+                    "countrycodes": "it",
+                },
                 headers={"User-Agent": _USER_AGENT},
                 timeout=8,
             )

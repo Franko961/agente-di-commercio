@@ -1,10 +1,12 @@
+from typing import Optional
+
 from core.database import db
 
 
 class LeaveRequestRepository:
     collection = db.leave_requests
 
-    async def find_many(self, user_id: str, status: str = None) -> list:
+    async def find_many(self, user_id: str, status: Optional[str] = None) -> list:
         query = {"user_id": user_id}
         if status:
             query["status"] = status

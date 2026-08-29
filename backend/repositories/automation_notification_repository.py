@@ -16,7 +16,7 @@ class AutomationNotificationRepository:
     async def find_many(
         self, user_id: str, unread_only: bool = False, limit: int = 100
     ) -> list:
-        query = {"user_id": user_id}
+        query: dict = {"user_id": user_id}
         if unread_only:
             query["read"] = False
         return (

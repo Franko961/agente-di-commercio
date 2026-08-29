@@ -50,7 +50,7 @@ class AiActionLogRepository:
         date_to: Optional[str] = None,
         limit: int = 200,
     ) -> list:
-        query = {"user_id": user_id}
+        query: dict = {"user_id": user_id}
         if tool_name:
             query["tool_name"] = tool_name
         if status:

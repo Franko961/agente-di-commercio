@@ -1,10 +1,12 @@
+from typing import Optional
+
 from core.database import db
 
 
 class CommissionRepository:
     collection = db.commissions
 
-    async def find_many(self, user_id: str, mandante_id: str = None) -> list:
+    async def find_many(self, user_id: str, mandante_id: Optional[str] = None) -> list:
         query = {"user_id": user_id}
         if mandante_id:
             query["mandante_id"] = mandante_id

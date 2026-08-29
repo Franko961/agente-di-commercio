@@ -127,8 +127,8 @@ class ClientService:
 
         to_insert = []
         skipped = []
-        seen_vat = set()
-        seen_name_city = set()
+        seen_vat: set = set()
+        seen_name_city: set = set()
 
         for idx, item in enumerate(payload.clients, start=1):
             if not item.company_name.strip():

@@ -7,7 +7,7 @@ class ClientRepository:
     collection = db.clients
 
     async def find_many(
-        self, user_id: str, filters: dict, mandante_id: str = None
+        self, user_id: str, filters: dict, mandante_id: Optional[str] = None
     ) -> list:
         query = {"user_id": user_id, **filters}
         if mandante_id:

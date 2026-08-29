@@ -1,8 +1,11 @@
+from typing import Optional
+
+
 class AppError(Exception):
     status_code = 500
     detail = "Errore interno"
 
-    def __init__(self, detail: str = None):
+    def __init__(self, detail: Optional[str] = None):
         if detail:
             self.detail = detail
         super().__init__(self.detail)

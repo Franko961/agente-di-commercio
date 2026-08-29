@@ -1,3 +1,5 @@
+from typing import Optional
+
 from core.database import db
 
 
@@ -9,12 +11,14 @@ class AppointmentRepository:
             2000
         )
 
-    async def find_one(self, aid: str, user_id: str) -> dict:
+    async def find_one(self, aid: str, user_id: str) -> Optional[dict]:
         return await self.collection.find_one(
             {"id": aid, "user_id": user_id}, {"_id": 0}
         )
 
-    async def find_by_google_event_id(self, user_id: str, google_event_id: str) -> dict:
+    async def find_by_google_event_id(
+        self, user_id: str, google_event_id: str
+    ) -> Optional[dict]:
         return await self.collection.find_one(
             {"user_id": user_id, "google_event_id": google_event_id}, {"_id": 0}
         )

@@ -543,7 +543,14 @@ class SeedService:
         for o in offer_docs:
             if o["status"] == "accettata":
                 mand = next(m for m in mandanti if m["id"] == o["mandante_id"])
-                amount = o["total"] * mand["commission_rate"] / 100
+                # offer_docs è una list di dict letterali con valori di tipo
+                # eterogeneo (str, float, list...): mypy inferisce ogni valore
+                # come "object", da cui i cast espliciti sotto (già i tipi
+                # reali a runtime, nessun cambio di comportamento).
+                total = float(o["total"])
+                title = str(o["title"])
+                created_at = str(o["created_at"])
+                amount = total * mand["commission_rate"] / 100
                 comm_docs.append(
                     {
                         "id": gen_id(),
@@ -553,9 +560,9 @@ class SeedService:
                         "mandante_id": o["mandante_id"],
                         "amount": round(amount, 2),
                         "rate": mand["commission_rate"],
-                        "status": "incassato" if "Q1" in o["title"] else "maturato",
-                        "period": o["created_at"][:7],
-                        "created_at": o["created_at"],
+                        "status": "incassato" if "Q1" in title else "maturato",
+                        "period": created_at[:7],
+                        "created_at": created_at,
                     }
                 )
         if comm_docs:

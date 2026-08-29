@@ -19,7 +19,7 @@ class DocumentRepository:
     async def find_one(
         self, did: str, user_id: str, include_deleted: bool = False
     ) -> Optional[dict]:
-        query = {"id": did, "user_id": user_id}
+        query: dict = {"id": did, "user_id": user_id}
         if not include_deleted:
             query["is_deleted"] = {"$ne": True}
         return await self.collection.find_one(query, {"_id": 0})

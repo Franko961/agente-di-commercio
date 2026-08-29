@@ -111,7 +111,11 @@ async def _fetch_ors_matrix(
         }
         resp = requests.post(
             ORS_MATRIX_URL,
-            json=body,
+            # body ha valori annidati di tipo diverso (liste di coordinate,
+            # liste di stringhe): JSON-serializzabile e valido a runtime, ma
+            # più "largo" del tipo ricorsivo JsonType richiesto dagli stub di
+            # requests per json=.
+            json=body,  # type: ignore[arg-type]
             headers={"Authorization": ORS_API_KEY, "Content-Type": "application/json"},
             timeout=15,
         )
