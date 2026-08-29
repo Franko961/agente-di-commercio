@@ -16,6 +16,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          cache-suffix: backend-lint
       - run: uv sync
       - run: uv run flake8 .
       - run: uv run black --check .
@@ -32,6 +33,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          cache-suffix: backend-typecheck
       - run: uv sync
       - run: uv run mypy .
 
@@ -55,6 +57,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          cache-suffix: backend-test
       - run: uv sync
       - name: Avvia il backend in background
         run: |
