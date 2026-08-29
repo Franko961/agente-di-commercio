@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 from core.database import close_db
+from migrations.runner import apply_pending_migrations
 from services.storage_service import init_storage
 
 from .cleanup_jobs import (
@@ -13,7 +14,6 @@ from .cleanup_jobs import (
     _stuck_ai_action_cleanup_loop,
 )
 from .indexes import create_indexes
-from .migrations import backfill_document_deleted_at, backfill_manual_commission_ids
 from .monitoring_jobs import (
     _automation_engine_loop,
     _google_calendar_sync_loop,
@@ -56,15 +56,16 @@ async def run_startup() -> None:
 
     await create_indexes()
 
-    # Le due migrazioni una tantum girano dopo la creazione di tutti gli
-    # indici (prima erano interlacciate a metà creazione indici, per motivi
-    # di ordine storico nel vecchio startup_service.py monolitico): nessuna
-    # delle due dipende dall'esistenza di un indice per la propria
-    # correttezza (sono update_many/update_one per _id, gli indici
-    # influenzano solo le prestazioni delle query, non le scritture) — solo
-    # una semplificazione di leggibilità, nessun cambio di comportamento.
-    await backfill_document_deleted_at()
-    await backfill_manual_commission_ids()
+    # Le migrazioni dati (backend/migrations/) girano dopo la creazione di
+    # tutti gli indici (prima erano interlacciate a metà creazione indici,
+    # per motivi di ordine storico nel vecchio startup_service.py
+    # monolitico): nessuna dipende dall'esistenza di un indice per la
+    # propria correttezza (sono update_many/update_one/find per _id, gli
+    # indici influenzano solo le prestazioni delle query, non le scritture).
+    # Tracciate in db.schema_migrations (vedi migrations/runner.py): a
+    # differenza della creazione indici, ognuna gira una sola volta nella
+    # vita del database, mai più ad ogni riavvio.
+    await apply_pending_migrations()
 
     global _gcal_sync_task, _stuck_ai_action_task, _health_alert_task, _automation_engine_task, _demo_reset_task, _cancel_finalize_task, _demo_request_cleanup_task, _contact_request_cleanup_task, _document_trash_cleanup_task, _reconciliation_check_task
     _gcal_sync_task = asyncio.create_task(_google_calendar_sync_loop())
