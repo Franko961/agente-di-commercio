@@ -10,8 +10,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_document_client_ownership.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 from fastapi import HTTPException
@@ -57,7 +58,7 @@ class FakeUploadFile:
         self._pos = 0
 
     async def read(self, n: int) -> bytes:
-        chunk = self._content[self._pos:self._pos + n]
+        chunk = self._content[self._pos : self._pos + n]
         self._pos += len(chunk)
         return chunk
 
@@ -72,14 +73,20 @@ def build_service():
 
 def test_create_document_con_client_id_valido_funziona():
     service = build_service()
-    doc = run(service.create_document(USER, DocumentIn(name="Contratto", client_id="c1")))
+    doc = run(
+        service.create_document(USER, DocumentIn(name="Contratto", client_id="c1"))
+    )
     assert doc["client_id"] == "c1"
 
 
 def test_create_document_rifiuta_client_id_di_un_altro_utente():
     service = build_service()
     with pytest.raises(HTTPException) as exc_info:
-        run(service.create_document(USER, DocumentIn(name="Contratto", client_id="c-di-un-altro-utente")))
+        run(
+            service.create_document(
+                USER, DocumentIn(name="Contratto", client_id="c-di-un-altro-utente")
+            )
+        )
     assert exc_info.value.status_code == 404
 
 
@@ -91,27 +98,56 @@ def test_create_document_senza_client_id_funziona_comunque():
 
 def test_upload_document_rifiuta_client_id_di_un_altro_utente(monkeypatch):
     import services.document_service as doc_service_mod
-    monkeypatch.setattr(doc_service_mod, "storage_put_stream", lambda *a, **k: {"path": "x"})
+
+    monkeypatch.setattr(
+        doc_service_mod, "storage_put_stream", lambda *a, **k: {"path": "x"}
+    )
     service = build_service()
     file = FakeUploadFile("doc.pdf", b"%PDF-1.7\n" + b"\x00" * 100)
 
     with pytest.raises(HTTPException) as exc_info:
-        run(service.upload_document(USER, file, "Doc", "altro", "c-di-un-altro-utente", "", ""))
+        run(
+            service.upload_document(
+                USER, file, "Doc", "altro", "c-di-un-altro-utente", "", ""
+            )
+        )
     assert exc_info.value.status_code == 404
 
 
 def test_update_document_meta_rifiuta_client_id_di_un_altro_utente():
     service = build_service()
-    run(service.repo.insert({"id": "doc-1", "user_id": "user-1", "name": "originale.pdf", "client_id": None}))
+    run(
+        service.repo.insert(
+            {
+                "id": "doc-1",
+                "user_id": "user-1",
+                "name": "originale.pdf",
+                "client_id": None,
+            }
+        )
+    )
 
     with pytest.raises(HTTPException) as exc_info:
-        run(service.update_document_meta(USER, "doc-1", DocumentMetaUpdate(client_id="c-di-un-altro-utente")))
+        run(
+            service.update_document_meta(
+                USER, "doc-1", DocumentMetaUpdate(client_id="c-di-un-altro-utente")
+            )
+        )
     assert exc_info.value.status_code == 404
 
 
 def test_update_document_meta_con_client_id_valido_funziona():
     service = build_service()
-    run(service.repo.insert({"id": "doc-1", "user_id": "user-1", "name": "originale.pdf", "client_id": None}))
+    run(
+        service.repo.insert(
+            {
+                "id": "doc-1",
+                "user_id": "user-1",
+                "name": "originale.pdf",
+                "client_id": None,
+            }
+        )
+    )
 
     run(service.update_document_meta(USER, "doc-1", DocumentMetaUpdate(client_id="c1")))
 

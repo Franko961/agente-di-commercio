@@ -6,6 +6,7 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_settings_service.py -v
 """
+
 import asyncio
 import sys
 
@@ -51,7 +52,11 @@ def test_update_company_settings_puo_rimuovere_il_logo():
     repo = FakeUserRepo()
     service = SettingsService(repo=repo)
 
-    run(service.update_company_settings(USER, CompanySettingsIn(logo="data:image/png;base64,aGVsbG8=")))
+    run(
+        service.update_company_settings(
+            USER, CompanySettingsIn(logo="data:image/png;base64,aGVsbG8=")
+        )
+    )
     result = run(service.update_company_settings(USER, CompanySettingsIn(logo=None)))
 
     assert result == {"logo": None}

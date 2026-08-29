@@ -9,16 +9,17 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_orders_update.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 
 sys.path.insert(0, ".")
 
+import services.order_service as order_service_mod
 from core.exceptions import NotFoundError
 from models.order import OrderIn, OrderStatusIn
-import services.order_service as order_service_mod
 from services.order_service import OrderService
 
 
@@ -38,10 +39,21 @@ class FakeOrderRepo:
         return docs
 
     async def find_by_client(self, user_id, client_id):
-        return [d for d in self.docs.values() if d["user_id"] == user_id and d["client_id"] == client_id]
+        return [
+            d
+            for d in self.docs.values()
+            if d["user_id"] == user_id and d["client_id"] == client_id
+        ]
 
     async def find_by_source_offer(self, offer_id, user_id):
-        return next((d for d in self.docs.values() if d.get("source_offer_id") == offer_id and d["user_id"] == user_id), None)
+        return next(
+            (
+                d
+                for d in self.docs.values()
+                if d.get("source_offer_id") == offer_id and d["user_id"] == user_id
+            ),
+            None,
+        )
 
     async def find_one(self, oid, user_id):
         d = self.docs.get(oid)
@@ -79,10 +91,18 @@ class FakeCommissionRepo:
         return docs
 
     async def find_by_order(self, order_id, user_id):
-        return [d for d in self.docs if d.get("order_id") == order_id and d["user_id"] == user_id]
+        return [
+            d
+            for d in self.docs
+            if d.get("order_id") == order_id and d["user_id"] == user_id
+        ]
 
     async def delete_by_order(self, order_id, user_id):
-        self.docs = [d for d in self.docs if not (d.get("order_id") == order_id and d["user_id"] == user_id)]
+        self.docs = [
+            d
+            for d in self.docs
+            if not (d.get("order_id") == order_id and d["user_id"] == user_id)
+        ]
 
     async def insert(self, doc):
         self.docs.append(doc)
@@ -110,6 +130,7 @@ class FakeCommissionService:
     order_service: espone repo (FakeCommissionRepo) e traccia le chiamate a
     check_and_award_bonus per verificare che vengano fatte per il mandante
     giusto, senza dover testare anche la logica della scala premi qui."""
+
     def __init__(self, mandanti_by_id):
         self.repo = FakeCommissionRepo()
         self.bonus_calls = []
@@ -120,8 +141,18 @@ class FakeCommissionService:
 
 USER = {"id": "u1"}
 MANDANTI = {
-    "m1": {"id": "m1", "user_id": "u1", "name": "Mandante Uno", "commission_rate": 10.0},
-    "m2": {"id": "m2", "user_id": "u1", "name": "Mandante Due", "commission_rate": 20.0},
+    "m1": {
+        "id": "m1",
+        "user_id": "u1",
+        "name": "Mandante Uno",
+        "commission_rate": 10.0,
+    },
+    "m2": {
+        "id": "m2",
+        "user_id": "u1",
+        "name": "Mandante Due",
+        "commission_rate": 20.0,
+    },
 }
 CLIENTI = {
     "c1": {"id": "c1", "user_id": "u1", "company_name": "Cliente Uno"},
@@ -135,15 +166,29 @@ def build_service(monkeypatch):
     fake_commission_service = FakeCommissionService(MANDANTI)
     # commission_service è importato per nome dentro order_service: va
     # sostituito lì, non nel modulo commission_service originale.
-    monkeypatch.setattr(order_service_mod, "commission_service", fake_commission_service)
-    service = OrderService(repo=order_repo, mandante_repo=mandante_repo, client_repo=client_repo)
+    monkeypatch.setattr(
+        order_service_mod, "commission_service", fake_commission_service
+    )
+    service = OrderService(
+        repo=order_repo, mandante_repo=mandante_repo, client_repo=client_repo
+    )
     return service, order_repo, fake_commission_service
 
 
 def _order_payload(**overrides):
     base = dict(
-        client_id="c1", mandante_id="m1", sale_type="nuovo", notes="",
-        items=[{"description": "Prodotto A", "quantity": 2, "unit_price": 100, "discount": 0}],
+        client_id="c1",
+        mandante_id="m1",
+        sale_type="nuovo",
+        notes="",
+        items=[
+            {
+                "description": "Prodotto A",
+                "quantity": 2,
+                "unit_price": 100,
+                "discount": 0,
+            }
+        ],
     )
     base.update(overrides)
     return OrderIn(**base)
@@ -173,12 +218,23 @@ def test_update_order_ricalcola_totale_e_rigenera_provvigione(monkeypatch):
     assert comm["amount"] == 20
 
     # Modifica: 5 unità invece di 2 -> totale 500, provvigione 50
-    updated_payload = _order_payload(items=[{"description": "Prodotto A", "quantity": 5, "unit_price": 100, "discount": 0}])
+    updated_payload = _order_payload(
+        items=[
+            {
+                "description": "Prodotto A",
+                "quantity": 5,
+                "unit_price": 100,
+                "discount": 0,
+            }
+        ]
+    )
     run(service.update_order(USER, order["id"], updated_payload))
 
     stored = run(order_repo.find_one(order["id"], "u1"))
     assert stored["total"] == 500
-    assert len(fake_cs.repo.docs) == 1  # la vecchia provvigione è stata sostituita, non duplicata
+    assert (
+        len(fake_cs.repo.docs) == 1
+    )  # la vecchia provvigione è stata sostituita, non duplicata
     assert fake_cs.repo.docs[0]["amount"] == 50
 
 
@@ -203,7 +259,11 @@ def test_annullamento_ordine_rimuove_provvigione_senza_cancellare_ordine(monkeyp
     order = run(service.create_order(USER, _order_payload()))
     assert len(fake_cs.repo.docs) == 1
 
-    run(service.update_order_status(USER, order["id"], OrderStatusIn(status="annullato")))
+    run(
+        service.update_order_status(
+            USER, order["id"], OrderStatusIn(status="annullato")
+        )
+    )
 
     assert len(fake_cs.repo.docs) == 0
     stored = run(order_repo.find_one(order["id"], "u1"))
@@ -214,10 +274,18 @@ def test_annullamento_ordine_rimuove_provvigione_senza_cancellare_ordine(monkeyp
 def test_riattivazione_ordine_annullato_rigenera_provvigione(monkeypatch):
     service, order_repo, fake_cs = build_service(monkeypatch)
     order = run(service.create_order(USER, _order_payload()))
-    run(service.update_order_status(USER, order["id"], OrderStatusIn(status="annullato")))
+    run(
+        service.update_order_status(
+            USER, order["id"], OrderStatusIn(status="annullato")
+        )
+    )
     assert len(fake_cs.repo.docs) == 0
 
-    run(service.update_order_status(USER, order["id"], OrderStatusIn(status="confermato")))
+    run(
+        service.update_order_status(
+            USER, order["id"], OrderStatusIn(status="confermato")
+        )
+    )
 
     assert len(fake_cs.repo.docs) == 1
     assert fake_cs.repo.docs[0]["order_id"] == order["id"]
@@ -227,7 +295,11 @@ def test_update_status_parziale_non_tocca_campi_omessi(monkeypatch):
     service, order_repo, _ = build_service(monkeypatch)
     order = run(service.create_order(USER, _order_payload()))
 
-    run(service.update_order_status(USER, order["id"], OrderStatusIn(payment_status="pagato")))
+    run(
+        service.update_order_status(
+            USER, order["id"], OrderStatusIn(payment_status="pagato")
+        )
+    )
 
     stored = run(order_repo.find_one(order["id"], "u1"))
     assert stored["payment_status"] == "pagato"
@@ -246,17 +318,24 @@ def test_get_order_include_provvigione_collegata(monkeypatch):
 
 # ---------- Validazione ownership di client_id/mandante_id ----------
 
+
 def test_create_order_rifiuta_client_id_di_un_altro_utente(monkeypatch):
     service, order_repo, _ = build_service(monkeypatch)
     with pytest.raises(NotFoundError):
-        run(service.create_order(USER, _order_payload(client_id="c-di-un-altro-utente")))
+        run(
+            service.create_order(USER, _order_payload(client_id="c-di-un-altro-utente"))
+        )
     assert order_repo.docs == {}
 
 
 def test_create_order_rifiuta_mandante_id_di_un_altro_utente(monkeypatch):
     service, order_repo, _ = build_service(monkeypatch)
     with pytest.raises(NotFoundError):
-        run(service.create_order(USER, _order_payload(mandante_id="m-di-un-altro-utente")))
+        run(
+            service.create_order(
+                USER, _order_payload(mandante_id="m-di-un-altro-utente")
+            )
+        )
     assert order_repo.docs == {}
 
 
@@ -265,4 +344,8 @@ def test_update_order_rifiuta_client_id_di_un_altro_utente(monkeypatch):
     order = run(service.create_order(USER, _order_payload()))
 
     with pytest.raises(NotFoundError):
-        run(service.update_order(USER, order["id"], _order_payload(client_id="c-di-un-altro-utente")))
+        run(
+            service.update_order(
+                USER, order["id"], _order_payload(client_id="c-di-un-altro-utente")
+            )
+        )

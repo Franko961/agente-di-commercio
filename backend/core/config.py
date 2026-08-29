@@ -1,68 +1,77 @@
 import os
-from dotenv import load_dotenv
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).parent.parent
-load_dotenv(ROOT_DIR / '.env')
+from dotenv import load_dotenv
 
-JWT_SECRET = os.environ.get('JWT_SECRET')
-if not JWT_SECRET:
+ROOT_DIR = Path(__file__).parent.parent
+load_dotenv(ROOT_DIR / ".env")
+
+_jwt_secret = os.environ.get("JWT_SECRET")
+if not _jwt_secret:
     raise RuntimeError(
         "JWT_SECRET non impostata. Imposta la variabile d'ambiente JWT_SECRET "
         "prima di avviare l'app — è obbligatoria per la sicurezza dei token di accesso."
     )
-JWT_ALG = 'HS256'
+# Tipizzato esplicitamente str (non Optional[str] come os.environ.get()): il
+# controllo sopra garantisce già a runtime che non sia mai None qui in poi —
+# senza questa annotazione ogni modulo che importa JWT_SECRET lo vedrebbe
+# comunque come Optional[str] per mypy, pur essendo sempre valorizzato.
+JWT_SECRET: str = _jwt_secret
+JWT_ALG = "HS256"
 
-STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
-STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
-PAYPAL_CLIENT_ID = os.environ.get('PAYPAL_CLIENT_ID', '')
-PAYPAL_CLIENT_SECRET = os.environ.get('PAYPAL_CLIENT_SECRET', '')
-PAYPAL_MODE = os.environ.get('PAYPAL_MODE', 'sandbox')
-PAYPAL_WEBHOOK_ID = os.environ.get('PAYPAL_WEBHOOK_ID', '')
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+PAYPAL_CLIENT_ID = os.environ.get("PAYPAL_CLIENT_ID", "")
+PAYPAL_CLIENT_SECRET = os.environ.get("PAYPAL_CLIENT_SECRET", "")
+PAYPAL_MODE = os.environ.get("PAYPAL_MODE", "sandbox")
+PAYPAL_WEBHOOK_ID = os.environ.get("PAYPAL_WEBHOOK_ID", "")
 PAYPAL_API_BASE = (
-    'https://api-m.paypal.com' if PAYPAL_MODE == 'live'
-    else 'https://api-m.sandbox.paypal.com'
+    "https://api-m.paypal.com"
+    if PAYPAL_MODE == "live"
+    else "https://api-m.sandbox.paypal.com"
 )
 
 CORS_ORIGINS = [
-    origin.strip() for origin in os.environ.get(
-        'CORS_ORIGINS',
-        'https://salesfly.it,https://www.salesfly.it,https://main--salesfly.netlify.app'
-    ).split(',') if origin.strip()
+    origin.strip()
+    for origin in os.environ.get(
+        "CORS_ORIGINS",
+        "https://salesfly.it,https://www.salesfly.it,https://main--salesfly.netlify.app",
+    ).split(",")
+    if origin.strip()
 ]
 
-TRIAL_DAYS = int(os.environ.get('TRIAL_DAYS', '14'))
+TRIAL_DAYS = int(os.environ.get("TRIAL_DAYS", "14"))
 
 PLANS = {
-    'base': {
-        'name': 'Base',
-        'price_eur': 6.00,
-        'stripe_price_id': os.environ.get('STRIPE_PRICE_BASE', ''),
-        'paypal_plan_id': os.environ.get('PAYPAL_PLAN_BASE', ''),
-        'tagline': 'Per gestire il lavoro quotidiano da agente.',
+    "base": {
+        "name": "Base",
+        "price_eur": 6.00,
+        "stripe_price_id": os.environ.get("STRIPE_PRICE_BASE", ""),
+        "paypal_plan_id": os.environ.get("PAYPAL_PLAN_BASE", ""),
+        "tagline": "Per gestire il lavoro quotidiano da agente.",
         # Limite reale applicato in ai_service.py (non solo testo descrittivo):
         # None significa nessun limite.
-        'ai_monthly_message_limit': 100,
-        'features': [
-            'Clienti e anagrafiche illimitati',
-            'Agenda, appuntamenti e giro visite',
-            'Offerte e preventivi',
-            'Calcolo provvigioni e scala premi, con soglie personalizzabili',
-            'Pipeline lead (Kanban)',
-            'Mappa clienti geolocalizzata',
-            'Statistiche di vendita per settore/mandante',
-            'Archivio documenti',
-            'Esportazione dati in CSV',
+        "ai_monthly_message_limit": 100,
+        "features": [
+            "Clienti e anagrafiche illimitati",
+            "Agenda, appuntamenti e giro visite",
+            "Offerte e preventivi",
+            "Calcolo provvigioni e scala premi, con soglie personalizzabili",
+            "Pipeline lead (Kanban)",
+            "Mappa clienti geolocalizzata",
+            "Statistiche di vendita per settore/mandante",
+            "Archivio documenti",
+            "Esportazione dati in CSV",
             "Assistente AI con memoria delle conversazioni e capacità di agire nel CRM, fino a 100 messaggi al mese",
         ],
     },
-    'pro': {
-        'name': 'Pro',
-        'price_eur': 11.00,
-        'stripe_price_id': os.environ.get('STRIPE_PRICE_PRO', ''),
-        'paypal_plan_id': os.environ.get('PAYPAL_PLAN_PRO', ''),
-        'tagline': "Tutto il piano Base, con messaggi AI illimitati e accesso anticipato alle novità.",
-        'ai_monthly_message_limit': None,
+    "pro": {
+        "name": "Pro",
+        "price_eur": 11.00,
+        "stripe_price_id": os.environ.get("STRIPE_PRICE_PRO", ""),
+        "paypal_plan_id": os.environ.get("PAYPAL_PLAN_PRO", ""),
+        "tagline": "Tutto il piano Base, con messaggi AI illimitati e accesso anticipato alle novità.",
+        "ai_monthly_message_limit": None,
         # Le altre voci elencate qui in precedenza (memoria conversazioni,
         # scrittura CRM via AI, scala premi personalizzata, statistiche per
         # settore/mandante, supporto prioritario) sono state rimosse perché
@@ -71,9 +80,9 @@ PLANS = {
         # promesse di marketing senza corrispondenza reale. Se in futuro si
         # decide di renderle davvero esclusive Pro, vanno prima implementati
         # i controlli di piano nel codice, non solo aggiornato questo testo.
-        'features': [
-            'Assistente AI senza limite di messaggi mensile',
-            'Accesso anticipato alle novità',
+        "features": [
+            "Assistente AI senza limite di messaggi mensile",
+            "Accesso anticipato alle novità",
         ],
     },
 }
@@ -84,7 +93,9 @@ PLANS = {
 # avvisare l'utente ad ogni ciclo di sync (ogni 5 minuti): un promemoria
 # ogni 24 ore e' piu' che sufficiente per fargli notare che deve
 # riconnettersi, senza spammargli la casella di posta.
-GOOGLE_REAUTH_NOTIFY_COOLDOWN_HOURS = int(os.environ.get("GOOGLE_REAUTH_NOTIFY_COOLDOWN_HOURS", "24"))
+GOOGLE_REAUTH_NOTIFY_COOLDOWN_HOURS = int(
+    os.environ.get("GOOGLE_REAUTH_NOTIFY_COOLDOWN_HOURS", "24")
+)
 
 # --- OpenRouteService (pianificazione giro visita) ---
 # Vuoto di default: senza chiave, il pianificatore usa una stima in linea
@@ -98,7 +109,9 @@ ORS_API_KEY = os.environ.get("ORS_API_KEY", "")
 # Intervallo tra un ciclo di valutazione e il successivo (controlla tutte le
 # automazioni attive di tutti gli utenti). 10 minuti di default: abbastanza
 # reattivo per promemoria/scadenze, senza martellare il DB.
-AUTOMATION_ENGINE_INTERVAL_SECONDS = int(os.environ.get("AUTOMATION_ENGINE_INTERVAL_SECONDS", str(10 * 60)))
+AUTOMATION_ENGINE_INTERVAL_SECONDS = int(
+    os.environ.get("AUTOMATION_ENGINE_INTERVAL_SECONDS", str(10 * 60))
+)
 # Dopo questo numero di tentativi falliti consecutivi per lo stesso
 # automation+target, si smette di ritentare (l'errore è quasi certamente
 # persistente, es. configurazione invalida) e si segna come fallita in modo
@@ -130,7 +143,9 @@ AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
 AWS_REGION = os.environ.get("AWS_REGION", os.environ.get("S3_REGION", "eu-west-1"))
 S3_BUCKET = os.environ.get("AWS_S3_BUCKET", os.environ.get("S3_BUCKET"))
 _raw_endpoint = os.environ.get("S3_ENDPOINT", "").strip().strip("[]")
-S3_ENDPOINT = None if (not _raw_endpoint or "amazonaws.com" in _raw_endpoint) else _raw_endpoint
+S3_ENDPOINT = (
+    None if (not _raw_endpoint or "amazonaws.com" in _raw_endpoint) else _raw_endpoint
+)
 
 MAX_FILE_BYTES = 50 * 1024 * 1024
 

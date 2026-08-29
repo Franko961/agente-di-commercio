@@ -4,7 +4,9 @@ from typing import Dict
 from core.utils import local_month_str
 
 
-async def search_clients(client_repo, order_repo, appointment_repo, tool_input: dict, user_id: str) -> str:
+async def search_clients(
+    client_repo, order_repo, appointment_repo, tool_input: dict, user_id: str
+) -> str:
     """Filtra i clienti del CRM con criteri precisi (ultimo ordine,
     mese di visita, zona, potenziale). A differenza di gather_context
     (che tronca a 20 clienti per stare nel prompt), qui si scorre
@@ -105,7 +107,9 @@ async def search_offers(offer_repo, tool_input: dict, user_id: str) -> str:
     lines = [f"Trovate {len(results)} offerte:"]
     MAX_LISTED = 30
     for o in results[:MAX_LISTED]:
-        lines.append(f"- {o.get('title', 'Senza titolo')}: €{o.get('total', 0):.2f} ({o.get('status')})")
+        lines.append(
+            f"- {o.get('title', 'Senza titolo')}: €{o.get('total', 0):.2f} ({o.get('status')})"
+        )
     if len(results) > MAX_LISTED:
         lines.append(f"... e altre {len(results) - MAX_LISTED} offerte.")
     return "\n".join(lines)

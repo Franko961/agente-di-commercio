@@ -11,8 +11,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_demo_reset_service.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 sys.path.insert(0, ".")
 
@@ -81,12 +82,28 @@ def build_fake_db():
     ]
     fake_db.clients.docs = [
         {"id": "c1", "user_id": "demo-1", "company_name": "Cliente demo modificato"},
-        {"id": "c2", "user_id": "user-normale", "company_name": "Cliente di un utente vero"},
+        {
+            "id": "c2",
+            "user_id": "user-normale",
+            "company_name": "Cliente di un utente vero",
+        },
     ]
     fake_db.documents.docs = [
-        {"id": "d1", "user_id": "demo-1", "storage_path": "salesfly/uploads/demo-1/doc1.pdf"},
-        {"id": "d2", "user_id": "demo-1", "storage_path": None},  # record senza file reale
-        {"id": "d3", "user_id": "user-normale", "storage_path": "salesfly/uploads/user-normale/doc.pdf"},
+        {
+            "id": "d1",
+            "user_id": "demo-1",
+            "storage_path": "salesfly/uploads/demo-1/doc1.pdf",
+        },
+        {
+            "id": "d2",
+            "user_id": "demo-1",
+            "storage_path": None,
+        },  # record senza file reale
+        {
+            "id": "d3",
+            "user_id": "user-normale",
+            "storage_path": "salesfly/uploads/user-normale/doc.pdf",
+        },
     ]
     return fake_db
 
@@ -95,7 +112,9 @@ def build_service(monkeypatch, fake_db, fake_seed):
     monkeypatch.setattr(demo_reset_mod, "db", fake_db)
     monkeypatch.setattr(demo_reset_mod, "seed_service", fake_seed)
     deleted_paths = []
-    monkeypatch.setattr(demo_reset_mod, "storage_delete", lambda path: deleted_paths.append(path))
+    monkeypatch.setattr(
+        demo_reset_mod, "storage_delete", lambda path: deleted_paths.append(path)
+    )
     return DemoResetService(), deleted_paths
 
 
@@ -123,7 +142,9 @@ def test_reset_cancella_solo_i_file_s3_dellaccount_demo(monkeypatch):
 
     run(service.reset_all_demo_accounts())
 
-    assert deleted_paths == ["salesfly/uploads/demo-1/doc1.pdf"]  # non doc2 (senza path), non doc3 (altro utente)
+    assert deleted_paths == [
+        "salesfly/uploads/demo-1/doc1.pdf"
+    ]  # non doc2 (senza path), non doc3 (altro utente)
 
 
 def test_reset_riseminata_solo_laccount_demo(monkeypatch):
@@ -151,7 +172,9 @@ def test_reset_non_tocca_il_documento_utente(monkeypatch):
 
 def test_reset_senza_alcun_account_demo_non_fa_nulla(monkeypatch):
     fake_db = build_fake_db()
-    fake_db.users.docs = [{"id": "user-normale", "email": "mario@example.com", "is_demo": False}]
+    fake_db.users.docs = [
+        {"id": "user-normale", "email": "mario@example.com", "is_demo": False}
+    ]
     fake_seed = FakeSeedService()
     service, deleted_paths = build_service(monkeypatch, fake_db, fake_seed)
 
@@ -164,4 +187,5 @@ def test_reset_senza_alcun_account_demo_non_fa_nulla(monkeypatch):
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

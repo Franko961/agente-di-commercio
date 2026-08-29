@@ -15,15 +15,16 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_order_source_offer_conflict.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 
 sys.path.insert(0, ".")
 
-from core.exceptions import ConflictError
 import services.order_service as order_service_mod
+from core.exceptions import ConflictError
 from services.order_service import OrderService
 
 
@@ -75,7 +76,11 @@ class FakeOrderRepo:
 
     async def find_by_source_offer(self, offer_id, user_id):
         return next(
-            (dict(d) for d in self.docs.values() if d.get("source_offer_id") == offer_id and d["user_id"] == user_id),
+            (
+                dict(d)
+                for d in self.docs.values()
+                if d.get("source_offer_id") == offer_id and d["user_id"] == user_id
+            ),
             None,
         )
 
@@ -85,7 +90,8 @@ class FakeOrderRepo:
 
     async def insert(self, doc):
         collide = any(
-            d["user_id"] == doc["user_id"] and d.get("source_offer_id") == doc.get("source_offer_id")
+            d["user_id"] == doc["user_id"]
+            and d.get("source_offer_id") == doc.get("source_offer_id")
             for d in self.docs.values()
             if doc.get("source_offer_id") is not None
         )
@@ -123,7 +129,10 @@ class RaceOrderRepo(FakeOrderRepo):
         return dict(self._concurrent_order)
 
     async def insert(self, doc):
-        if doc.get("source_offer_id") == self._offer_id and doc["user_id"] == self._user_id:
+        if (
+            doc.get("source_offer_id") == self._offer_id
+            and doc["user_id"] == self._user_id
+        ):
             raise ConflictError("Esiste già un ordine creato da questa offerta")
         self.docs[doc["id"]] = doc
         return doc
@@ -131,13 +140,24 @@ class RaceOrderRepo(FakeOrderRepo):
 
 def build_service(monkeypatch, order_repo):
     fake_commission_service = FakeCommissionService()
-    monkeypatch.setattr(order_service_mod, "commission_service", fake_commission_service)
+    monkeypatch.setattr(
+        order_service_mod, "commission_service", fake_commission_service
+    )
     return OrderService(repo=order_repo, mandante_repo=FakeMandanteRepo())
 
 
-FAKE_ITEMS = [{"description": "Prodotto test", "quantity": 1, "unit_price": 100, "discount": 0}]
+FAKE_ITEMS = [
+    {"description": "Prodotto test", "quantity": 1, "unit_price": 100, "discount": 0}
+]
 USER = {"id": "user-1"}
-OFFER = {"id": "offer-1", "client_id": "c-1", "mandante_id": "m-1", "items": FAKE_ITEMS, "sale_type": "nuovo", "notes": ""}
+OFFER = {
+    "id": "offer-1",
+    "client_id": "c-1",
+    "mandante_id": "m-1",
+    "items": FAKE_ITEMS,
+    "sale_type": "nuovo",
+    "notes": "",
+}
 
 
 def test_seconda_conversione_della_stessa_offerta_non_duplica(monkeypatch):
@@ -151,13 +171,24 @@ def test_seconda_conversione_della_stessa_offerta_non_duplica(monkeypatch):
     assert len(repo.docs) == 1
 
 
-def test_race_condition_su_insert_concorrente_recupera_ordine_esistente_senza_errore(monkeypatch):
+def test_race_condition_su_insert_concorrente_recupera_ordine_esistente_senza_errore(
+    monkeypatch,
+):
     concurrent_order = {
-        "id": "order-from-other-request", "user_id": "user-1", "client_id": "c-1", "mandante_id": "m-1",
-        "items": FAKE_ITEMS, "total": 100, "numero_ordine": "ORD-0001", "status": "confermato",
-        "source_offer_id": "offer-1", "created_at": "2026-01-01T00:00:00",
+        "id": "order-from-other-request",
+        "user_id": "user-1",
+        "client_id": "c-1",
+        "mandante_id": "m-1",
+        "items": FAKE_ITEMS,
+        "total": 100,
+        "numero_ordine": "ORD-0001",
+        "status": "confermato",
+        "source_offer_id": "offer-1",
+        "created_at": "2026-01-01T00:00:00",
     }
-    repo = RaceOrderRepo(offer_id="offer-1", user_id="user-1", concurrent_order=concurrent_order)
+    repo = RaceOrderRepo(
+        offer_id="offer-1", user_id="user-1", concurrent_order=concurrent_order
+    )
     service = build_service(monkeypatch, repo)
 
     # Il check preventivo non vede nulla (return None al primo giro), ma
@@ -172,6 +203,7 @@ def test_race_senza_ordine_concorrente_effettivamente_esistente_rilancia(monkeyp
     """Se il conflitto non è dovuto a una race genuina (es. bug/stato
     inatteso) e il secondo check non trova comunque nulla, l'errore deve
     essere propagato invece di fallire silenziosamente."""
+
     class AlwaysConflictingRepo(FakeOrderRepo):
         async def insert(self, doc):
             raise ConflictError("Esiste già un ordine creato da questa offerta")

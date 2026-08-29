@@ -1,13 +1,18 @@
 from fastapi import APIRouter, Depends
-from core.security import get_current_user, forbid_demo_write, require_module
+
+from core.security import forbid_demo_write, get_current_user, require_module
+from models.vehicle import VehicleActiveUpdate, VehicleIn
 from services.vehicle_service import vehicle_service
-from models.vehicle import VehicleIn, VehicleActiveUpdate
 
 # Modulo interamente autenticato (nessun endpoint pubblico come in
 # leave_requests.py): può essere gated a livello di intero router, senza
 # bisogno del pattern per-endpoint usato per i moduli core con dati di
 # riferimento condivisi tra pagine (clienti, mandanti, prodotti, offerte).
-router = APIRouter(prefix="/api/vehicles", tags=["vehicles"], dependencies=[Depends(require_module("flotta"))])
+router = APIRouter(
+    prefix="/api/vehicles",
+    tags=["vehicles"],
+    dependencies=[Depends(require_module("flotta"))],
+)
 
 
 @router.get("")
@@ -27,7 +32,9 @@ async def update_vehicle(vid: str, payload: VehicleIn, user=Depends(forbid_demo_
 
 
 @router.patch("/{vid}/active")
-async def set_vehicle_active(vid: str, payload: VehicleActiveUpdate, user=Depends(forbid_demo_write)):
+async def set_vehicle_active(
+    vid: str, payload: VehicleActiveUpdate, user=Depends(forbid_demo_write)
+):
     await vehicle_service.set_active(user, vid, payload.active)
     return {"ok": True}
 

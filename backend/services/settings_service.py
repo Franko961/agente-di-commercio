@@ -16,7 +16,11 @@ class SettingsService:
     @staticmethod
     def _goals_view(user: dict) -> dict:
         return {
-            "goal_revenue": user.get("goal_revenue") if user.get("goal_revenue") is not None else DEFAULT_GOAL_REVENUE,
+            "goal_revenue": (
+                user.get("goal_revenue")
+                if user.get("goal_revenue") is not None
+                else DEFAULT_GOAL_REVENUE
+            ),
             "goal_commissions": user.get("goal_commissions"),
             "goal_new_clients": user.get("goal_new_clients"),
             "goal_visits": user.get("goal_visits"),

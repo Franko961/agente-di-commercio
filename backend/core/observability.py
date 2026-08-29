@@ -70,6 +70,7 @@ class JsonLogFormatter(logging.Formatter):
 def _current_otel_trace_id() -> Optional[str]:
     try:
         from opentelemetry import trace
+
         span = trace.get_current_span()
         ctx = span.get_span_context()
         if ctx and ctx.trace_id and ctx.trace_id != 0:
@@ -112,9 +113,13 @@ async def record_event(category: str, status: str, **fields) -> None:
             "request_id": get_request_id(),
             **fields,
         }
-        await asyncio.wait_for(db.system_events.insert_one(doc), timeout=_WRITE_TIMEOUT_SECONDS)
+        await asyncio.wait_for(
+            db.system_events.insert_one(doc), timeout=_WRITE_TIMEOUT_SECONDS
+        )
     except Exception:
-        logging.getLogger(__name__).exception("Impossibile registrare l'evento di sistema (non bloccante)")
+        logging.getLogger(__name__).exception(
+            "Impossibile registrare l'evento di sistema (non bloccante)"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -128,7 +133,9 @@ async def record_event(category: str, status: str, **fields) -> None:
 API_METRICS_TTL_SECONDS = 7 * 24 * 3600
 
 
-async def record_api_call(method: str, path_template: str, status_code: int, duration_ms: float) -> None:
+async def record_api_call(
+    method: str, path_template: str, status_code: int, duration_ms: float
+) -> None:
     try:
         minute_bucket = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M")
         key = f"{method}:{path_template}:{minute_bucket}"
@@ -138,8 +145,10 @@ async def record_api_call(method: str, path_template: str, status_code: int, dur
                 {"_id": key},
                 {
                     "$set": {
-                        "method": method, "path": path_template,
-                        "minute": minute_bucket, "created_at": datetime.now(timezone.utc),
+                        "method": method,
+                        "path": path_template,
+                        "minute": minute_bucket,
+                        "created_at": datetime.now(timezone.utc),
                     },
                     "$inc": {
                         "count": 1,
@@ -153,11 +162,14 @@ async def record_api_call(method: str, path_template: str, status_code: int, dur
             timeout=_WRITE_TIMEOUT_SECONDS,
         )
     except Exception:
-        logging.getLogger(__name__).exception("Impossibile registrare la metrica API (non bloccante)")
+        logging.getLogger(__name__).exception(
+            "Impossibile registrare la metrica API (non bloccante)"
+        )
 
 
 class Timer:
     """Piccolo helper per misurare una durata in millisecondi con `with`."""
+
     def __enter__(self):
         self._start = time.perf_counter()
         return self
@@ -183,20 +195,23 @@ def init_opentelemetry(app) -> bool:
     Restituisce True se attivata, False se lasciata spenta (nessun
     OTEL_EXPORTER_OTLP_ENDPOINT configurato)."""
     from core.config import OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_SERVICE_NAME
+
     if not OTEL_EXPORTER_OTLP_ENDPOINT:
         return False
 
     from opentelemetry import trace
-    from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor
-    from opentelemetry.sdk.resources import Resource
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+    from opentelemetry.instrumentation.logging import LoggingInstrumentor
     from opentelemetry.instrumentation.pymongo import PymongoInstrumentor
     from opentelemetry.instrumentation.requests import RequestsInstrumentor
-    from opentelemetry.instrumentation.logging import LoggingInstrumentor
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-    provider = TracerProvider(resource=Resource.create({"service.name": OTEL_SERVICE_NAME}))
+    provider = TracerProvider(
+        resource=Resource.create({"service.name": OTEL_SERVICE_NAME})
+    )
     provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
     trace.set_tracer_provider(provider)
 

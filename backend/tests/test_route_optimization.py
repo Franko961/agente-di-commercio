@@ -8,20 +8,25 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_route_optimization.py -v
 """
-import sys
+
 import asyncio
 import random
+import sys
 
 import pytest
 
 sys.path.insert(0, ".")
 
 import services.route_optimization_service as route_opt_mod
-from services.route_optimization_service import (
-    RouteOptimizationService, haversine_km, _nearest_neighbor_order, _two_opt, _path_length,
-    get_distance_duration_matrix,
-)
 from core.exceptions import NotFoundError, ValidationAppError
+from services.route_optimization_service import (
+    RouteOptimizationService,
+    _nearest_neighbor_order,
+    _path_length,
+    _two_opt,
+    get_distance_duration_matrix,
+    haversine_km,
+)
 
 
 def run(coro):
@@ -29,6 +34,7 @@ def run(coro):
 
 
 # ---------- haversine_km ----------
+
 
 def test_haversine_distanza_nulla_tra_stesso_punto():
     assert haversine_km(45.0, 9.0, 45.0, 9.0) == 0.0
@@ -45,11 +51,18 @@ def test_haversine_milano_roma_ordine_di_grandezza_corretto():
 
 # ---------- _nearest_neighbor_order / _two_opt: proprietà generali ----------
 
+
 def _symmetric_random_matrix(n, seed):
     rng = random.Random(seed)
     points = [(rng.uniform(0, 100), rng.uniform(0, 100)) for _ in range(n)]
-    return [[((points[i][0] - points[j][0]) ** 2 + (points[i][1] - points[j][1]) ** 2) ** 0.5
-              for j in range(n)] for i in range(n)]
+    return [
+        [
+            ((points[i][0] - points[j][0]) ** 2 + (points[i][1] - points[j][1]) ** 2)
+            ** 0.5
+            for j in range(n)
+        ]
+        for i in range(n)
+    ]
 
 
 @pytest.mark.parametrize("n,seed", [(4, 1), (6, 2), (8, 3), (10, 4)])
@@ -86,6 +99,7 @@ def test_caso_concreto_quattro_tappe_ordine_atteso():
 
 # ---------- get_distance_duration_matrix: ORS vs fallback haversine ----------
 
+
 def test_senza_chiave_ors_usa_stima_in_linea_daria(monkeypatch):
     monkeypatch.setattr(route_opt_mod, "ORS_API_KEY", "")
     coords = [(45.0, 9.0), (45.1, 9.1)]
@@ -105,7 +119,10 @@ def test_con_chiave_ors_valida_usa_i_dati_reali(monkeypatch):
             pass
 
         def json(self):
-            return {"distances": [[0, 12000], [12000, 0]], "durations": [[0, 900], [900, 0]]}
+            return {
+                "distances": [[0, 12000], [12000, 0]],
+                "durations": [[0, 900], [900, 0]],
+            }
 
     monkeypatch.setattr(route_opt_mod.requests, "post", lambda *a, **k: FakeResponse())
     coords = [(45.0, 9.0), (45.1, 9.1)]
@@ -121,10 +138,13 @@ def test_ors_che_fallisce_ricade_su_stima_in_linea_daria(monkeypatch):
     """Un errore di rete verso OpenRouteService non deve mai far fallire la
     pianificazione del giro: deve solo far ricadere sulla stima locale."""
     import requests as requests_mod
+
     monkeypatch.setattr(route_opt_mod, "ORS_API_KEY", "fake-key")
 
     def _raise(*a, **k):
-        raise requests_mod.exceptions.ConnectionError("rete non disponibile, per il test")
+        raise requests_mod.exceptions.ConnectionError(
+            "rete non disponibile, per il test"
+        )
 
     monkeypatch.setattr(route_opt_mod.requests, "post", _raise)
     coords = [(45.0, 9.0), (45.1, 9.1)]
@@ -137,6 +157,7 @@ def test_ors_che_fallisce_ricade_su_stima_in_linea_daria(monkeypatch):
 
 # ---------- RouteOptimizationService.plan_day ----------
 
+
 class FakeClientRepo:
     def __init__(self, clients):
         self.clients = clients
@@ -145,14 +166,40 @@ class FakeClientRepo:
         return [c for c in self.clients if c["user_id"] == user_id]
 
 
-MILANO = {"id": "c-milano", "user_id": "user-1", "company_name": "Cliente Milano",
-          "lat": 45.4642, "lng": 9.1900, "address": "Via Milano 1", "city": "Milano"}
-BERGAMO = {"id": "c-bergamo", "user_id": "user-1", "company_name": "Cliente Bergamo",
-           "lat": 45.6983, "lng": 9.6773, "address": "Via Bergamo 1", "city": "Bergamo"}
-BRESCIA = {"id": "c-brescia", "user_id": "user-1", "company_name": "Cliente Brescia",
-           "lat": 45.5416, "lng": 10.2118, "address": "Via Brescia 1", "city": "Brescia"}
-NO_COORDS = {"id": "c-senza-coord", "user_id": "user-1", "company_name": "Cliente Senza Indirizzo",
-             "lat": None, "lng": None}
+MILANO = {
+    "id": "c-milano",
+    "user_id": "user-1",
+    "company_name": "Cliente Milano",
+    "lat": 45.4642,
+    "lng": 9.1900,
+    "address": "Via Milano 1",
+    "city": "Milano",
+}
+BERGAMO = {
+    "id": "c-bergamo",
+    "user_id": "user-1",
+    "company_name": "Cliente Bergamo",
+    "lat": 45.6983,
+    "lng": 9.6773,
+    "address": "Via Bergamo 1",
+    "city": "Bergamo",
+}
+BRESCIA = {
+    "id": "c-brescia",
+    "user_id": "user-1",
+    "company_name": "Cliente Brescia",
+    "lat": 45.5416,
+    "lng": 10.2118,
+    "address": "Via Brescia 1",
+    "city": "Brescia",
+}
+NO_COORDS = {
+    "id": "c-senza-coord",
+    "user_id": "user-1",
+    "company_name": "Cliente Senza Indirizzo",
+    "lat": None,
+    "lng": None,
+}
 
 
 def build_service(clients):
@@ -187,8 +234,11 @@ def test_coordinate_fuori_dai_limiti_geografici_trattate_come_assenti():
     non deve mai entrare nei calcoli — va segnalato come 'da geolocalizzare',
     esattamente come un cliente senza coordinate del tutto."""
     cliente_coordinate_corrotte = {
-        "id": "c-corrotto", "user_id": "user-1", "company_name": "Cliente Coordinate Corrotte",
-        "lat": 999.0, "lng": 42.95,
+        "id": "c-corrotto",
+        "user_id": "user-1",
+        "company_name": "Cliente Coordinate Corrotte",
+        "lat": 999.0,
+        "lng": 42.95,
     }
     service = build_service([MILANO, cliente_coordinate_corrotte])
     with pytest.raises(ValidationAppError) as exc_info:
@@ -198,7 +248,9 @@ def test_coordinate_fuori_dai_limiti_geografici_trattate_come_assenti():
 
 def test_singolo_cliente_nessun_viaggio():
     service = build_service([MILANO])
-    plan = run(service.plan_day(USER, [MILANO["id"]], start_time="09:00", visit_minutes=30))
+    plan = run(
+        service.plan_day(USER, [MILANO["id"]], start_time="09:00", visit_minutes=30)
+    )
 
     assert len(plan["stops"]) == 1
     assert plan["stops"][0]["eta"] == "09:00"
@@ -209,20 +261,29 @@ def test_singolo_cliente_nessun_viaggio():
 
 def test_piu_clienti_partenza_fissa_e_schedulazione_coerente():
     service = build_service([MILANO, BERGAMO, BRESCIA])
-    plan = run(service.plan_day(
-        USER, [MILANO["id"], BERGAMO["id"], BRESCIA["id"]],
-        start_time="09:00", visit_minutes=20,
-    ))
+    plan = run(
+        service.plan_day(
+            USER,
+            [MILANO["id"], BERGAMO["id"], BRESCIA["id"]],
+            start_time="09:00",
+            visit_minutes=20,
+        )
+    )
 
     stops = plan["stops"]
     assert len(stops) == 3
-    assert {s["client_id"] for s in stops} == {MILANO["id"], BERGAMO["id"], BRESCIA["id"]}
+    assert {s["client_id"] for s in stops} == {
+        MILANO["id"],
+        BERGAMO["id"],
+        BRESCIA["id"],
+    }
     # Il primo cliente della lista ricevuta resta la partenza del giro.
     assert stops[0]["client_id"] == MILANO["id"]
     assert stops[0]["eta"] == "09:00"
 
     # Ogni ETA successiva deve essere >= alla departure della tappa precedente.
     from datetime import datetime
+
     for i in range(1, len(stops)):
         prev_departure = datetime.strptime(stops[i - 1]["departure"], "%H:%M")
         eta = datetime.strptime(stops[i]["eta"], "%H:%M")
@@ -254,9 +315,13 @@ def test_coordinate_palesemente_sbagliate_generano_avviso():
     una tratta di migliaia di km — il sistema deve segnalarlo chiaramente
     invece di presentarlo come un dato affidabile."""
     cliente_lontano = {
-        "id": "c-lontano", "user_id": "user-1", "company_name": "Cliente Coordinate Sbagliate",
-        "lat": 13.88, "lng": 42.95,  # lat/lng plausibilmente invertite rispetto a un punto italiano
-        "address": "", "city": "",
+        "id": "c-lontano",
+        "user_id": "user-1",
+        "company_name": "Cliente Coordinate Sbagliate",
+        "lat": 13.88,
+        "lng": 42.95,  # lat/lng plausibilmente invertite rispetto a un punto italiano
+        "address": "",
+        "city": "",
     }
     service = build_service([MILANO, cliente_lontano])
     plan = run(service.plan_day(USER, [MILANO["id"], cliente_lontano["id"]]))
@@ -272,21 +337,32 @@ def test_coordinate_palesemente_sbagliate_generano_avviso():
 
 USER_WITH_ADDRESSES = {
     "id": "user-1",
-    "home_lat": 45.5, "home_lng": 9.0,
-    "office_lat": None, "office_lng": None,
+    "home_lat": 45.5,
+    "home_lng": 9.0,
+    "office_lat": None,
+    "office_lng": None,
 }
 
 
 def test_current_location_come_origine_non_e_una_tappa_ma_ancora_il_giro():
     service = build_service([MILANO, BERGAMO, BRESCIA])
-    plan = run(service.plan_day(
-        USER, [MILANO["id"], BERGAMO["id"], BRESCIA["id"]],
-        start_mode="current_location", start_lat=45.5, start_lng=9.0,
-    ))
+    plan = run(
+        service.plan_day(
+            USER,
+            [MILANO["id"], BERGAMO["id"], BRESCIA["id"]],
+            start_mode="current_location",
+            start_lat=45.5,
+            start_lng=9.0,
+        )
+    )
 
     # L'origine virtuale non compare tra le tappe, ma è esposta a parte.
     assert len(plan["stops"]) == 3
-    assert {s["client_id"] for s in plan["stops"]} == {MILANO["id"], BERGAMO["id"], BRESCIA["id"]}
+    assert {s["client_id"] for s in plan["stops"]} == {
+        MILANO["id"],
+        BERGAMO["id"],
+        BRESCIA["id"],
+    }
     assert plan["origin"]["lat"] == 45.5 and plan["origin"]["lng"] == 9.0
     # La prima tappa ha una distanza dall'origine, non zero.
     assert plan["stops"][0]["distance_from_prev_km"] > 0
@@ -307,9 +383,13 @@ def test_home_non_configurata_solleva_errore_chiaro():
 
 def test_home_configurata_viene_usata_come_origine():
     service = build_service([MILANO, BERGAMO])
-    plan = run(service.plan_day(
-        USER_WITH_ADDRESSES, [MILANO["id"], BERGAMO["id"]], start_mode="home",
-    ))
+    plan = run(
+        service.plan_day(
+            USER_WITH_ADDRESSES,
+            [MILANO["id"], BERGAMO["id"]],
+            start_mode="home",
+        )
+    )
     assert plan["origin"]["lat"] == 45.5 and plan["origin"]["lng"] == 9.0
     assert len(plan["stops"]) == 2
 
@@ -322,10 +402,16 @@ def test_start_mode_non_valido_solleva_errore():
 
 def test_round_trip_aggiunge_return_leg_e_somma_ai_totali():
     service = build_service([MILANO, BERGAMO, BRESCIA])
-    plan_senza = run(service.plan_day(USER, [MILANO["id"], BERGAMO["id"], BRESCIA["id"]]))
-    plan_con = run(service.plan_day(
-        USER, [MILANO["id"], BERGAMO["id"], BRESCIA["id"]], round_trip=True,
-    ))
+    plan_senza = run(
+        service.plan_day(USER, [MILANO["id"], BERGAMO["id"], BRESCIA["id"]])
+    )
+    plan_con = run(
+        service.plan_day(
+            USER,
+            [MILANO["id"], BERGAMO["id"], BRESCIA["id"]],
+            round_trip=True,
+        )
+    )
 
     assert "return_leg" not in plan_senza
     assert plan_con["return_leg"]["distance_km"] > 0
@@ -344,9 +430,11 @@ def test_round_trip_singolo_cliente_partenza_fissa_ritorno_nullo():
 
 # ---------- RoutePlanIn: limite massimo clienti ----------
 
+
 def test_route_plan_in_rifiuta_piu_di_max_clienti():
     from pydantic import ValidationError
-    from models.route_planning import RoutePlanIn, MAX_ROUTE_CLIENTS
+
+    from models.route_planning import MAX_ROUTE_CLIENTS, RoutePlanIn
 
     with pytest.raises(ValidationError):
         RoutePlanIn(client_ids=[f"c{i}" for i in range(MAX_ROUTE_CLIENTS + 1)])

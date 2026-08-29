@@ -9,14 +9,15 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     ANTHROPIC_API_KEY=test python -m pytest test_ai_gather_context_commissions.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 sys.path.insert(0, ".")
 
-from tests.test_ai_tool_forcing import FakeSimpleRepo
-from services.ai_service import AiService
 from core.utils import now_local
+from services.ai_service import AiService
+from tests.test_ai_tool_forcing import FakeSimpleRepo
 
 
 def run(coro):
@@ -51,8 +52,18 @@ def build_service(commissions, manual_commissions=None):
 def test_gather_context_include_totali_provvigioni():
     current_month = now_local().strftime("%Y-%m")
     commissions = [
-        {"amount": 100.0, "status": "maturato", "sale_type": "nuovo", "created_at": f"{current_month}-05T10:00:00+00:00"},
-        {"amount": 50.0, "status": "incassato", "sale_type": "rinnovo", "created_at": f"{current_month}-10T10:00:00+00:00"},
+        {
+            "amount": 100.0,
+            "status": "maturato",
+            "sale_type": "nuovo",
+            "created_at": f"{current_month}-05T10:00:00+00:00",
+        },
+        {
+            "amount": 50.0,
+            "status": "incassato",
+            "sale_type": "rinnovo",
+            "created_at": f"{current_month}-10T10:00:00+00:00",
+        },
     ]
     service = build_service(commissions)
 
@@ -66,7 +77,13 @@ def test_gather_context_include_totali_provvigioni():
 
 def test_gather_context_lista_provvigioni_recenti_con_bonus():
     commissions = [
-        {"amount": 500.0, "status": "maturato", "sale_type": "bonus", "bonus_tier_threshold": 2000, "created_at": "2026-01-01T10:00:00+00:00"},
+        {
+            "amount": 500.0,
+            "status": "maturato",
+            "sale_type": "bonus",
+            "bonus_tier_threshold": 2000,
+            "created_at": "2026-01-01T10:00:00+00:00",
+        },
     ]
     service = build_service(commissions)
 

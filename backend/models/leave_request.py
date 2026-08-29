@@ -1,6 +1,8 @@
 from datetime import date
-from pydantic import BaseModel, Field
 from typing import Literal, Optional
+
+from pydantic import BaseModel, Field
+
 from core.validation_limits import LONG_TEXT_MAX_LENGTH
 
 LEAVE_TYPES = ("ferie", "permesso", "malattia")
@@ -16,6 +18,7 @@ class LeaveRequestIn(BaseModel):
     """Payload del form pubblico (nessun login, vedi routers/leave_requests.py):
     employee_token identifica sia il dipendente sia, indirettamente, l'azienda
     (ogni dipendente appartiene a un solo account SalesFly)."""
+
     employee_token: str
     type: Literal["ferie", "permesso", "malattia"]
     # date (non str): pydantic rifiuta automaticamente date inesistenti
@@ -34,6 +37,7 @@ class LeaveRequestIn(BaseModel):
 class LeaveRequestAdminIn(BaseModel):
     """Registrazione diretta del responsabile (già approvata, nessuna
     email): niente employee_token, l'employee_id arriva dal path."""
+
     type: Literal[ADMIN_LEAVE_TYPES]
     date_from: date
     date_to: date
@@ -49,4 +53,5 @@ class LeaveRequestCertificate(BaseModel):
     """Solo per type == 'malattia': conferma da parte del responsabile di
     aver ricevuto il certificato medico. Deliberatamente nessun dato
     sanitario (diagnosi, codice, ecc.) — solo un booleano."""
+
     certificate_received: bool

@@ -1,7 +1,13 @@
 from datetime import datetime
-from pydantic import BaseModel, Field, field_validator
 from typing import Optional
-from core.validation_limits import MEDIUM_TEXT_MAX_LENGTH, LONG_TEXT_MAX_LENGTH, MAX_EXPENSE_AMOUNT
+
+from pydantic import BaseModel, Field, field_validator
+
+from core.validation_limits import (
+    LONG_TEXT_MAX_LENGTH,
+    MAX_EXPENSE_AMOUNT,
+    MEDIUM_TEXT_MAX_LENGTH,
+)
 
 # Categorie spesa suggerite (il frontend le usa per il menu a tendina, ma il campo
 # è una stringa libera lato backend per non dover fare una migrazione se ne servono altre)
@@ -26,7 +32,9 @@ class ExpenseIn(BaseModel):
     amount: float = Field(le=MAX_EXPENSE_AMOUNT)
     client_id: Optional[str] = None  # collegamento facoltativo a un cliente/visita
     notes: Optional[str] = Field("", max_length=LONG_TEXT_MAX_LENGTH)
-    receipt_document_id: Optional[str] = None  # id del documento (foto/PDF scontrino) caricato via /api/documents/upload
+    receipt_document_id: Optional[str] = (
+        None  # id del documento (foto/PDF scontrino) caricato via /api/documents/upload
+    )
 
     # Stesse due validazioni già applicate al percorso di creazione spesa via
     # assistente AI (vedi services/ai_service._safe_float/_validate_expense_date),

@@ -12,20 +12,21 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_demo_request_service.py -v
 """
+
+import asyncio
 import re
 import sys
-import asyncio
 
 import pytest
 from fastapi import HTTPException
 
 sys.path.insert(0, ".")
 
-from models.demo_request import DemoRequestIn
 import services.demo_request_service as demo_request_mod
-from services.demo_request_service import DemoRequestService
 from core.exceptions import ValidationAppError
 from core.security import hash_reset_token
+from models.demo_request import DemoRequestIn
+from services.demo_request_service import DemoRequestService
 
 
 def run(coro):
@@ -79,8 +80,13 @@ class FakeDemoRequestRepo:
 
 def _payload(**overrides):
     base = dict(
-        nome="Mario", cognome="Rossi", email="mario.rossi@example.com",
-        azienda="", telefono="", privacy_consent=True, marketing_consent=False,
+        nome="Mario",
+        cognome="Rossi",
+        email="mario.rossi@example.com",
+        azienda="",
+        telefono="",
+        privacy_consent=True,
+        marketing_consent=False,
     )
     base.update(overrides)
     return DemoRequestIn(**base)
@@ -155,7 +161,9 @@ def test_campi_del_form_vengono_html_escaped_nelle_due_email(monkeypatch):
     assert "&lt;svg onload=alert(3)&gt;" in admin_html
 
 
-def test_fallimento_invio_email_credenziali_viene_segnalato_ma_account_resta_creato(monkeypatch):
+def test_fallimento_invio_email_credenziali_viene_segnalato_ma_account_resta_creato(
+    monkeypatch,
+):
     """Se l'invio dell'email col link di impostazione fallisce, l'utente non
     ha ALCUN modo di impostare una password e accedere: il fallimento deve
     essere propagato nella risposta (per far mostrare al frontend un
@@ -183,7 +191,9 @@ def test_fallimento_invio_email_credenziali_viene_segnalato_ma_account_resta_cre
 
 
 def test_email_gia_esistente_viene_rifiutata(monkeypatch):
-    service, users, repo = build_service(monkeypatch, existing_emails={"mario.rossi@example.com"})
+    service, users, repo = build_service(
+        monkeypatch, existing_emails={"mario.rossi@example.com"}
+    )
 
     with pytest.raises(ValidationAppError):
         run(service.create(_payload(), ip_address="1.2.3.4"))

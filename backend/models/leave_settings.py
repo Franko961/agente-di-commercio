@@ -1,5 +1,6 @@
-from pydantic import BaseModel
 from typing import Literal
+
+from pydantic import BaseModel
 
 FERIE_COUNT_MODES = ("calendario", "lavorativi", "festivita")
 
@@ -15,4 +16,5 @@ class LeaveSettingsIn(BaseModel):
     escludere Natale/Ferragosto/ecc. Si applica solo alle Ferie, non alle
     Malattie (quelle restano sempre a giorni di calendario, come da prassi
     INPS/certificati medici)."""
+
     ferie_count_mode: Literal["calendario", "lavorativi", "festivita"] = "calendario"

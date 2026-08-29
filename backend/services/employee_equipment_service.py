@@ -1,11 +1,13 @@
-from core.utils import gen_id, now_iso
 from core.exceptions import NotFoundError, ValidationAppError
+from core.utils import gen_id, now_iso
 from repositories.employee_equipment_repository import employee_equipment_repository
 from repositories.employee_repository import employee_repository
 
 
 class EmployeeEquipmentService:
-    def __init__(self, repo=employee_equipment_repository, employees=employee_repository):
+    def __init__(
+        self, repo=employee_equipment_repository, employees=employee_repository
+    ):
         self.repo = repo
         self.employees = employees
 
@@ -27,8 +29,12 @@ class EmployeeEquipmentService:
             "user_id": user["id"],
             "employee_id": employee_id,
             "name": payload.name.strip(),
-            "delivered_date": payload.delivered_date.isoformat() if payload.delivered_date else None,
-            "returned_date": payload.returned_date.isoformat() if payload.returned_date else None,
+            "delivered_date": (
+                payload.delivered_date.isoformat() if payload.delivered_date else None
+            ),
+            "returned_date": (
+                payload.returned_date.isoformat() if payload.returned_date else None
+            ),
             "status": payload.status,
             "notes": (payload.notes or "").strip(),
             "created_at": now,
@@ -43,15 +49,28 @@ class EmployeeEquipmentService:
         }
         return await self.repo.insert(doc)
 
-    async def update_equipment(self, user: dict, employee_id: str, eqid: str, payload) -> None:
-        ok = await self.repo.update(eqid, user["id"], employee_id, {
-            "name": payload.name.strip(),
-            "delivered_date": payload.delivered_date.isoformat() if payload.delivered_date else None,
-            "returned_date": payload.returned_date.isoformat() if payload.returned_date else None,
-            "status": payload.status,
-            "notes": (payload.notes or "").strip(),
-            "updated_at": now_iso(),
-        })
+    async def update_equipment(
+        self, user: dict, employee_id: str, eqid: str, payload
+    ) -> None:
+        ok = await self.repo.update(
+            eqid,
+            user["id"],
+            employee_id,
+            {
+                "name": payload.name.strip(),
+                "delivered_date": (
+                    payload.delivered_date.isoformat()
+                    if payload.delivered_date
+                    else None
+                ),
+                "returned_date": (
+                    payload.returned_date.isoformat() if payload.returned_date else None
+                ),
+                "status": payload.status,
+                "notes": (payload.notes or "").strip(),
+                "updated_at": now_iso(),
+            },
+        )
         if not ok:
             raise NotFoundError("Dotazione non trovata")
 

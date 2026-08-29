@@ -1,20 +1,26 @@
 import secrets
 from calendar import monthrange
 from datetime import date, datetime, timedelta, timezone
+from typing import Optional
 
 from fastapi import HTTPException
 
-from core.utils import gen_id, now_iso, now_local, local_date_str
 from core.exceptions import NotFoundError, ValidationAppError
-from core.security import hash_reset_token, hash_password, verify_password, module_enabled
 from core.rate_limit import check_and_record
+from core.security import (
+    hash_password,
+    hash_reset_token,
+    module_enabled,
+    verify_password,
+)
+from core.utils import gen_id, local_date_str, now_iso, now_local
 from models.leave_request import LEAVE_TYPES
 from repositories.attendance_repository import attendance_repository
 from repositories.employee_repository import employee_repository
-from repositories.user_repository import user_repository
 from repositories.leave_request_repository import leave_request_repository
-from services.export_service import xlsx_response
+from repositories.user_repository import user_repository
 from services.attendance_xlsx_export import build_attendance_workbook
+from services.export_service import xlsx_response
 
 
 def _generate_kiosk_token() -> tuple:
@@ -59,8 +65,13 @@ class AttendanceService:
     _employee_from_kiosk) è la difesa che conta davvero contro un
     brute-force, non la sola hashing del PIN."""
 
-    def __init__(self, repo=attendance_repository, employees=employee_repository, users=user_repository,
-                 leave_requests=leave_request_repository):
+    def __init__(
+        self,
+        repo=attendance_repository,
+        employees=employee_repository,
+        users=user_repository,
+        leave_requests=leave_request_repository,
+    ):
         self.repo = repo
         self.employees = employees
         self.users = users
@@ -73,7 +84,9 @@ class AttendanceService:
 
     async def regenerate_kiosk_token(self, user: dict) -> str:
         token, token_hash = _generate_kiosk_token()
-        await self.users.update_by_id(user["id"], {"attendance_kiosk_token_hash": token_hash})
+        await self.users.update_by_id(
+            user["id"], {"attendance_kiosk_token_hash": token_hash}
+        )
         return token
 
     # ---------- PIN dipendente (lato admin) ----------
@@ -87,13 +100,17 @@ class AttendanceService:
         if not employee:
             raise ValidationAppError("Dipendente non valido")
         pin = _generate_pin()
-        await self.employees.update(employee_id, user["id"], {"pin_hash": hash_password(pin)})
+        await self.employees.update(
+            employee_id, user["id"], {"pin_hash": hash_password(pin)}
+        )
         return pin
 
     # ---------- chiosco pubblico ----------
 
     async def _owner_from_kiosk_token(self, token: str) -> dict:
-        owner = await self.users.find_by_attendance_kiosk_token_hash(hash_reset_token(token))
+        owner = await self.users.find_by_attendance_kiosk_token_hash(
+            hash_reset_token(token)
+        )
         if not owner or not module_enabled(owner, "personale"):
             raise NotFoundError("QR non valido o temporaneamente non disponibile")
         return owner
@@ -109,14 +126,18 @@ class AttendanceService:
             if not e.get("active", True):
                 continue
             open_session = await self.repo.find_open_session(e["id"], owner["id"])
-            result.append({
-                "id": e["id"],
-                "name": f"{e['name']} {e.get('surname', '')}".strip(),
-                "clocked_in": open_session is not None,
-            })
+            result.append(
+                {
+                    "id": e["id"],
+                    "name": f"{e['name']} {e.get('surname', '')}".strip(),
+                    "clocked_in": open_session is not None,
+                }
+            )
         return result
 
-    async def _check_rate_limit(self, token: str, employee_id: str, ip_address: str = None) -> None:
+    async def _check_rate_limit(
+        self, token: str, employee_id: str, ip_address: Optional[str] = None
+    ) -> None:
         # IP e token azienda: 300/ora, non 60 — un solo tablet fisico
         # all'ingresso genera TUTTO il traffico di un'azienda con più
         # dipendenti da un'unica IP e con un unico QR, quindi entrambi i
@@ -130,29 +151,49 @@ class AttendanceService:
         # tempi ragionevoli, indipendentemente da quanto sono larghi i
         # limiti IP/token.
         if ip_address:
-            ok = await check_and_record("attendance_kiosk_ip", ip_address, max_attempts=300, window_minutes=60)
+            ok = await check_and_record(
+                "attendance_kiosk_ip", ip_address, max_attempts=300, window_minutes=60
+            )
             if not ok:
-                raise HTTPException(429, "Troppe richieste da questo indirizzo, riprova più tardi.")
-        token_ok = await check_and_record("attendance_kiosk_token", token, max_attempts=300, window_minutes=60)
+                raise HTTPException(
+                    429, "Troppe richieste da questo indirizzo, riprova più tardi."
+                )
+        token_ok = await check_and_record(
+            "attendance_kiosk_token", token, max_attempts=300, window_minutes=60
+        )
         if not token_ok:
-            raise HTTPException(429, "Troppe richieste per questo QR, riprova più tardi.")
-        pin_ok = await check_and_record("attendance_pin_attempt", employee_id, max_attempts=10, window_minutes=15)
+            raise HTTPException(
+                429, "Troppe richieste per questo QR, riprova più tardi."
+            )
+        pin_ok = await check_and_record(
+            "attendance_pin_attempt", employee_id, max_attempts=10, window_minutes=15
+        )
         if not pin_ok:
-            raise HTTPException(429, "Troppi tentativi con PIN errato, riprova più tardi.")
+            raise HTTPException(
+                429, "Troppi tentativi con PIN errato, riprova più tardi."
+            )
 
-    async def _employee_from_kiosk(self, token: str, employee_id: str, pin: str) -> dict:
+    async def _employee_from_kiosk(
+        self, token: str, employee_id: str, pin: str
+    ) -> dict:
         owner = await self._owner_from_kiosk_token(token)
         employee = await self.employees.find_one_with_pin_hash(employee_id, owner["id"])
         if not employee or not employee.get("active", True):
             raise NotFoundError("Dipendente non valido")
-        if not employee.get("pin_hash") or not verify_password(pin, employee["pin_hash"]):
+        if not employee.get("pin_hash") or not verify_password(
+            pin, employee["pin_hash"]
+        ):
             raise ValidationAppError("PIN non corretto")
         return employee
 
-    async def clock_in_kiosk(self, token: str, employee_id: str, pin: str, ip_address: str = None) -> dict:
+    async def clock_in_kiosk(
+        self, token: str, employee_id: str, pin: str, ip_address: Optional[str] = None
+    ) -> dict:
         await self._check_rate_limit(token, employee_id, ip_address)
         employee = await self._employee_from_kiosk(token, employee_id, pin)
-        existing = await self.repo.find_open_session(employee["id"], employee["user_id"])
+        existing = await self.repo.find_open_session(
+            employee["id"], employee["user_id"]
+        )
         if existing:
             raise ValidationAppError("Sei già in servizio: registra prima l'uscita")
 
@@ -169,15 +210,24 @@ class AttendanceService:
         }
         return await self.repo.insert(doc)
 
-    async def clock_out_kiosk(self, token: str, employee_id: str, pin: str, ip_address: str = None) -> dict:
+    async def clock_out_kiosk(
+        self, token: str, employee_id: str, pin: str, ip_address: Optional[str] = None
+    ) -> dict:
         await self._check_rate_limit(token, employee_id, ip_address)
         employee = await self._employee_from_kiosk(token, employee_id, pin)
-        existing = await self.repo.find_open_session(employee["id"], employee["user_id"])
+        existing = await self.repo.find_open_session(
+            employee["id"], employee["user_id"]
+        )
         if not existing:
             raise ValidationAppError("Nessun ingresso registrato da chiudere")
 
         clock_out_ts = now_iso()
-        ok = await self.repo.update(existing["id"], employee["user_id"], employee["id"], {"clock_out": clock_out_ts})
+        ok = await self.repo.update(
+            existing["id"],
+            employee["user_id"],
+            employee["id"],
+            {"clock_out": clock_out_ts},
+        )
         if not ok:
             raise NotFoundError("Sessione non trovata")
         existing["clock_out"] = clock_out_ts
@@ -213,7 +263,10 @@ class AttendanceService:
             day = local_date_str(s["clock_in"])
             if not day.startswith(month):
                 continue
-            hours = (datetime.fromisoformat(s["clock_out"]) - datetime.fromisoformat(s["clock_in"])).total_seconds() / 3600
+            hours = (
+                datetime.fromisoformat(s["clock_out"])
+                - datetime.fromisoformat(s["clock_in"])
+            ).total_seconds() / 3600
             key = (s["employee_id"], day)
             totals[key] = totals.get(key, 0) + hours
         return [
@@ -258,15 +311,22 @@ class AttendanceService:
 
         date_from = f"{month}-01"
         date_to_bound = f"{month}-31"  # confronto testuale ISO, stesso principio di leave_request_service.calendar
-        leave_requests = await self.leave_requests.find_overlapping(user["id"], date_from, date_to_bound, status="approvata")
+        leave_requests = await self.leave_requests.find_overlapping(
+            user["id"], date_from, date_to_bound, status="approvata"
+        )
         absences_by_employee: dict = {}
         for r in leave_requests:
             if r["type"] not in LEAVE_TYPES:
                 continue
-            absences_by_employee.setdefault(r["employee_id"], []).append((r["date_from"], r["date_to"]))
+            absences_by_employee.setdefault(r["employee_id"], []).append(
+                (r["date_from"], r["date_to"])
+            )
 
         def _is_absent(employee_id: str, day_iso: str) -> bool:
-            return any(df <= day_iso <= dt for df, dt in absences_by_employee.get(employee_id, []))
+            return any(
+                df <= day_iso <= dt
+                for df, dt in absences_by_employee.get(employee_id, [])
+            )
 
         out = []
         for e in employees:
@@ -283,14 +343,18 @@ class AttendanceService:
             # del turno: senza, 09:00-18:00 risulterebbe 9 ore attese invece
             # di 8 con un'ora di pausa non retribuita (vedi models.employee).
             break_minutes = e.get("unpaid_break_minutes") or 0
-            shift_hours = round((end_h * 60 + end_m - start_h * 60 - start_m - break_minutes) / 60, 2)
+            shift_hours = round(
+                (end_h * 60 + end_m - start_h * 60 - start_m - break_minutes) / 60, 2
+            )
             for day in range(1, days_in_month + 1):
                 if date(year, mon, day).weekday() not in work_days:
                     continue
                 day_iso = f"{month}-{day:02d}"
                 if _is_absent(e["id"], day_iso):
                     continue
-                out.append({"employee_id": e["id"], "date": day_iso, "hours": shift_hours})
+                out.append(
+                    {"employee_id": e["id"], "date": day_iso, "hours": shift_hours}
+                )
         return out
 
     async def today_summary(self, user: dict) -> dict:
@@ -313,10 +377,18 @@ class AttendanceService:
         weekday = now.weekday()
         today_midnight_local = now.replace(hour=0, minute=0, second=0, microsecond=0)
         today_start = today_midnight_local.astimezone(timezone.utc).isoformat()
-        tomorrow_start = (today_midnight_local + timedelta(days=1)).astimezone(timezone.utc).isoformat()
+        tomorrow_start = (
+            (today_midnight_local + timedelta(days=1))
+            .astimezone(timezone.utc)
+            .isoformat()
+        )
 
         employees = await self.employees.find_many(user["id"])
-        clocked_employee_ids = set(await self.repo.find_clocked_in_between(user["id"], today_start, tomorrow_start))
+        clocked_employee_ids = set(
+            await self.repo.find_clocked_in_between(
+                user["id"], today_start, tomorrow_start
+            )
+        )
 
         total_active = 0
         expected_today = 0
@@ -332,7 +404,11 @@ class AttendanceService:
             expected_today += 1
             if e["id"] in clocked_employee_ids:
                 clocked_today += 1
-        return {"total_active": total_active, "expected_today": expected_today, "clocked_today": clocked_today}
+        return {
+            "total_active": total_active,
+            "expected_today": expected_today,
+            "clocked_today": clocked_today,
+        }
 
     async def export_xlsx(self, user: dict, month: str):
         """Cartellino del mese richiesto (AAAA-MM) come file Excel: foglio
@@ -343,9 +419,13 @@ class AttendanceService:
         workbook. Stesso rate limit degli altri export (bucket condiviso
         "csv_export": un limite complessivo di export al minuto per utente
         ha più senso di uno per singolo tipo di file)."""
-        ok = await check_and_record("csv_export", user["id"], max_attempts=20, window_minutes=10)
+        ok = await check_and_record(
+            "csv_export", user["id"], max_attempts=20, window_minutes=10
+        )
         if not ok:
-            raise HTTPException(429, "Troppe esportazioni richieste, riprova tra qualche minuto")
+            raise HTTPException(
+                429, "Troppe esportazioni richieste, riprova tra qualche minuto"
+            )
 
         sessions = []
         for s in await self.repo.find_all_closed(user["id"]):
@@ -355,7 +435,9 @@ class AttendanceService:
         year, mon = (int(p) for p in month.split("-"))
         month_start = f"{month}-01"
         month_end = f"{month}-{monthrange(year, mon)[1]:02d}"
-        leave_requests = await self.leave_requests.find_overlapping(user["id"], month_start, month_end, status="approvata")
+        leave_requests = await self.leave_requests.find_overlapping(
+            user["id"], month_start, month_end, status="approvata"
+        )
 
         wb = build_attendance_workbook(
             month=month,
@@ -367,7 +449,9 @@ class AttendanceService:
         )
         return xlsx_response(wb, f"presenze_{month}.xlsx")
 
-    async def create_manual_session(self, user: dict, employee_id: str, payload) -> dict:
+    async def create_manual_session(
+        self, user: dict, employee_id: str, payload
+    ) -> dict:
         employee = await self._validate_employee(user["id"], employee_id)
         doc = {
             "id": gen_id(),
@@ -382,13 +466,20 @@ class AttendanceService:
         }
         return await self.repo.insert(doc)
 
-    async def correct_session(self, user: dict, employee_id: str, sid: str, payload) -> None:
-        ok = await self.repo.update(sid, user["id"], employee_id, {
-            "clock_in": payload.clock_in,
-            "clock_out": payload.clock_out,
-            "note": (payload.note or "").strip(),
-            "corrected_by_admin": True,
-        })
+    async def correct_session(
+        self, user: dict, employee_id: str, sid: str, payload
+    ) -> None:
+        ok = await self.repo.update(
+            sid,
+            user["id"],
+            employee_id,
+            {
+                "clock_in": payload.clock_in,
+                "clock_out": payload.clock_out,
+                "note": (payload.note or "").strip(),
+                "corrected_by_admin": True,
+            },
+        )
         if not ok:
             raise NotFoundError("Sessione non trovata")
 

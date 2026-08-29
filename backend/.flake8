@@ -1,0 +1,22 @@
+[flake8]
+max-line-length = 88
+extend-ignore =
+    # E203/W503: in conflitto con come black formatta gli slice e gli operatori binari a inizio riga.
+    E203,
+    W503,
+    # E402: pattern deliberato in server.py, services/ai_service/__init__.py e molti test —
+    # load_dotenv()/setenv prima di importare moduli che leggono variabili d'ambiente a import-time.
+    E402,
+    # E501: black già impone 88 caratteri dove può farlo in sicurezza; il residuo sono per lo più
+    # stringhe non spezzabili (descrizioni tool AI, messaggi, URL) che black lascia intenzionalmente intere.
+    E501,
+    # E741: nomi ambigui (l/O/I) pre-esistenti, non rinominati in blocco per evitare errori di scope.
+    E741
+exclude = .venv,.git,__pycache__
+per-file-ignores =
+    # __init__.py di services/ai_service re-esporta simboli da catalog.py/pricing.py per uso esterno.
+    __init__.py: F401
+    # catalog.py usa @overload per _safe_float (due firme distinte a seconda del
+    # default): black tiene volutamente compatta la catena, senza le 2 righe
+    # vuote che E302 vorrebbe tra funzioni di primo livello.
+    services/ai_service/catalog.py: E302

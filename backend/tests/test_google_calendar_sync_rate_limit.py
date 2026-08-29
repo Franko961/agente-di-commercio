@@ -10,8 +10,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_google_calendar_sync_rate_limit.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 from fastapi import HTTPException

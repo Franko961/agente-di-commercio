@@ -1,25 +1,32 @@
-import time
-import logging
 import asyncio
+import logging
+import time
 from datetime import datetime, timedelta
 from typing import Optional
 
 import jwt
 import requests
+from fastapi import HTTPException
 from requests_oauthlib import OAuth2Session
 
-from core.observability import record_event, Timer
 from core.config import (
-    GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI,
-    GOOGLE_CALENDAR_SCOPES, JWT_SECRET, JWT_ALG, GOOGLE_REAUTH_NOTIFY_COOLDOWN_HOURS,
+    GOOGLE_CALENDAR_SCOPES,
+    GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET,
+    GOOGLE_REAUTH_NOTIFY_COOLDOWN_HOURS,
+    GOOGLE_REDIRECT_URI,
+    JWT_ALG,
+    JWT_SECRET,
 )
-from core.crypto import encrypt_str, decrypt_str
-from core.utils import gen_id, now_iso
+from core.crypto import decrypt_str, encrypt_str
+from core.observability import Timer, record_event
 from core.rate_limit import check_and_record
-from fastapi import HTTPException
-from repositories.google_calendar_repository import google_calendar_repository
+from core.utils import gen_id, now_iso
 from repositories.appointment_repository import appointment_repository
-from repositories.automation_notification_repository import automation_notification_repository
+from repositories.automation_notification_repository import (
+    automation_notification_repository,
+)
+from repositories.google_calendar_repository import google_calendar_repository
 from repositories.user_repository import user_repository
 from services.email_service import send_email
 
@@ -33,8 +40,11 @@ CALENDAR_API_BASE = "https://www.googleapis.com/calendar/v3"
 
 class GoogleCalendarService:
     def __init__(
-        self, repo=google_calendar_repository, appt_repo=appointment_repository,
-        notification_repo=automation_notification_repository, user_repo=user_repository,
+        self,
+        repo=google_calendar_repository,
+        appt_repo=appointment_repository,
+        notification_repo=automation_notification_repository,
+        user_repo=user_repository,
         send_email_fn=send_email,
     ):
         self.repo = repo
@@ -48,16 +58,24 @@ class GoogleCalendarService:
     # ------------------------------------------------------------------ #
     def get_auth_url(self, user_id: str) -> str:
         state = jwt.encode(
-            {"uid": user_id, "purpose": "gcal_connect",
-             "exp": datetime.utcnow() + timedelta(minutes=10)},
-            JWT_SECRET, algorithm=JWT_ALG,
+            {
+                "uid": user_id,
+                "purpose": "gcal_connect",
+                "exp": datetime.utcnow() + timedelta(minutes=10),
+            },
+            JWT_SECRET,
+            algorithm=JWT_ALG,
         )
         oauth = OAuth2Session(
-            GOOGLE_CLIENT_ID, redirect_uri=GOOGLE_REDIRECT_URI,
-            scope=GOOGLE_CALENDAR_SCOPES, state=state,
+            GOOGLE_CLIENT_ID,
+            redirect_uri=GOOGLE_REDIRECT_URI,
+            scope=GOOGLE_CALENDAR_SCOPES,
+            state=state,
         )
         auth_url, _ = oauth.authorization_url(
-            GOOGLE_AUTH_BASE, access_type="offline", prompt="consent",
+            GOOGLE_AUTH_BASE,
+            access_type="offline",
+            prompt="consent",
         )
         return auth_url
 
@@ -80,12 +98,16 @@ class GoogleCalendarService:
         # dell'account Google collegato finirebbero sincronizzati
         # nell'account demo condiviso, visibili a chiunque altro lo visiti.
         if await self._is_demo_user(user_id):
-            raise ValueError("Connessione Google Calendar non disponibile per l'account demo")
+            raise ValueError(
+                "Connessione Google Calendar non disponibile per l'account demo"
+            )
 
         def _exchange():
             oauth = OAuth2Session(GOOGLE_CLIENT_ID, redirect_uri=GOOGLE_REDIRECT_URI)
             token = oauth.fetch_token(
-                GOOGLE_TOKEN_URL, client_secret=GOOGLE_CLIENT_SECRET, code=code,
+                GOOGLE_TOKEN_URL,
+                client_secret=GOOGLE_CLIENT_SECRET,
+                code=code,
             )
             userinfo = oauth.get(GOOGLE_USERINFO_URL).json()
             return token, userinfo
@@ -136,24 +158,33 @@ class GoogleCalendarService:
     # Access token helpers
     # ------------------------------------------------------------------ #
     async def _valid_access_token(self, conn: dict) -> Optional[str]:
-        if conn.get("access_token") and conn.get("access_token_expiry", 0) > time.time() + 30:
+        if (
+            conn.get("access_token")
+            and conn.get("access_token_expiry", 0) > time.time() + 30
+        ):
             return conn["access_token"]
 
         def _refresh():
             refresh_token = decrypt_str(conn["refresh_token_enc"])
-            resp = requests.post(GOOGLE_TOKEN_URL, data={
-                "client_id": GOOGLE_CLIENT_ID,
-                "client_secret": GOOGLE_CLIENT_SECRET,
-                "refresh_token": refresh_token,
-                "grant_type": "refresh_token",
-            }, timeout=15)
+            resp = requests.post(
+                GOOGLE_TOKEN_URL,
+                data={
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "refresh_token": refresh_token,
+                    "grant_type": "refresh_token",
+                },
+                timeout=15,
+            )
             resp.raise_for_status()
             return resp.json()
 
         try:
             result = await asyncio.to_thread(_refresh)
         except requests.HTTPError as e:
-            logger.error(f"Refresh token Google fallito per user {conn['user_id']}: {e}")
+            logger.error(
+                f"Refresh token Google fallito per user {conn['user_id']}: {e}"
+            )
             # Un 4xx da Google sul refresh (tipicamente invalid_grant) significa
             # che il token e' stato rifiutato in modo permanente — l'utente ha
             # revocato l'accesso, o (caso piu' comune per un'app OAuth ancora
@@ -167,12 +198,18 @@ class GoogleCalendarService:
         # Un refresh riuscito dopo un precedente fallimento azzera l'eventuale
         # avviso pendente (es. l'utente ha ririsolto il problema da solo).
         if conn.get("needs_reauth"):
-            await self.repo.upsert(conn["user_id"], {"needs_reauth": False, "reauth_notified_at": None})
+            await self.repo.upsert(
+                conn["user_id"], {"needs_reauth": False, "reauth_notified_at": None}
+            )
         access_token = result["access_token"]
         expiry = time.time() + result.get("expires_in", 3600) - 60
-        await self.repo.upsert(conn["user_id"], {
-            "access_token": access_token, "access_token_expiry": expiry,
-        })
+        await self.repo.upsert(
+            conn["user_id"],
+            {
+                "access_token": access_token,
+                "access_token_expiry": expiry,
+            },
+        )
         return access_token
 
     async def _notify_needs_reauth(self, conn: dict) -> None:
@@ -183,10 +220,12 @@ class GoogleCalendarService:
         already_notified_recently = False
         if conn.get("needs_reauth") and conn.get("reauth_notified_at"):
             try:
-                last = datetime.fromisoformat(conn["reauth_notified_at"].replace("Z", "+00:00"))
-                already_notified_recently = (
-                    datetime.now(last.tzinfo) - last < timedelta(hours=GOOGLE_REAUTH_NOTIFY_COOLDOWN_HOURS)
+                last = datetime.fromisoformat(
+                    conn["reauth_notified_at"].replace("Z", "+00:00")
                 )
+                already_notified_recently = datetime.now(
+                    last.tzinfo
+                ) - last < timedelta(hours=GOOGLE_REAUTH_NOTIFY_COOLDOWN_HOURS)
             except (ValueError, TypeError):
                 already_notified_recently = False
 
@@ -205,13 +244,22 @@ class GoogleCalendarService:
             "l'autorizzazione non e' piu' valida. Vai in Impostazioni e "
             "collega di nuovo il tuo account Google per riprenderla."
         )
-        await self.notification_repo.insert({
-            "id": gen_id(), "user_id": user_id, "automation_id": None,
-            "title": title, "message": message,
-            "target_type": "google_calendar", "target_id": user_id,
-            "read": False, "created_at": now_iso(),
-        })
-        await self.send_email_fn(user.get("email", ""), f"⚠️ SALESFLY — {title}", f"<p>{message}</p>")
+        await self.notification_repo.insert(
+            {
+                "id": gen_id(),
+                "user_id": user_id,
+                "automation_id": None,
+                "title": title,
+                "message": message,
+                "target_type": "google_calendar",
+                "target_id": user_id,
+                "read": False,
+                "created_at": now_iso(),
+            }
+        )
+        await self.send_email_fn(
+            user.get("email", ""), f"⚠️ SALESFLY — {title}", f"<p>{message}</p>"
+        )
 
     # ------------------------------------------------------------------ #
     # Push: Salesfly -> Google Calendar
@@ -231,7 +279,9 @@ class GoogleCalendarService:
             "location": appointment.get("location", "") or "",
             "start": {"dateTime": start, "timeZone": "Europe/Rome"},
             "end": {"dateTime": end, "timeZone": "Europe/Rome"},
-            "extendedProperties": {"private": {"salesfly_appointment_id": appointment["id"]}},
+            "extendedProperties": {
+                "private": {"salesfly_appointment_id": appointment["id"]}
+            },
         }
 
     async def _is_demo_user(self, user_id: str) -> bool:
@@ -255,14 +305,17 @@ class GoogleCalendarService:
             return requests.post(
                 f"{CALENDAR_API_BASE}/calendars/{conn['calendar_id']}/events",
                 headers={"Authorization": f"Bearer {token}"},
-                json=self._event_body(appointment), timeout=15,
+                json=self._event_body(appointment),
+                timeout=15,
             )
 
         try:
             resp = await asyncio.to_thread(_create)
             resp.raise_for_status()
             event = resp.json()
-            await self.appt_repo.update(appointment["id"], user_id, {"google_event_id": event["id"]})
+            await self.appt_repo.update(
+                appointment["id"], user_id, {"google_event_id": event["id"]}
+            )
         except requests.HTTPError as e:
             logger.error(f"Push create evento Google fallito per user {user_id}: {e}")
 
@@ -284,7 +337,8 @@ class GoogleCalendarService:
             return requests.patch(
                 f"{CALENDAR_API_BASE}/calendars/{conn['calendar_id']}/events/{google_event_id}",
                 headers={"Authorization": f"Bearer {token}"},
-                json=self._event_body(appointment), timeout=15,
+                json=self._event_body(appointment),
+                timeout=15,
             )
 
         try:
@@ -312,7 +366,8 @@ class GoogleCalendarService:
         def _delete():
             return requests.delete(
                 f"{CALENDAR_API_BASE}/calendars/{conn['calendar_id']}/events/{google_event_id}",
-                headers={"Authorization": f"Bearer {token}"}, timeout=15,
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=15,
             )
 
         try:
@@ -327,7 +382,9 @@ class GoogleCalendarService:
     # ------------------------------------------------------------------ #
     @staticmethod
     def _appointment_from_event(user_id: str, event: dict) -> dict:
-        start = event.get("start", {}).get("dateTime") or event.get("start", {}).get("date")
+        start = event.get("start", {}).get("dateTime") or event.get("start", {}).get(
+            "date"
+        )
         end = event.get("end", {}).get("dateTime") or event.get("end", {}).get("date")
         return {
             "user_id": user_id,
@@ -353,12 +410,18 @@ class GoogleCalendarService:
         if not token:
             return
 
-        params = {"singleEvents": "true", "showDeleted": "true", "maxResults": 250}
+        # maxResults come stringa (non int): requests la stringificherebbe
+        # comunque nella query, ma così il dict resta dict[str, str] invece
+        # di dict[str, object] (misto str/int), che requests.get(params=...)
+        # non accetta secondo i suoi stub di tipo.
+        params = {"singleEvents": "true", "showDeleted": "true", "maxResults": "250"}
         sync_token = conn.get("sync_token")
         if sync_token:
             params["syncToken"] = sync_token
         else:
-            params["timeMin"] = (datetime.utcnow() - timedelta(days=30)).isoformat() + "Z"
+            params["timeMin"] = (
+                datetime.utcnow() - timedelta(days=30)
+            ).isoformat() + "Z"
 
         events = []
         next_page_token = None
@@ -373,7 +436,9 @@ class GoogleCalendarService:
             def _list():
                 return requests.get(
                     f"{CALENDAR_API_BASE}/calendars/{conn['calendar_id']}/events",
-                    headers={"Authorization": f"Bearer {token}"}, params=page_params, timeout=15,
+                    headers={"Authorization": f"Bearer {token}"},
+                    params=page_params,
+                    timeout=15,
                 )
 
             resp = await asyncio.to_thread(_list)
@@ -401,7 +466,9 @@ class GoogleCalendarService:
             try:
                 await self._apply_event(user_id, event)
             except Exception as e:
-                logger.error(f"Errore applicando evento Google {event.get('id')} per user {user_id}: {e}")
+                logger.error(
+                    f"Errore applicando evento Google {event.get('id')} per user {user_id}: {e}"
+                )
 
         if next_sync_token:
             await self.repo.upsert(user_id, {"sync_token": next_sync_token})
@@ -420,14 +487,25 @@ class GoogleCalendarService:
             return  # evento senza orario valorizzato, ignoriamo
 
         if local:
-            await self.appt_repo.update(local["id"], user_id, {
-                "title": fields["title"], "description": fields["description"],
-                "location": fields["location"], "start": fields["start"], "end": fields["end"],
-            })
+            await self.appt_repo.update(
+                local["id"],
+                user_id,
+                {
+                    "title": fields["title"],
+                    "description": fields["description"],
+                    "location": fields["location"],
+                    "start": fields["start"],
+                    "end": fields["end"],
+                },
+            )
         else:
             doc = {
-                "id": gen_id(), "user_id": user_id, "status": "pianificato",
-                "client_id": None, "created_at": now_iso(), **fields,
+                "id": gen_id(),
+                "user_id": user_id,
+                "status": "pianificato",
+                "client_id": None,
+                "created_at": now_iso(),
+                **fields,
             }
             await self.appt_repo.insert(doc)
 
@@ -438,9 +516,13 @@ class GoogleCalendarService:
         refresh di token non necessari — stessa protezione già applicata
         alle altre integrazioni esterne a consumo (geocoding, route
         planning)."""
-        ok = await check_and_record("gcal_sync_now", user_id, max_attempts=10, window_minutes=10)
+        ok = await check_and_record(
+            "gcal_sync_now", user_id, max_attempts=10, window_minutes=10
+        )
         if not ok:
-            raise HTTPException(429, "Troppe sincronizzazioni richieste, riprova tra qualche minuto")
+            raise HTTPException(
+                429, "Troppe sincronizzazioni richieste, riprova tra qualche minuto"
+            )
         conn = await self.repo.find_by_user(user_id)
         if conn:
             await self._pull_for_connection(conn)
@@ -452,14 +534,20 @@ class GoogleCalendarService:
                 with Timer() as t:
                     await self._pull_for_connection(conn)
                 await record_event(
-                    "calendar_sync", "success",
-                    user_id=conn.get("user_id"), duration_ms=round(t.duration_ms, 1),
+                    "calendar_sync",
+                    "success",
+                    user_id=conn.get("user_id"),
+                    duration_ms=round(t.duration_ms, 1),
                 )
             except Exception as e:
-                logger.error(f"Sync periodico fallito per user {conn.get('user_id')}: {e}")
+                logger.error(
+                    f"Sync periodico fallito per user {conn.get('user_id')}: {e}"
+                )
                 await record_event(
-                    "calendar_sync", "failure",
-                    user_id=conn.get("user_id"), error=str(e)[:300],
+                    "calendar_sync",
+                    "failure",
+                    user_id=conn.get("user_id"),
+                    error=str(e)[:300],
                 )
 
 

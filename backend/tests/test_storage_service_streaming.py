@@ -7,6 +7,7 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_storage_service_streaming.py -v
 """
+
 import sys
 
 import pytest
@@ -45,7 +46,12 @@ class FakeS3Client:
         }
 
     def upload_fileobj(self, fileobj, bucket, key, ExtraArgs=None):
-        self.uploaded = {"content": fileobj.read(), "bucket": bucket, "key": key, "extra": ExtraArgs}
+        self.uploaded = {
+            "content": fileobj.read(),
+            "bucket": bucket,
+            "key": key,
+            "extra": ExtraArgs,
+        }
 
 
 def test_storage_get_stream_restituisce_i_blocchi_in_ordine(monkeypatch):
@@ -62,7 +68,11 @@ def test_storage_get_stream_restituisce_i_blocchi_in_ordine(monkeypatch):
 def test_storage_get_stream_chiude_il_body_dopo_la_lettura(monkeypatch):
     body = FakeStreamingBody([b"x"])
     fake_s3 = FakeS3Client([])
-    fake_s3.get_object = lambda Bucket, Key: {"Body": body, "ContentType": "application/pdf", "ContentLength": 1}
+    fake_s3.get_object = lambda Bucket, Key: {
+        "Body": body,
+        "ContentType": "application/pdf",
+        "ContentLength": 1,
+    }
     monkeypatch.setattr(storage_mod, "get_s3", lambda: fake_s3)
 
     iterator, _, _ = storage_get_stream("path/al/file.pdf")
@@ -81,10 +91,13 @@ def test_storage_get_stream_senza_s3_configurato_solleva_errore(monkeypatch):
 
 def test_storage_put_stream_passa_il_fileobj_a_upload_fileobj(monkeypatch):
     import io
+
     fake_s3 = FakeS3Client([])
     monkeypatch.setattr(storage_mod, "get_s3", lambda: fake_s3)
 
-    result = storage_put_stream("path/nuovo.pdf", io.BytesIO(b"contenuto pdf"), "application/pdf")
+    result = storage_put_stream(
+        "path/nuovo.pdf", io.BytesIO(b"contenuto pdf"), "application/pdf"
+    )
 
     assert result == {"path": "path/nuovo.pdf"}
     assert fake_s3.uploaded["content"] == b"contenuto pdf"

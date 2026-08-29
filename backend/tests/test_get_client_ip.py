@@ -18,6 +18,7 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_get_client_ip.py -v
 """
+
 import sys
 
 sys.path.insert(0, ".")
@@ -80,7 +81,9 @@ def test_hop_fidati_maggiori_delle_voci_disponibili_ricade_su_client_host(monkey
     proxy, con TRUSTED_PROXY_HOPS=2): non bisogna inventarsi una voce che
     non esiste, meglio ricadere sul solo dato certo disponibile."""
     monkeypatch.setattr(security_mod, "TRUSTED_PROXY_HOPS", 2)
-    request = FakeRequest(headers={"x-forwarded-for": "203.0.113.9"}, client_host="10.0.0.5")
+    request = FakeRequest(
+        headers={"x-forwarded-for": "203.0.113.9"}, client_host="10.0.0.5"
+    )
     assert get_client_ip(request) == "10.0.0.5"
 
 
@@ -97,6 +100,7 @@ def test_nessun_client_e_nessun_header_ritorna_none():
 
 # ---------- x-nf-client-connection-ip (traffico via Netlify/salesfly.it) ----------
 
+
 def test_x_nf_client_connection_ip_ha_priorita_su_x_forwarded_for(monkeypatch):
     """Verificato dal vivo (GET /api/debug/my-ip) che per il traffico via
     salesfly.it l'IP reale del visitatore non compare affatto in
@@ -104,10 +108,12 @@ def test_x_nf_client_connection_ip_ha_priorita_su_x_forwarded_for(monkeypatch):
     stabile e identica per ogni visitatore) — Netlify lo espone invece in
     questo header dedicato, che va usato quando presente."""
     monkeypatch.setattr(security_mod, "TRUSTED_PROXY_HOPS", 1)
-    request = FakeRequest(headers={
-        "x-nf-client-connection-ip": "93.35.124.64",
-        "x-forwarded-for": "35.247.84.164, 152.233.76.11",
-    })
+    request = FakeRequest(
+        headers={
+            "x-nf-client-connection-ip": "93.35.124.64",
+            "x-forwarded-for": "35.247.84.164, 152.233.76.11",
+        }
+    )
     assert get_client_ip(request) == "93.35.124.64"
 
 
@@ -122,4 +128,5 @@ def test_x_nf_client_connection_ip_assente_ricade_su_x_forwarded_for(monkeypatch
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

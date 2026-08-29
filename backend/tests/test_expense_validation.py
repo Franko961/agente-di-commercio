@@ -9,6 +9,7 @@ spesa mostrati in dashboard/report.
 Esegui con:
     JWT_SECRET=test python -m pytest tests/test_expense_validation.py -v
 """
+
 import sys
 
 import pytest
@@ -36,7 +37,9 @@ def test_importo_zero_o_negativo_rifiutato(amount):
         ExpenseIn(**_base(amount=amount))
 
 
-@pytest.mark.parametrize("date", ["2026-15-80", "non-una-data", "", "2026/07/15", "15-07-2026"])
+@pytest.mark.parametrize(
+    "date", ["2026-15-80", "non-una-data", "", "2026/07/15", "15-07-2026"]
+)
 def test_data_non_valida_rifiutata(date):
     with pytest.raises(ValidationError):
         ExpenseIn(**_base(date=date))

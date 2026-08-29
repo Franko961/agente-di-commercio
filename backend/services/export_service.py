@@ -1,8 +1,10 @@
 import csv
 import io
 from typing import List
+
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
+
 from core.database import db
 from core.rate_limit import check_and_record
 from services.commission_service import normalize_manual_commission
@@ -31,10 +33,14 @@ def sanitize_cell_text(value):
     return value
 
 
-def csv_response(rows: List[dict], headers: List[str], filename: str) -> StreamingResponse:
+def csv_response(
+    rows: List[dict], headers: List[str], filename: str
+) -> StreamingResponse:
     buf = io.StringIO()
     buf.write("\ufeff")  # UTF-8 BOM for Excel
-    writer = csv.DictWriter(buf, fieldnames=headers, delimiter=";", extrasaction="ignore")
+    writer = csv.DictWriter(
+        buf, fieldnames=headers, delimiter=";", extrasaction="ignore"
+    )
     writer.writeheader()
     for r in rows:
         writer.writerow({h: sanitize_cell_text(r.get(h, "")) for h in headers})
@@ -69,67 +75,145 @@ class ExportService:
         limite, richiamarlo di continuo è un modo economico per generare
         carico pesante sul database — stessa protezione già applicata
         all'export equivalente lato GDPR (services/gdpr_service.py)."""
-        ok = await check_and_record("csv_export", user["id"], max_attempts=20, window_minutes=10)
+        ok = await check_and_record(
+            "csv_export", user["id"], max_attempts=20, window_minutes=10
+        )
         if not ok:
-            raise HTTPException(429, "Troppe esportazioni richieste, riprova tra qualche minuto")
+            raise HTTPException(
+                429, "Troppe esportazioni richieste, riprova tra qualche minuto"
+            )
 
     async def export_clients(self, user: dict) -> StreamingResponse:
         await self._enforce_rate_limit(user)
-        clients = await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
-        headers = ["company_name", "contact_name", "email", "phone", "vat_number",
-                   "address", "city", "province", "zone", "sector", "potential", "notes"]
+        clients = await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(
+            5000
+        )
+        headers = [
+            "company_name",
+            "contact_name",
+            "email",
+            "phone",
+            "vat_number",
+            "address",
+            "city",
+            "province",
+            "zone",
+            "sector",
+            "potential",
+            "notes",
+        ]
         return csv_response(clients, headers, "clienti.csv")
 
     async def export_offers(self, user: dict) -> StreamingResponse:
         await self._enforce_rate_limit(user)
         offers = await db.offers.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
-        clients = {c["id"]: c for c in await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)}
-        mandanti = {m["id"]: m for m in await db.mandanti.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)}
+        clients = {
+            c["id"]: c
+            for c in await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(
+                5000
+            )
+        }
+        mandanti = {
+            m["id"]: m
+            for m in await db.mandanti.find(
+                {"user_id": user["id"]}, {"_id": 0}
+            ).to_list(500)
+        }
         rows = []
         for o in offers:
-            rows.append({
-                "title": o.get("title"),
-                "client": clients.get(o.get("client_id"), {}).get("company_name", ""),
-                "mandante": mandanti.get(o.get("mandante_id"), {}).get("name", ""),
-                "total": o.get("total", 0),
-                "status": o.get("status"),
-                "items_count": len(o.get("items", [])),
-                "expires_at": (o.get("expires_at") or "")[:10],
-                "created_at": (o.get("created_at") or "")[:10],
-            })
-        headers = ["title", "client", "mandante", "total", "status", "items_count", "expires_at", "created_at"]
+            rows.append(
+                {
+                    "title": o.get("title"),
+                    "client": clients.get(o.get("client_id"), {}).get(
+                        "company_name", ""
+                    ),
+                    "mandante": mandanti.get(o.get("mandante_id"), {}).get("name", ""),
+                    "total": o.get("total", 0),
+                    "status": o.get("status"),
+                    "items_count": len(o.get("items", [])),
+                    "expires_at": (o.get("expires_at") or "")[:10],
+                    "created_at": (o.get("created_at") or "")[:10],
+                }
+            )
+        headers = [
+            "title",
+            "client",
+            "mandante",
+            "total",
+            "status",
+            "items_count",
+            "expires_at",
+            "created_at",
+        ]
         return csv_response(rows, headers, "offerte.csv")
 
     async def export_commissions(self, user: dict) -> StreamingResponse:
         await self._enforce_rate_limit(user)
-        commissions = await db.commissions.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
+        commissions = await db.commissions.find(
+            {"user_id": user["id"]}, {"_id": 0}
+        ).to_list(5000)
         # Le provvigioni inserite manualmente sono provvigioni vere a tutti
         # gli effetti (vedi commission_service.normalize_manual_commission):
         # vanno esportate insieme a quelle calcolate dagli ordini, marcate
         # come tali nella colonna "origine".
-        manual_commissions_raw = await db.manual_commissions.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)
-        manual_commissions = [normalize_manual_commission(user["id"], m) for m in manual_commissions_raw]
-        clients = {c["id"]: c for c in await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)}
-        mandanti = {m["id"]: m for m in await db.mandanti.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)}
+        manual_commissions_raw = await db.manual_commissions.find(
+            {"user_id": user["id"]}, {"_id": 0}
+        ).to_list(500)
+        manual_commissions = [
+            normalize_manual_commission(user["id"], m) for m in manual_commissions_raw
+        ]
+        clients = {
+            c["id"]: c
+            for c in await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(
+                5000
+            )
+        }
+        mandanti = {
+            m["id"]: m
+            for m in await db.mandanti.find(
+                {"user_id": user["id"]}, {"_id": 0}
+            ).to_list(500)
+        }
         rows = []
         for c in commissions + manual_commissions:
-            rows.append({
-                "period": c.get("period"),
-                "client": clients.get(c.get("client_id"), {}).get("company_name", ""),
-                "mandante": mandanti.get(c.get("mandante_id"), {}).get("name", ""),
-                "amount": c.get("amount", 0),
-                "rate": c.get("rate") if c.get("rate") is not None else "",
-                "status": c.get("status"),
-                "origine": "manuale" if c.get("source") == "manual" else "ordine",
-            })
-        headers = ["period", "client", "mandante", "amount", "rate", "status", "origine"]
+            rows.append(
+                {
+                    "period": c.get("period"),
+                    "client": clients.get(c.get("client_id"), {}).get(
+                        "company_name", ""
+                    ),
+                    "mandante": mandanti.get(c.get("mandante_id"), {}).get("name", ""),
+                    "amount": c.get("amount", 0),
+                    "rate": c.get("rate") if c.get("rate") is not None else "",
+                    "status": c.get("status"),
+                    "origine": "manuale" if c.get("source") == "manual" else "ordine",
+                }
+            )
+        headers = [
+            "period",
+            "client",
+            "mandante",
+            "amount",
+            "rate",
+            "status",
+            "origine",
+        ]
         return csv_response(rows, headers, "provvigioni.csv")
 
     async def export_leads(self, user: dict) -> StreamingResponse:
         await self._enforce_rate_limit(user)
         leads = await db.leads.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
-        headers = ["company_name", "contact_name", "email", "phone", "source",
-                   "estimated_value", "status", "notes", "created_at"]
+        headers = [
+            "company_name",
+            "contact_name",
+            "email",
+            "phone",
+            "source",
+            "estimated_value",
+            "status",
+            "notes",
+            "created_at",
+        ]
         return csv_response(leads, headers, "lead.csv")
 
 

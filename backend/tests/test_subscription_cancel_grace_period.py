@@ -14,9 +14,10 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_subscription_cancel_grace_period.py -v
 """
-import sys
+
 import asyncio
-from datetime import datetime, timezone, timedelta
+import sys
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from pymongo.errors import DuplicateKeyError
@@ -24,8 +25,8 @@ from pymongo.errors import DuplicateKeyError
 sys.path.insert(0, ".")
 
 import services.subscription_service as subscription_mod
-from services.subscription_service import SubscriptionService
 from core.subscription_utils import is_subscription_active
+from services.subscription_service import SubscriptionService
 
 
 def run(coro):
@@ -119,11 +120,14 @@ class FakeRequestsPayPal:
 
     def get(self, url, **kwargs):
         self.calls.append(("GET", url))
-        return FakeResponse(200, {
-            "status": "ACTIVE",
-            "plan_id": "P-FAKE",
-            "billing_info": {"next_billing_time": self.next_billing_time},
-        })
+        return FakeResponse(
+            200,
+            {
+                "status": "ACTIVE",
+                "plan_id": "P-FAKE",
+                "billing_info": {"next_billing_time": self.next_billing_time},
+            },
+        )
 
 
 class FakeRequest:
@@ -144,21 +148,29 @@ class FakeRequest:
 
 # ---------- is_subscription_active con cancel_at ----------
 
+
 def test_active_senza_cancel_at_e_attivo():
     assert is_subscription_active({"subscription_status": "active"}) is True
 
 
 def test_active_con_cancel_at_futuro_e_ancora_attivo():
     future = (datetime.now(timezone.utc) + timedelta(days=5)).isoformat()
-    assert is_subscription_active({"subscription_status": "active", "cancel_at": future}) is True
+    assert (
+        is_subscription_active({"subscription_status": "active", "cancel_at": future})
+        is True
+    )
 
 
 def test_active_con_cancel_at_passato_non_e_piu_attivo():
     past = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
-    assert is_subscription_active({"subscription_status": "active", "cancel_at": past}) is False
+    assert (
+        is_subscription_active({"subscription_status": "active", "cancel_at": past})
+        is False
+    )
 
 
 # ---------- cancel_subscription: Stripe ----------
+
 
 def test_cancel_stripe_non_taglia_subito_e_salva_cancel_at(monkeypatch):
     monkeypatch.setattr(subscription_mod, "STRIPE_SECRET_KEY", "sk_test_fake")
@@ -170,7 +182,9 @@ def test_cancel_stripe_non_taglia_subito_e_salva_cancel_at(monkeypatch):
             assert cancel_at_period_end is True
             return {"current_period_end": future_ts}
 
-    fake_stripe_module = type("FakeStripe", (), {"api_key": None, "Subscription": FakeStripeSubscription})
+    fake_stripe_module = type(
+        "FakeStripe", (), {"api_key": None, "Subscription": FakeStripeSubscription}
+    )
     monkeypatch.setitem(sys.modules, "stripe", fake_stripe_module)
 
     user = {"id": "user-1", "is_demo": False, "stripe_subscription_id": "sub_123"}
@@ -187,12 +201,15 @@ def test_cancel_stripe_non_taglia_subito_e_salva_cancel_at(monkeypatch):
 
 # ---------- cancel_subscription: PayPal ----------
 
+
 def test_cancel_paypal_usa_next_billing_time_come_cancel_at(monkeypatch):
     monkeypatch.setattr(subscription_mod, "PAYPAL_CLIENT_ID", "cid")
     monkeypatch.setattr(subscription_mod, "PAYPAL_CLIENT_SECRET", "secret")
     monkeypatch.setattr(subscription_mod, "STRIPE_SECRET_KEY", "")
 
-    next_billing = (datetime.now(timezone.utc) + timedelta(days=20)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    next_billing = (datetime.now(timezone.utc) + timedelta(days=20)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
     fake_requests = FakeRequestsPayPal(next_billing)
     monkeypatch.setattr(subscription_mod, "requests", fake_requests)
 
@@ -207,7 +224,11 @@ def test_cancel_paypal_usa_next_billing_time_come_cancel_at(monkeypatch):
     assert updated.get("cancel_at") == next_billing
     assert updated.get("subscription_status") != "cancelled"
     # Deve aver davvero chiamato l'endpoint di cancellazione PayPal
-    assert any(url.endswith("/cancel") for method, url in fake_requests.calls if method == "POST")
+    assert any(
+        url.endswith("/cancel")
+        for method, url in fake_requests.calls
+        if method == "POST"
+    )
 
 
 def test_cancel_senza_provider_configurato_cancella_subito(monkeypatch):
@@ -226,24 +247,36 @@ def test_cancel_senza_provider_configurato_cancella_subito(monkeypatch):
 
 # ---------- Webhook Stripe: finalizza a fine periodo ----------
 
+
 def test_webhook_stripe_subscription_deleted_finalizza_e_pulisce_cancel_at(monkeypatch):
     monkeypatch.setattr(subscription_mod, "STRIPE_SECRET_KEY", "sk_test_fake")
     monkeypatch.setattr(subscription_mod, "STRIPE_WEBHOOK_SECRET", "whsec_fake")
 
-    fake_event = {"type": "customer.subscription.deleted", "data": {"object": {"id": "sub_456"}}}
+    fake_event = {
+        "type": "customer.subscription.deleted",
+        "data": {"object": {"id": "sub_456"}},
+    }
 
     class FakeWebhook:
         @staticmethod
         def construct_event(payload, sig, secret):
             return fake_event
 
-    fake_stripe_module = type("FakeStripe", (), {"api_key": None, "Webhook": FakeWebhook})
+    fake_stripe_module = type(
+        "FakeStripe", (), {"api_key": None, "Webhook": FakeWebhook}
+    )
     monkeypatch.setitem(sys.modules, "stripe", fake_stripe_module)
 
-    repo = FakeUserRepo({"user-4": {
-        "id": "user-4", "stripe_subscription_id": "sub_456",
-        "subscription_status": "active", "cancel_at": "2026-01-01T00:00:00+00:00",
-    }})
+    repo = FakeUserRepo(
+        {
+            "user-4": {
+                "id": "user-4",
+                "stripe_subscription_id": "sub_456",
+                "subscription_status": "active",
+                "cancel_at": "2026-01-01T00:00:00+00:00",
+            }
+        }
+    )
     service = SubscriptionService(repo=repo)
 
     request = FakeRequest(headers={"stripe-signature": "sig"})
@@ -257,18 +290,33 @@ def test_webhook_stripe_subscription_deleted_finalizza_e_pulisce_cancel_at(monke
 
 # ---------- Webhook PayPal: non deve tagliare subito se cancel_at è già impostato ----------
 
+
 def test_webhook_paypal_cancelled_non_taglia_se_cancel_at_gia_impostato(monkeypatch):
-    monkeypatch.setattr(subscription_mod, "paypal_webhook_events", FakeWebhookEventsCollection())
+    monkeypatch.setattr(
+        subscription_mod, "paypal_webhook_events", FakeWebhookEventsCollection()
+    )
 
     future = (datetime.now(timezone.utc) + timedelta(days=10)).isoformat()
-    repo = FakeUserRepo({"user-5": {
-        "id": "user-5", "paypal_subscription_id": "I-ABC",
-        "subscription_status": "active", "cancel_at": future,
-    }})
+    repo = FakeUserRepo(
+        {
+            "user-5": {
+                "id": "user-5",
+                "paypal_subscription_id": "I-ABC",
+                "subscription_status": "active",
+                "cancel_at": future,
+            }
+        }
+    )
     service = SubscriptionService(repo=repo)
-    monkeypatch.setattr(service, "_verify_paypal_webhook_signature", _verify_signature_always_true)
+    monkeypatch.setattr(
+        service, "_verify_paypal_webhook_signature", _verify_signature_always_true
+    )
 
-    event = {"id": "evt-1", "event_type": "BILLING.SUBSCRIPTION.CANCELLED", "resource": {"id": "I-ABC"}}
+    event = {
+        "id": "evt-1",
+        "event_type": "BILLING.SUBSCRIPTION.CANCELLED",
+        "resource": {"id": "I-ABC"},
+    }
     request = FakeRequest(json_data=event)
 
     result = run(service.handle_paypal_webhook(request))
@@ -277,17 +325,32 @@ def test_webhook_paypal_cancelled_non_taglia_se_cancel_at_gia_impostato(monkeypa
     assert repo.users_by_id["user-5"]["subscription_status"] == "active"
 
 
-def test_webhook_paypal_cancelled_taglia_subito_se_cancellata_fuori_dalla_nostra_app(monkeypatch):
-    monkeypatch.setattr(subscription_mod, "paypal_webhook_events", FakeWebhookEventsCollection())
+def test_webhook_paypal_cancelled_taglia_subito_se_cancellata_fuori_dalla_nostra_app(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        subscription_mod, "paypal_webhook_events", FakeWebhookEventsCollection()
+    )
 
-    repo = FakeUserRepo({"user-6": {
-        "id": "user-6", "paypal_subscription_id": "I-XYZ",
-        "subscription_status": "active",
-    }})
+    repo = FakeUserRepo(
+        {
+            "user-6": {
+                "id": "user-6",
+                "paypal_subscription_id": "I-XYZ",
+                "subscription_status": "active",
+            }
+        }
+    )
     service = SubscriptionService(repo=repo)
-    monkeypatch.setattr(service, "_verify_paypal_webhook_signature", _verify_signature_always_true)
+    monkeypatch.setattr(
+        service, "_verify_paypal_webhook_signature", _verify_signature_always_true
+    )
 
-    event = {"id": "evt-2", "event_type": "BILLING.SUBSCRIPTION.CANCELLED", "resource": {"id": "I-XYZ"}}
+    event = {
+        "id": "evt-2",
+        "event_type": "BILLING.SUBSCRIPTION.CANCELLED",
+        "resource": {"id": "I-XYZ"},
+    }
     request = FakeRequest(json_data=event)
 
     result = run(service.handle_paypal_webhook(request))
@@ -298,18 +361,26 @@ def test_webhook_paypal_cancelled_taglia_subito_se_cancellata_fuori_dalla_nostra
 
 # ---------- Webhook Stripe: idempotenza ----------
 
+
 def test_webhook_stripe_evento_duplicato_non_viene_riprocessato(monkeypatch):
     """Mirror dell'idempotenza già presente per PayPal: Stripe può reinviare
     lo stesso evento più volte (retry), un secondo invio con lo stesso id
     non deve rieseguire l'handler."""
     monkeypatch.setattr(subscription_mod, "STRIPE_SECRET_KEY", "sk_test_fake")
     monkeypatch.setattr(subscription_mod, "STRIPE_WEBHOOK_SECRET", "whsec_fake")
-    monkeypatch.setattr(subscription_mod, "stripe_webhook_events", FakeWebhookEventsCollection())
+    monkeypatch.setattr(
+        subscription_mod, "stripe_webhook_events", FakeWebhookEventsCollection()
+    )
 
     fake_event = {
         "id": "evt-stripe-1",
         "type": "checkout.session.completed",
-        "data": {"object": {"metadata": {"user_id": "user-7", "plan": "pro"}, "subscription": "sub_789"}},
+        "data": {
+            "object": {
+                "metadata": {"user_id": "user-7", "plan": "pro"},
+                "subscription": "sub_789",
+            }
+        },
     }
 
     class FakeWebhook:
@@ -317,7 +388,9 @@ def test_webhook_stripe_evento_duplicato_non_viene_riprocessato(monkeypatch):
         def construct_event(payload, sig, secret):
             return fake_event
 
-    fake_stripe_module = type("FakeStripe", (), {"api_key": None, "Webhook": FakeWebhook})
+    fake_stripe_module = type(
+        "FakeStripe", (), {"api_key": None, "Webhook": FakeWebhook}
+    )
     monkeypatch.setitem(sys.modules, "stripe", fake_stripe_module)
 
     repo = FakeUserRepo({"user-7": {"id": "user-7", "subscription_status": "trial"}})

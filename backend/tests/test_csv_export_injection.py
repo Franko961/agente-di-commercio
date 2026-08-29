@@ -10,10 +10,11 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_csv_export_injection.py -v
 """
-import sys
+
+import asyncio
 import csv
 import io
-import asyncio
+import sys
 
 import pytest
 
@@ -28,25 +29,36 @@ def _rows_from_response(response):
         async for chunk in response.body_iterator:
             chunks.append(chunk)
         return chunks
+
     chunks = asyncio.run(_collect())
     text = "".join(chunks).lstrip("\ufeff")
     return list(csv.reader(io.StringIO(text), delimiter=";"))
 
 
-@pytest.mark.parametrize("payload", [
-    "=HYPERLINK(\"http://evil.example/steal\",\"click\")",
-    "=cmd|' /C calc'!A0",
-    "+1+1",
-    "-1+1",
-    "@SUM(1,2)",
-])
+@pytest.mark.parametrize(
+    "payload",
+    [
+        '=HYPERLINK("http://evil.example/steal","click")',
+        "=cmd|' /C calc'!A0",
+        "+1+1",
+        "-1+1",
+        "@SUM(1,2)",
+    ],
+)
 def test_valore_pericoloso_viene_neutralizzato(payload):
     assert sanitize_cell_text(payload) == "'" + payload
 
 
-@pytest.mark.parametrize("payload", [
-    "Rossi Srl", "Mario Rossi", "note normali", "", "+39 0123456789",
-])
+@pytest.mark.parametrize(
+    "payload",
+    [
+        "Rossi Srl",
+        "Mario Rossi",
+        "note normali",
+        "",
+        "+39 0123456789",
+    ],
+)
 def test_valore_normale_non_viene_alterato_se_non_a_rischio(payload):
     # Nota: "+39 ..." INIZIA con '+', quindi rientra comunque nella
     # sanitizzazione — è un compromesso accettato (vedi test successivo)
@@ -67,11 +79,11 @@ def test_numeri_non_vengono_toccati():
 
 
 def test_export_clienti_neutralizza_nome_pericoloso():
-    rows = [{"company_name": "=HYPERLINK(\"http://evil.example\")", "notes": "normale"}]
+    rows = [{"company_name": '=HYPERLINK("http://evil.example")', "notes": "normale"}]
     response = csv_response(rows, ["company_name", "notes"], "test.csv")
     parsed = _rows_from_response(response)
-    header, data_row = parsed[0], parsed[1]
-    assert data_row[0] == "'=HYPERLINK(\"http://evil.example\")"
+    _, data_row = parsed[0], parsed[1]
+    assert data_row[0] == '\'=HYPERLINK("http://evil.example")'
     assert data_row[1] == "normale"
 
 

@@ -9,16 +9,17 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_lead_service.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 
 sys.path.insert(0, ".")
 
+from core.exceptions import NotFoundError
 from models.lead import LeadIn
 from services.lead_service import LeadService
-from core.exceptions import NotFoundError
 
 
 def run(coro):
@@ -46,12 +47,22 @@ class FakeLeadRepo:
 
     async def update_status(self, lid, user_id, status, now_iso_str):
         if lid in self.docs and self.docs[lid]["user_id"] == user_id:
-            self.docs[lid].update({"status": status, "updated_at": now_iso_str, "last_interaction_at": now_iso_str})
+            self.docs[lid].update(
+                {
+                    "status": status,
+                    "updated_at": now_iso_str,
+                    "last_interaction_at": now_iso_str,
+                }
+            )
 
     async def log_contact(self, lid, user_id, now_iso_str, notes=None):
         if lid not in self.docs or self.docs[lid]["user_id"] != user_id:
             return False
-        data = {"last_contact_at": now_iso_str, "last_interaction_at": now_iso_str, "updated_at": now_iso_str}
+        data = {
+            "last_contact_at": now_iso_str,
+            "last_interaction_at": now_iso_str,
+            "updated_at": now_iso_str,
+        }
         if notes is not None:
             data["notes"] = notes
         self.docs[lid].update(data)
@@ -62,8 +73,16 @@ class FakeLeadRepo:
 
 
 def _payload(**overrides):
-    base = dict(company_name="Bianchi Spa", contact_name="", email="", phone="",
-                source="", estimated_value=0.0, status="nuovo", notes="")
+    base = dict(
+        company_name="Bianchi Spa",
+        contact_name="",
+        email="",
+        phone="",
+        source="",
+        estimated_value=0.0,
+        status="nuovo",
+        notes="",
+    )
     base.update(overrides)
     return LeadIn(**base)
 
@@ -84,7 +103,13 @@ def test_modifica_aggiorna_last_interaction_at():
     lead = run(service.create_lead({"id": "user-1"}, _payload()))
     original_interaction = lead["last_interaction_at"]
 
-    run(service.update_lead({"id": "user-1"}, lead["id"], _payload(notes="richiamare la prossima settimana")))
+    run(
+        service.update_lead(
+            {"id": "user-1"},
+            lead["id"],
+            _payload(notes="richiamare la prossima settimana"),
+        )
+    )
 
     updated = service.repo.docs[lead["id"]]
     assert updated["notes"] == "richiamare la prossima settimana"
@@ -106,7 +131,11 @@ def test_log_contact_aggiorna_last_contact_e_last_interaction():
     service = build_service()
     lead = run(service.create_lead({"id": "user-1"}, _payload()))
 
-    run(service.log_contact({"id": "user-1"}, lead["id"], "chiamato, richiamare tra 3 giorni"))
+    run(
+        service.log_contact(
+            {"id": "user-1"}, lead["id"], "chiamato, richiamare tra 3 giorni"
+        )
+    )
 
     updated = service.repo.docs[lead["id"]]
     assert updated["last_contact_at"] is not None

@@ -9,9 +9,10 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     ANTHROPIC_API_KEY=test python -m pytest test_ai_execute_action_idempotency.py -v
 """
-import sys
+
 import asyncio
-from unittest.mock import patch, AsyncMock
+import sys
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import HTTPException
@@ -19,9 +20,9 @@ from fastapi import HTTPException
 sys.path.insert(0, ".")
 
 from tests.test_ai_tool_forcing import (
-    build_service_with_offer,
-    build_service,
     FAKE_USER,
+    build_service,
+    build_service_with_offer,
 )
 
 
@@ -32,15 +33,27 @@ def run(coro):
 def _prepare_pending_offer(service, offer_repo, amount=1500):
     """Crea direttamente una voce 'in_attesa' nel registro (senza passare dal
     modello AI), così i test si concentrano solo su execute_confirmed_action."""
-    log = run(service._log_action(
-        FAKE_USER["id"], "chat", "registra vendita", "add_offer",
-        {"client_name": "Rossi", "mandante_name": "Paginesi", "total_amount": amount},
-        status="in_attesa",
-        resolved_params={
-            "client_id": "c-1", "client_name": "Rossi Srl",
-            "mandante_id": "m-1", "mandante_name": "Paginesi", "amount": amount,
-        },
-    ))
+    log = run(
+        service._log_action(
+            FAKE_USER["id"],
+            "chat",
+            "registra vendita",
+            "add_offer",
+            {
+                "client_name": "Rossi",
+                "mandante_name": "Paginesi",
+                "total_amount": amount,
+            },
+            status="in_attesa",
+            resolved_params={
+                "client_id": "c-1",
+                "client_name": "Rossi Srl",
+                "mandante_id": "m-1",
+                "mandante_name": "Paginesi",
+                "amount": amount,
+            },
+        )
+    )
     return log
 
 
@@ -56,7 +69,9 @@ def test_doppia_conferma_concorrente_scrive_una_sola_volta():
         "log_id": log["id"],
     }
 
-    with patch("services.ai_service.actions.offers.order_service") as mock_order_service:
+    with patch(
+        "services.ai_service.actions.offers.order_service"
+    ) as mock_order_service:
         mock_order_service.create_from_offer = AsyncMock(return_value={"total": 1500})
         first = run(service.execute_confirmed_action(FAKE_USER, dict(confirm_payload)))
 
@@ -74,10 +89,19 @@ def test_log_id_mancante_viene_rifiutato():
     l'azione senza lasciare traccia coerente nel registro."""
     service, offer_repo = build_service_with_offer()
     with pytest.raises(HTTPException) as exc_info:
-        run(service.execute_confirmed_action(FAKE_USER, {
-            "tool_name": "add_offer",
-            "resolved_input": {"client_id": "c-1", "mandante_id": "m-1", "amount": 1500},
-        }))
+        run(
+            service.execute_confirmed_action(
+                FAKE_USER,
+                {
+                    "tool_name": "add_offer",
+                    "resolved_input": {
+                        "client_id": "c-1",
+                        "mandante_id": "m-1",
+                        "amount": 1500,
+                    },
+                },
+            )
+        )
     assert exc_info.value.status_code == 400
     assert len(offer_repo.docs) == 0
 
@@ -85,11 +109,20 @@ def test_log_id_mancante_viene_rifiutato():
 def test_log_id_inesistente_viene_rifiutato():
     service, offer_repo = build_service_with_offer()
     with pytest.raises(HTTPException) as exc_info:
-        run(service.execute_confirmed_action(FAKE_USER, {
-            "tool_name": "add_offer",
-            "resolved_input": {"client_id": "c-1", "mandante_id": "m-1", "amount": 1500},
-            "log_id": "log-che-non-esiste",
-        }))
+        run(
+            service.execute_confirmed_action(
+                FAKE_USER,
+                {
+                    "tool_name": "add_offer",
+                    "resolved_input": {
+                        "client_id": "c-1",
+                        "mandante_id": "m-1",
+                        "amount": 1500,
+                    },
+                    "log_id": "log-che-non-esiste",
+                },
+            )
+        )
     assert exc_info.value.status_code == 404
     assert len(offer_repo.docs) == 0
 
@@ -98,17 +131,28 @@ def test_log_di_un_altro_utente_viene_rifiutato():
     """Un log_id valido ma appartenente a un altro utente non deve mai
     permettere l'esecuzione (isolamento tra account)."""
     service, offer_repo = build_service_with_offer()
-    log = run(service._log_action(
-        "altro-utente", "chat", "registra vendita", "add_offer",
-        {}, status="in_attesa",
-        resolved_params={"client_id": "c-1", "mandante_id": "m-1", "amount": 1500},
-    ))
+    log = run(
+        service._log_action(
+            "altro-utente",
+            "chat",
+            "registra vendita",
+            "add_offer",
+            {},
+            status="in_attesa",
+            resolved_params={"client_id": "c-1", "mandante_id": "m-1", "amount": 1500},
+        )
+    )
     with pytest.raises(HTTPException) as exc_info:
-        run(service.execute_confirmed_action(FAKE_USER, {
-            "tool_name": "add_offer",
-            "resolved_input": log["resolved_params"],
-            "log_id": log["id"],
-        }))
+        run(
+            service.execute_confirmed_action(
+                FAKE_USER,
+                {
+                    "tool_name": "add_offer",
+                    "resolved_input": log["resolved_params"],
+                    "log_id": log["id"],
+                },
+            )
+        )
     assert exc_info.value.status_code == 404
     assert len(offer_repo.docs) == 0
 
@@ -120,11 +164,16 @@ def test_tool_name_diverso_dal_log_viene_rifiutato():
     service, offer_repo = build_service_with_offer()
     log = _prepare_pending_offer(service, offer_repo)
     with pytest.raises(HTTPException) as exc_info:
-        run(service.execute_confirmed_action(FAKE_USER, {
-            "tool_name": "add_expense",
-            "resolved_input": {"amount": 50, "category": "carburante"},
-            "log_id": log["id"],
-        }))
+        run(
+            service.execute_confirmed_action(
+                FAKE_USER,
+                {
+                    "tool_name": "add_expense",
+                    "resolved_input": {"amount": 50, "category": "carburante"},
+                    "log_id": log["id"],
+                },
+            )
+        )
     assert exc_info.value.status_code == 400
     assert len(offer_repo.docs) == 0
     # Il log resta 'in_attesa': la richiesta malformata non lo consuma.
@@ -137,14 +186,23 @@ def test_azione_gia_confermata_non_puo_essere_rieseguita():
     completata), un'ulteriore chiamata con lo stesso log_id va rifiutata."""
     service, offer_repo = build_service_with_offer()
     log = _prepare_pending_offer(service, offer_repo)
-    run(service.action_log_repo.update_by_id(log["id"], FAKE_USER["id"], {"status": "confermata"}))
+    run(
+        service.action_log_repo.update_by_id(
+            log["id"], FAKE_USER["id"], {"status": "confermata"}
+        )
+    )
 
     with pytest.raises(HTTPException) as exc_info:
-        run(service.execute_confirmed_action(FAKE_USER, {
-            "tool_name": "add_offer",
-            "resolved_input": log["resolved_params"],
-            "log_id": log["id"],
-        }))
+        run(
+            service.execute_confirmed_action(
+                FAKE_USER,
+                {
+                    "tool_name": "add_offer",
+                    "resolved_input": log["resolved_params"],
+                    "log_id": log["id"],
+                },
+            )
+        )
     assert exc_info.value.status_code == 409
     assert len(offer_repo.docs) == 0
 
@@ -155,11 +213,16 @@ def test_azione_gia_annullata_non_puo_essere_eseguita():
     run(service.cancel_pending_action(FAKE_USER, log["id"]))
 
     with pytest.raises(HTTPException) as exc_info:
-        run(service.execute_confirmed_action(FAKE_USER, {
-            "tool_name": "add_offer",
-            "resolved_input": log["resolved_params"],
-            "log_id": log["id"],
-        }))
+        run(
+            service.execute_confirmed_action(
+                FAKE_USER,
+                {
+                    "tool_name": "add_offer",
+                    "resolved_input": log["resolved_params"],
+                    "log_id": log["id"],
+                },
+            )
+        )
     assert exc_info.value.status_code == 409
     assert len(offer_repo.docs) == 0
 
@@ -172,9 +235,13 @@ def test_doppio_annullamento_non_sovrascrive_unazione_gia_confermata():
     service, offer_repo = build_service_with_offer()
     log = _prepare_pending_offer(service, offer_repo)
     confirm_payload = {
-        "tool_name": "add_offer", "resolved_input": log["resolved_params"], "log_id": log["id"],
+        "tool_name": "add_offer",
+        "resolved_input": log["resolved_params"],
+        "log_id": log["id"],
     }
-    with patch("services.ai_service.actions.offers.order_service") as mock_order_service:
+    with patch(
+        "services.ai_service.actions.offers.order_service"
+    ) as mock_order_service:
         mock_order_service.create_from_offer = AsyncMock(return_value={"total": 1500})
         run(service.execute_confirmed_action(FAKE_USER, confirm_payload))
 
@@ -190,11 +257,16 @@ def test_tool_name_non_economico_viene_rifiutato():
     (add_offer/add_expense); qualsiasi altro tool_name va rifiutato."""
     service, _ = build_service()
     with pytest.raises(HTTPException) as exc_info:
-        run(service.execute_confirmed_action(FAKE_USER, {
-            "tool_name": "add_client",
-            "resolved_input": {"company_name": "Bar Rossi"},
-            "log_id": "qualsiasi",
-        }))
+        run(
+            service.execute_confirmed_action(
+                FAKE_USER,
+                {
+                    "tool_name": "add_client",
+                    "resolved_input": {"company_name": "Bar Rossi"},
+                    "log_id": "qualsiasi",
+                },
+            )
+        )
     assert exc_info.value.status_code == 400
 
 

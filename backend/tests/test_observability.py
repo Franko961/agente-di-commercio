@@ -8,10 +8,11 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_observability.py -v
 """
-import sys
+
 import asyncio
 import json
 import logging
+import sys
 
 sys.path.insert(0, ".")
 
@@ -68,8 +69,13 @@ def test_json_log_formatter_produce_json_valido():
     obs.set_request_id("req-1")
     formatter = obs.JsonLogFormatter()
     record = logging.LogRecord(
-        name="test", level=logging.INFO, pathname="", lineno=0,
-        msg="messaggio di prova", args=(), exc_info=None,
+        name="test",
+        level=logging.INFO,
+        pathname="",
+        lineno=0,
+        msg="messaggio di prova",
+        args=(),
+        exc_info=None,
     )
     output = formatter.format(record)
     parsed = json.loads(output)
@@ -85,7 +91,16 @@ def test_record_event_scrive_sulla_collection(monkeypatch):
     fake_db = FakeDb()
     monkeypatch.setattr(obs, "db", fake_db)
 
-    run(obs.record_event("ai_call", "success", user_id="u1", tokens_in=100, tokens_out=50, cost_usd=0.002))
+    run(
+        obs.record_event(
+            "ai_call",
+            "success",
+            user_id="u1",
+            tokens_in=100,
+            tokens_out=50,
+            cost_usd=0.002,
+        )
+    )
 
     assert len(fake_db.system_events.inserted) == 1
     doc = fake_db.system_events.inserted[0]

@@ -1,7 +1,13 @@
 from services.ai_service.catalog import _safe_float
 
 
-async def resolve_line_items(product_repo, tool_input: dict, user_id: str, mandante_id: str, fallback_description: str) -> list:
+async def resolve_line_items(
+    product_repo,
+    tool_input: dict,
+    user_id: str,
+    mandante_id: str,
+    fallback_description: str,
+) -> list:
     """Risolve product_names/quantities/unit_prices in righe con id
     prodotto risolto (o una riga singola da total_amount se i prodotti
     non sono noti). Condivisa da prepare_add_offer e prepare_add_order:
@@ -18,19 +24,29 @@ async def resolve_line_items(product_repo, tool_input: dict, user_id: str, manda
             if qty <= 0:
                 qty = 1
             default_price = prod.get("price", 0) if prod else 0
-            price = _safe_float(unit_prices[i] if i < len(unit_prices) else None, default_price)
+            price = _safe_float(
+                unit_prices[i] if i < len(unit_prices) else None, default_price
+            )
             if price < 0:
                 price = default_price
-            items.append({
-                "product_id": prod["id"] if prod else None,
-                "description": prod["name"] if prod else pname,
-                "quantity": qty, "unit_price": price, "discount": 0,
-            })
+            items.append(
+                {
+                    "product_id": prod["id"] if prod else None,
+                    "description": prod["name"] if prod else pname,
+                    "quantity": qty,
+                    "unit_price": price,
+                    "discount": 0,
+                }
+            )
     else:
         total_amount = _safe_float(tool_input.get("total_amount"), 0)
-        items.append({
-            "product_id": None,
-            "description": fallback_description,
-            "quantity": 1, "unit_price": total_amount, "discount": 0,
-        })
+        items.append(
+            {
+                "product_id": None,
+                "description": fallback_description,
+                "quantity": 1,
+                "unit_price": total_amount,
+                "discount": 0,
+            }
+        )
     return items

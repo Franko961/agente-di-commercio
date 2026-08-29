@@ -8,8 +8,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_client_service_manual_commissions.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 sys.path.insert(0, ".")
 
@@ -34,7 +35,9 @@ class FakeCollection:
         self._docs = docs
 
     def find(self, query, projection=None):
-        matched = [d for d in self._docs if all(d.get(k) == v for k, v in query.items())]
+        matched = [
+            d for d in self._docs if all(d.get(k) == v for k, v in query.items())
+        ]
         return FakeCursor(matched)
 
 
@@ -58,34 +61,54 @@ USER = {"id": "user-1"}
 CLIENT = {"id": "cl-1", "user_id": "user-1", "company_name": "Bar Rossi"}
 
 REAL_COMMISSION = {
-    "id": "c-1", "user_id": "user-1", "client_id": "cl-1", "period": "2026-08",
-    "amount": 100, "rate": 10, "status": "maturato",
+    "id": "c-1",
+    "user_id": "user-1",
+    "client_id": "cl-1",
+    "period": "2026-08",
+    "amount": 100,
+    "rate": 10,
+    "status": "maturato",
 }
 MANUAL_FOR_CLIENT = {
-    "user_id": "user-1", "client_id": "cl-1", "period": "2026-08",
-    "amount": 250, "stato": "incassato",
+    "user_id": "user-1",
+    "client_id": "cl-1",
+    "period": "2026-08",
+    "amount": 250,
+    "stato": "incassato",
 }
 MANUAL_OTHER_CLIENT = {
-    "user_id": "user-1", "client_id": "cl-2", "period": "2026-08",
-    "amount": 999, "stato": "maturato",
+    "user_id": "user-1",
+    "client_id": "cl-2",
+    "period": "2026-08",
+    "amount": 999,
+    "stato": "maturato",
 }
 
 
 def build_service(monkeypatch, commissions=None, manual_commissions=None):
-    fake_db = FakeDb({
-        "offers": [], "appointments": [], "documents": [],
-        "commissions": commissions or [],
-        "manual_commissions": manual_commissions or [],
-    })
+    fake_db = FakeDb(
+        {
+            "offers": [],
+            "appointments": [],
+            "documents": [],
+            "commissions": commissions or [],
+            "manual_commissions": manual_commissions or [],
+        }
+    )
     monkeypatch.setattr(client_service_mod, "db", fake_db)
     return ClientService(repo=FakeClientRepo(CLIENT))
 
 
 def test_include_provvigioni_manuali_del_cliente(monkeypatch):
-    service = build_service(monkeypatch, commissions=[REAL_COMMISSION],
-                             manual_commissions=[MANUAL_FOR_CLIENT, MANUAL_OTHER_CLIENT])
+    service = build_service(
+        monkeypatch,
+        commissions=[REAL_COMMISSION],
+        manual_commissions=[MANUAL_FOR_CLIENT, MANUAL_OTHER_CLIENT],
+    )
     result = run(service.get_client(USER, "cl-1"))
-    assert len(result["commissions"]) == 2  # reale + manuale di questo cliente, non quella di cl-2
+    assert (
+        len(result["commissions"]) == 2
+    )  # reale + manuale di questo cliente, non quella di cl-2
     amounts = {cm["amount"] for cm in result["commissions"]}
     assert amounts == {100, 250}
 
@@ -111,4 +134,5 @@ def test_senza_provvigioni_manuali_non_rompe(monkeypatch):
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

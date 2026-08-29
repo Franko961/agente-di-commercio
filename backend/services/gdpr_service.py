@@ -8,9 +8,9 @@ from datetime import datetime, timezone
 from fastapi import HTTPException
 
 from core.database import db
-from core.security import verify_password
 from core.rate_limit import check_and_record
-from services.storage_service import storage_get, storage_delete, sanitize_filename
+from core.security import verify_password
+from services.storage_service import sanitize_filename, storage_delete, storage_get
 from services.subscription_service import subscription_service
 
 logger = logging.getLogger(__name__)
@@ -129,26 +129,39 @@ class GdprService:
         # documenti, letti singolarmente da S3), non pensata per essere
         # richiamata di continuo — né per errore né per un uso malevolo di
         # una sessione compromessa.
-        ok = await check_and_record("gdpr_export", user_id, max_attempts=5, window_minutes=60)
+        ok = await check_and_record(
+            "gdpr_export", user_id, max_attempts=5, window_minutes=60
+        )
         if not ok:
-            raise HTTPException(429, "Troppe richieste di esportazione, riprova più tardi")
+            raise HTTPException(
+                429, "Troppe richieste di esportazione, riprova più tardi"
+            )
         bundle = {
             "esportato_il": datetime.now(timezone.utc).isoformat(),
-            "profilo": _strip(await db.users.find_one({"id": user_id}, {"_id": 0}) or {}),
+            "profilo": _strip(
+                await db.users.find_one({"id": user_id}, {"_id": 0}) or {}
+            ),
         }
         for label, collection_name in USER_SCOPED_COLLECTIONS.items():
-            docs = await db[collection_name].find({"user_id": user_id}, {"_id": 0}).to_list(20000)
+            docs = (
+                await db[collection_name]
+                .find({"user_id": user_id}, {"_id": 0})
+                .to_list(20000)
+            )
             bundle[label] = [_strip(d) for d in docs]
 
         zip_buf = io.BytesIO()
         with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr("dati.json", json.dumps(bundle, default=str, ensure_ascii=False, indent=2))
+            zf.writestr(
+                "dati.json",
+                json.dumps(bundle, default=str, ensure_ascii=False, indent=2),
+            )
 
             # Documenti: contenuto reale dei file, non solo i metadati già
             # inclusi in dati.json. Recuperati singolarmente da S3 — se uno
             # fallisce (file mancante/corrotto), l'export prosegue comunque
             # con gli altri, annotando l'errore invece di far fallire tutto.
-            seen_names = {}
+            seen_names: dict[str, int] = {}
             for doc in bundle["documenti"]:
                 storage_path = doc.get("storage_path")
                 if not storage_path:
@@ -162,33 +175,49 @@ class GdprService:
                     # comunque a un nome del genere di finire come "arcname"
                     # dentro lo zip (zipfile non protegge da solo da percorsi
                     # tipo "../../evil.sh" nel nome della voce).
-                    name = sanitize_filename(doc.get("original_filename") or doc.get("name") or doc["id"])
+                    name = sanitize_filename(
+                        doc.get("original_filename") or doc.get("name") or doc["id"]
+                    )
                     seen_names[name] = seen_names.get(name, 0) + 1
                     if seen_names[name] > 1:
                         stem, _, ext = name.rpartition(".")
-                        name = f"{stem or name} ({seen_names[name]}).{ext}" if ext else f"{name} ({seen_names[name]})"
+                        name = (
+                            f"{stem or name} ({seen_names[name]}).{ext}"
+                            if ext
+                            else f"{name} ({seen_names[name]})"
+                        )
                     zf.writestr(f"documenti/{name}", content)
                 except Exception as e:
-                    logger.warning(f"Export: impossibile includere il documento {doc.get('id')}: {e}")
+                    logger.warning(
+                        f"Export: impossibile includere il documento {doc.get('id')}: {e}"
+                    )
 
             # Stessa logica per i documenti caricati sulla scheda dipendente
             # (contratti, documenti d'identità, patenti — vedi
             # routers/employee_documents.py), in una sottocartella separata.
-            seen_names_emp = {}
+            seen_names_emp: dict[str, int] = {}
             for doc in bundle["documenti_dipendenti"]:
                 storage_path = doc.get("storage_path")
                 if not storage_path:
                     continue
                 try:
                     content, _ = storage_get(storage_path)
-                    name = sanitize_filename(doc.get("original_filename") or doc.get("name") or doc["id"])
+                    name = sanitize_filename(
+                        doc.get("original_filename") or doc.get("name") or doc["id"]
+                    )
                     seen_names_emp[name] = seen_names_emp.get(name, 0) + 1
                     if seen_names_emp[name] > 1:
                         stem, _, ext = name.rpartition(".")
-                        name = f"{stem or name} ({seen_names_emp[name]}).{ext}" if ext else f"{name} ({seen_names_emp[name]})"
+                        name = (
+                            f"{stem or name} ({seen_names_emp[name]}).{ext}"
+                            if ext
+                            else f"{name} ({seen_names_emp[name]})"
+                        )
                     zf.writestr(f"documenti_dipendenti/{name}", content)
                 except Exception as e:
-                    logger.warning(f"Export: impossibile includere il documento dipendente {doc.get('id')}: {e}")
+                    logger.warning(
+                        f"Export: impossibile includere il documento dipendente {doc.get('id')}: {e}"
+                    )
 
         zip_buf.seek(0)
         return zip_buf.read()
@@ -207,10 +236,16 @@ class GdprService:
         try:
             await subscription_service.cancel_subscription({"id": user_id})
         except Exception as e:
-            logger.warning(f"Cancellazione abbonamento durante eliminazione account fallita: {e}")
+            logger.warning(
+                f"Cancellazione abbonamento durante eliminazione account fallita: {e}"
+            )
 
-        documents = await db.documents.find({"user_id": user_id}, {"_id": 0, "storage_path": 1}).to_list(20000)
-        employee_documents = await db.employee_documents.find({"user_id": user_id}, {"_id": 0, "storage_path": 1}).to_list(20000)
+        documents = await db.documents.find(
+            {"user_id": user_id}, {"_id": 0, "storage_path": 1}
+        ).to_list(20000)
+        employee_documents = await db.employee_documents.find(
+            {"user_id": user_id}, {"_id": 0, "storage_path": 1}
+        ).to_list(20000)
         for doc in documents + employee_documents:
             storage_path = doc.get("storage_path")
             if not storage_path:
@@ -218,7 +253,9 @@ class GdprService:
             try:
                 storage_delete(storage_path)
             except Exception as e:
-                logger.warning(f"Eliminazione file S3 durante eliminazione account fallita: {e}")
+                logger.warning(
+                    f"Eliminazione file S3 durante eliminazione account fallita: {e}"
+                )
 
         for collection_name in USER_SCOPED_COLLECTIONS.values():
             await db[collection_name].delete_many({"user_id": user_id})
@@ -246,12 +283,16 @@ class GdprService:
         password, es. rubato via XSS o da un dispositivo condiviso) potrebbe
         provarne un numero illimitato per cancellare un account altrui."""
         user_id = user["id"]
-        ok = await check_and_record("gdpr_delete_account", user_id, max_attempts=5, window_minutes=15)
+        ok = await check_and_record(
+            "gdpr_delete_account", user_id, max_attempts=5, window_minutes=15
+        )
         if not ok:
             raise HTTPException(429, "Troppi tentativi, riprova più tardi")
 
         full_user = await db.users.find_one({"id": user["id"]})
-        if not full_user or not verify_password(password, full_user.get("password_hash", "")):
+        if not full_user or not verify_password(
+            password, full_user.get("password_hash", "")
+        ):
             raise HTTPException(403, "Password non corretta")
 
         await self._erase_user_data(user_id)
@@ -281,14 +322,18 @@ class GdprService:
         #   una email indicata da chi contesta la cancellazione, senza
         #   conservare il dato leggibile.
         try:
-            email_hash = hashlib.sha256((full_user.get("email") or "").encode("utf-8")).hexdigest()
-            await db.admin_audit_log.insert_one({
-                "actor": "self",
-                "action": "self_delete_account",
-                "target_user_id": user_id,
-                "detail": {"email_hash": email_hash},
-                "created_at": datetime.now(timezone.utc),
-            })
+            email_hash = hashlib.sha256(
+                (full_user.get("email") or "").encode("utf-8")
+            ).hexdigest()
+            await db.admin_audit_log.insert_one(
+                {
+                    "actor": "self",
+                    "action": "self_delete_account",
+                    "target_user_id": user_id,
+                    "detail": {"email_hash": email_hash},
+                    "created_at": datetime.now(timezone.utc),
+                }
+            )
         except Exception as e:
             # A differenza degli altri except in questo metodo, un fallimento
             # qui non ha alcun effetto visibile all'utente (l'account è già
@@ -296,7 +341,9 @@ class GdprService:
             # loggato: altrimenti, in caso di contestazione futura ("non
             # sono stato io a cancellare il mio account"), non ci sarebbe né
             # la traccia di audit né un log che spieghi perché manca.
-            logger.warning(f"Scrittura audit log durante eliminazione account fallita: {e}")
+            logger.warning(
+                f"Scrittura audit log durante eliminazione account fallita: {e}"
+            )
 
 
 gdpr_service = GdprService()

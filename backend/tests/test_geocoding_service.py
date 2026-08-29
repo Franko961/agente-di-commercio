@@ -7,14 +7,16 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_geocoding_service.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 sys.path.insert(0, ".")
 
+from fastapi import HTTPException
+
 import services.geocoding_service as geocoding_mod
 from services.geocoding_service import GeocodingService
-from fastapi import HTTPException
 
 
 def run(coro):
@@ -45,9 +47,15 @@ async def _deny_always(*a, **kw):
 def test_ricerca_restituisce_coordinate(monkeypatch):
     monkeypatch.setattr(geocoding_mod, "check_and_record", _allow_always)
     fake_payload = [
-        {"display_name": "Via Roma 1, Bologna, Italia", "lat": "44.4938", "lon": "11.3387"},
+        {
+            "display_name": "Via Roma 1, Bologna, Italia",
+            "lat": "44.4938",
+            "lon": "11.3387",
+        },
     ]
-    monkeypatch.setattr(geocoding_mod.requests, "get", lambda *a, **kw: FakeResponse(fake_payload))
+    monkeypatch.setattr(
+        geocoding_mod.requests, "get", lambda *a, **kw: FakeResponse(fake_payload)
+    )
 
     service = GeocodingService()
     results = run(service.search_address("u1", "Via Roma 1, Bologna"))
@@ -60,7 +68,9 @@ def test_ricerca_restituisce_coordinate(monkeypatch):
 
 def test_nessun_risultato_restituisce_lista_vuota(monkeypatch):
     monkeypatch.setattr(geocoding_mod, "check_and_record", _allow_always)
-    monkeypatch.setattr(geocoding_mod.requests, "get", lambda *a, **kw: FakeResponse([]))
+    monkeypatch.setattr(
+        geocoding_mod.requests, "get", lambda *a, **kw: FakeResponse([])
+    )
 
     service = GeocodingService()
     results = run(service.search_address("u1", "indirizzo inesistente xyz"))
@@ -93,6 +103,7 @@ def test_errore_di_rete_restituisce_502(monkeypatch):
 
     def _raise(*a, **kw):
         raise geocoding_mod.requests.RequestException("timeout")
+
     monkeypatch.setattr(geocoding_mod.requests, "get", _raise)
 
     service = GeocodingService()

@@ -1,9 +1,14 @@
 from fastapi import APIRouter, Depends
-from core.security import get_current_user, forbid_demo_write, require_module
-from services.vehicle_deadline_service import vehicle_deadline_service
-from models.vehicle import VehicleDeadlineIn
 
-router = APIRouter(prefix="/api/vehicle-deadlines", tags=["vehicle-deadlines"], dependencies=[Depends(require_module("flotta"))])
+from core.security import forbid_demo_write, get_current_user, require_module
+from models.vehicle import VehicleDeadlineIn
+from services.vehicle_deadline_service import vehicle_deadline_service
+
+router = APIRouter(
+    prefix="/api/vehicle-deadlines",
+    tags=["vehicle-deadlines"],
+    dependencies=[Depends(require_module("flotta"))],
+)
 
 
 @router.get("")
@@ -17,7 +22,9 @@ async def create_deadline(payload: VehicleDeadlineIn, user=Depends(forbid_demo_w
 
 
 @router.put("/{did}")
-async def update_deadline(did: str, payload: VehicleDeadlineIn, user=Depends(forbid_demo_write)):
+async def update_deadline(
+    did: str, payload: VehicleDeadlineIn, user=Depends(forbid_demo_write)
+):
     await vehicle_deadline_service.update_deadline(user, did, payload)
     return {"ok": True}
 

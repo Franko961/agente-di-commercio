@@ -16,8 +16,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_automation_run_repository.py -v
 """
-import sys
+
 import asyncio
+import sys
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -75,7 +76,10 @@ class FakeMongoCollection:
             ok = True
             for field, expected in cond.items():
                 if isinstance(expected, dict) and "$lt" in expected:
-                    ok = ok and (existing.get(field) is not None and existing[field] < expected["$lt"])
+                    ok = ok and (
+                        existing.get(field) is not None
+                        and existing[field] < expected["$lt"]
+                    )
                 else:
                     ok = ok and existing.get(field) == expected
             if ok:
@@ -89,13 +93,21 @@ class FakeMongoCollection:
         return _UpdateResult(matched_count=1)
 
     async def delete_many(self, query):
-        to_delete = [k for k, v in self.docs.items() if all(v.get(f) == val for f, val in query.items())]
+        to_delete = [
+            k
+            for k, v in self.docs.items()
+            if all(v.get(f) == val for f, val in query.items())
+        ]
         for k in to_delete:
             del self.docs[k]
         return _DeleteResult(deleted_count=len(to_delete))
 
     def find(self, query, _projection=None):
-        matches = [dict(v) for v in self.docs.values() if all(v.get(f) == val for f, val in query.items())]
+        matches = [
+            dict(v)
+            for v in self.docs.values()
+            if all(v.get(f) == val for f, val in query.items())
+        ]
         return _FindCursor(matches)
 
 
@@ -104,7 +116,9 @@ class _FindCursor:
         self.docs = docs
 
     def sort(self, field, direction=-1):
-        self.docs = sorted(self.docs, key=lambda d: d.get(field) or "", reverse=(direction == -1))
+        self.docs = sorted(
+            self.docs, key=lambda d: d.get(field) or "", reverse=(direction == -1)
+        )
         return self
 
     async def to_list(self, limit):
@@ -140,8 +154,11 @@ def test_seconda_prenotazione_sulla_stessa_coppia_fallisce_se_gia_in_corso():
 def test_record_in_errore_puo_essere_riprenotato():
     repo = build_repo()
     repo.collection.docs[("auto-1", "target-1")] = {
-        "automation_id": "auto-1", "target_id": "target-1", "status": "error",
-        "attempts": 1, "updated_at": _iso(datetime.now(timezone.utc)),
+        "automation_id": "auto-1",
+        "target_id": "target-1",
+        "status": "error",
+        "attempts": 1,
+        "updated_at": _iso(datetime.now(timezone.utc)),
     }
     claimed = run(repo.try_claim("auto-1", "user-1", "offer", "target-1"))
     assert claimed is True
@@ -150,8 +167,11 @@ def test_record_in_errore_puo_essere_riprenotato():
 def test_record_fallito_permanentemente_non_viene_mai_riprenotato():
     repo = build_repo()
     repo.collection.docs[("auto-1", "target-1")] = {
-        "automation_id": "auto-1", "target_id": "target-1", "status": "failed_permanent",
-        "attempts": 5, "updated_at": _iso(datetime.now(timezone.utc)),
+        "automation_id": "auto-1",
+        "target_id": "target-1",
+        "status": "failed_permanent",
+        "attempts": 5,
+        "updated_at": _iso(datetime.now(timezone.utc)),
     }
     claimed = run(repo.try_claim("auto-1", "user-1", "offer", "target-1"))
     assert claimed is False
@@ -162,10 +182,14 @@ def test_processing_fresco_non_viene_riprenotato():
     essere possibile prenotare di nuovo lo stesso target nel frattempo."""
     repo = build_repo()
     repo.collection.docs[("auto-1", "target-1")] = {
-        "automation_id": "auto-1", "target_id": "target-1", "status": "processing",
+        "automation_id": "auto-1",
+        "target_id": "target-1",
+        "status": "processing",
         "claimed_at": _iso(datetime.now(timezone.utc) - timedelta(seconds=5)),
     }
-    claimed = run(repo.try_claim("auto-1", "user-1", "offer", "target-1", stale_after_seconds=300))
+    claimed = run(
+        repo.try_claim("auto-1", "user-1", "offer", "target-1", stale_after_seconds=300)
+    )
     assert claimed is False
 
 
@@ -175,40 +199,56 @@ def test_processing_scaduto_viene_riprenotato():
     bloccato per sempre, va ripreso al ciclo successivo."""
     repo = build_repo()
     repo.collection.docs[("auto-1", "target-1")] = {
-        "automation_id": "auto-1", "target_id": "target-1", "status": "processing",
+        "automation_id": "auto-1",
+        "target_id": "target-1",
+        "status": "processing",
         "claimed_at": _iso(datetime.now(timezone.utc) - timedelta(seconds=600)),
     }
-    claimed = run(repo.try_claim("auto-1", "user-1", "offer", "target-1", stale_after_seconds=300))
+    claimed = run(
+        repo.try_claim("auto-1", "user-1", "offer", "target-1", stale_after_seconds=300)
+    )
     assert claimed is True
 
 
 def test_ok_senza_cooldown_non_viene_mai_riprenotato():
     repo = build_repo()
     repo.collection.docs[("auto-1", "target-1")] = {
-        "automation_id": "auto-1", "target_id": "target-1", "status": "ok",
+        "automation_id": "auto-1",
+        "target_id": "target-1",
+        "status": "ok",
         "updated_at": _iso(datetime.now(timezone.utc) - timedelta(days=365)),
     }
-    claimed = run(repo.try_claim("auto-1", "user-1", "offer", "target-1", cooldown_days=None))
+    claimed = run(
+        repo.try_claim("auto-1", "user-1", "offer", "target-1", cooldown_days=None)
+    )
     assert claimed is False
 
 
 def test_ok_con_cooldown_non_ancora_trascorso_non_viene_riprenotato():
     repo = build_repo()
     repo.collection.docs[("auto-1", "target-1")] = {
-        "automation_id": "auto-1", "target_id": "target-1", "status": "ok",
+        "automation_id": "auto-1",
+        "target_id": "target-1",
+        "status": "ok",
         "updated_at": _iso(datetime.now(timezone.utc) - timedelta(days=2)),
     }
-    claimed = run(repo.try_claim("auto-1", "user-1", "offer", "target-1", cooldown_days=7))
+    claimed = run(
+        repo.try_claim("auto-1", "user-1", "offer", "target-1", cooldown_days=7)
+    )
     assert claimed is False
 
 
 def test_ok_con_cooldown_trascorso_viene_riprenotato():
     repo = build_repo()
     repo.collection.docs[("auto-1", "target-1")] = {
-        "automation_id": "auto-1", "target_id": "target-1", "status": "ok",
+        "automation_id": "auto-1",
+        "target_id": "target-1",
+        "status": "ok",
         "updated_at": _iso(datetime.now(timezone.utc) - timedelta(days=8)),
     }
-    claimed = run(repo.try_claim("auto-1", "user-1", "offer", "target-1", cooldown_days=7))
+    claimed = run(
+        repo.try_claim("auto-1", "user-1", "offer", "target-1", cooldown_days=7)
+    )
     assert claimed is True
 
 
@@ -228,10 +268,16 @@ def test_delete_by_automation_rimuove_solo_le_esecuzioni_dello_stesso_utente():
     perdere i propri record per "auto-1"."""
     repo = build_repo()
     repo.collection.docs[("auto-1", "target-1")] = {
-        "automation_id": "auto-1", "target_id": "target-1", "user_id": "user-1", "status": "ok",
+        "automation_id": "auto-1",
+        "target_id": "target-1",
+        "user_id": "user-1",
+        "status": "ok",
     }
     repo.collection.docs[("auto-1", "target-2")] = {
-        "automation_id": "auto-1", "target_id": "target-2", "user_id": "user-2", "status": "ok",
+        "automation_id": "auto-1",
+        "target_id": "target-2",
+        "user_id": "user-2",
+        "status": "ok",
     }
 
     run(repo.delete_by_automation("auto-1", "user-1"))
@@ -244,7 +290,10 @@ def test_delete_by_automation_rimuove_solo_le_esecuzioni_dello_stesso_utente():
 def test_delete_by_automation_con_user_id_sbagliato_non_cancella_nulla():
     repo = build_repo()
     repo.collection.docs[("auto-1", "target-1")] = {
-        "automation_id": "auto-1", "target_id": "target-1", "user_id": "user-1", "status": "ok",
+        "automation_id": "auto-1",
+        "target_id": "target-1",
+        "user_id": "user-1",
+        "status": "ok",
     }
 
     run(repo.delete_by_automation("auto-1", "user-di-un-altro-account"))
@@ -260,12 +309,18 @@ def test_find_many_by_automation_filtra_anche_per_user_id():
     risultato — solo le esecuzioni di user_id="user-1" per "auto-1"."""
     repo = build_repo()
     repo.collection.docs[("auto-1", "target-1")] = {
-        "automation_id": "auto-1", "target_id": "target-1", "user_id": "user-1",
-        "status": "ok", "updated_at": "2026-01-01T00:00:00+00:00",
+        "automation_id": "auto-1",
+        "target_id": "target-1",
+        "user_id": "user-1",
+        "status": "ok",
+        "updated_at": "2026-01-01T00:00:00+00:00",
     }
     repo.collection.docs[("auto-1", "target-2")] = {
-        "automation_id": "auto-1", "target_id": "target-2", "user_id": "user-2",
-        "status": "ok", "updated_at": "2026-01-02T00:00:00+00:00",
+        "automation_id": "auto-1",
+        "target_id": "target-2",
+        "user_id": "user-2",
+        "status": "ok",
+        "updated_at": "2026-01-02T00:00:00+00:00",
     }
 
     result = run(repo.find_many_by_automation("auto-1", "user-1"))
@@ -277,8 +332,11 @@ def test_find_many_by_automation_filtra_anche_per_user_id():
 def test_find_many_by_automation_con_user_id_sbagliato_non_trova_nulla():
     repo = build_repo()
     repo.collection.docs[("auto-1", "target-1")] = {
-        "automation_id": "auto-1", "target_id": "target-1", "user_id": "user-1",
-        "status": "ok", "updated_at": "2026-01-01T00:00:00+00:00",
+        "automation_id": "auto-1",
+        "target_id": "target-1",
+        "user_id": "user-1",
+        "status": "ok",
+        "updated_at": "2026-01-01T00:00:00+00:00",
     }
 
     result = run(repo.find_many_by_automation("auto-1", "user-di-un-altro-account"))

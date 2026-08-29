@@ -1,10 +1,16 @@
-from fastapi import APIRouter, Depends
 from typing import Optional
-from core.security import get_current_user, forbid_demo_write, require_module
-from services.expense_service import expense_service
-from models.expense import ExpenseIn
 
-router = APIRouter(prefix="/api/expenses", tags=["expenses"], dependencies=[Depends(require_module("spese"))])
+from fastapi import APIRouter, Depends
+
+from core.security import forbid_demo_write, get_current_user, require_module
+from models.expense import ExpenseIn
+from services.expense_service import expense_service
+
+router = APIRouter(
+    prefix="/api/expenses",
+    tags=["expenses"],
+    dependencies=[Depends(require_module("spese"))],
+)
 
 
 @router.get("")

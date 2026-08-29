@@ -24,8 +24,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_automation_service.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 sys.path.insert(0, ".")
 
@@ -59,7 +60,11 @@ class FakeRunRepo:
 
     async def find_many_by_automation(self, automation_id, user_id):
         self.calls.append((automation_id, user_id))
-        return [r for r in self.runs if r["automation_id"] == automation_id and r["user_id"] == user_id]
+        return [
+            r
+            for r in self.runs
+            if r["automation_id"] == automation_id and r["user_id"] == user_id
+        ]
 
 
 def build_service():
@@ -94,10 +99,13 @@ def test_delete_automation_di_un_altro_utente_non_scrive_lo_user_id_sbagliato():
 
 # ---------- list_runs ----------
 
+
 def test_list_runs_passa_lo_user_id_al_repository():
     service, repo, run_repo = build_service()
     repo.docs["auto-1"] = {"id": "auto-1", "user_id": "user-1"}
-    run_repo.runs.append({"automation_id": "auto-1", "user_id": "user-1", "status": "ok"})
+    run_repo.runs.append(
+        {"automation_id": "auto-1", "user_id": "user-1", "status": "ok"}
+    )
 
     result = run(service.list_runs({"id": "user-1"}, "auto-1"))
 
@@ -120,4 +128,5 @@ def test_list_runs_di_unautomazione_di_un_altro_utente_ritorna_vuoto_senza_inter
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

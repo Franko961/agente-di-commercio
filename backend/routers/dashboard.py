@@ -1,5 +1,7 @@
-from fastapi import APIRouter, Depends
 from typing import Optional
+
+from fastapi import APIRouter, Depends
+
 from core.security import get_current_user
 from services.dashboard_service import dashboard_service
 
@@ -12,5 +14,7 @@ async def dashboard(mandante_id: Optional[str] = None, user=Depends(get_current_
 
 
 @router.get("/today")
-async def dashboard_today(mandante_id: Optional[str] = None, user=Depends(get_current_user)):
+async def dashboard_today(
+    mandante_id: Optional[str] = None, user=Depends(get_current_user)
+):
     return await dashboard_service.get_today_brief(user, mandante_id)

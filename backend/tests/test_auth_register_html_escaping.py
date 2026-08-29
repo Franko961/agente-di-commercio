@@ -11,14 +11,15 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_auth_register_html_escaping.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 sys.path.insert(0, ".")
 
 import services.auth_service as auth_service_mod
-from services.auth_service import AuthService
 from models.auth import RegisterIn
+from services.auth_service import AuthService
 
 
 def run(coro):
@@ -60,13 +61,16 @@ def test_nome_malevolo_viene_html_escaped_in_entrambe_le_email(monkeypatch):
     monkeypatch.setattr(auth_service_mod, "send_email", _capturing_send_email)
     service = AuthService(repo=FakeUserRepo())
 
-    run(service.register(
-        RegisterIn(
-            email="nuovo@example.com", password="password123",
-            name="<img src=x onerror=alert(1)></b><script>alert(2)</script>",
-        ),
-        ip_address="1.2.3.4",
-    ))
+    run(
+        service.register(
+            RegisterIn(
+                email="nuovo@example.com",
+                password="password123",
+                name="<img src=x onerror=alert(1)></b><script>alert(2)</script>",
+            ),
+            ip_address="1.2.3.4",
+        )
+    )
 
     assert len(sent_emails) == 2  # benvenuto + notifica admin
     for mail in sent_emails:
@@ -80,4 +84,5 @@ def test_nome_malevolo_viene_html_escaped_in_entrambe_le_email(monkeypatch):
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

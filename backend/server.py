@@ -1,57 +1,71 @@
-from dotenv import load_dotenv
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+load_dotenv(ROOT_DIR / ".env")
 
 import logging
 import time
+
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
-from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
-from routers.clients import router as clients_router
-from routers.leads import router as leads_router
-from routers.appointments import router as appointments_router
-from routers.mandanti import router as mandanti_router
-from routers.products import router as products_router
-from routers.offers import router as offers_router
-from routers.commissions import router as commissions_router
-from routers.documents import router as documents_router
-from routers.automations import router as automations_router
-from routers.dashboard import router as dashboard_router
-from routers.export import router as export_router
-from routers.auth import router as auth_router
-from routers.ai import router as ai_router
-from routers.email import router as email_router
+from starlette.middleware.cors import CORSMiddleware
+
+from core.config import CORS_ORIGINS, SENTRY_DSN, TRUSTED_PROXY_HOPS
+from core.exceptions import AppError
+from core.observability import (
+    configure_logging,
+    init_opentelemetry,
+    new_request_id,
+    record_api_call,
+    set_request_id,
+)
+from core.security import get_client_ip, require_admin
 from routers.admin import router as admin_router
-from routers.subscription import router as subscription_router
-from routers.integrations import router as integrations_router
-from routers.demo_requests import router as demo_requests_router
+from routers.ai import router as ai_router
+from routers.appointments import router as appointments_router
+from routers.attendance import account_router as attendance_account_router
+from routers.attendance import kiosk_router as attendance_kiosk_router
+from routers.attendance import router as attendance_router
+from routers.auth import router as auth_router
+from routers.automations import router as automations_router
+from routers.cargo_loads import router as cargo_loads_router
+from routers.clients import router as clients_router
+from routers.commissions import router as commissions_router
 from routers.contact import router as contact_router
-from routers.orders import router as orders_router
-from routers.expenses import router as expenses_router
-from routers.settings import router as settings_router
-from routers.geocoding import router as geocoding_router
-from routers.route_planning import router as route_planning_router
-from routers.gdpr import router as gdpr_router
-from routers.feedback import router as feedback_router
-from routers.employees import router as employees_router
+from routers.dashboard import router as dashboard_router
+from routers.demo_requests import router as demo_requests_router
+from routers.documents import router as documents_router
+from routers.email import router as email_router
+from routers.employee_compensation import router as employee_compensation_router
+from routers.employee_disciplinary_actions import (
+    router as employee_disciplinary_actions_router,
+)
 from routers.employee_documents import router as employee_documents_router
 from routers.employee_equipment import router as employee_equipment_router
-from routers.employee_disciplinary_actions import router as employee_disciplinary_actions_router
-from routers.employee_compensation import router as employee_compensation_router
-from routers.leave_requests import router as leave_requests_router, admin_router as leave_requests_admin_router
-from routers.attendance import router as attendance_router, kiosk_router as attendance_kiosk_router, account_router as attendance_account_router
-from routers.vehicles import router as vehicles_router
-from routers.vehicle_deadlines import router as vehicle_deadlines_router
+from routers.employees import router as employees_router
+from routers.expenses import router as expenses_router
+from routers.export import router as export_router
+from routers.feedback import router as feedback_router
+from routers.gdpr import router as gdpr_router
+from routers.geocoding import router as geocoding_router
+from routers.integrations import router as integrations_router
+from routers.leads import router as leads_router
+from routers.leave_requests import admin_router as leave_requests_admin_router
+from routers.leave_requests import router as leave_requests_router
+from routers.mandanti import router as mandanti_router
+from routers.offers import router as offers_router
+from routers.orders import router as orders_router
+from routers.products import router as products_router
+from routers.route_planning import router as route_planning_router
+from routers.settings import router as settings_router
+from routers.subscription import router as subscription_router
 from routers.vehicle_costs import router as vehicle_costs_router
-from routers.cargo_loads import router as cargo_loads_router
-from services.startup_service import run_startup, run_shutdown
-from core.exceptions import AppError
-from core.config import CORS_ORIGINS, SENTRY_DSN, TRUSTED_PROXY_HOPS
-from core.observability import configure_logging, new_request_id, set_request_id, record_api_call, init_opentelemetry
-from core.security import get_client_ip, require_admin
+from routers.vehicle_deadlines import router as vehicle_deadlines_router
+from routers.vehicles import router as vehicles_router
+from services.startup_service import run_shutdown, run_startup
 
 app = FastAPI(title="Gestionale Agenti di Commercio")
 
@@ -73,7 +87,10 @@ if SENTRY_DSN:
     try:
         import sentry_sdk
         from sentry_sdk.integrations.fastapi import FastApiIntegration
-        sentry_sdk.init(dsn=SENTRY_DSN, integrations=[FastApiIntegration()], traces_sample_rate=0.1)
+
+        sentry_sdk.init(
+            dsn=SENTRY_DSN, integrations=[FastApiIntegration()], traces_sample_rate=0.1
+        )
         logging.getLogger(__name__).info("Sentry inizializzato")
     except Exception as e:
         logging.getLogger(__name__).error(f"Inizializzazione Sentry fallita: {e}")
@@ -106,7 +123,9 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
             raise
         duration_ms = (time.perf_counter() - start) * 1000
         path_template = _route_path(request)
-        await record_api_call(request.method, path_template, response.status_code, duration_ms)
+        await record_api_call(
+            request.method, path_template, response.status_code, duration_ms
+        )
         response.headers["X-Request-ID"] = req_id
         return response
 
@@ -152,7 +171,11 @@ async def debug_my_ip(request: Request, admin: dict = Depends(require_admin)):
     # avere una sessione attiva (es. Franco loggato mentre testa questo
     # endpoint dal browser) e non deve mai vedere il proprio token di
     # sessione riflesso indietro in una risposta JSON pubblica.
-    safe_headers = {k: v for k, v in request.headers.items() if k.lower() not in ("cookie", "authorization")}
+    safe_headers = {
+        k: v
+        for k, v in request.headers.items()
+        if k.lower() not in ("cookie", "authorization")
+    }
     return {
         "resolved_ip": get_client_ip(request),
         "x_forwarded_for": request.headers.get("x-forwarded-for"),

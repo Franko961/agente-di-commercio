@@ -10,8 +10,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_offer_service_ownership.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 
@@ -67,8 +68,17 @@ def build_service():
 
 def _offer_payload(**overrides):
     base = dict(
-        client_id="c1", mandante_id="m1", title="Offerta test",
-        items=[{"description": "Prodotto A", "quantity": 1, "unit_price": 100, "discount": 0}],
+        client_id="c1",
+        mandante_id="m1",
+        title="Offerta test",
+        items=[
+            {
+                "description": "Prodotto A",
+                "quantity": 1,
+                "unit_price": 100,
+                "discount": 0,
+            }
+        ],
     )
     base.update(overrides)
     return OfferIn(**base)
@@ -84,14 +94,20 @@ def test_create_offer_con_client_id_e_mandante_id_validi_funziona():
 def test_create_offer_rifiuta_client_id_di_un_altro_utente():
     service, offer_repo = build_service()
     with pytest.raises(NotFoundError):
-        run(service.create_offer(USER, _offer_payload(client_id="c-di-un-altro-utente")))
+        run(
+            service.create_offer(USER, _offer_payload(client_id="c-di-un-altro-utente"))
+        )
     assert offer_repo.docs == {}
 
 
 def test_create_offer_rifiuta_mandante_id_di_un_altro_utente():
     service, offer_repo = build_service()
     with pytest.raises(NotFoundError):
-        run(service.create_offer(USER, _offer_payload(mandante_id="m-di-un-altro-utente")))
+        run(
+            service.create_offer(
+                USER, _offer_payload(mandante_id="m-di-un-altro-utente")
+            )
+        )
     assert offer_repo.docs == {}
 
 
@@ -100,7 +116,11 @@ def test_update_offer_rifiuta_client_id_di_un_altro_utente():
     offer = run(service.create_offer(USER, _offer_payload()))
 
     with pytest.raises(NotFoundError):
-        run(service.update_offer(USER, offer["id"], _offer_payload(client_id="c-di-un-altro-utente")))
+        run(
+            service.update_offer(
+                USER, offer["id"], _offer_payload(client_id="c-di-un-altro-utente")
+            )
+        )
 
 
 if __name__ == "__main__":

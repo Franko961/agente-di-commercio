@@ -11,16 +11,17 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_feedback_service.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 
 sys.path.insert(0, ".")
 
+from core.exceptions import NotFoundError
 from models.feedback import FeedbackIn
 from services.feedback_service import FeedbackService
-from core.exceptions import NotFoundError
 
 
 def run(coro):
@@ -67,7 +68,11 @@ def _user(**overrides):
 def test_create_parte_non_approvato_anche_con_consenso():
     service, repo = build_service()
 
-    result = run(service.create(_user(), FeedbackIn(rating=5, text="Ottimo!", publish_consent=True)))
+    result = run(
+        service.create(
+            _user(), FeedbackIn(rating=5, text="Ottimo!", publish_consent=True)
+        )
+    )
 
     assert result["approved"] is False
     assert result["publish_consent"] is True
@@ -76,9 +81,19 @@ def test_create_parte_non_approvato_anche_con_consenso():
 
 
 def test_list_public_esclude_non_approvati():
-    service, repo = build_service(seed=[
-        {"id": "1", "user_id": "u1", "user_name": "Anna", "rating": 5, "text": "Top", "publish_consent": True, "approved": False},
-    ])
+    service, repo = build_service(
+        seed=[
+            {
+                "id": "1",
+                "user_id": "u1",
+                "user_name": "Anna",
+                "rating": 5,
+                "text": "Top",
+                "publish_consent": True,
+                "approved": False,
+            },
+        ]
+    )
 
     result = run(service.list_public())
 
@@ -89,9 +104,19 @@ def test_list_public_esclude_approvati_senza_consenso():
     """Un admin non può pubblicare un feedback per cui l'utente non ha dato
     il consenso, anche se lo approva: il consenso resta la condizione che
     solo l'utente può dare."""
-    service, repo = build_service(seed=[
-        {"id": "1", "user_id": "u1", "user_name": "Anna", "rating": 4, "text": "Buono", "publish_consent": False, "approved": True},
-    ])
+    service, repo = build_service(
+        seed=[
+            {
+                "id": "1",
+                "user_id": "u1",
+                "user_name": "Anna",
+                "rating": 4,
+                "text": "Buono",
+                "publish_consent": False,
+                "approved": True,
+            },
+        ]
+    )
 
     result = run(service.list_public())
 
@@ -99,9 +124,19 @@ def test_list_public_esclude_approvati_senza_consenso():
 
 
 def test_list_public_espone_solo_nome_voto_testo():
-    service, repo = build_service(seed=[
-        {"id": "1", "user_id": "u1-segreto", "user_name": "Anna Verdi", "rating": 5, "text": "Fantastico", "publish_consent": True, "approved": True},
-    ])
+    service, repo = build_service(
+        seed=[
+            {
+                "id": "1",
+                "user_id": "u1-segreto",
+                "user_name": "Anna Verdi",
+                "rating": 5,
+                "text": "Fantastico",
+                "publish_consent": True,
+                "approved": True,
+            },
+        ]
+    )
 
     result = run(service.list_public())
 
@@ -125,9 +160,19 @@ def test_delete_su_feedback_inesistente_solleva_not_found():
 
 
 def test_delete_rimuove_il_feedback():
-    service, repo = build_service(seed=[
-        {"id": "1", "user_id": "u1", "user_name": "Anna", "rating": 3, "text": "Ok", "publish_consent": False, "approved": False},
-    ])
+    service, repo = build_service(
+        seed=[
+            {
+                "id": "1",
+                "user_id": "u1",
+                "user_name": "Anna",
+                "rating": 3,
+                "text": "Ok",
+                "publish_consent": False,
+                "approved": False,
+            },
+        ]
+    )
 
     run(service.delete("1"))
 

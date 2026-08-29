@@ -1,12 +1,20 @@
 import tempfile
-from fastapi import HTTPException
 from typing import Optional
-from core.utils import gen_id, now_iso
-from repositories.document_repository import document_repository
-from repositories.client_repository import client_repository
-from services.storage_service import storage_put_stream, ALLOWED_EXT, APP_NAME, sanitize_filename, _sniff_matches_extension
+
+from fastapi import HTTPException
+
 from core.config import MAX_FILE_BYTES
+from core.utils import gen_id, now_iso
 from models.document import DocumentMetaUpdate
+from repositories.client_repository import client_repository
+from repositories.document_repository import document_repository
+from services.storage_service import (
+    ALLOWED_EXT,
+    APP_NAME,
+    _sniff_matches_extension,
+    sanitize_filename,
+    storage_put_stream,
+)
 
 # Byte sufficienti per riconoscere qualunque firma tra quelle controllate da
 # _sniff_matches_extension (la più esigente è il controllo HTML/script su
@@ -28,7 +36,9 @@ class DocumentService:
         self.repo = repo
         self.client_repo = client_repo
 
-    async def _validate_client_ownership(self, user_id: str, client_id: Optional[str]) -> None:
+    async def _validate_client_ownership(
+        self, user_id: str, client_id: Optional[str]
+    ) -> None:
         """client_id arriva dal payload dell'utente ed è sempre facoltativo
         (un documento non deve necessariamente essere collegato a un
         cliente): quando presente, verifica che appartenga a chi carica il
@@ -44,19 +54,35 @@ class DocumentService:
     async def create_document(self, user: dict, payload) -> dict:
         await self._validate_client_ownership(user["id"], payload.client_id)
         doc = {
-            "id": gen_id(), "user_id": user["id"], **payload.model_dump(),
-            "is_deleted": False, "created_at": now_iso(),
+            "id": gen_id(),
+            "user_id": user["id"],
+            **payload.model_dump(),
+            "is_deleted": False,
+            "created_at": now_iso(),
         }
         return await self.repo.insert(doc)
 
-    async def upload_document(self, user: dict, file, name: str, category: str,
-                               client_id: Optional[str], notes: str, tags: str) -> dict:
+    async def upload_document(
+        self,
+        user: dict,
+        file,
+        name: str,
+        category: str,
+        client_id: Optional[str],
+        notes: str,
+        tags: str,
+    ) -> dict:
         await self._validate_client_ownership(user["id"], client_id)
         if not file.filename:
             raise HTTPException(400, "File mancante")
-        ext = (file.filename.rsplit(".", 1)[-1] if "." in file.filename else "bin").lower()
+        ext = (
+            file.filename.rsplit(".", 1)[-1] if "." in file.filename else "bin"
+        ).lower()
         if ext not in ALLOWED_EXT:
-            raise HTTPException(400, f"Estensione .{ext} non supportata. Consentite: PDF, Excel, Word, video, immagini.")
+            raise HTTPException(
+                400,
+                f"Estensione .{ext} non supportata. Consentite: PDF, Excel, Word, video, immagini.",
+            )
 
         # Lettura a blocchi con controllo dimensione progressivo: un upload da
         # decine di GB viene interrotto appena supera il limite, invece di
@@ -83,7 +109,10 @@ class DocumentService:
                     break
                 total += len(chunk)
                 if total > MAX_FILE_BYTES:
-                    raise HTTPException(413, f"File troppo grande (max {MAX_FILE_BYTES // (1024*1024)} MB)")
+                    raise HTTPException(
+                        413,
+                        f"File troppo grande (max {MAX_FILE_BYTES // (1024*1024)} MB)",
+                    )
                 if len(head) < HEAD_SNIFF_BYTES:
                     head += chunk[: HEAD_SNIFF_BYTES - len(head)]
                 spooled.write(chunk)
@@ -97,7 +126,10 @@ class DocumentService:
             # carica il file (es. un file HTML rinominato in .txt). Basta
             # 'head' (i primi byte), non serve il file intero.
             if not _sniff_matches_extension(head, ext):
-                raise HTTPException(400, "Il contenuto del file non corrisponde al tipo dichiarato dall'estensione")
+                raise HTTPException(
+                    400,
+                    "Il contenuto del file non corrisponde al tipo dichiarato dall'estensione",
+                )
 
             # Il Content-Type salvato/servito è SEMPRE quello della nostra
             # whitelist, mai quello dichiarato dal browser (file.content_type):
@@ -119,7 +151,8 @@ class DocumentService:
         # rompere o iniettare nell'header HTTP.
         safe_original_filename = sanitize_filename(file.filename)
         doc = {
-            "id": gen_id(), "user_id": user["id"],
+            "id": gen_id(),
+            "user_id": user["id"],
             "client_id": client_id or None,
             "name": sanitize_filename(name) if name else safe_original_filename,
             "category": category,
@@ -135,12 +168,16 @@ class DocumentService:
         }
         return await self.repo.insert(doc)
 
-    async def update_document_meta(self, user: dict, did: str, payload: DocumentMetaUpdate) -> None:
+    async def update_document_meta(
+        self, user: dict, did: str, payload: DocumentMetaUpdate
+    ) -> None:
         allowed = payload.model_dump(exclude_unset=True)
         if "client_id" in allowed:
             await self._validate_client_ownership(user["id"], allowed["client_id"])
         if "tags" in allowed and isinstance(allowed["tags"], list):
-            allowed["tags"] = [str(t).strip() for t in allowed["tags"] if str(t).strip()]
+            allowed["tags"] = [
+                str(t).strip() for t in allowed["tags"] if str(t).strip()
+            ]
         if "name" in allowed:
             # Stessa sanitizzazione applicata al nome in upload_document: senza
             # questa, un nome impostato qui in un secondo momento (a differenza

@@ -1,6 +1,8 @@
-from core.utils import gen_id, now_iso
 from core.exceptions import NotFoundError, ValidationAppError
-from repositories.employee_compensation_repository import employee_compensation_repository
+from core.utils import gen_id, now_iso
+from repositories.employee_compensation_repository import (
+    employee_compensation_repository,
+)
 from repositories.employee_repository import employee_repository
 from repositories.expense_repository import expense_repository
 
@@ -10,7 +12,10 @@ from repositories.expense_repository import expense_repository
 # principio già applicato ai costi Flotta non-carburante (vedi
 # vehicle_cost_service.py), il dettaglio resta leggibile nella descrizione.
 _COMPENSATION_TYPE_LABELS = {
-    "stipendio": "Stipendio", "bonus": "Bonus", "rimborso": "Rimborso", "altro": "Altro",
+    "stipendio": "Stipendio",
+    "bonus": "Bonus",
+    "rimborso": "Rimborso",
+    "altro": "Altro",
 }
 
 
@@ -21,7 +26,12 @@ def _expense_description(employee_name: str, comp_type: str, notes: str) -> str:
 
 
 class EmployeeCompensationService:
-    def __init__(self, repo=employee_compensation_repository, employees=employee_repository, expenses=expense_repository):
+    def __init__(
+        self,
+        repo=employee_compensation_repository,
+        employees=employee_repository,
+        expenses=expense_repository,
+    ):
         self.repo = repo
         self.employees = employees
         self.expenses = expenses
@@ -88,7 +98,9 @@ class EmployeeCompensationService:
             await self.expenses.delete(expense_doc["id"], user["id"])
             raise
 
-    async def update_compensation(self, user: dict, employee_id: str, cid: str, payload) -> None:
+    async def update_compensation(
+        self, user: dict, employee_id: str, cid: str, payload
+    ) -> None:
         existing = await self.repo.find_one(cid, user["id"], employee_id)
         if not existing:
             raise NotFoundError("Compenso non trovato")
@@ -98,19 +110,30 @@ class EmployeeCompensationService:
         date_iso = payload.date.isoformat()
         employee_name = f"{employee['name']} {employee.get('surname', '')}".strip()
 
-        await self.repo.update(cid, user["id"], employee_id, {
-            "type": payload.type,
-            "amount": payload.amount,
-            "date": date_iso,
-            "notes": notes,
-        })
+        await self.repo.update(
+            cid,
+            user["id"],
+            employee_id,
+            {
+                "type": payload.type,
+                "amount": payload.amount,
+                "date": date_iso,
+                "notes": notes,
+            },
+        )
 
         if existing.get("expense_id"):
-            await self.expenses.update(existing["expense_id"], user["id"], {
-                "date": date_iso,
-                "description": _expense_description(employee_name, payload.type, notes),
-                "amount": payload.amount,
-            })
+            await self.expenses.update(
+                existing["expense_id"],
+                user["id"],
+                {
+                    "date": date_iso,
+                    "description": _expense_description(
+                        employee_name, payload.type, notes
+                    ),
+                    "amount": payload.amount,
+                },
+            )
 
     async def delete_compensation(self, user: dict, employee_id: str, cid: str) -> None:
         existing = await self.repo.find_one(cid, user["id"], employee_id)

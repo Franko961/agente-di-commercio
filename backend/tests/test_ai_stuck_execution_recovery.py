@@ -13,14 +13,15 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     ANTHROPIC_API_KEY=test python -m pytest test_ai_stuck_execution_recovery.py -v
 """
-import sys
+
 import asyncio
+import sys
 from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, ".")
 
-from tests.test_ai_tool_forcing import build_service
 from services.ai_service import STUCK_EXECUTION_THRESHOLD_SECONDS
+from tests.test_ai_tool_forcing import build_service
 
 
 def run(coro):
@@ -33,11 +34,17 @@ def _iso(seconds_ago: float) -> str:
 
 def test_azione_bloccata_da_piu_della_soglia_viene_segnata_fallita():
     service, _ = build_service()
-    run(service.action_log_repo.insert({
-        "id": "stuck-1", "user_id": "user-1", "tool_name": "add_offer",
-        "status": "in_esecuzione",
-        "execution_started_at": _iso(STUCK_EXECUTION_THRESHOLD_SECONDS + 60),
-    }))
+    run(
+        service.action_log_repo.insert(
+            {
+                "id": "stuck-1",
+                "user_id": "user-1",
+                "tool_name": "add_offer",
+                "status": "in_esecuzione",
+                "execution_started_at": _iso(STUCK_EXECUTION_THRESHOLD_SECONDS + 60),
+            }
+        )
+    )
 
     reclaimed = run(service.reclaim_stuck_executions())
 
@@ -52,11 +59,17 @@ def test_azione_in_esecuzione_da_poco_non_viene_toccata():
     deve essere segnata come fallita: la soglia esiste apposta per
     distinguere un crash da un'esecuzione normale ancora in corso."""
     service, _ = build_service()
-    run(service.action_log_repo.insert({
-        "id": "fresh-1", "user_id": "user-1", "tool_name": "add_offer",
-        "status": "in_esecuzione",
-        "execution_started_at": _iso(2),
-    }))
+    run(
+        service.action_log_repo.insert(
+            {
+                "id": "fresh-1",
+                "user_id": "user-1",
+                "tool_name": "add_offer",
+                "status": "in_esecuzione",
+                "execution_started_at": _iso(2),
+            }
+        )
+    )
 
     reclaimed = run(service.reclaim_stuck_executions())
 
@@ -68,17 +81,27 @@ def test_azione_in_esecuzione_da_poco_non_viene_toccata():
 def test_azioni_in_altri_stati_non_vengono_toccate():
     service, _ = build_service()
     for status in ("in_attesa", "confermata", "annullata", "eseguita", "fallita"):
-        run(service.action_log_repo.insert({
-            "id": f"log-{status}", "user_id": "user-1", "tool_name": "add_offer",
-            "status": status,
-            "execution_started_at": _iso(STUCK_EXECUTION_THRESHOLD_SECONDS + 60),
-        }))
+        run(
+            service.action_log_repo.insert(
+                {
+                    "id": f"log-{status}",
+                    "user_id": "user-1",
+                    "tool_name": "add_offer",
+                    "status": status,
+                    "execution_started_at": _iso(
+                        STUCK_EXECUTION_THRESHOLD_SECONDS + 60
+                    ),
+                }
+            )
+        )
 
     reclaimed = run(service.reclaim_stuck_executions())
 
     assert reclaimed == 0
     for status in ("in_attesa", "confermata", "annullata", "eseguita", "fallita"):
-        log = next(d for d in service.action_log_repo.docs if d["id"] == f"log-{status}")
+        log = next(
+            d for d in service.action_log_repo.docs if d["id"] == f"log-{status}"
+        )
         assert log["status"] == status  # invariato
 
 
@@ -90,20 +113,42 @@ def test_execution_started_at_viene_impostato_alla_transizione():
     from tests.test_ai_tool_forcing import build_service_with_offer
 
     service, offer_repo = build_service_with_offer()
-    run(service.action_log_repo.insert({
-        "id": "log-1", "user_id": "user-1", "tool_name": "add_offer", "status": "in_attesa",
-        "resolved_params": {
-            "client_id": "c-1", "client_name": "Rossi Srl", "mandante_id": "m-1",
-            "mandante_name": "Paginesi", "title": "Vendita", "items": [],
-            "amount": 500, "accepted": False, "sale_type": "nuovo",
-        },
-    }))
+    run(
+        service.action_log_repo.insert(
+            {
+                "id": "log-1",
+                "user_id": "user-1",
+                "tool_name": "add_offer",
+                "status": "in_attesa",
+                "resolved_params": {
+                    "client_id": "c-1",
+                    "client_name": "Rossi Srl",
+                    "mandante_id": "m-1",
+                    "mandante_name": "Paginesi",
+                    "title": "Vendita",
+                    "items": [],
+                    "amount": 500,
+                    "accepted": False,
+                    "sale_type": "nuovo",
+                },
+            }
+        )
+    )
 
-    run(service.execute_confirmed_action({"id": "user-1"}, {
-        "tool_name": "add_offer",
-        "resolved_input": {"amount": 500, "accepted": False, "sale_type": "nuovo"},
-        "log_id": "log-1",
-    }))
+    run(
+        service.execute_confirmed_action(
+            {"id": "user-1"},
+            {
+                "tool_name": "add_offer",
+                "resolved_input": {
+                    "amount": 500,
+                    "accepted": False,
+                    "sale_type": "nuovo",
+                },
+                "log_id": "log-1",
+            },
+        )
+    )
 
     log = next(d for d in service.action_log_repo.docs if d["id"] == "log-1")
     # A questo punto il log è già "confermata" (esecuzione completata), ma
@@ -115,4 +160,5 @@ def test_execution_started_at_viene_impostato_alla_transizione():
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

@@ -50,12 +50,20 @@ async def prepare_add_expense(client_repo, tool_input: dict, user_id: str) -> di
     return {
         "tool_name": "add_expense",
         "summary": {
-            "category": category, "amount": amount, "date": date_, "description": description,
+            "category": category,
+            "amount": amount,
+            "date": date_,
+            "description": description,
             "client_name": client_name,
         },
         "resolved_input": {
-            "category": category, "amount": amount, "date": date_, "description": description,
-            "notes": notes, "client_id": client_id, "client_name": client_name,
+            "category": category,
+            "amount": amount,
+            "date": date_,
+            "description": description,
+            "notes": notes,
+            "client_id": client_id,
+            "client_name": client_name,
             "client_not_found": client_not_found,
         },
     }
@@ -81,7 +89,8 @@ async def finalize_expense(expense_repo, user_id: str, resolved: dict) -> str:
     else:
         date_ = now_iso()[:10]
     doc = {
-        "id": gen_id(), "user_id": user_id,
+        "id": gen_id(),
+        "user_id": user_id,
         "date": date_,
         "category": category,
         "description": resolved.get("description", ""),

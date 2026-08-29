@@ -9,8 +9,14 @@ logger = logging.getLogger(__name__)
 
 
 async def log_action(
-    action_log_repo, user_id: str, channel: str, raw_input: str, tool_name: str,
-    proposed_params: dict, status: str, resolved_params: Optional[dict] = None,
+    action_log_repo,
+    user_id: str,
+    channel: str,
+    raw_input: str,
+    tool_name: str,
+    proposed_params: dict,
+    status: str,
+    resolved_params: Optional[dict] = None,
     result: Optional[str] = None,
 ) -> dict:
     """Registra una voce nel registro azioni AI (audit log): chi (user_id),
@@ -18,7 +24,8 @@ async def log_action(
     tool, con quali parametri, ed esito. Non solleva mai: un errore nel
     logging non deve mai far fallire l'azione CRM vera e propria."""
     doc = {
-        "id": gen_id(), "user_id": user_id,
+        "id": gen_id(),
+        "user_id": user_id,
         "channel": channel or "chat",
         "raw_input": raw_input or "",
         "tool_name": tool_name,
@@ -37,7 +44,9 @@ async def log_action(
         return doc
 
 
-async def cancel_pending_action(action_log_repo, user: dict, log_id: Optional[str]) -> dict:
+async def cancel_pending_action(
+    action_log_repo, user: dict, log_id: Optional[str]
+) -> dict:
     """Segna come annullata una voce 'in_attesa' del registro azioni,
     quando l'utente rifiuta la scheda di conferma senza registrare nulla.
     La transizione è atomica e condizionata allo stato attuale: se il log
@@ -47,7 +56,9 @@ async def cancel_pending_action(action_log_repo, user: dict, log_id: Optional[st
     if log_id:
         try:
             await action_log_repo.transition(
-                log_id, user["id"], "in_attesa",
+                log_id,
+                user["id"],
+                "in_attesa",
                 {"status": "annullata", "confirmed_at": now_iso()},
             )
         except Exception as e:
@@ -56,13 +67,22 @@ async def cancel_pending_action(action_log_repo, user: dict, log_id: Optional[st
 
 
 async def list_actions(
-    action_log_repo, user_id: str, tool_name: Optional[str] = None, status: Optional[str] = None,
-    date_from: Optional[str] = None, date_to: Optional[str] = None, limit: int = 200,
+    action_log_repo,
+    user_id: str,
+    tool_name: Optional[str] = None,
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    limit: int = 200,
 ) -> list:
     """Elenco filtrabile del registro azioni AI, per la pagina 'Registro AI'."""
     return await action_log_repo.find_many(
-        user_id, tool_name=tool_name, status=status,
-        date_from=date_from, date_to=date_to, limit=limit,
+        user_id,
+        tool_name=tool_name,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        limit=limit,
     )
 
 
@@ -75,7 +95,8 @@ async def reclaim_stuck_executions(action_log_repo) -> int:
     utente. Non riesegue mai l'azione: potrebbe essere già stata scritta
     sul CRM prima del crash."""
     threshold_iso = (
-        datetime.now(timezone.utc) - timedelta(seconds=STUCK_EXECUTION_THRESHOLD_SECONDS)
+        datetime.now(timezone.utc)
+        - timedelta(seconds=STUCK_EXECUTION_THRESHOLD_SECONDS)
     ).isoformat()
     return await action_log_repo.reclaim_stale_executions(
         threshold_iso,
@@ -104,12 +125,14 @@ async def list_pending_actions(action_log_repo, user_id: str, limit: int = 50) -
             # 'in_attesa' viene sempre creato con resolved_params), ma
             # se capitasse non mostriamo una scheda senza dati.
             continue
-        pending.append({
-            "log_id": log["id"],
-            "tool_name": log["tool_name"],
-            "resolved_input": resolved,
-            "channel": log.get("channel", "chat"),
-            "raw_input": log.get("raw_input", ""),
-            "created_at": log.get("created_at"),
-        })
+        pending.append(
+            {
+                "log_id": log["id"],
+                "tool_name": log["tool_name"],
+                "resolved_input": resolved,
+                "channel": log.get("channel", "chat"),
+                "raw_input": log.get("raw_input", ""),
+                "created_at": log.get("created_at"),
+            }
+        )
     return pending

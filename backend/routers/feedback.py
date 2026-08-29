@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, Body
+from fastapi import APIRouter, Body, Depends
+
 from core.security import forbid_demo_write, require_admin
-from services.feedback_service import feedback_service
 from models.feedback import FeedbackIn
+from services.feedback_service import feedback_service
 
 router = APIRouter(prefix="/api", tags=["feedback"])
 
@@ -25,7 +26,9 @@ async def admin_list_feedback(admin=Depends(require_admin)):
 
 
 @router.patch("/admin/feedback/{fid}")
-async def admin_update_feedback(fid: str, payload: dict = Body(...), admin=Depends(require_admin)):
+async def admin_update_feedback(
+    fid: str, payload: dict = Body(...), admin=Depends(require_admin)
+):
     await feedback_service.set_approved(fid, bool(payload.get("approved", False)))
     return {"ok": True}
 

@@ -3,7 +3,7 @@ import logging
 from fastapi import HTTPException
 
 from core.utils import now_iso
-from services.ai_service.catalog import _safe_float, EXPENSE_CONFIRM_THRESHOLD
+from services.ai_service.catalog import EXPENSE_CONFIRM_THRESHOLD, _safe_float
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,9 @@ ALLOWED_CONFIRM_EDITS = {
 }
 
 
-def requires_confirmation(tool_name: str, tool_input: dict, channel: str = "chat") -> bool:
+def requires_confirmation(
+    tool_name: str, tool_input: dict, channel: str = "chat"
+) -> bool:
     """True se il tool genera un record economico e va sempre mostrato
     come scheda di conferma prima di essere eseguito davvero: le vendite/
     offerte, gli ordini e le provvigioni manuali sempre (un ordine genera
@@ -86,7 +88,9 @@ async def execute_confirmed_action(service, user: dict, payload: dict) -> dict:
         raise HTTPException(409, "Azione già elaborata.")
 
     claimed = await action_log_repo.transition(
-        log_id, user["id"], "in_attesa",
+        log_id,
+        user["id"],
+        "in_attesa",
         {"status": "in_esecuzione", "execution_started_at": now_iso()},
         extra_match={"tool_name": tool_name},
     )
@@ -105,12 +109,18 @@ async def execute_confirmed_action(service, user: dict, payload: dict) -> dict:
         if key in browser_input:
             resolved[key] = browser_input[key]
 
-    if tool_name in ("add_offer", "add_order") and (not resolved.get("client_id") or not resolved.get("mandante_id")):
-        await action_log_repo.update_by_id(log_id, user["id"], {
-            "status": "fallita",
-            "result": "Dati mancanti per registrare la vendita.",
-            "confirmed_at": now_iso(),
-        })
+    if tool_name in ("add_offer", "add_order") and (
+        not resolved.get("client_id") or not resolved.get("mandante_id")
+    ):
+        await action_log_repo.update_by_id(
+            log_id,
+            user["id"],
+            {
+                "status": "fallita",
+                "result": "Dati mancanti per registrare la vendita.",
+                "confirmed_at": now_iso(),
+            },
+        )
         raise HTTPException(400, "Dati mancanti per registrare la vendita.")
 
     if tool_name == "add_offer":
@@ -123,12 +133,16 @@ async def execute_confirmed_action(service, user: dict, payload: dict) -> dict:
         message = await service._finalize_expense(user["id"], resolved)
 
     try:
-        await action_log_repo.update_by_id(log_id, user["id"], {
-            "status": "fallita" if message.startswith("❌") else "confermata",
-            "final_params": resolved,
-            "result": message,
-            "confirmed_at": now_iso(),
-        })
+        await action_log_repo.update_by_id(
+            log_id,
+            user["id"],
+            {
+                "status": "fallita" if message.startswith("❌") else "confermata",
+                "final_params": resolved,
+                "result": message,
+                "confirmed_at": now_iso(),
+            },
+        )
     except Exception as e:
         logger.error(f"AI action log confirm error: {e}")
 

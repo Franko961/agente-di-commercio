@@ -14,6 +14,7 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_status_field_validation.py -v
 """
+
 import sys
 
 import pytest
@@ -21,14 +22,20 @@ from pydantic import ValidationError
 
 sys.path.insert(0, ".")
 
-from models.order import OrderIn, OrderStatusIn, ORDER_STATUSES, PAYMENT_STATUSES, SALE_TYPES
-from models.offer import OfferIn, OfferStatusIn, OFFER_STATUSES
-from models.appointment import AppointmentIn, APPOINTMENT_STATUSES
-from models.lead import LeadIn, LeadStatusIn, LEAD_STATUSES
-from models.document import DocumentIn, DocumentMetaUpdate, DOCUMENT_CATEGORIES
-
+from models.appointment import APPOINTMENT_STATUSES, AppointmentIn
+from models.document import DOCUMENT_CATEGORIES, DocumentIn, DocumentMetaUpdate
+from models.lead import LEAD_STATUSES, LeadIn, LeadStatusIn
+from models.offer import OFFER_STATUSES, OfferIn, OfferStatusIn
+from models.order import (
+    ORDER_STATUSES,
+    PAYMENT_STATUSES,
+    SALE_TYPES,
+    OrderIn,
+    OrderStatusIn,
+)
 
 # ---------- OrderIn / OrderStatusIn ----------
+
 
 @pytest.mark.parametrize("value", ORDER_STATUSES)
 def test_order_status_valido_accettato(value):
@@ -72,6 +79,7 @@ def test_order_status_in_patch_campi_omessi_restano_none():
 
 # ---------- OfferIn / OfferStatusIn ----------
 
+
 @pytest.mark.parametrize("value", OFFER_STATUSES)
 def test_offer_status_valido_accettato(value):
     offer = OfferIn(client_id="c1", mandante_id="m1", title="Offerta", status=value)
@@ -80,7 +88,9 @@ def test_offer_status_valido_accettato(value):
 
 def test_offer_status_arbitrario_rifiutato():
     with pytest.raises(ValidationError):
-        OfferIn(client_id="c1", mandante_id="m1", title="Offerta", status="qualsiasi_valore")
+        OfferIn(
+            client_id="c1", mandante_id="m1", title="Offerta", status="qualsiasi_valore"
+        )
 
 
 def test_offer_sale_type_arbitrario_rifiutato():
@@ -109,6 +119,7 @@ def test_offer_status_in_richiede_il_campo():
 
 # ---------- AppointmentIn ----------
 
+
 @pytest.mark.parametrize("value", APPOINTMENT_STATUSES)
 def test_appointment_status_valido_accettato(value):
     appt = AppointmentIn(title="Visita", start="2026-08-01T10:00:00", status=value)
@@ -121,6 +132,7 @@ def test_appointment_status_arbitrario_rifiutato():
 
 
 # ---------- LeadIn / LeadStatusIn ----------
+
 
 @pytest.mark.parametrize("value", LEAD_STATUSES)
 def test_lead_status_valido_accettato(value):
@@ -145,6 +157,7 @@ def test_lead_status_in_arbitrario_rifiutato():
 
 
 # ---------- DocumentIn / DocumentMetaUpdate ----------
+
 
 @pytest.mark.parametrize("value", DOCUMENT_CATEGORIES)
 def test_document_category_valida_accettata(value):
@@ -174,10 +187,19 @@ def test_document_meta_update_campi_omessi_non_impostati():
 
 # ---------- Le liste stesse non sono vuote (garanzia minima di sanità) ----------
 
-@pytest.mark.parametrize("values", [
-    ORDER_STATUSES, PAYMENT_STATUSES, SALE_TYPES, OFFER_STATUSES,
-    APPOINTMENT_STATUSES, LEAD_STATUSES, DOCUMENT_CATEGORIES,
-])
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        ORDER_STATUSES,
+        PAYMENT_STATUSES,
+        SALE_TYPES,
+        OFFER_STATUSES,
+        APPOINTMENT_STATUSES,
+        LEAD_STATUSES,
+        DOCUMENT_CATEGORIES,
+    ],
+)
 def test_costante_non_vuota(values):
     assert len(values) > 0
 

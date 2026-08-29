@@ -6,11 +6,13 @@ Iteration 6 - Documents new features
 - PATCH returns 404 for non-existent or soft-deleted docs
 - GET /api/documents returns tags array
 """
+
 import os
+
 import pytest
 import requests
 
-BASE_URL = os.environ['REACT_APP_BACKEND_URL'].rstrip('/')
+BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 API = f"{BASE_URL}/api"
 EMAIL = "agente@demo.it"
 PASSWORD = "demo1234"
@@ -27,7 +29,9 @@ MINI_PDF = (
 
 @pytest.fixture(scope="module")
 def token():
-    r = requests.post(f"{API}/auth/login", json={"email": EMAIL, "password": PASSWORD}, timeout=30)
+    r = requests.post(
+        f"{API}/auth/login", json={"email": EMAIL, "password": PASSWORD}, timeout=30
+    )
     if r.status_code != 200:
         pytest.skip(f"Login failed: {r.status_code}")
     return r.json()["token"]
@@ -43,7 +47,13 @@ def _upload(auth_headers, name="TEST_iter6", tags="", category="altro", client_i
     data = {"name": name, "category": category, "notes": "n", "tags": tags}
     if client_id:
         data["client_id"] = client_id
-    r = requests.post(f"{API}/documents/upload", headers=auth_headers, files=files, data=data, timeout=60)
+    r = requests.post(
+        f"{API}/documents/upload",
+        headers=auth_headers,
+        files=files,
+        data=data,
+        timeout=60,
+    )
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -95,7 +105,9 @@ class TestPatchDocument:
                 "notes": "updated",
                 "tags": ["fresh", "new"],
             }
-            r = requests.patch(f"{API}/documents/{did}", headers=auth_headers, json=body, timeout=30)
+            r = requests.patch(
+                f"{API}/documents/{did}", headers=auth_headers, json=body, timeout=30
+            )
             assert r.status_code == 200, r.text
             assert r.json().get("ok") is True
 
@@ -114,8 +126,15 @@ class TestPatchDocument:
         j = _upload(auth_headers, name="TEST_patch_unknown", tags="x")
         did = j["id"]
         try:
-            body = {"name": "TEST_patch_kept", "evil": "xxx", "user_id": "hack", "id": "hack"}
-            r = requests.patch(f"{API}/documents/{did}", headers=auth_headers, json=body, timeout=30)
+            body = {
+                "name": "TEST_patch_kept",
+                "evil": "xxx",
+                "user_id": "hack",
+                "id": "hack",
+            }
+            r = requests.patch(
+                f"{API}/documents/{did}", headers=auth_headers, json=body, timeout=30
+            )
             assert r.status_code == 200
             assert r.json().get("ok") is True
             r2 = requests.get(f"{API}/documents", headers=auth_headers, timeout=30)
@@ -127,8 +146,12 @@ class TestPatchDocument:
             requests.delete(f"{API}/documents/{did}", headers=auth_headers)
 
     def test_patch_nonexistent_returns_404(self, auth_headers):
-        r = requests.patch(f"{API}/documents/does-not-exist-xyz", headers=auth_headers,
-                           json={"name": "x"}, timeout=30)
+        r = requests.patch(
+            f"{API}/documents/does-not-exist-xyz",
+            headers=auth_headers,
+            json={"name": "x"},
+            timeout=30,
+        )
         assert r.status_code == 404
 
     def test_patch_soft_deleted_returns_404(self, auth_headers):
@@ -136,8 +159,12 @@ class TestPatchDocument:
         did = j["id"]
         r = requests.delete(f"{API}/documents/{did}", headers=auth_headers, timeout=30)
         assert r.status_code == 200
-        r2 = requests.patch(f"{API}/documents/{did}", headers=auth_headers,
-                            json={"name": "x"}, timeout=30)
+        r2 = requests.patch(
+            f"{API}/documents/{did}",
+            headers=auth_headers,
+            json={"name": "x"},
+            timeout=30,
+        )
         assert r2.status_code == 404
 
     def test_patch_requires_auth(self, auth_headers):
@@ -152,9 +179,13 @@ class TestPatchDocument:
     def test_patch_other_users_doc_returns_404(self, auth_headers):
         # Register a new agent — different user_id
         import uuid
+
         em = f"test_{uuid.uuid4().hex[:8]}@example.com"
-        r = requests.post(f"{API}/auth/register",
-                          json={"email": em, "password": "secret12", "name": "Other"}, timeout=30)
+        r = requests.post(
+            f"{API}/auth/register",
+            json={"email": em, "password": "secret12", "name": "Other"},
+            timeout=30,
+        )
         if r.status_code != 200:
             pytest.skip(f"register failed: {r.status_code}")
         other_token = r.json()["token"]
@@ -164,8 +195,12 @@ class TestPatchDocument:
         j = _upload(auth_headers, name="TEST_patch_other", tags="")
         did = j["id"]
         try:
-            r = requests.patch(f"{API}/documents/{did}", headers=other_headers,
-                               json={"name": "hijack"}, timeout=30)
+            r = requests.patch(
+                f"{API}/documents/{did}",
+                headers=other_headers,
+                json={"name": "hijack"},
+                timeout=30,
+            )
             assert r.status_code == 404
         finally:
             requests.delete(f"{API}/documents/{did}", headers=auth_headers)

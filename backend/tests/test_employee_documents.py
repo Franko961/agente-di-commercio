@@ -13,8 +13,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_employee_documents.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 from fastapi import HTTPException
@@ -22,16 +23,24 @@ from fastapi import HTTPException
 sys.path.insert(0, ".")
 
 import services.employee_document_service as employee_document_service_mod
-from services.employee_document_service import EmployeeDocumentService
 from models.employee_document import EmployeeDocumentMetaUpdate
+from services.employee_document_service import EmployeeDocumentService
 
 
 def run(coro):
     return asyncio.run(coro)
 
 
-USER = {"id": "user-1", "email": "manager@example.com", "enabled_extra_modules": ["personale"]}
-OTHER_USER = {"id": "user-2", "email": "altro@example.com", "enabled_extra_modules": ["personale"]}
+USER = {
+    "id": "user-1",
+    "email": "manager@example.com",
+    "enabled_extra_modules": ["personale"],
+}
+OTHER_USER = {
+    "id": "user-2",
+    "email": "altro@example.com",
+    "enabled_extra_modules": ["personale"],
+}
 
 # %PDF- come primi byte: unica firma richiesta da _sniff_matches_extension
 # per l'estensione "pdf" (vedi services/storage_service.py).
@@ -53,13 +62,21 @@ class FakeEmployeeDocumentRepo:
 
     async def find_many(self, employee_id, user_id):
         return [
-            d for d in self.docs.values()
-            if d["employee_id"] == employee_id and d["user_id"] == user_id and not d.get("is_deleted")
+            d
+            for d in self.docs.values()
+            if d["employee_id"] == employee_id
+            and d["user_id"] == user_id
+            and not d.get("is_deleted")
         ]
 
     async def find_one(self, did, user_id, employee_id):
         d = self.docs.get(did)
-        if not d or d["user_id"] != user_id or d["employee_id"] != employee_id or d.get("is_deleted"):
+        if (
+            not d
+            or d["user_id"] != user_id
+            or d["employee_id"] != employee_id
+            or d.get("is_deleted")
+        ):
             return None
         return d
 
@@ -69,7 +86,12 @@ class FakeEmployeeDocumentRepo:
 
     async def update_meta(self, did, user_id, employee_id, data):
         d = self.docs.get(did)
-        if not d or d["user_id"] != user_id or d["employee_id"] != employee_id or d.get("is_deleted"):
+        if (
+            not d
+            or d["user_id"] != user_id
+            or d["employee_id"] != employee_id
+            or d.get("is_deleted")
+        ):
             return False
         d.update(data)
         return True
@@ -95,7 +117,7 @@ class FakeUploadFile:
         self._offset = 0
 
     async def read(self, n):
-        chunk = self._content[self._offset:self._offset + n]
+        chunk = self._content[self._offset : self._offset + n]
         self._offset += len(chunk)
         return chunk
 
@@ -107,7 +129,9 @@ def build_service():
     user_repo = FakeUserRepo()
     user_repo.docs[USER["id"]] = USER
     user_repo.docs[OTHER_USER["id"]] = OTHER_USER
-    service = EmployeeDocumentService(repo=doc_repo, employees=emp_repo, users=user_repo)
+    service = EmployeeDocumentService(
+        repo=doc_repo, employees=emp_repo, users=user_repo
+    )
     return service, doc_repo, emp_repo, user_repo
 
 
@@ -118,18 +142,25 @@ def patch_storage(monkeypatch, put_result=None):
         calls.append({"path": path, "content_type": content_type})
         return put_result or {"path": path}
 
-    monkeypatch.setattr(employee_document_service_mod, "storage_put_stream", fake_put_stream)
+    monkeypatch.setattr(
+        employee_document_service_mod, "storage_put_stream", fake_put_stream
+    )
     return calls
 
 
 # ---------- upload_document ----------
+
 
 def test_upload_document_happy_path(monkeypatch):
     service, doc_repo, _, _ = build_service()
     calls = patch_storage(monkeypatch)
     file = FakeUploadFile("contratto.pdf", PDF_BYTES)
 
-    doc = run(service.upload_document(USER, "emp-1", file, "Contratto 2026", "contratto", "firmato il 1/1"))
+    doc = run(
+        service.upload_document(
+            USER, "emp-1", file, "Contratto 2026", "contratto", "firmato il 1/1"
+        )
+    )
 
     assert doc["employee_id"] == "emp-1"
     assert doc["user_id"] == USER["id"]
@@ -140,7 +171,7 @@ def test_upload_document_happy_path(monkeypatch):
     assert doc["size"] == len(PDF_BYTES)
     assert doc["is_deleted"] is False
     assert len(calls) == 1
-    assert f"employees/emp-1/" in calls[0]["path"]
+    assert "employees/emp-1/" in calls[0]["path"]
 
 
 def test_upload_document_defaults_name_to_filename(monkeypatch):
@@ -217,6 +248,7 @@ def test_upload_document_rejects_oversized_file(monkeypatch):
 
 # ---------- list_documents ----------
 
+
 def test_list_documents_scoped_to_employee_and_user(monkeypatch):
     service, doc_repo, emp_repo, _ = build_service()
     emp_repo.docs["emp-2"] = {"id": "emp-2", "user_id": USER["id"], "name": "Luca"}
@@ -240,13 +272,21 @@ def test_list_documents_rejects_unknown_employee():
 
 # ---------- update_meta ----------
 
+
 def test_update_meta_updates_and_sanitizes_name(monkeypatch):
     service, doc_repo, _, _ = build_service()
     patch_storage(monkeypatch)
     file = FakeUploadFile("a.pdf", PDF_BYTES)
     doc = run(service.upload_document(USER, "emp-1", file, "Vecchio nome", "altro", ""))
 
-    run(service.update_meta(USER, "emp-1", doc["id"], EmployeeDocumentMetaUpdate(name="Nuovo/nome*", category="contratto")))
+    run(
+        service.update_meta(
+            USER,
+            "emp-1",
+            doc["id"],
+            EmployeeDocumentMetaUpdate(name="Nuovo/nome*", category="contratto"),
+        )
+    )
 
     updated = doc_repo.docs[doc["id"]]
     assert updated["category"] == "contratto"
@@ -256,7 +296,11 @@ def test_update_meta_updates_and_sanitizes_name(monkeypatch):
 def test_update_meta_unknown_document_raises_404():
     service, _, _, _ = build_service()
     with pytest.raises(HTTPException) as exc:
-        run(service.update_meta(USER, "emp-1", "does-not-exist", EmployeeDocumentMetaUpdate(notes="x")))
+        run(
+            service.update_meta(
+                USER, "emp-1", "does-not-exist", EmployeeDocumentMetaUpdate(notes="x")
+            )
+        )
     assert exc.value.status_code == 404
 
 
@@ -271,11 +315,16 @@ def test_update_meta_wrong_employee_id_raises_404(monkeypatch):
     doc = run(service.upload_document(USER, "emp-1", file, "", "altro", ""))
 
     with pytest.raises(HTTPException) as exc:
-        run(service.update_meta(USER, "emp-2", doc["id"], EmployeeDocumentMetaUpdate(notes="x")))
+        run(
+            service.update_meta(
+                USER, "emp-2", doc["id"], EmployeeDocumentMetaUpdate(notes="x")
+            )
+        )
     assert exc.value.status_code == 404
 
 
 # ---------- delete_document / get_document_for_download ----------
+
 
 def test_delete_document_soft_deletes(monkeypatch):
     service, doc_repo, _, _ = build_service()

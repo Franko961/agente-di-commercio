@@ -5,11 +5,11 @@ from datetime import date, timedelta
 # Milano) — semplificazione dichiarata, non una svista. Usato solo per il
 # conteggio ferie "festivita" (vedi models.leave_settings), non per altro.
 ITALIAN_HOLIDAYS_FIXED = (
-    (1, 1),   # Capodanno
-    (1, 6),   # Epifania
+    (1, 1),  # Capodanno
+    (1, 6),  # Epifania
     (4, 25),  # Liberazione
-    (5, 1),   # Festa dei Lavoratori
-    (6, 2),   # Festa della Repubblica
+    (5, 1),  # Festa dei Lavoratori
+    (6, 2),  # Festa della Repubblica
     (8, 15),  # Ferragosto
     (11, 1),  # Ognissanti
     (12, 8),  # Immacolata Concezione

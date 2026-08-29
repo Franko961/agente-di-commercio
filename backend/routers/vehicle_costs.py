@@ -1,9 +1,14 @@
 from fastapi import APIRouter, Depends
-from core.security import get_current_user, forbid_demo_write, require_module
-from services.vehicle_cost_service import vehicle_cost_service
-from models.vehicle import VehicleCostIn
 
-router = APIRouter(prefix="/api/vehicle-costs", tags=["vehicle-costs"], dependencies=[Depends(require_module("flotta"))])
+from core.security import forbid_demo_write, get_current_user, require_module
+from models.vehicle import VehicleCostIn
+from services.vehicle_cost_service import vehicle_cost_service
+
+router = APIRouter(
+    prefix="/api/vehicle-costs",
+    tags=["vehicle-costs"],
+    dependencies=[Depends(require_module("flotta"))],
+)
 
 
 @router.get("")
@@ -17,7 +22,9 @@ async def create_cost(payload: VehicleCostIn, user=Depends(forbid_demo_write)):
 
 
 @router.put("/{cid}")
-async def update_cost(cid: str, payload: VehicleCostIn, user=Depends(forbid_demo_write)):
+async def update_cost(
+    cid: str, payload: VehicleCostIn, user=Depends(forbid_demo_write)
+):
     await vehicle_cost_service.update_cost(user, cid, payload)
     return {"ok": True}
 

@@ -1,7 +1,13 @@
 from datetime import date
-from pydantic import BaseModel, EmailStr, Field, model_validator
 from typing import List, Literal, Optional
-from core.validation_limits import SHORT_TEXT_MAX_LENGTH, LONG_TEXT_MAX_LENGTH, PHOTO_MAX_LENGTH
+
+from pydantic import BaseModel, EmailStr, Field, model_validator
+
+from core.validation_limits import (
+    LONG_TEXT_MAX_LENGTH,
+    PHOTO_MAX_LENGTH,
+    SHORT_TEXT_MAX_LENGTH,
+)
 
 EMPLOYMENT_STATUSES = ("attivo", "sospeso", "cessato")
 
@@ -75,7 +81,9 @@ class EmployeeIn(BaseModel):
     @model_validator(mode="after")
     def _valida_orario_contrattuale(self):
         if (self.work_days is None) != (self.shift_start_time is None):
-            raise ValueError("Giorni lavorativi e orario di inizio turno vanno impostati insieme")
+            raise ValueError(
+                "Giorni lavorativi e orario di inizio turno vanno impostati insieme"
+            )
         if self.work_days is not None:
             if not self.work_days:
                 raise ValueError("Seleziona almeno un giorno lavorativo")
@@ -83,14 +91,24 @@ class EmployeeIn(BaseModel):
                 raise ValueError("Giorno lavorativo non valido")
         if self.shift_end_time is not None:
             if self.shift_start_time is None:
-                raise ValueError("L'orario di fine turno richiede anche l'orario di inizio turno")
+                raise ValueError(
+                    "L'orario di fine turno richiede anche l'orario di inizio turno"
+                )
             if self.shift_end_time <= self.shift_start_time:
-                raise ValueError("L'orario di fine turno deve essere successivo a quello di inizio")
-            shift_start_h, shift_start_m = (int(p) for p in self.shift_start_time.split(":"))
+                raise ValueError(
+                    "L'orario di fine turno deve essere successivo a quello di inizio"
+                )
+            shift_start_h, shift_start_m = (
+                int(p) for p in self.shift_start_time.split(":")
+            )
             shift_end_h, shift_end_m = (int(p) for p in self.shift_end_time.split(":"))
-            shift_minutes = (shift_end_h * 60 + shift_end_m) - (shift_start_h * 60 + shift_start_m)
+            shift_minutes = (shift_end_h * 60 + shift_end_m) - (
+                shift_start_h * 60 + shift_start_m
+            )
             if self.unpaid_break_minutes >= shift_minutes:
-                raise ValueError("La pausa non retribuita non può durare quanto o più dell'intero turno")
+                raise ValueError(
+                    "La pausa non retribuita non può durare quanto o più dell'intero turno"
+                )
         return self
 
 

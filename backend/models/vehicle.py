@@ -1,7 +1,14 @@
 from datetime import date
-from pydantic import BaseModel, Field, field_validator
 from typing import Literal, Optional
-from core.validation_limits import SHORT_TEXT_MAX_LENGTH, LONG_TEXT_MAX_LENGTH, MAX_EXPENSE_AMOUNT, MAX_QUANTITY
+
+from pydantic import BaseModel, Field, field_validator
+
+from core.validation_limits import (
+    LONG_TEXT_MAX_LENGTH,
+    MAX_EXPENSE_AMOUNT,
+    MAX_QUANTITY,
+    SHORT_TEXT_MAX_LENGTH,
+)
 
 VEHICLE_TYPES = ("furgone", "camion", "auto", "altro")
 DEADLINE_TYPES = ("assicurazione", "revisione", "bollo", "altro")
@@ -71,7 +78,9 @@ class CargoLoadIn(BaseModel):
     quantity: Optional[float] = Field(None, gt=0, le=MAX_QUANTITY)
     colli: Optional[int] = Field(None, gt=0, le=MAX_QUANTITY)
     peso: Optional[float] = Field(None, gt=0, le=MAX_QUANTITY)  # kg
-    status: Literal["programmato", "in_transito", "consegnato", "non_consegnato"] = "programmato"
+    status: Literal["programmato", "in_transito", "consegnato", "non_consegnato"] = (
+        "programmato"
+    )
 
 
 class CargoLoadSign(BaseModel):

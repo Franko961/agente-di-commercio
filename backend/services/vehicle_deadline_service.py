@@ -1,5 +1,5 @@
-from core.utils import gen_id, now_iso, now_local
 from core.exceptions import NotFoundError, ValidationAppError
+from core.utils import gen_id, now_iso, now_local
 from repositories.vehicle_deadline_repository import vehicle_deadline_repository
 from repositories.vehicle_repository import vehicle_repository
 
@@ -36,20 +36,26 @@ class VehicleDeadlineService:
         vehicle = await self.vehicles.find_one(payload.vehicle_id, user["id"])
         if not vehicle:
             raise ValidationAppError("Mezzo non valido")
-        ok = await self.repo.update(did, user["id"], {
-            "vehicle_id": payload.vehicle_id,
-            "vehicle_plate": vehicle["plate"],
-            "type": payload.type,
-            "due_date": payload.due_date.isoformat(),
-            "note": (payload.note or "").strip(),
-        })
+        ok = await self.repo.update(
+            did,
+            user["id"],
+            {
+                "vehicle_id": payload.vehicle_id,
+                "vehicle_plate": vehicle["plate"],
+                "type": payload.type,
+                "due_date": payload.due_date.isoformat(),
+                "note": (payload.note or "").strip(),
+            },
+        )
         if not ok:
             raise NotFoundError("Scadenza non trovata")
 
     async def delete_deadline(self, user: dict, did: str) -> None:
         await self.repo.delete(did, user["id"])
 
-    async def next_deadline(self, user: dict, vehicle_id: str, deadline_type: str = "revisione"):
+    async def next_deadline(
+        self, user: dict, vehicle_id: str, deadline_type: str = "revisione"
+    ):
         """Prossima scadenza FUTURA (o odierna) di un dato tipo per il
         mezzo — usato dalla tab "Mezzo assegnato" della scheda dipendente
         al posto di un inesistente "ultimo controllo" (SalesFly traccia
@@ -61,7 +67,13 @@ class VehicleDeadlineService:
         today = now_local().strftime("%Y-%m-%d")
         deadlines = await self.repo.find_many(user["id"])
         candidates = sorted(
-            (d for d in deadlines if d["vehicle_id"] == vehicle_id and d["type"] == deadline_type and d["due_date"] >= today),
+            (
+                d
+                for d in deadlines
+                if d["vehicle_id"] == vehicle_id
+                and d["type"] == deadline_type
+                and d["due_date"] >= today
+            ),
             key=lambda d: d["due_date"],
         )
         return candidates[0] if candidates else None

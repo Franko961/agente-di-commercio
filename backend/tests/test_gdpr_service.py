@@ -8,17 +8,23 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_gdpr_service.py -v
 """
-import sys
+
 import asyncio
 import io
 import json
+import sys
 import zipfile
 
 sys.path.insert(0, ".")
 
-import services.gdpr_service as gdpr_mod
-from services.gdpr_service import GdprService, USER_SCOPED_COLLECTIONS, EXCLUDED_FROM_USER_SCOPED_COLLECTIONS
 from fastapi import HTTPException
+
+import services.gdpr_service as gdpr_mod
+from services.gdpr_service import (
+    EXCLUDED_FROM_USER_SCOPED_COLLECTIONS,
+    USER_SCOPED_COLLECTIONS,
+    GdprService,
+)
 
 
 def run(coro):
@@ -51,7 +57,9 @@ class FakeCollection:
 
     def find(self, query, projection=None):
         user_id = query.get("user_id")
-        docs = [d for d in self.docs if (user_id is None or d.get("user_id") == user_id)]
+        docs = [
+            d for d in self.docs if (user_id is None or d.get("user_id") == user_id)
+        ]
         return FakeCursor(docs)
 
     async def find_one(self, query, projection=None):
@@ -70,7 +78,9 @@ class FakeCollection:
         self.deleted_one_calls.append(query)
         # Match generico su tutte le chiavi della query (non solo "id"): la
         # pulizia dei contatori usa "_id", non "id".
-        self.docs = [d for d in self.docs if not all(d.get(k) == v for k, v in query.items())]
+        self.docs = [
+            d for d in self.docs if not all(d.get(k) == v for k, v in query.items())
+        ]
 
     async def insert_one(self, doc):
         self.inserted.append(doc)
@@ -80,6 +90,7 @@ class FakeDb:
     """Supporta sia db.nome_collection sia db['nome_collection'], perché
     gdpr_service usa entrambe le forme (attributo per i nomi noti, subscript
     nel ciclo su USER_SCOPED_COLLECTIONS)."""
+
     def __init__(self):
         self._collections = {}
 
@@ -100,23 +111,48 @@ USER = {"id": "u1", "email": "franco@test.it"}
 
 def build_fake_db_with_data():
     fake_db = FakeDb()
-    fake_db.users.docs.append({
-        "id": "u1", "email": "franco@test.it", "name": "Franco",
-        "password_hash": "hash-segreto", "plan": "pro",
-    })
-    fake_db.clients.docs.append({"id": "c1", "user_id": "u1", "company_name": "Bar Centrale"})
-    fake_db.clients.docs.append({"id": "c2", "user_id": "u2", "company_name": "Cliente di un altro utente"})
+    fake_db.users.docs.append(
+        {
+            "id": "u1",
+            "email": "franco@test.it",
+            "name": "Franco",
+            "password_hash": "hash-segreto",
+            "plan": "pro",
+        }
+    )
+    fake_db.clients.docs.append(
+        {"id": "c1", "user_id": "u1", "company_name": "Bar Centrale"}
+    )
+    fake_db.clients.docs.append(
+        {"id": "c2", "user_id": "u2", "company_name": "Cliente di un altro utente"}
+    )
     fake_db.offers.docs.append({"id": "o1", "user_id": "u1", "total": 500})
-    fake_db.documents.docs.append({
-        "id": "d1", "user_id": "u1", "original_filename": "contratto.pdf",
-        "storage_path": "path/to/contratto.pdf",
-    })
-    fake_db.automation_notifications.docs.append({"id": "n1", "user_id": "u1", "title": "Promemoria"})
-    fake_db.automation_notifications.docs.append({"id": "n2", "user_id": "u2", "title": "Notifica di un altro utente"})
-    fake_db.automation_runs.docs.append({"automation_id": "auto-1", "user_id": "u1", "target_id": "t1", "status": "ok"})
-    fake_db.automation_runs.docs.append({"automation_id": "auto-2", "user_id": "u2", "target_id": "t2", "status": "ok"})
-    fake_db.demo_requests.docs.append({"id": "dr1", "user_id": "u1", "nome": "Franco", "email": "franco@test.it"})
-    fake_db.demo_requests.docs.append({"id": "dr2", "user_id": "u2", "nome": "Altro", "email": "altro@test.it"})
+    fake_db.documents.docs.append(
+        {
+            "id": "d1",
+            "user_id": "u1",
+            "original_filename": "contratto.pdf",
+            "storage_path": "path/to/contratto.pdf",
+        }
+    )
+    fake_db.automation_notifications.docs.append(
+        {"id": "n1", "user_id": "u1", "title": "Promemoria"}
+    )
+    fake_db.automation_notifications.docs.append(
+        {"id": "n2", "user_id": "u2", "title": "Notifica di un altro utente"}
+    )
+    fake_db.automation_runs.docs.append(
+        {"automation_id": "auto-1", "user_id": "u1", "target_id": "t1", "status": "ok"}
+    )
+    fake_db.automation_runs.docs.append(
+        {"automation_id": "auto-2", "user_id": "u2", "target_id": "t2", "status": "ok"}
+    )
+    fake_db.demo_requests.docs.append(
+        {"id": "dr1", "user_id": "u1", "nome": "Franco", "email": "franco@test.it"}
+    )
+    fake_db.demo_requests.docs.append(
+        {"id": "dr2", "user_id": "u2", "nome": "Altro", "email": "altro@test.it"}
+    )
     fake_db.counters.docs.append({"_id": "order_number:u1", "seq": 7})
     fake_db.counters.docs.append({"_id": "order_number:u2", "seq": 3})
     return fake_db
@@ -126,7 +162,11 @@ def test_export_include_profilo_e_dati_utente(monkeypatch):
     fake_db = build_fake_db_with_data()
     monkeypatch.setattr(gdpr_mod, "db", fake_db)
     monkeypatch.setattr(gdpr_mod, "check_and_record", _allow_always)
-    monkeypatch.setattr(gdpr_mod, "storage_get", lambda path: (b"contenuto pdf finto", "application/pdf"))
+    monkeypatch.setattr(
+        gdpr_mod,
+        "storage_get",
+        lambda path: (b"contenuto pdf finto", "application/pdf"),
+    )
     service = GdprService()
 
     zip_bytes = run(service.export_user_data(USER))
@@ -186,6 +226,7 @@ def test_export_prosegue_se_un_documento_non_si_trova(monkeypatch):
 
     def _raise(path):
         raise Exception("file non trovato su S3")
+
     monkeypatch.setattr(gdpr_mod, "storage_get", _raise)
     service = GdprService()
 
@@ -203,17 +244,25 @@ def test_export_neutralizza_un_nome_documento_con_percorso_malevolo(monkeypatch)
     scrivere una voce zip fuori dalla cartella 'documenti/' prevista —
     zipfile non protegge da solo da un arcname tipo '../../evil.sh'."""
     fake_db = FakeDb()
-    fake_db.users.docs.append({"id": "u1", "email": "franco@test.it", "name": "Franco", "password_hash": "x"})
-    fake_db.documents.docs.append({
-        "id": "d1", "user_id": "u1", "name": "../../evil.sh",
-        "storage_path": "path/to/evil.sh",
-        # Nessun original_filename: il caso realistico è un vecchio
-        # documento, o uno il cui original_filename manca per qualche
-        # motivo, che ricade sul campo 'name' modificabile dall'utente.
-    })
+    fake_db.users.docs.append(
+        {"id": "u1", "email": "franco@test.it", "name": "Franco", "password_hash": "x"}
+    )
+    fake_db.documents.docs.append(
+        {
+            "id": "d1",
+            "user_id": "u1",
+            "name": "../../evil.sh",
+            "storage_path": "path/to/evil.sh",
+            # Nessun original_filename: il caso realistico è un vecchio
+            # documento, o uno il cui original_filename manca per qualche
+            # motivo, che ricade sul campo 'name' modificabile dall'utente.
+        }
+    )
     monkeypatch.setattr(gdpr_mod, "db", fake_db)
     monkeypatch.setattr(gdpr_mod, "check_and_record", _allow_always)
-    monkeypatch.setattr(gdpr_mod, "storage_get", lambda path: (b"contenuto", "application/octet-stream"))
+    monkeypatch.setattr(
+        gdpr_mod, "storage_get", lambda path: (b"contenuto", "application/octet-stream")
+    )
     service = GdprService()
 
     zip_bytes = run(service.export_user_data(USER))
@@ -234,7 +283,9 @@ def test_cancellazione_richiede_password_corretta(monkeypatch):
     fake_db = build_fake_db_with_data()
     monkeypatch.setattr(gdpr_mod, "db", fake_db)
     monkeypatch.setattr(gdpr_mod, "check_and_record", _allow_always)
-    monkeypatch.setattr(gdpr_mod, "verify_password", lambda plain, hashed: plain == "password-giusta")
+    monkeypatch.setattr(
+        gdpr_mod, "verify_password", lambda plain, hashed: plain == "password-giusta"
+    )
     service = GdprService()
 
     try:
@@ -256,6 +307,7 @@ def test_cancellazione_svuota_tutte_le_collection_dellutente(monkeypatch):
     class FakeSubscriptionService:
         async def cancel_subscription(self, user):
             return {"ok": True}
+
     monkeypatch.setattr(gdpr_mod, "subscription_service", FakeSubscriptionService())
 
     service = GdprService()
@@ -271,7 +323,9 @@ def test_cancellazione_svuota_tutte_le_collection_dellutente(monkeypatch):
     assert fake_db.users.deleted_one_calls == [{"id": "u1"}]
 
 
-def test_cancellazione_svuota_anche_notifiche_esecuzioni_automazioni_e_richiesta_demo(monkeypatch):
+def test_cancellazione_svuota_anche_notifiche_esecuzioni_automazioni_e_richiesta_demo(
+    monkeypatch,
+):
     """Regressione: automation_notifications, automation_runs e
     demo_requests contengono dati riconducibili all'utente (user_id, e per
     demo_requests anche nome/email/telefono) ma non erano coperte da
@@ -286,6 +340,7 @@ def test_cancellazione_svuota_anche_notifiche_esecuzioni_automazioni_e_richiesta
     class FakeSubscriptionService:
         async def cancel_subscription(self, user):
             return {"ok": True}
+
     monkeypatch.setattr(gdpr_mod, "subscription_service", FakeSubscriptionService())
 
     service = GdprService()
@@ -314,6 +369,7 @@ def test_cancellazione_rimuove_il_contatore_ordini_dellutente(monkeypatch):
     class FakeSubscriptionService:
         async def cancel_subscription(self, user):
             return {"ok": True}
+
     monkeypatch.setattr(gdpr_mod, "subscription_service", FakeSubscriptionService())
 
     service = GdprService()
@@ -331,11 +387,14 @@ def test_cancellazione_rimuove_i_file_da_s3_non_solo_il_record(monkeypatch):
     monkeypatch.setattr(gdpr_mod, "verify_password", lambda plain, hashed: True)
 
     deleted_paths = []
-    monkeypatch.setattr(gdpr_mod, "storage_delete", lambda path: deleted_paths.append(path))
+    monkeypatch.setattr(
+        gdpr_mod, "storage_delete", lambda path: deleted_paths.append(path)
+    )
 
     class FakeSubscriptionService:
         async def cancel_subscription(self, user):
             return {"ok": True}
+
     monkeypatch.setattr(gdpr_mod, "subscription_service", FakeSubscriptionService())
 
     service = GdprService()
@@ -354,6 +413,7 @@ def test_cancellazione_traccia_levento_nellaudit_log(monkeypatch):
     class FakeSubscriptionService:
         async def cancel_subscription(self, user):
             return {"ok": True}
+
     monkeypatch.setattr(gdpr_mod, "subscription_service", FakeSubscriptionService())
 
     service = GdprService()
@@ -371,6 +431,7 @@ def test_audit_log_non_conserva_lemail_in_chiaro(monkeypatch):
     sufficiente a verificare una email indicata da chi in futuro contestasse
     la cancellazione, senza conservare il dato leggibile."""
     import hashlib
+
     fake_db = build_fake_db_with_data()
     monkeypatch.setattr(gdpr_mod, "db", fake_db)
     monkeypatch.setattr(gdpr_mod, "check_and_record", _allow_always)
@@ -380,6 +441,7 @@ def test_audit_log_non_conserva_lemail_in_chiaro(monkeypatch):
     class FakeSubscriptionService:
         async def cancel_subscription(self, user):
             return {"ok": True}
+
     monkeypatch.setattr(gdpr_mod, "subscription_service", FakeSubscriptionService())
 
     service = GdprService()
@@ -388,7 +450,9 @@ def test_audit_log_non_conserva_lemail_in_chiaro(monkeypatch):
     entry = fake_db.admin_audit_log.inserted[0]
     assert entry["actor"] == "self"
     assert "franco@test.it" not in str(entry)
-    assert entry["detail"]["email_hash"] == hashlib.sha256(b"franco@test.it").hexdigest()
+    assert (
+        entry["detail"]["email_hash"] == hashlib.sha256(b"franco@test.it").hexdigest()
+    )
 
 
 def test_export_bloccato_da_troppe_richieste(monkeypatch):
@@ -428,13 +492,18 @@ def test_tutte_le_collection_dichiarate_esistono_davvero_nel_progetto():
     refusi di battitura silenziosi che farebbero credere che una collection
     sia coperta da export/cancellazione quando in realtà non lo è."""
     import subprocess
+
     result = subprocess.run(
         ["grep", "-rhoP", r"collection = db\.\K[a-z_]+", "repositories/"],
-        capture_output=True, text=True, cwd=".",
+        capture_output=True,
+        text=True,
+        cwd=".",
     )
     real_collections = set(result.stdout.strip().split("\n"))
     for collection_name in USER_SCOPED_COLLECTIONS.values():
-        assert collection_name in real_collections, f"'{collection_name}' non trovata in nessun repository"
+        assert (
+            collection_name in real_collections
+        ), f"'{collection_name}' non trovata in nessun repository"
 
 
 def test_ogni_collection_reale_e_classificata():
@@ -468,9 +537,13 @@ def test_ogni_collection_reale_e_classificata():
             if "__pycache__" in path.parts:
                 continue
             real_collections.update(pattern.findall(path.read_text(encoding="utf-8")))
-    assert real_collections, "la scansione non ha trovato nessuna collection: controlla il pattern regex"
+    assert (
+        real_collections
+    ), "la scansione non ha trovato nessuna collection: controlla il pattern regex"
 
-    classified = set(USER_SCOPED_COLLECTIONS.values()) | EXCLUDED_FROM_USER_SCOPED_COLLECTIONS
+    classified = (
+        set(USER_SCOPED_COLLECTIONS.values()) | EXCLUDED_FROM_USER_SCOPED_COLLECTIONS
+    )
     unclassified = real_collections - classified
     assert not unclassified, (
         f"Collection non classificate in services/gdpr_service.py: {sorted(unclassified)}. "

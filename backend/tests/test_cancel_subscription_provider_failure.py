@@ -13,8 +13,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_cancel_subscription_provider_failure.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 from fastapi import HTTPException
@@ -23,7 +24,7 @@ sys.path.insert(0, ".")
 
 import services.subscription_service as subscription_mod
 from services.subscription_service import SubscriptionService
-from tests.test_subscription_cancel_grace_period import FakeUserRepo, FakeResponse
+from tests.test_subscription_cancel_grace_period import FakeResponse, FakeUserRepo
 
 
 def run(coro):
@@ -43,7 +44,9 @@ def test_cancel_stripe_fallito_non_marca_cancellato_e_solleva_errore(monkeypatch
         def modify(sub_id, cancel_at_period_end=None):
             raise Exception("Stripe temporaneamente non disponibile")
 
-    fake_stripe_module = type("FakeStripe", (), {"api_key": None, "Subscription": FakeStripeSubscription})
+    fake_stripe_module = type(
+        "FakeStripe", (), {"api_key": None, "Subscription": FakeStripeSubscription}
+    )
     monkeypatch.setitem(sys.modules, "stripe", fake_stripe_module)
 
     user = {"id": "user-1", "is_demo": False, "stripe_subscription_id": "sub_123"}
@@ -103,7 +106,9 @@ def test_cancel_stripe_riuscito_senza_current_period_end_cancella_subito(monkeyp
         def modify(sub_id, cancel_at_period_end=None):
             return {}  # nessun current_period_end nella risposta
 
-    fake_stripe_module = type("FakeStripe", (), {"api_key": None, "Subscription": FakeStripeSubscription})
+    fake_stripe_module = type(
+        "FakeStripe", (), {"api_key": None, "Subscription": FakeStripeSubscription}
+    )
     monkeypatch.setitem(sys.modules, "stripe", fake_stripe_module)
 
     user = {"id": "user-3", "is_demo": False, "stripe_subscription_id": "sub_789"}

@@ -1,12 +1,13 @@
 import calendar
 import logging
 import math
-from datetime import datetime, timezone, timedelta, date
-from typing import Dict, Optional
+from datetime import date, datetime, timedelta, timezone
+from typing import Dict, Optional, cast
+
 from core.database import db
-from core.utils import now_local, local_date_str, local_month_str
-from services.settings_service import DEFAULT_GOAL_REVENUE
+from core.utils import local_date_str, local_month_str, now_local
 from services.commission_service import normalize_manual_commission
+from services.settings_service import DEFAULT_GOAL_REVENUE
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,10 @@ def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
     dlambda = math.radians(lng2 - lng1)
-    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    a = (
+        math.sin(dphi / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    )
     return 2 * R * math.asin(math.sqrt(a))
 
 
@@ -40,7 +44,9 @@ def _focus_reason_text(focus: dict) -> str:
     return "non lo visiti da molto tempo"
 
 
-def _pluralize_it(count: int, singular: str, plural: str, none_label: Optional[str] = None) -> str:
+def _pluralize_it(
+    count: int, singular: str, plural: str, none_label: Optional[str] = None
+) -> str:
     """Restituisce una stringa tipo '5 clienti da richiamare', gestendo i
     casi 0/1/N in italiano. Se none_label è dato, viene usato al posto di
     '0 ...' quando count è zero (es. 'Nessun appuntamento in programma'),
@@ -71,37 +77,68 @@ class DashboardService:
                 )
 
     async def get_stats(self, user: dict, mandante_id: Optional[str] = None) -> dict:
-        clients = await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
+        clients = await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(
+            5000
+        )
         offers = await db.offers.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
         leads = await db.leads.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
-        appts = await db.appointments.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
-        commissions = await db.commissions.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
-        expenses = await db.expenses.find({"user_id": user["id"]}, {"_id": 0}).to_list(5000)
-        self._warn_if_near_cap(user["id"], clients=clients, offers=offers, leads=leads,
-                                appointments=appts, commissions=commissions, expenses=expenses)
+        appts = await db.appointments.find({"user_id": user["id"]}, {"_id": 0}).to_list(
+            5000
+        )
+        commissions = await db.commissions.find(
+            {"user_id": user["id"]}, {"_id": 0}
+        ).to_list(5000)
+        expenses = await db.expenses.find({"user_id": user["id"]}, {"_id": 0}).to_list(
+            5000
+        )
+        self._warn_if_near_cap(
+            user["id"],
+            clients=clients,
+            offers=offers,
+            leads=leads,
+            appointments=appts,
+            commissions=commissions,
+            expenses=expenses,
+        )
 
         # Le provvigioni inserite manualmente contano come provvigioni vere:
         # unite qui, PRIMA del filtro mandante sotto, così una manuale senza
         # mandante_id viene esclusa quando è attivo un mandante specifico
         # (stessa regola già in vigore per quelle reali, riusata gratis).
-        manual_commissions = await db.manual_commissions.find({"user_id": user["id"]}, {"_id": 0}).to_list(500)
-        commissions = commissions + [normalize_manual_commission(user["id"], m) for m in manual_commissions]
+        manual_commissions = await db.manual_commissions.find(
+            {"user_id": user["id"]}, {"_id": 0}
+        ).to_list(500)
+        commissions = commissions + [
+            normalize_manual_commission(user["id"], m) for m in manual_commissions
+        ]
 
         # Filtro per mandante attivo. Leads e Spese non hanno ancora un
         # collegamento al mandante (per le spese serve una migrazione di
         # schema, non ancora fatta) e restano quindi sempre a livello
         # generale, indipendentemente dal mandante selezionato.
         if mandante_id:
-            clients = [c for c in clients if mandante_id in (c.get("mandante_ids") or [])]
+            clients = [
+                c for c in clients if mandante_id in (c.get("mandante_ids") or [])
+            ]
             client_ids = {c["id"] for c in clients}
             offers = [o for o in offers if o.get("mandante_id") == mandante_id]
-            commissions = [c for c in commissions if c.get("mandante_id") == mandante_id]
+            commissions = [
+                c for c in commissions if c.get("mandante_id") == mandante_id
+            ]
             appts = [a for a in appts if a.get("client_id") in client_ids]
 
-        revenue_won = sum(o.get("total", 0) for o in offers if o.get("status") == "accettata")
-        revenue_pipeline = sum(o.get("total", 0) for o in offers if o.get("status") in ("inviata", "bozza"))
-        accrued = sum(c.get("amount", 0) for c in commissions if c.get("status") == "maturato")
-        collected = sum(c.get("amount", 0) for c in commissions if c.get("status") == "incassato")
+        revenue_won = sum(
+            o.get("total", 0) for o in offers if o.get("status") == "accettata"
+        )
+        revenue_pipeline = sum(
+            o.get("total", 0) for o in offers if o.get("status") in ("inviata", "bozza")
+        )
+        accrued = sum(
+            c.get("amount", 0) for c in commissions if c.get("status") == "maturato"
+        )
+        collected = sum(
+            c.get("amount", 0) for c in commissions if c.get("status") == "incassato"
+        )
 
         # Mappa per lookup O(1) del cliente per id, invece di scandire l'intera
         # lista clients per ogni offerta (che sarebbe O(offers × clients)).
@@ -137,7 +174,9 @@ class DashboardService:
                 months[key] = months.get(key, 0) + o.get("total", 0)
         monthly = sorted(
             [{"month": k, "revenue": round(v, 2)} for k, v in months.items()],
-            key=lambda m: m["month"],
+            # cast a str: il dict ha valori misti (month: str, revenue: float),
+            # mypy inferisce ogni valore come "object", non ordinabile.
+            key=lambda m: str(m["month"]),
         )[-6:]
 
         # Monthly expenses by category (last 6 months) — per grafico a barre impilate
@@ -148,12 +187,19 @@ class DashboardService:
                 key = d[:7]
                 cat = e.get("category") or "altro"
                 exp_monthly_by_cat.setdefault(key, {})
-                exp_monthly_by_cat[key][cat] = exp_monthly_by_cat[key].get(cat, 0) + e.get("amount", 0)
+                exp_monthly_by_cat[key][cat] = exp_monthly_by_cat[key].get(
+                    cat, 0
+                ) + e.get("amount", 0)
         exp_months = {k: sum(v.values()) for k, v in exp_monthly_by_cat.items()}
         expenses_monthly = []
         for month_key in sorted(exp_monthly_by_cat.keys())[-6:]:
             row = {"month": month_key, "total": round(exp_months[month_key], 2)}
-            row.update({cat: round(amt, 2) for cat, amt in exp_monthly_by_cat[month_key].items()})
+            row.update(
+                {
+                    cat: round(amt, 2)
+                    for cat, amt in exp_monthly_by_cat[month_key].items()
+                }
+            )
             expenses_monthly.append(row)
 
         # Expenses by category
@@ -162,8 +208,15 @@ class DashboardService:
             cat = e.get("category") or "altro"
             exp_by_category[cat] = exp_by_category.get(cat, 0) + e.get("amount", 0)
         expenses_by_category = sorted(
-            [{"category": k, "amount": round(v, 2)} for k, v in exp_by_category.items()],
-            key=lambda x: -x["amount"],
+            [
+                {"category": k, "amount": round(v, 2)}
+                for k, v in exp_by_category.items()
+            ],
+            # stesso motivo del cast sopra: dict a valori misti (category:
+            # str, amount: float) -> object non tipizzato per l'operatore -;
+            # cast invece di float() perché il valore è già un float reale
+            # (float(object) non è comunque accettato dallo stub del builtin).
+            key=lambda x: -cast(float, x["amount"]),
         )
 
         # Upcoming appointments (next 7 days). Qui "today"/"week_later" sono
@@ -187,7 +240,11 @@ class DashboardService:
         # metriche restano "non impostate" (None) finché l'utente non le
         # configura, per non mostrare percentuali fuorvianti su un obiettivo
         # mai scelto.
-        goal_revenue = user.get("goal_revenue") if user.get("goal_revenue") is not None else DEFAULT_GOAL_REVENUE
+        goal_revenue = (
+            user.get("goal_revenue")
+            if user.get("goal_revenue") is not None
+            else DEFAULT_GOAL_REVENUE
+        )
         goal_commissions = user.get("goal_commissions")
         goal_new_clients = user.get("goal_new_clients")
         goal_visits = user.get("goal_visits")
@@ -203,20 +260,25 @@ class DashboardService:
 
         # Provvigioni maturate questo mese (per l'obiettivo provvigioni)
         commissions_month = sum(
-            c.get("amount", 0) for c in commissions
+            c.get("amount", 0)
+            for c in commissions
             if local_month_str(c.get("created_at")) == current_month_key
         )
 
         # Nuovi clienti acquisiti questo mese (per l'obiettivo nuovi clienti)
         new_clients_month = sum(
-            1 for c in clients if local_month_str(c.get("created_at")) == current_month_key
+            1
+            for c in clients
+            if local_month_str(c.get("created_at")) == current_month_key
         )
 
         # Visite (appuntamenti completati) effettuate questo mese, in base
         # alla data dell'appuntamento (non a quando è stato creato il record)
         visits_month = sum(
-            1 for a in appts
-            if a.get("status") == "completato" and local_month_str(a.get("start")) == current_month_key
+            1
+            for a in appts
+            if a.get("status") == "completato"
+            and local_month_str(a.get("start")) == current_month_key
         )
 
         def _pct(current, goal):
@@ -253,8 +315,13 @@ class DashboardService:
                 "visits_goal": goal_visits,
                 "visits_goal_pct": _pct(visits_month, goal_visits),
             },
-            "by_zone": [{"zone": k, "revenue": round(v, 2)} for k, v in by_zone.items()],
-            "by_sector": sorted([{"sector": k, "count": v} for k, v in by_sector.items()], key=lambda x: -x["count"]),
+            "by_zone": [
+                {"zone": k, "revenue": round(v, 2)} for k, v in by_zone.items()
+            ],
+            "by_sector": sorted(
+                [{"sector": k, "count": v} for k, v in by_sector.items()],
+                key=lambda x: -x["count"],
+            ),
             "monthly": monthly,
             "expenses_monthly": expenses_monthly,
             "expenses_by_category": expenses_by_category,
@@ -262,14 +329,18 @@ class DashboardService:
             "pipeline": {
                 "nuovo": sum(1 for l in leads if l.get("status") == "nuovo"),
                 "contattato": sum(1 for l in leads if l.get("status") == "contattato"),
-                "qualificato": sum(1 for l in leads if l.get("status") == "qualificato"),
+                "qualificato": sum(
+                    1 for l in leads if l.get("status") == "qualificato"
+                ),
                 "trattativa": sum(1 for l in leads if l.get("status") == "trattativa"),
                 "vinto": sum(1 for l in leads if l.get("status") == "vinto"),
                 "perso": sum(1 for l in leads if l.get("status") == "perso"),
             },
         }
 
-    async def get_today_brief(self, user: dict, mandante_id: Optional[str] = None) -> dict:
+    async def get_today_brief(
+        self, user: dict, mandante_id: Optional[str] = None
+    ) -> dict:
         """Riepilogo operativo della giornata per la home della dashboard:
         appuntamenti, clienti da richiamare, offerte in scadenza, pagamenti da
         verificare, km stimati e obiettivo del giorno, più un suggerimento
@@ -277,25 +348,43 @@ class DashboardService:
         su quale cliente visitare per primo."""
         user_id = user["id"]
         clients = await db.clients.find({"user_id": user_id}, {"_id": 0}).to_list(5000)
-        appts = await db.appointments.find({"user_id": user_id}, {"_id": 0}).to_list(5000)
+        appts = await db.appointments.find({"user_id": user_id}, {"_id": 0}).to_list(
+            5000
+        )
         offers = await db.offers.find({"user_id": user_id}, {"_id": 0}).to_list(5000)
-        commissions = await db.commissions.find({"user_id": user_id}, {"_id": 0}).to_list(5000)
+        commissions = await db.commissions.find(
+            {"user_id": user_id}, {"_id": 0}
+        ).to_list(5000)
         orders = await db.orders.find({"user_id": user_id}, {"_id": 0}).to_list(5000)
-        self._warn_if_near_cap(user_id, clients=clients, appointments=appts, offers=offers,
-                                commissions=commissions, orders=orders)
+        self._warn_if_near_cap(
+            user_id,
+            clients=clients,
+            appointments=appts,
+            offers=offers,
+            commissions=commissions,
+            orders=orders,
+        )
 
         # Le provvigioni inserite manualmente contano come provvigioni vere
         # anche qui (payments_to_verify sotto) — vedi commento gemello in
         # get_stats.
-        manual_commissions = await db.manual_commissions.find({"user_id": user_id}, {"_id": 0}).to_list(500)
-        commissions = commissions + [normalize_manual_commission(user_id, m) for m in manual_commissions]
+        manual_commissions = await db.manual_commissions.find(
+            {"user_id": user_id}, {"_id": 0}
+        ).to_list(500)
+        commissions = commissions + [
+            normalize_manual_commission(user_id, m) for m in manual_commissions
+        ]
 
         # Stesso filtro per mandante attivo usato in get_stats.
         if mandante_id:
-            clients = [c for c in clients if mandante_id in (c.get("mandante_ids") or [])]
+            clients = [
+                c for c in clients if mandante_id in (c.get("mandante_ids") or [])
+            ]
             client_ids = {c["id"] for c in clients}
             offers = [o for o in offers if o.get("mandante_id") == mandante_id]
-            commissions = [c for c in commissions if c.get("mandante_id") == mandante_id]
+            commissions = [
+                c for c in commissions if c.get("mandante_id") == mandante_id
+            ]
             orders = [o for o in orders if o.get("mandante_id") == mandante_id]
             appts = [a for a in appts if a.get("client_id") in client_ids]
 
@@ -313,7 +402,12 @@ class DashboardService:
         # affettare direttamente la stringa UTC (che per un'ora o due dopo la
         # mezzanotte italiana darebbe il giorno sbagliato).
         todays_appts = sorted(
-            (a for a in appts if local_date_str(a.get("start")) == today_str and a.get("status") == "pianificato"),
+            (
+                a
+                for a in appts
+                if local_date_str(a.get("start")) == today_str
+                and a.get("status") == "pianificato"
+            ),
             key=lambda a: a.get("start", ""),
         )
 
@@ -327,7 +421,11 @@ class DashboardService:
         next_appointment_client = None
         try:
             upcoming_appts = sorted(
-                (a for a in appts if a.get("status") == "pianificato" and a.get("start")),
+                (
+                    a
+                    for a in appts
+                    if a.get("status") == "pianificato" and a.get("start")
+                ),
                 key=lambda a: a["start"],
             )
             for a in upcoming_appts:
@@ -342,7 +440,9 @@ class DashboardService:
                     # anche qui e non solo nel parsing.
                     continue
                 if is_next:
-                    next_appointment_minutes = round((start_dt - now).total_seconds() / 60)
+                    next_appointment_minutes = round(
+                        (start_dt - now).total_seconds() / 60
+                    )
                     cli = clients_by_id.get(a.get("client_id"))
                     next_appointment_client = cli.get("company_name") if cli else None
                     break
@@ -360,7 +460,9 @@ class DashboardService:
                 is_past = d <= now
             except Exception:
                 continue
-            if is_past and (cid not in last_appt_by_client or d > last_appt_by_client[cid]):
+            if is_past and (
+                cid not in last_appt_by_client or d > last_appt_by_client[cid]
+            ):
                 last_appt_by_client[cid] = d
 
         # Clienti da richiamare: nessuna visita negli ultimi 21 giorni (o mai)
@@ -409,7 +511,9 @@ class DashboardService:
                 offers_expiring.append({**o, "_expires_dt": exp_dt})
 
         # Pagamenti da verificare: provvigioni maturate ma non ancora incassate
-        payments_to_verify = sum(1 for c in commissions if c.get("status") == "maturato")
+        payments_to_verify = sum(
+            1 for c in commissions if c.get("status") == "maturato"
+        )
 
         # Km previsti oggi: distanza in linea d'aria tra gli appuntamenti di
         # oggi, in ordine di orario (solo se i clienti hanno coordinate salvate)
@@ -421,25 +525,41 @@ class DashboardService:
         km_today = None
         if len(coords) >= 2:
             km_today = round(
-                sum(_haversine_km(*coords[i], *coords[i + 1]) for i in range(len(coords) - 1)), 1
+                sum(
+                    _haversine_km(*coords[i], *coords[i + 1])
+                    for i in range(len(coords) - 1)
+                ),
+                1,
             )
 
         # Obiettivo di oggi: quota residua del target mensile spalmata sui
         # giorni lavorativi (lun-ven) rimanenti nel mese, oggi incluso.
         # goal_revenue è quello configurato dall'utente in Impostazioni, con
         # lo stesso fallback usato in get_stats per chi non l'ha ancora impostato.
-        goal_revenue = user.get("goal_revenue") if user.get("goal_revenue") is not None else DEFAULT_GOAL_REVENUE
+        goal_revenue = (
+            user.get("goal_revenue")
+            if user.get("goal_revenue") is not None
+            else DEFAULT_GOAL_REVENUE
+        )
         current_month_key = today_local.strftime("%Y-%m")
         month_revenue = sum(
-            o.get("total", 0) for o in offers
-            if o.get("status") == "accettata" and local_month_str(o.get("created_at")) == current_month_key
+            o.get("total", 0)
+            for o in offers
+            if o.get("status") == "accettata"
+            and local_month_str(o.get("created_at")) == current_month_key
         )
         _, days_in_month = calendar.monthrange(today_local.year, today_local.month)
-        remaining_working_days = sum(
-            1 for d in range(today_local.day, days_in_month + 1)
-            if date(today_local.year, today_local.month, d).weekday() < 5
-        ) or 1
-        daily_goal = round(max(goal_revenue - month_revenue, 0) / remaining_working_days, 2)
+        remaining_working_days = (
+            sum(
+                1
+                for d in range(today_local.day, days_in_month + 1)
+                if date(today_local.year, today_local.month, d).weekday() < 5
+            )
+            or 1
+        )
+        daily_goal = round(
+            max(goal_revenue - month_revenue, 0) / remaining_working_days, 2
+        )
 
         # Previsione fatturato di fine mese: proiezione lineare "a ritmo
         # attuale" (fatturato fatto finora / giorni trascorsi * giorni totali
@@ -447,7 +567,9 @@ class DashboardService:
         # sofisticata: comunica un ordine di grandezza, non una certezza.
         try:
             elapsed_days = max(today_local.day, 1)
-            revenue_forecast_month = round(month_revenue / elapsed_days * days_in_month, 2)
+            revenue_forecast_month = round(
+                month_revenue / elapsed_days * days_in_month, 2
+            )
         except Exception as e:
             logger.error(f"get_today_brief: errore calcolo revenue_forecast_month: {e}")
             revenue_forecast_month = None
@@ -462,7 +584,9 @@ class DashboardService:
                 continue
             try:
                 d = datetime.fromisoformat(ca.replace("Z", "+00:00"))
-                is_newer = cid not in last_order_by_client or d > last_order_by_client[cid]
+                is_newer = (
+                    cid not in last_order_by_client or d > last_order_by_client[cid]
+                )
             except Exception:
                 continue
             if is_newer:
@@ -473,7 +597,10 @@ class DashboardService:
             cid = o.get("client_id")
             if not cid:
                 continue
-            if cid not in nearest_expiry_by_client or o["_expires_dt"] < nearest_expiry_by_client[cid]["_expires_dt"]:
+            if (
+                cid not in nearest_expiry_by_client
+                or o["_expires_dt"] < nearest_expiry_by_client[cid]["_expires_dt"]
+            ):
                 nearest_expiry_by_client[cid] = o
 
         def _pick_focus_client(eligible_ids: Optional[set] = None) -> Optional[dict]:
@@ -501,7 +628,11 @@ class DashboardService:
                         "days_since_last_order": days_since_order,
                         "offer_title": offer.get("title"),
                         "offer_expires_at": offer.get("expires_at"),
-                        "reason": "expiry_and_inactivity" if days_since_order and days_since_order >= 14 else "expiry_only",
+                        "reason": (
+                            "expiry_and_inactivity"
+                            if days_since_order and days_since_order >= 14
+                            else "expiry_only"
+                        ),
                     }
             if best:
                 return best
@@ -543,7 +674,9 @@ class DashboardService:
         # già fatto questo mese (non sulla previsione lineare, che è già di
         # per sé una stima — sommarne un'altra sopra renderebbe il numero
         # meno difendibile).
-        offers_expiring_total = round(sum(o.get("total", 0) for o in offers_expiring), 2)
+        offers_expiring_total = round(
+            sum(o.get("total", 0) for o in offers_expiring), 2
+        )
         projected_pct_if_expiring_closed = None
         if offers_expiring_total > 0 and goal_revenue:
             projected_pct_if_expiring_closed = round(
@@ -570,7 +703,9 @@ class DashboardService:
             "projected_pct_if_expiring_closed": projected_pct_if_expiring_closed,
         }
 
-    def format_morning_briefing(self, brief: dict, user_name: Optional[str] = None) -> str:
+    def format_morning_briefing(
+        self, brief: dict, user_name: Optional[str] = None
+    ) -> str:
         """Trasforma il riepilogo calcolato da get_today_brief in un saluto
         proattivo in italiano ("Buongiorno Franco. Hai: ...") per l'apertura
         della pagina Assistente AI. Puramente calcolato dai dati già
@@ -583,26 +718,44 @@ class DashboardService:
         if visits == 0:
             lines.append("Oggi non hai visite in programma.")
         else:
-            lines.append(f"Oggi hai {visits} visit{'a' if visits == 1 else 'e'} in programma.")
+            lines.append(
+                f"Oggi hai {visits} visit{'a' if visits == 1 else 'e'} in programma."
+            )
 
         todays_focus = brief.get("todays_focus_client")
         if todays_focus:
-            lines.append(f"Ti consiglio di iniziare da {todays_focus['client_name']}: {_focus_reason_text(todays_focus)}.")
+            lines.append(
+                f"Ti consiglio di iniziare da {todays_focus['client_name']}: {_focus_reason_text(todays_focus)}."
+            )
 
         lines += ["", "Hai:", ""]
 
-        lines.append("✓ " + _pluralize_it(
-            brief["clients_to_call"], "cliente da richiamare", "clienti da richiamare",
-            none_label="Nessun cliente da richiamare al momento",
-        ))
-        lines.append("✓ " + _pluralize_it(
-            brief["offers_expiring"], "offerta in scadenza", "offerte in scadenza",
-            none_label="Nessuna offerta in scadenza nei prossimi giorni",
-        ))
+        lines.append(
+            "✓ "
+            + _pluralize_it(
+                brief["clients_to_call"],
+                "cliente da richiamare",
+                "clienti da richiamare",
+                none_label="Nessun cliente da richiamare al momento",
+            )
+        )
+        lines.append(
+            "✓ "
+            + _pluralize_it(
+                brief["offers_expiring"],
+                "offerta in scadenza",
+                "offerte in scadenza",
+                none_label="Nessuna offerta in scadenza nei prossimi giorni",
+            )
+        )
 
         mins = brief.get("next_appointment_minutes")
         if mins is not None:
-            client_part = f" con {brief['next_appointment_client']}" if brief.get("next_appointment_client") else ""
+            client_part = (
+                f" con {brief['next_appointment_client']}"
+                if brief.get("next_appointment_client")
+                else ""
+            )
             if mins <= 0:
                 lines.append(f"✓ Appuntamento{client_part} in corso o appena iniziato")
             elif mins < 60:
@@ -614,15 +767,24 @@ class DashboardService:
         else:
             lines.append("✓ Nessun appuntamento in programma")
 
-        lines.append("✓ " + _pluralize_it(
-            brief["payments_to_verify"], "provvigione da controllare", "provvigioni da controllare",
-            none_label="Nessuna provvigione da controllare",
-        ))
-        lines.append("✓ " + _pluralize_it(
-            brief["inactive_clients_60d"], "cliente inattivo da oltre 60 giorni",
-            "clienti inattivi da oltre 60 giorni",
-            none_label="Nessun cliente inattivo da oltre 60 giorni",
-        ))
+        lines.append(
+            "✓ "
+            + _pluralize_it(
+                brief["payments_to_verify"],
+                "provvigione da controllare",
+                "provvigioni da controllare",
+                none_label="Nessuna provvigione da controllare",
+            )
+        )
+        lines.append(
+            "✓ "
+            + _pluralize_it(
+                brief["inactive_clients_60d"],
+                "cliente inattivo da oltre 60 giorni",
+                "clienti inattivi da oltre 60 giorni",
+                none_label="Nessun cliente inattivo da oltre 60 giorni",
+            )
+        )
 
         forecast = brief.get("revenue_forecast_month")
         goal = brief.get("monthly_goal")
@@ -635,14 +797,22 @@ class DashboardService:
                 trend = "sotto"
             forecast_str = f"{forecast:,.0f}".replace(",", ".")
             goal_str = f"{goal:,.0f}".replace(",", ".")
-            lines.append(f"✓ Previsione fatturato mese: €{forecast_str} ({trend} l'obiettivo di €{goal_str})")
+            lines.append(
+                f"✓ Previsione fatturato mese: €{forecast_str} ({trend} l'obiettivo di €{goal_str})"
+            )
 
         pct = brief.get("projected_pct_if_expiring_closed")
         n_expiring = brief.get("offers_expiring", 0)
         if pct is not None and n_expiring > 0:
-            offerte_str = "l'offerta in scadenza" if n_expiring == 1 else f"le {n_expiring} offerte in scadenza"
+            offerte_str = (
+                "l'offerta in scadenza"
+                if n_expiring == 1
+                else f"le {n_expiring} offerte in scadenza"
+            )
             lines.append("")
-            lines.append(f"Se chiudi {offerte_str} raggiungeresti il {pct}% dell'obiettivo mensile.")
+            lines.append(
+                f"Se chiudi {offerte_str} raggiungeresti il {pct}% dell'obiettivo mensile."
+            )
 
         return "\n".join(lines)
 

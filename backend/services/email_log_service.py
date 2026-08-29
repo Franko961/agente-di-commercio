@@ -1,4 +1,5 @@
 import logging
+
 from core.utils import gen_id, now_iso
 from repositories.email_log_repository import email_log_repository
 
@@ -12,7 +13,8 @@ class EmailLogService:
     async def send_mock(self, user: dict, payload) -> dict:
         """MOCKED email sender - logs to db.email_logs only. No real delivery."""
         log = {
-            "id": gen_id(), "user_id": user["id"],
+            "id": gen_id(),
+            "user_id": user["id"],
             **payload.model_dump(),
             "status": "logged",
             "mocked": True,

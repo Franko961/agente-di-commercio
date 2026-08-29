@@ -16,13 +16,14 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     ANTHROPIC_API_KEY=test python -m pytest test_ai_expense_date_validation.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 sys.path.insert(0, ".")
 
 from core.utils import now_iso
-from services.ai_service import ai_service, _validate_expense_date
+from services.ai_service import _validate_expense_date, ai_service
 
 
 def run(coro):
@@ -30,6 +31,7 @@ def run(coro):
 
 
 # ---------- _validate_expense_date ----------
+
 
 def test_validate_expense_date_accetta_formato_corretto():
     assert _validate_expense_date("2026-07-21") == "2026-07-21"
@@ -52,52 +54,68 @@ def test_validate_expense_date_rifiuta_formato_sbagliato():
 
 # ---------- prepare_add_expense ----------
 
+
 def test_prepare_expense_rifiuta_data_non_valida():
-    result = run(ai_service.prepare_add_expense(
-        {"category": "carburante", "amount": 40, "date": "2026-15-80"}, "u1"
-    ))
+    result = run(
+        ai_service.prepare_add_expense(
+            {"category": "carburante", "amount": 40, "date": "2026-15-80"}, "u1"
+        )
+    )
     assert "error" in result
 
 
 def test_prepare_expense_accetta_data_valida():
-    result = run(ai_service.prepare_add_expense(
-        {"category": "carburante", "amount": 40, "date": "2026-07-21"}, "u1"
-    ))
+    result = run(
+        ai_service.prepare_add_expense(
+            {"category": "carburante", "amount": 40, "date": "2026-07-21"}, "u1"
+        )
+    )
     assert "error" not in result
     assert result["resolved_input"]["date"] == "2026-07-21"
 
 
 def test_prepare_expense_usa_data_odierna_se_assente():
-    result = run(ai_service.prepare_add_expense({"category": "carburante", "amount": 40}, "u1"))
+    result = run(
+        ai_service.prepare_add_expense({"category": "carburante", "amount": 40}, "u1")
+    )
     assert "error" not in result
     assert result["resolved_input"]["date"] == now_iso()[:10]
 
 
 # ---------- _finalize_expense (chiamato anche direttamente da /execute-action) ----------
 
+
 def test_finalize_expense_rifiuta_data_non_valida_senza_scrivere():
-    msg = run(ai_service._finalize_expense(
-        "u1", {"category": "vitto", "amount": 18, "date": "21 luglio"}
-    ))
+    msg = run(
+        ai_service._finalize_expense(
+            "u1", {"category": "vitto", "amount": 18, "date": "21 luglio"}
+        )
+    )
     assert msg.startswith("❌")
 
 
 def test_finalize_expense_rifiuta_data_calendaristicamente_inesistente():
-    msg = run(ai_service._finalize_expense(
-        "u1", {"category": "vitto", "amount": 18, "date": "2026-15-80"}
-    ))
+    msg = run(
+        ai_service._finalize_expense(
+            "u1", {"category": "vitto", "amount": 18, "date": "2026-15-80"}
+        )
+    )
     assert msg.startswith("❌")
 
 
 # ---------- execute_crm_tool (percorso diretto per spese sotto soglia) ----------
 
+
 def test_execute_crm_tool_add_expense_con_data_non_valida_non_esplode():
-    result = run(ai_service.execute_crm_tool(
-        "add_expense", {"category": "vitto", "amount": 18, "date": "domani"}, "u1"
-    ))
+    result = run(
+        ai_service.execute_crm_tool(
+            "add_expense", {"category": "vitto", "amount": 18, "date": "domani"}, "u1"
+        )
+    )
     assert result.startswith("❌")
 
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

@@ -20,9 +20,10 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_impersonation.py -v
 """
-import sys
+
 import asyncio
-from datetime import datetime, timezone, timedelta
+import sys
+from datetime import datetime, timedelta, timezone
 
 import jwt
 import pytest
@@ -30,9 +31,14 @@ from fastapi import HTTPException
 
 sys.path.insert(0, ".")
 
-from core.security import create_impersonation_token, get_current_user, forbid_demo_write, IMPERSONATION_TOKEN_TTL_MINUTES
-from core.config import JWT_SECRET, JWT_ALG
 import core.security as security_mod
+from core.config import JWT_ALG, JWT_SECRET
+from core.security import (
+    IMPERSONATION_TOKEN_TTL_MINUTES,
+    create_impersonation_token,
+    forbid_demo_write,
+    get_current_user,
+)
 
 
 def run(coro):
@@ -40,6 +46,7 @@ def run(coro):
 
 
 # ---------- create_impersonation_token ----------
+
 
 def test_token_autentica_come_lutente_target_non_come_ladmin():
     token = create_impersonation_token("admin-1", "user-42", "utente@esempio.it")
@@ -70,12 +77,15 @@ def test_token_e_view_per_default():
 
 
 def test_token_porta_la_mode_edit_se_richiesta():
-    token = create_impersonation_token("admin-1", "user-42", "utente@esempio.it", mode="edit")
+    token = create_impersonation_token(
+        "admin-1", "user-42", "utente@esempio.it", mode="edit"
+    )
     payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
     assert payload["impersonation_mode"] == "edit"
 
 
 # ---------- get_current_user: propagazione di impersonated_by ----------
+
 
 class FakeUsersCollection:
     def __init__(self, doc):
@@ -99,7 +109,12 @@ class FakeRequest:
 
 
 def test_get_current_user_propaga_impersonated_by(monkeypatch):
-    user_doc = {"id": "user-42", "email": "utente@esempio.it", "role": "agent", "subscription_status": "active"}
+    user_doc = {
+        "id": "user-42",
+        "email": "utente@esempio.it",
+        "role": "agent",
+        "subscription_status": "active",
+    }
     monkeypatch.setattr(security_mod, "db", FakeDb(user_doc))
 
     token = create_impersonation_token("admin-1", "user-42", "utente@esempio.it")
@@ -109,17 +124,29 @@ def test_get_current_user_propaga_impersonated_by(monkeypatch):
 
 
 def test_get_current_user_propaga_impersonation_mode(monkeypatch):
-    user_doc = {"id": "user-42", "email": "utente@esempio.it", "role": "agent", "subscription_status": "active"}
+    user_doc = {
+        "id": "user-42",
+        "email": "utente@esempio.it",
+        "role": "agent",
+        "subscription_status": "active",
+    }
     monkeypatch.setattr(security_mod, "db", FakeDb(user_doc))
 
-    token = create_impersonation_token("admin-1", "user-42", "utente@esempio.it", mode="edit")
+    token = create_impersonation_token(
+        "admin-1", "user-42", "utente@esempio.it", mode="edit"
+    )
     result = run(get_current_user(FakeRequest(token)))
 
     assert result["impersonation_mode"] == "edit"
 
 
 def test_get_current_user_propaga_impersonation_started_at(monkeypatch):
-    user_doc = {"id": "user-42", "email": "utente@esempio.it", "role": "agent", "subscription_status": "active"}
+    user_doc = {
+        "id": "user-42",
+        "email": "utente@esempio.it",
+        "role": "agent",
+        "subscription_status": "active",
+    }
     monkeypatch.setattr(security_mod, "db", FakeDb(user_doc))
 
     before = datetime.now(timezone.utc)
@@ -133,7 +160,9 @@ def test_get_current_user_propaga_impersonation_started_at(monkeypatch):
     assert before - timedelta(seconds=1) <= started_at <= after + timedelta(seconds=1)
 
 
-def test_impersonazione_esente_dal_gate_trial_anche_con_abbonamento_scaduto(monkeypatch):
+def test_impersonazione_esente_dal_gate_trial_anche_con_abbonamento_scaduto(
+    monkeypatch,
+):
     """Un admin che entra per assistenza non deve essere bloccato dallo stato
     di abbonamento (scaduto/annullato) dell'utente che sta aiutando — anzi è
     spesso proprio il motivo per cui serve assistenza. Prima di questo fix,
@@ -142,7 +171,9 @@ def test_impersonazione_esente_dal_gate_trial_anche_con_abbonamento_scaduto(monk
     chiamata API rispondeva 402) per qualunque utente con abbonamento non
     attivo — cioè gli utenti che più probabilmente hanno bisogno di aiuto."""
     user_doc = {
-        "id": "user-42", "email": "utente@esempio.it", "role": "agent",
+        "id": "user-42",
+        "email": "utente@esempio.it",
+        "role": "agent",
         "subscription_status": "cancelled",
     }
     monkeypatch.setattr(security_mod, "db", FakeDb(user_doc))
@@ -158,8 +189,11 @@ def test_login_normale_con_abbonamento_scaduto_resta_bloccato(monkeypatch):
     sessioni di impersonificazione, non deve allentare il gate per l'utente
     che accede con il proprio login normale."""
     from core.security import create_access_token
+
     user_doc = {
-        "id": "user-42", "email": "utente@esempio.it", "role": "agent",
+        "id": "user-42",
+        "email": "utente@esempio.it",
+        "role": "agent",
         "subscription_status": "cancelled",
     }
     monkeypatch.setattr(security_mod, "db", FakeDb(user_doc))
@@ -172,7 +206,13 @@ def test_login_normale_con_abbonamento_scaduto_resta_bloccato(monkeypatch):
 
 def test_get_current_user_normale_non_ha_impersonated_by(monkeypatch):
     from core.security import create_access_token
-    user_doc = {"id": "user-42", "email": "utente@esempio.it", "role": "agent", "subscription_status": "active"}
+
+    user_doc = {
+        "id": "user-42",
+        "email": "utente@esempio.it",
+        "role": "agent",
+        "subscription_status": "active",
+    }
     monkeypatch.setattr(security_mod, "db", FakeDb(user_doc))
 
     token = create_access_token("user-42", "utente@esempio.it")
@@ -182,6 +222,7 @@ def test_get_current_user_normale_non_ha_impersonated_by(monkeypatch):
 
 
 # ---------- forbid_demo_write: blocca scrittura anche in impersonificazione "view" ----------
+
 
 def test_forbid_demo_write_blocca_impersonificazione_in_sola_lettura():
     user = {"id": "user-42", "impersonated_by": "admin-1", "impersonation_mode": "view"}
@@ -265,7 +306,11 @@ def test_impersonate_user_riuscito_ritorna_token_ed_email(monkeypatch):
     target = {"id": "user-42", "email": "utente@esempio.it", "role": "agent"}
     service, fake_db = build_service(monkeypatch, [ADMIN_ACTOR, target])
 
-    token, email = run(service.impersonate_user("user-42", ADMIN_ACTOR, category="assistenza_richiesta"))
+    token, email = run(
+        service.impersonate_user(
+            "user-42", ADMIN_ACTOR, category="assistenza_richiesta"
+        )
+    )
 
     assert email == "utente@esempio.it"
     payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
@@ -292,7 +337,11 @@ def test_impersonate_user_default_e_modalita_view(monkeypatch):
     target = {"id": "user-42", "email": "utente@esempio.it", "role": "agent"}
     service, fake_db = build_service(monkeypatch, [ADMIN_ACTOR, target])
 
-    token, _ = run(service.impersonate_user("user-42", ADMIN_ACTOR, category="verifica_configurazione"))
+    token, _ = run(
+        service.impersonate_user(
+            "user-42", ADMIN_ACTOR, category="verifica_configurazione"
+        )
+    )
 
     payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
     assert payload["impersonation_mode"] == "view"
@@ -305,7 +354,14 @@ def test_impersonate_user_rifiuta_mode_non_valida(monkeypatch):
     service, _ = build_service(monkeypatch, [ADMIN_ACTOR, target])
 
     with pytest.raises(HTTPException) as exc_info:
-        run(service.impersonate_user("user-42", ADMIN_ACTOR, mode="delete-everything", category="assistenza_richiesta"))
+        run(
+            service.impersonate_user(
+                "user-42",
+                ADMIN_ACTOR,
+                mode="delete-everything",
+                category="assistenza_richiesta",
+            )
+        )
     assert exc_info.value.status_code == 400
 
 
@@ -316,7 +372,9 @@ def test_impersonate_user_rifiuta_categoria_mancante_anche_in_sola_lettura(monke
     service, _ = build_service(monkeypatch, [ADMIN_ACTOR, target])
 
     with pytest.raises(HTTPException) as exc_info:
-        run(service.impersonate_user("user-42", ADMIN_ACTOR, mode="view", category=None))
+        run(
+            service.impersonate_user("user-42", ADMIN_ACTOR, mode="view", category=None)
+        )
     assert exc_info.value.status_code == 400
 
 
@@ -325,7 +383,11 @@ def test_impersonate_user_rifiuta_categoria_non_valida(monkeypatch):
     service, _ = build_service(monkeypatch, [ADMIN_ACTOR, target])
 
     with pytest.raises(HTTPException) as exc_info:
-        run(service.impersonate_user("user-42", ADMIN_ACTOR, mode="view", category="motivo_a_caso"))
+        run(
+            service.impersonate_user(
+                "user-42", ADMIN_ACTOR, mode="view", category="motivo_a_caso"
+            )
+        )
     assert exc_info.value.status_code == 400
 
 
@@ -334,21 +396,38 @@ def test_impersonate_user_edit_richiede_un_motivo(monkeypatch):
     service, _ = build_service(monkeypatch, [ADMIN_ACTOR, target])
 
     with pytest.raises(HTTPException) as exc_info:
-        run(service.impersonate_user("user-42", ADMIN_ACTOR, mode="edit", category="controllo_amministrativo"))
+        run(
+            service.impersonate_user(
+                "user-42", ADMIN_ACTOR, mode="edit", category="controllo_amministrativo"
+            )
+        )
     assert exc_info.value.status_code == 400
 
     with pytest.raises(HTTPException):
-        run(service.impersonate_user("user-42", ADMIN_ACTOR, mode="edit", category="controllo_amministrativo", reason="   "))
+        run(
+            service.impersonate_user(
+                "user-42",
+                ADMIN_ACTOR,
+                mode="edit",
+                category="controllo_amministrativo",
+                reason="   ",
+            )
+        )
 
 
 def test_impersonate_user_edit_con_motivo_riesce_e_traccia_il_motivo(monkeypatch):
     target = {"id": "user-42", "email": "utente@esempio.it", "role": "agent"}
     service, fake_db = build_service(monkeypatch, [ADMIN_ACTOR, target])
 
-    token, _ = run(service.impersonate_user(
-        "user-42", ADMIN_ACTOR, mode="edit", category="controllo_amministrativo",
-        reason="Richiesta assistenza telefonica: correggere ordine",
-    ))
+    token, _ = run(
+        service.impersonate_user(
+            "user-42",
+            ADMIN_ACTOR,
+            mode="edit",
+            category="controllo_amministrativo",
+            reason="Richiesta assistenza telefonica: correggere ordine",
+        )
+    )
 
     payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
     assert payload["impersonation_mode"] == "edit"
@@ -360,13 +439,20 @@ def test_impersonate_user_edit_con_motivo_riesce_e_traccia_il_motivo(monkeypatch
 
 # ---------- admin_service.record_impersonation_exit ----------
 
+
 def test_record_impersonation_exit_traccia_azione_e_dettagli(monkeypatch):
     service, fake_db = build_service(monkeypatch, [ADMIN_ACTOR])
     started_at = datetime.now(timezone.utc) - timedelta(minutes=5)
 
-    run(service.record_impersonation_exit(
-        "admin@salesfly.it", "user-42", "utente@esempio.it", "edit", started_at,
-    ))
+    run(
+        service.record_impersonation_exit(
+            "admin@salesfly.it",
+            "user-42",
+            "utente@esempio.it",
+            "edit",
+            started_at,
+        )
+    )
 
     assert len(fake_db.admin_audit_log.inserted) == 1
     entry = fake_db.admin_audit_log.inserted[0]
@@ -384,20 +470,34 @@ def test_record_impersonation_exit_calcola_la_durata(monkeypatch):
     service, fake_db = build_service(monkeypatch, [ADMIN_ACTOR])
     started_at = datetime.now(timezone.utc) - timedelta(minutes=5)
 
-    run(service.record_impersonation_exit(
-        "admin@salesfly.it", "user-42", "utente@esempio.it", "view", started_at,
-    ))
+    run(
+        service.record_impersonation_exit(
+            "admin@salesfly.it",
+            "user-42",
+            "utente@esempio.it",
+            "view",
+            started_at,
+        )
+    )
 
     duration = fake_db.admin_audit_log.inserted[0]["detail"]["duration_seconds"]
-    assert 295 <= duration <= 305  # ~5 minuti, tolleranza per il tempo di esecuzione del test
+    assert (
+        295 <= duration <= 305
+    )  # ~5 minuti, tolleranza per il tempo di esecuzione del test
 
 
 def test_record_impersonation_exit_senza_started_at_non_fallisce(monkeypatch):
     service, fake_db = build_service(monkeypatch, [ADMIN_ACTOR])
 
-    run(service.record_impersonation_exit(
-        "admin@salesfly.it", "user-42", "utente@esempio.it", "view", None,
-    ))
+    run(
+        service.record_impersonation_exit(
+            "admin@salesfly.it",
+            "user-42",
+            "utente@esempio.it",
+            "view",
+            None,
+        )
+    )
 
     detail = fake_db.admin_audit_log.inserted[0]["detail"]
     assert detail["started_at"] is None

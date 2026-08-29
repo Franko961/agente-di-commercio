@@ -1,5 +1,7 @@
 from typing import Optional
+
 from pydantic import BaseModel, Field
+
 from core.validation_limits import LONG_TEXT_MAX_LENGTH
 
 

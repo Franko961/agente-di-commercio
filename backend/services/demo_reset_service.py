@@ -2,8 +2,8 @@ import logging
 
 from core.database import db
 from services.gdpr_service import USER_SCOPED_COLLECTIONS
-from services.storage_service import storage_delete
 from services.seed_service import seed_service
+from services.storage_service import storage_delete
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,9 @@ class DemoResetService:
     pulizia S3."""
 
     async def reset_all_demo_accounts(self) -> int:
-        demo_users = await db.users.find({"is_demo": True}, {"_id": 0, "id": 1}).to_list(50)
+        demo_users = await db.users.find(
+            {"is_demo": True}, {"_id": 0, "id": 1}
+        ).to_list(50)
         for u in demo_users:
             await self._reset_one(u["id"])
         return len(demo_users)
@@ -38,8 +40,12 @@ class DemoResetService:
         # Cancella davvero i file dei documenti caricati su S3, non solo i
         # record — altrimenti si accumulerebbero indefinitamente ad ogni
         # ciclo, esattamente il problema che il reset dovrebbe risolvere.
-        documents = await db.documents.find({"user_id": user_id}, {"_id": 0, "storage_path": 1}).to_list(20000)
-        employee_documents = await db.employee_documents.find({"user_id": user_id}, {"_id": 0, "storage_path": 1}).to_list(20000)
+        documents = await db.documents.find(
+            {"user_id": user_id}, {"_id": 0, "storage_path": 1}
+        ).to_list(20000)
+        employee_documents = await db.employee_documents.find(
+            {"user_id": user_id}, {"_id": 0, "storage_path": 1}
+        ).to_list(20000)
         for doc in documents + employee_documents:
             storage_path = doc.get("storage_path")
             if not storage_path:
@@ -47,7 +53,9 @@ class DemoResetService:
             try:
                 storage_delete(storage_path)
             except Exception as e:
-                logger.warning(f"Reset demo: impossibile cancellare file S3 {storage_path}: {e}")
+                logger.warning(
+                    f"Reset demo: impossibile cancellare file S3 {storage_path}: {e}"
+                )
 
         for collection_name in USER_SCOPED_COLLECTIONS.values():
             await db[collection_name].delete_many({"user_id": user_id})

@@ -14,6 +14,7 @@ conferma richiesta), e verifica che:
   2. Il risultato mostrato all'utente sia il messaggio di blocco.
   3. Il log dell'azione venga comunque registrato con stato "fallita".
 """
+
 import asyncio
 import sys
 import types
@@ -21,9 +22,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 sys.path.insert(0, ".")
 
-import services.ai_service as ai_service_mod
 import services.ai_service.orchestrator as orchestrator_mod
-from services.ai_service import AiService, CRM_WRITE_TOOLS
+from services.ai_service import CRM_WRITE_TOOLS, AiService
 
 
 async def _allow_always(*a, **kw):
@@ -67,15 +67,21 @@ def test_demo_user_cannot_write_via_chat_tool_loop(monkeypatch):
     service.repo.count_since = AsyncMock(return_value=0)
 
     monkeypatch.setattr(orchestrator_mod, "check_and_record", _allow_always)
-    monkeypatch.setattr(service, "gather_context", AsyncMock(return_value="(contesto vuoto)"))
-    monkeypatch.setattr(service, "requires_confirmation", lambda name, inp, channel="chat": False)
+    monkeypatch.setattr(
+        service, "gather_context", AsyncMock(return_value="(contesto vuoto)")
+    )
+    monkeypatch.setattr(
+        service, "requires_confirmation", lambda name, inp, channel="chat": False
+    )
     monkeypatch.setattr(service, "_log_action", AsyncMock(return_value={"id": "log_1"}))
 
     execute_crm_tool_mock = AsyncMock(return_value="✅ Cliente aggiunto")
     monkeypatch.setattr(service, "execute_crm_tool", execute_crm_tool_mock)
 
     tool_use_msg = _make_tool_use_message("add_client")
-    final_msg = _make_final_message("Nell'account demo non posso farlo, ma posso mostrarti come funziona.")
+    final_msg = _make_final_message(
+        "Nell'account demo non posso farlo, ma posso mostrarti come funziona."
+    )
 
     fake_anthropic_client = MagicMock()
     fake_anthropic_client.messages.create.side_effect = [tool_use_msg, final_msg]
@@ -89,9 +95,7 @@ def test_demo_user_cannot_write_via_chat_tool_loop(monkeypatch):
 
     demo_user = {"id": "demo_user_1", "is_demo": True, "role": "user"}
 
-    result = asyncio.run(
-        service.chat(demo_user, FakePayload())
-    )
+    asyncio.run(service.chat(demo_user, FakePayload()))
 
     # 1. Il tool CRM reale non deve MAI essere eseguito per l'utente demo.
     execute_crm_tool_mock.assert_not_called()
@@ -111,4 +115,5 @@ def test_demo_user_cannot_write_via_chat_tool_loop(monkeypatch):
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

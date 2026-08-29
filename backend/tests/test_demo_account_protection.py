@@ -12,17 +12,18 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_demo_account_protection.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 from fastapi import HTTPException
 
 sys.path.insert(0, ".")
 
+import services.auth_service as auth_service_mod
 from core.security import forbid_demo_write, hash_password, hash_reset_token
 from models.auth import ForgotPasswordIn, ResetPasswordIn
-import services.auth_service as auth_service_mod
 from services.auth_service import AuthService
 
 
@@ -57,19 +58,26 @@ class FakeUserRepo:
 
 def _demo_user():
     return {
-        "id": "user-demo", "email": "demo@salesfly.it", "is_demo": True,
-        "password_hash": hash_password("password-nota-pubblicamente"), "role": "agent",
+        "id": "user-demo",
+        "email": "demo@salesfly.it",
+        "is_demo": True,
+        "password_hash": hash_password("password-nota-pubblicamente"),
+        "role": "agent",
     }
 
 
 def _normal_user():
     return {
-        "id": "user-1", "email": "mario@example.com", "is_demo": False,
-        "password_hash": hash_password("password-corretta"), "role": "agent",
+        "id": "user-1",
+        "email": "mario@example.com",
+        "is_demo": False,
+        "password_hash": hash_password("password-corretta"),
+        "role": "agent",
     }
 
 
 # ---------- forbid_demo_write ----------
+
 
 def test_forbid_demo_write_blocca_utente_demo():
     with pytest.raises(HTTPException) as exc_info:
@@ -83,6 +91,7 @@ def test_forbid_demo_write_lascia_passare_utente_normale():
 
 
 # ---------- forgot_password ----------
+
 
 async def _fail_if_called(*a, **kw):
     raise AssertionError("send_email non doveva essere chiamato per l'account demo")
@@ -120,17 +129,27 @@ def test_forgot_password_funziona_normalmente_per_utente_non_demo(monkeypatch):
 
 # ---------- reset_password ----------
 
+
 def test_reset_password_rifiuta_token_che_risolve_a_utente_demo(monkeypatch):
     monkeypatch.setattr(auth_service_mod, "check_and_record", _allow_always)
     demo = _demo_user()
     demo["reset_token_hash"] = hash_reset_token("token-in-chiaro")
-    from datetime import datetime, timezone, timedelta
-    demo["reset_token_expires"] = (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat()
+    from datetime import datetime, timedelta, timezone
+
+    demo["reset_token_expires"] = (
+        datetime.now(timezone.utc) + timedelta(minutes=30)
+    ).isoformat()
     repo = FakeUserRepo({"demo@salesfly.it": demo})
     service = AuthService(repo=repo)
 
     with pytest.raises(HTTPException) as exc_info:
-        run(service.reset_password(ResetPasswordIn(token="token-in-chiaro", new_password="nuovapassword123")))
+        run(
+            service.reset_password(
+                ResetPasswordIn(
+                    token="token-in-chiaro", new_password="nuovapassword123"
+                )
+            )
+        )
     assert exc_info.value.status_code == 400
 
 

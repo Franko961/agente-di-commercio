@@ -1,6 +1,8 @@
-from pydantic import BaseModel, Field
 from typing import List, Literal, Optional
-from core.validation_limits import SHORT_TEXT_MAX_LENGTH, LONG_TEXT_MAX_LENGTH
+
+from pydantic import BaseModel, Field
+
+from core.validation_limits import LONG_TEXT_MAX_LENGTH, SHORT_TEXT_MAX_LENGTH
 
 APPOINTMENT_STATUSES = ["pianificato", "completato", "annullato"]
 
@@ -21,4 +23,5 @@ class AppointmentBulkIn(BaseModel):
     tetto del numero massimo di clienti del pianificatore (MAX_ROUTE_CLIENTS),
     per lo stesso motivo: evitare un numero enorme di push verso Google
     Calendar in un colpo solo."""
+
     appointments: List[AppointmentIn] = Field(..., min_length=1, max_length=50)

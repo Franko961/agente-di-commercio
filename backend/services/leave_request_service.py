@@ -5,14 +5,13 @@ from typing import Optional
 
 from fastapi import HTTPException
 
-from core.utils import gen_id, now_iso, now_local
-from core.italian_holidays import is_italian_holiday
 from core.exceptions import NotFoundError, ValidationAppError
-from core.config import FRONTEND_URL
+from core.italian_holidays import is_italian_holiday
 from core.rate_limit import check_and_record
 from core.security import hash_reset_token, module_enabled
-from repositories.leave_request_repository import leave_request_repository
+from core.utils import gen_id, now_iso, now_local
 from repositories.employee_repository import employee_repository
+from repositories.leave_request_repository import leave_request_repository
 from repositories.user_repository import user_repository
 from services.email_service import send_email
 from services.export_service import csv_response
@@ -20,37 +19,59 @@ from services.export_service import csv_response
 logger = logging.getLogger(__name__)
 
 LEAVE_TYPE_LABELS = {
-    "ferie": "Ferie", "permesso": "Permesso", "malattia": "Malattia",
-    "smartworking": "Smartworking", "trasferta": "Trasferta",
-    "straordinari": "Straordinari", "reperibilita": "Reperibilità",
+    "ferie": "Ferie",
+    "permesso": "Permesso",
+    "malattia": "Malattia",
+    "smartworking": "Smartworking",
+    "trasferta": "Trasferta",
+    "straordinari": "Straordinari",
+    "reperibilita": "Reperibilità",
 }
 
 
 class LeaveRequestService:
-    def __init__(self, repo=leave_request_repository, employees=employee_repository, users=user_repository):
+    def __init__(
+        self,
+        repo=leave_request_repository,
+        employees=employee_repository,
+        users=user_repository,
+    ):
         self.repo = repo
         self.employees = employees
         self.users = users
 
-    async def submit(self, payload, ip_address: str = None) -> dict:
+    async def submit(self, payload, ip_address: Optional[str] = None) -> dict:
         """Endpoint pubblico (nessun login, vedi routers/leave_requests.py):
         il dipendente invia la richiesta tramite il proprio link personale,
         senza dover accedere al gestionale."""
         if ip_address:
-            ok = await check_and_record("leave_request_ip", ip_address, max_attempts=10, window_minutes=60)
+            ok = await check_and_record(
+                "leave_request_ip", ip_address, max_attempts=10, window_minutes=60
+            )
             if not ok:
-                raise HTTPException(429, "Troppe richieste da questo indirizzo, riprova più tardi.")
+                raise HTTPException(
+                    429, "Troppe richieste da questo indirizzo, riprova più tardi."
+                )
 
         # Oltre al limite per IP sopra, un limite per token: un link
         # rubato/condiviso per errore verrebbe altrimenti usato per
         # inviare richieste false da IP diversi (ognuno sotto la soglia
         # per-IP), generando storico fraudolento senza che nessun singolo
         # limite scatti.
-        token_ok = await check_and_record("leave_request_token", payload.employee_token, max_attempts=5, window_minutes=60)
+        token_ok = await check_and_record(
+            "leave_request_token",
+            payload.employee_token,
+            max_attempts=5,
+            window_minutes=60,
+        )
         if not token_ok:
-            raise HTTPException(429, "Troppe richieste per questo link, riprova più tardi.")
+            raise HTTPException(
+                429, "Troppe richieste per questo link, riprova più tardi."
+            )
 
-        employee = await self.employees.find_by_token_hash(hash_reset_token(payload.employee_token))
+        employee = await self.employees.find_by_token_hash(
+            hash_reset_token(payload.employee_token)
+        )
         if not employee or not employee.get("active", True):
             raise NotFoundError("Link non valido")
 
@@ -65,7 +86,9 @@ class LeaveRequestService:
             raise NotFoundError("Link temporaneamente non disponibile")
 
         if payload.date_to < payload.date_from:
-            raise ValidationAppError("La data di fine non può precedere quella di inizio")
+            raise ValidationAppError(
+                "La data di fine non può precedere quella di inizio"
+            )
 
         date_from_iso = payload.date_from.isoformat()
         date_to_iso = payload.date_to.isoformat()
@@ -81,8 +104,10 @@ class LeaveRequestService:
         # legittima (es. ripresentata dopo un rifiuto) e passa invece dal
         # controllo di sovrapposizione sotto.
         if any(
-            r["status"] == "in_attesa" and r["type"] == payload.type
-            and r["date_from"] == date_from_iso and r["date_to"] == date_to_iso
+            r["status"] == "in_attesa"
+            and r["type"] == payload.type
+            and r["date_from"] == date_from_iso
+            and r["date_to"] == date_to_iso
             for r in existing
         ):
             return {"ok": True}
@@ -95,9 +120,11 @@ class LeaveRequestService:
         # controllo ad ogni lettura, così l'avviso resta aggiornato anche
         # se una delle richieste sovrapposte viene poi rifiutata).
         overlapping = [
-            r for r in existing
+            r
+            for r in existing
             if r["status"] != "rifiutata"
-            and r["date_from"] <= date_to_iso and r["date_to"] >= date_from_iso
+            and r["date_from"] <= date_to_iso
+            and r["date_to"] >= date_from_iso
         ]
 
         doc = {
@@ -145,7 +172,9 @@ class LeaveRequestService:
         if not employee:
             raise NotFoundError("Dipendente non trovato")
         if payload.date_to < payload.date_from:
-            raise ValidationAppError("La data di fine non può precedere quella di inizio")
+            raise ValidationAppError(
+                "La data di fine non può precedere quella di inizio"
+            )
 
         doc = {
             "id": gen_id(),
@@ -165,7 +194,7 @@ class LeaveRequestService:
         await self.repo.insert(doc)
         return doc
 
-    async def list_requests(self, user: dict, status: str = None) -> list:
+    async def list_requests(self, user: dict, status: Optional[str] = None) -> list:
         requests = await self.repo.find_many(user["id"])
         self._attach_overlap_flags(requests)
         if status:
@@ -180,7 +209,7 @@ class LeaveRequestService:
         volo ad ogni lettura (non salvato sul documento) così resta
         corretto anche quando lo stato di una delle richieste coinvolte
         cambia in seguito."""
-        by_employee = {}
+        by_employee: dict[str, list] = {}
         for r in requests:
             if r["status"] != "rifiutata":
                 by_employee.setdefault(r["employee_id"], []).append(r)
@@ -189,7 +218,9 @@ class LeaveRequestService:
                 r["overlaps"] = False
                 continue
             r["overlaps"] = any(
-                o["id"] != r["id"] and o["date_from"] <= r["date_to"] and o["date_to"] >= r["date_from"]
+                o["id"] != r["id"]
+                and o["date_from"] <= r["date_to"]
+                and o["date_to"] >= r["date_from"]
                 for o in by_employee.get(r["employee_id"], [])
             )
 
@@ -207,7 +238,9 @@ class LeaveRequestService:
         # altrimenti due decisioni quasi simultanee (es. approva/rifiuta)
         # potrebbero entrambe leggere "in_attesa" e generare due email
         # contrastanti al dipendente.
-        won_race = await self.repo.decide(rid, user["id"], {"status": status, "decided_at": now_iso()})
+        won_race = await self.repo.decide(
+            rid, user["id"], {"status": status, "decided_at": now_iso()}
+        )
         if not won_race:
             raise ValidationAppError("Questa richiesta è già stata decisa")
 
@@ -235,7 +268,9 @@ class LeaveRequestService:
         aggiornare nient'altro)."""
         await self.repo.delete(rid, user["id"])
 
-    async def set_certificate_received(self, user: dict, rid: str, received: bool) -> None:
+    async def set_certificate_received(
+        self, user: dict, rid: str, received: bool
+    ) -> None:
         """Solo il responsabile la imposta (a differenza di 'note', che
         scrive il dipendente in fase di invio): conferma di aver ricevuto
         il certificato medico, nessun dato sanitario collegato."""
@@ -243,7 +278,9 @@ class LeaveRequestService:
         if not request:
             raise NotFoundError("Richiesta non trovata")
         if request["type"] != "malattia":
-            raise ValidationAppError("Il certificato riguarda solo le richieste di malattia")
+            raise ValidationAppError(
+                "Il certificato riguarda solo le richieste di malattia"
+            )
         await self.repo.update(rid, user["id"], {"certificate_received": received})
 
     async def employee_summary(self, user: dict, employee: dict) -> dict:
@@ -284,9 +321,14 @@ class LeaveRequestService:
             if mode == "calendario":
                 return span
             if mode == "lavorativi":
-                return sum(1 for i in range(span) if (overlap_start + timedelta(days=i)).weekday() < 5)
+                return sum(
+                    1
+                    for i in range(span)
+                    if (overlap_start + timedelta(days=i)).weekday() < 5
+                )
             return sum(
-                1 for i in range(span)
+                1
+                for i in range(span)
                 if (overlap_start + timedelta(days=i)).weekday() != 6
                 and not is_italian_holiday(overlap_start + timedelta(days=i))
             )
@@ -294,20 +336,31 @@ class LeaveRequestService:
         def _in_year(r) -> bool:
             return _days_in_year(r) > 0
 
-        ferie_approvate = [r for r in mine if r["type"] == "ferie" and r["status"] == "approvata" and _in_year(r)]
+        ferie_approvate = [
+            r
+            for r in mine
+            if r["type"] == "ferie" and r["status"] == "approvata" and _in_year(r)
+        ]
         permessi_anno = [r for r in mine if r["type"] == "permesso" and _in_year(r)]
         permessi_approvati = [r for r in permessi_anno if r["status"] == "approvata"]
-        malattie_approvate = [r for r in mine if r["type"] == "malattia" and r["status"] == "approvata" and _in_year(r)]
+        malattie_approvate = [
+            r
+            for r in mine
+            if r["type"] == "malattia" and r["status"] == "approvata" and _in_year(r)
+        ]
 
         ferie_count_mode = user.get("ferie_count_mode", "calendario")
-        ferie_godute = sum(_days_in_year(r, mode=ferie_count_mode) for r in ferie_approvate)
+        ferie_godute = sum(
+            _days_in_year(r, mode=ferie_count_mode) for r in ferie_approvate
+        )
         spettanti = employee.get("annual_vacation_days", 26)
         malattia_giorni = sum(_days_in_year(r) for r in malattie_approvate)
 
         today_local = now_local().date()
         start_of_year = today_local.replace(month=1, day=1)
         giorni_lavorativi_trascorsi = sum(
-            1 for i in range((today_local - start_of_year).days + 1)
+            1
+            for i in range((today_local - start_of_year).days + 1)
             if (start_of_year + timedelta(days=i)).weekday() < 5
         )
         assenze_giorni = ferie_godute + malattia_giorni
@@ -327,15 +380,19 @@ class LeaveRequestService:
                 "giorni": malattia_giorni,
                 "richieste": [
                     {
-                        "id": r["id"], "date_from": r["date_from"], "date_to": r["date_to"],
+                        "id": r["id"],
+                        "date_from": r["date_from"],
+                        "date_to": r["date_to"],
                         # Giorni ricadenti in quest'anno, non l'intera durata
                         # della richiesta se attraversa il capodanno — vedi
                         # _days_in_year sopra. date_from/date_to restano
                         # l'intervallo reale della richiesta.
-                        "giorni": _days_in_year(r), "status": r["status"],
+                        "giorni": _days_in_year(r),
+                        "status": r["status"],
                         "certificate_received": r.get("certificate_received"),
                     }
-                    for r in mine if r["type"] == "malattia" and _in_year(r)
+                    for r in mine
+                    if r["type"] == "malattia" and _in_year(r)
                 ],
             },
             "kpi": {
@@ -355,7 +412,10 @@ class LeaveRequestService:
         quello impostato manualmente su employee.employment_status)."""
         today_iso = today.isoformat()
         for r in requests:
-            if r["status"] == "approvata" and r["date_from"] <= today_iso <= r["date_to"]:
+            if (
+                r["status"] == "approvata"
+                and r["date_from"] <= today_iso <= r["date_to"]
+            ):
                 if r["type"] == "malattia":
                     return "in_malattia"
                 if r["type"] == "ferie":
@@ -368,16 +428,30 @@ class LeaveRequestService:
         calendario presenze."""
         date_from = f"{month}-01"
         date_to = f"{month}-31"  # confronto testuale ISO: "31" oltre la fine del mese non è un problema, nessun giorno reale lo supera
-        return await self.repo.find_overlapping(user["id"], date_from, date_to, status="approvata")
+        return await self.repo.find_overlapping(
+            user["id"], date_from, date_to, status="approvata"
+        )
 
     async def export_csv(self, user: dict):
-        ok = await check_and_record("csv_export", user["id"], max_attempts=20, window_minutes=10)
+        ok = await check_and_record(
+            "csv_export", user["id"], max_attempts=20, window_minutes=10
+        )
         if not ok:
-            raise HTTPException(429, "Troppe esportazioni richieste, riprova tra qualche minuto")
+            raise HTTPException(
+                429, "Troppe esportazioni richieste, riprova tra qualche minuto"
+            )
         rows = await self.repo.find_many(user["id"])
         for r in rows:
             r["type_label"] = LEAVE_TYPE_LABELS.get(r["type"], r["type"])
-        headers = ["employee_name", "type_label", "date_from", "date_to", "status", "note", "created_at"]
+        headers = [
+            "employee_name",
+            "type_label",
+            "date_from",
+            "date_to",
+            "status",
+            "note",
+            "created_at",
+        ]
         return csv_response(rows, headers, "assenze.csv")
 
     @staticmethod
@@ -394,7 +468,8 @@ class LeaveRequestService:
             'border-radius:8px; font-size:13px; color:#0A192F;">'
             "⚠️ Esiste già un'altra richiesta di questo dipendente che si sovrappone al periodo selezionato."
             "</div>"
-            if overlapping else ""
+            if overlapping
+            else ""
         )
         return f"""
         <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1a1a1a;">

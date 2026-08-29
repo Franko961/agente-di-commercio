@@ -1,15 +1,21 @@
 import tempfile
+
 from fastapi import HTTPException
-from core.utils import gen_id, now_iso
+
 from core.config import MAX_FILE_BYTES
 from core.security import module_enabled
+from core.utils import gen_id, now_iso
+from models.employee_document import EmployeeDocumentMetaUpdate
 from repositories.employee_document_repository import employee_document_repository
 from repositories.employee_repository import employee_repository
 from repositories.user_repository import user_repository
 from services.storage_service import (
-    storage_put_stream, ALLOWED_EXT, APP_NAME, sanitize_filename, _sniff_matches_extension,
+    ALLOWED_EXT,
+    APP_NAME,
+    _sniff_matches_extension,
+    sanitize_filename,
+    storage_put_stream,
 )
-from models.employee_document import EmployeeDocumentMetaUpdate
 
 # Stessa logica di sicurezza upload di document_service.py (sniffing dei
 # magic bytes, spooling su disco oltre una certa soglia): duplicata qui
@@ -21,7 +27,12 @@ SPOOL_MAX_MEMORY_BYTES = 8 * 1024 * 1024
 
 
 class EmployeeDocumentService:
-    def __init__(self, repo=employee_document_repository, employees=employee_repository, users=user_repository):
+    def __init__(
+        self,
+        repo=employee_document_repository,
+        employees=employee_repository,
+        users=user_repository,
+    ):
         self.repo = repo
         self.employees = employees
         self.users = users
@@ -36,13 +47,20 @@ class EmployeeDocumentService:
         await self._validate_employee(user["id"], employee_id)
         return await self.repo.find_many(employee_id, user["id"])
 
-    async def upload_document(self, user: dict, employee_id: str, file, name: str, category: str, notes: str) -> dict:
+    async def upload_document(
+        self, user: dict, employee_id: str, file, name: str, category: str, notes: str
+    ) -> dict:
         await self._validate_employee(user["id"], employee_id)
         if not file.filename:
             raise HTTPException(400, "File mancante")
-        ext = (file.filename.rsplit(".", 1)[-1] if "." in file.filename else "bin").lower()
+        ext = (
+            file.filename.rsplit(".", 1)[-1] if "." in file.filename else "bin"
+        ).lower()
         if ext not in ALLOWED_EXT:
-            raise HTTPException(400, f"Estensione .{ext} non supportata. Consentite: PDF, Excel, Word, immagini.")
+            raise HTTPException(
+                400,
+                f"Estensione .{ext} non supportata. Consentite: PDF, Excel, Word, immagini.",
+            )
 
         chunk_size = 1024 * 1024
         head = b""
@@ -55,7 +73,10 @@ class EmployeeDocumentService:
                     break
                 total += len(chunk)
                 if total > MAX_FILE_BYTES:
-                    raise HTTPException(413, f"File troppo grande (max {MAX_FILE_BYTES // (1024*1024)} MB)")
+                    raise HTTPException(
+                        413,
+                        f"File troppo grande (max {MAX_FILE_BYTES // (1024*1024)} MB)",
+                    )
                 if len(head) < HEAD_SNIFF_BYTES:
                     head += chunk[: HEAD_SNIFF_BYTES - len(head)]
                 spooled.write(chunk)
@@ -64,7 +85,10 @@ class EmployeeDocumentService:
                 raise HTTPException(400, "File vuoto")
 
             if not _sniff_matches_extension(head, ext):
-                raise HTTPException(400, "Il contenuto del file non corrisponde al tipo dichiarato dall'estensione")
+                raise HTTPException(
+                    400,
+                    "Il contenuto del file non corrisponde al tipo dichiarato dall'estensione",
+                )
 
             content_type = ALLOWED_EXT[ext]
             storage_path = f"{APP_NAME}/uploads/{user['id']}/employees/{employee_id}/{gen_id()}.{ext}"
@@ -75,7 +99,9 @@ class EmployeeDocumentService:
 
         safe_original_filename = sanitize_filename(file.filename)
         doc = {
-            "id": gen_id(), "user_id": user["id"], "employee_id": employee_id,
+            "id": gen_id(),
+            "user_id": user["id"],
+            "employee_id": employee_id,
             "name": sanitize_filename(name) if name else safe_original_filename,
             "category": category,
             "notes": notes,
@@ -88,7 +114,13 @@ class EmployeeDocumentService:
         }
         return await self.repo.insert(doc)
 
-    async def update_meta(self, user: dict, employee_id: str, did: str, payload: EmployeeDocumentMetaUpdate) -> None:
+    async def update_meta(
+        self,
+        user: dict,
+        employee_id: str,
+        did: str,
+        payload: EmployeeDocumentMetaUpdate,
+    ) -> None:
         allowed = payload.model_dump(exclude_unset=True)
         if "name" in allowed:
             allowed["name"] = sanitize_filename(allowed["name"])
@@ -96,7 +128,9 @@ class EmployeeDocumentService:
         if not ok:
             raise HTTPException(404, "Documento non trovato")
 
-    async def get_document_for_download(self, user_id: str, employee_id: str, did: str) -> dict:
+    async def get_document_for_download(
+        self, user_id: str, employee_id: str, did: str
+    ) -> dict:
         doc = await self.repo.find_one(did, user_id, employee_id)
         if not doc or not doc.get("storage_path"):
             raise HTTPException(404, "Documento non trovato")
@@ -109,7 +143,9 @@ class EmployeeDocumentService:
         # employee_service.get_by_token/leave_request_service.submit.
         owner = await self.users.find_by_id(user_id)
         if not owner or not module_enabled(owner, "personale"):
-            raise HTTPException(403, "Il modulo \"personale\" non è disponibile per questo account.")
+            raise HTTPException(
+                403, 'Il modulo "personale" non è disponibile per questo account.'
+            )
         return doc
 
     async def delete_document(self, user: dict, employee_id: str, did: str) -> None:

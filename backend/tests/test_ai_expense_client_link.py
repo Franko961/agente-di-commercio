@@ -12,13 +12,18 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     ANTHROPIC_API_KEY=test python -m pytest test_ai_expense_client_link.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 sys.path.insert(0, ".")
 
 from tests.test_ai_tool_forcing import (
-    build_service, FakeClientRepo, FakeSimpleRepo, FakeAiRepo, FakeActionLogRepo,
+    FakeActionLogRepo,
+    FakeAiRepo,
+    FakeClientRepo,
+    FakeSimpleRepo,
+    build_service,
 )
 
 
@@ -42,6 +47,7 @@ def build_service_with_expense_tracking():
     """Variante di build_service() con un expense_repo che traccia gli
     inserimenti (build_service usa FakeSimpleRepo, che scarta i documenti)."""
     from services.ai_service import AiService
+
     client_repo = FakeClientRepo()
     expense_repo = FakeExpenseRepo()
     service = AiService(
@@ -62,11 +68,16 @@ def build_service_with_expense_tracking():
 
 def test_prepare_expense_risolve_il_cliente_quando_indicato():
     service, client_repo = build_service()
-    client_repo.docs.append({"id": "c-1", "user_id": "user-1", "company_name": "Bar Rossi"})
+    client_repo.docs.append(
+        {"id": "c-1", "user_id": "user-1", "company_name": "Bar Rossi"}
+    )
 
-    result = run(service.prepare_add_expense(
-        {"category": "vitto", "amount": 40, "client_name": "Rossi"}, "user-1",
-    ))
+    result = run(
+        service.prepare_add_expense(
+            {"category": "vitto", "amount": 40, "client_name": "Rossi"},
+            "user-1",
+        )
+    )
 
     assert "error" not in result
     assert result["resolved_input"]["client_id"] == "c-1"
@@ -76,9 +87,13 @@ def test_prepare_expense_risolve_il_cliente_quando_indicato():
 
 def test_prepare_expense_senza_client_name_non_cerca_alcun_cliente():
     service, client_repo = build_service()
-    client_repo.docs.append({"id": "c-1", "user_id": "user-1", "company_name": "Bar Rossi"})
+    client_repo.docs.append(
+        {"id": "c-1", "user_id": "user-1", "company_name": "Bar Rossi"}
+    )
 
-    result = run(service.prepare_add_expense({"category": "vitto", "amount": 40}, "user-1"))
+    result = run(
+        service.prepare_add_expense({"category": "vitto", "amount": 40}, "user-1")
+    )
 
     assert result["resolved_input"]["client_id"] is None
     assert result["resolved_input"]["client_name"] is None
@@ -89,9 +104,12 @@ def test_prepare_expense_con_cliente_non_trovato_non_blocca_la_spesa():
     la spesa resta 'solo tracciamento' e viene comunque preparata."""
     service, client_repo = build_service()
 
-    result = run(service.prepare_add_expense(
-        {"category": "vitto", "amount": 40, "client_name": "Cliente Inesistente"}, "user-1",
-    ))
+    result = run(
+        service.prepare_add_expense(
+            {"category": "vitto", "amount": 40, "client_name": "Cliente Inesistente"},
+            "user-1",
+        )
+    )
 
     assert "error" not in result
     assert result["resolved_input"]["client_id"] is None
@@ -100,10 +118,18 @@ def test_prepare_expense_con_cliente_non_trovato_non_blocca_la_spesa():
 
 def test_finalize_expense_scrive_il_client_id_risolto():
     service, _, expense_repo = build_service_with_expense_tracking()
-    msg = run(service._finalize_expense("user-1", {
-        "category": "vitto", "amount": 40, "date": "2026-07-21",
-        "client_id": "c-1", "client_name": "Bar Rossi",
-    }))
+    msg = run(
+        service._finalize_expense(
+            "user-1",
+            {
+                "category": "vitto",
+                "amount": 40,
+                "date": "2026-07-21",
+                "client_id": "c-1",
+                "client_name": "Bar Rossi",
+            },
+        )
+    )
 
     assert msg.startswith("✅")
     assert "Bar Rossi" in msg
@@ -113,9 +139,16 @@ def test_finalize_expense_scrive_il_client_id_risolto():
 
 def test_finalize_expense_senza_client_id_resta_none():
     service, _, expense_repo = build_service_with_expense_tracking()
-    msg = run(service._finalize_expense("user-1", {
-        "category": "vitto", "amount": 40, "date": "2026-07-21",
-    }))
+    msg = run(
+        service._finalize_expense(
+            "user-1",
+            {
+                "category": "vitto",
+                "amount": 40,
+                "date": "2026-07-21",
+            },
+        )
+    )
 
     assert msg.startswith("✅")
     doc = expense_repo.docs[0]
@@ -124,10 +157,17 @@ def test_finalize_expense_senza_client_id_resta_none():
 
 def test_finalize_expense_avvisa_se_cliente_non_trovato():
     service, _, expense_repo = build_service_with_expense_tracking()
-    msg = run(service._finalize_expense("user-1", {
-        "category": "vitto", "amount": 40, "date": "2026-07-21",
-        "client_not_found": "Cliente Inesistente",
-    }))
+    msg = run(
+        service._finalize_expense(
+            "user-1",
+            {
+                "category": "vitto",
+                "amount": 40,
+                "date": "2026-07-21",
+                "client_not_found": "Cliente Inesistente",
+            },
+        )
+    )
 
     assert msg.startswith("✅")  # la spesa viene comunque registrata
     assert "non trovato" in msg
@@ -141,21 +181,41 @@ def test_client_id_non_e_modificabile_dal_browser_su_execute_action():
     impostare un client_id diverso, execute_confirmed_action deve ignorarlo
     e usare solo quello già risolto server-side in resolved_params."""
     service, client_repo, expense_repo = build_service_with_expense_tracking()
-    client_repo.docs.append({"id": "c-1", "user_id": "user-1", "company_name": "Bar Rossi"})
+    client_repo.docs.append(
+        {"id": "c-1", "user_id": "user-1", "company_name": "Bar Rossi"}
+    )
 
-    run(service.action_log_repo.insert({
-        "id": "log-1", "user_id": "user-1", "tool_name": "add_expense", "status": "in_attesa",
-        "resolved_params": {
-            "category": "vitto", "amount": 40, "date": "2026-07-21",
-            "client_id": "c-1", "client_name": "Bar Rossi",
-        },
-    }))
+    run(
+        service.action_log_repo.insert(
+            {
+                "id": "log-1",
+                "user_id": "user-1",
+                "tool_name": "add_expense",
+                "status": "in_attesa",
+                "resolved_params": {
+                    "category": "vitto",
+                    "amount": 40,
+                    "date": "2026-07-21",
+                    "client_id": "c-1",
+                    "client_name": "Bar Rossi",
+                },
+            }
+        )
+    )
 
-    run(service.execute_confirmed_action({"id": "user-1"}, {
-        "tool_name": "add_expense",
-        "resolved_input": {"client_id": "c-999-manomesso", "amount": 40},  # tentativo di manomissione
-        "log_id": "log-1",
-    }))
+    run(
+        service.execute_confirmed_action(
+            {"id": "user-1"},
+            {
+                "tool_name": "add_expense",
+                "resolved_input": {
+                    "client_id": "c-999-manomesso",
+                    "amount": 40,
+                },  # tentativo di manomissione
+                "log_id": "log-1",
+            },
+        )
+    )
 
     doc = expense_repo.docs[0]
     assert doc["client_id"] == "c-1"  # non "c-999-manomesso"
@@ -163,4 +223,5 @@ def test_client_id_non_e_modificabile_dal_browser_su_execute_action():
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

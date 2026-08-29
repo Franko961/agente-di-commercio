@@ -12,16 +12,22 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_health_alert_filtering.py -v
 """
+
 import sys
 
 sys.path.insert(0, ".")
 
-from services.startup_service import _endpoint_problems, ALERT_MIN_SAMPLE_SIZE, ALERT_ERROR_RATE_THRESHOLD_PCT
+from services.startup_service import (
+    ALERT_MIN_SAMPLE_SIZE,
+    _endpoint_problems,
+)
 
 
 def _endpoint(method, path, count, error_count, status_class="status_4xx"):
     return {
-        "method": method, "path": path, "count": count,
+        "method": method,
+        "path": path,
+        "count": count,
         "status_4xx": error_count if status_class == "status_4xx" else 0,
         "status_5xx": error_count if status_class == "status_5xx" else 0,
         "error_rate_pct": round(error_count / count * 100, 1),
@@ -61,7 +67,14 @@ def test_sotto_soglia_non_genera_comunque_alert():
 
 
 def test_campione_troppo_piccolo_non_genera_alert():
-    endpoints = [_endpoint("POST", "/api/orders", count=ALERT_MIN_SAMPLE_SIZE - 1, error_count=ALERT_MIN_SAMPLE_SIZE - 1)]
+    endpoints = [
+        _endpoint(
+            "POST",
+            "/api/orders",
+            count=ALERT_MIN_SAMPLE_SIZE - 1,
+            error_count=ALERT_MIN_SAMPLE_SIZE - 1,
+        )
+    ]
     assert _endpoint_problems(endpoints) == []
 
 
@@ -77,4 +90,5 @@ def test_piu_endpoint_filtra_solo_quello_benigno():
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

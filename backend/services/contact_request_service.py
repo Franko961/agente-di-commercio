@@ -1,12 +1,13 @@
 import html
 import logging
+from typing import Optional
 
 from fastapi import HTTPException
 
-from core.utils import gen_id, now_iso
-from core.exceptions import ValidationAppError
 from core.config import CONTACT_NOTIFY_EMAIL
+from core.exceptions import ValidationAppError
 from core.rate_limit import check_and_record
+from core.utils import gen_id, now_iso
 from repositories.contact_request_repository import contact_request_repository
 from services.email_service import send_email
 
@@ -17,14 +18,18 @@ class ContactRequestService:
     def __init__(self, repo=contact_request_repository):
         self.repo = repo
 
-    async def create(self, payload, ip_address: str = None) -> dict:
+    async def create(self, payload, ip_address: Optional[str] = None) -> dict:
         # Stesso limite anti-abuso già usato per il form richiesta demo (vedi
         # demo_request_service): senza, chiunque potrebbe riempire la casella
         # info@salesfly.it di messaggi automatizzati.
         if ip_address:
-            ip_ok = await check_and_record("contact_request_ip", ip_address, max_attempts=5, window_minutes=60)
+            ip_ok = await check_and_record(
+                "contact_request_ip", ip_address, max_attempts=5, window_minutes=60
+            )
             if not ip_ok:
-                raise HTTPException(429, "Troppe richieste da questo indirizzo, riprova più tardi.")
+                raise HTTPException(
+                    429, "Troppe richieste da questo indirizzo, riprova più tardi."
+                )
 
         if not payload.privacy_consent:
             raise ValidationAppError(

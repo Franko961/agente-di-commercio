@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, Body, Request
-from core.security import get_current_user, get_client_ip, forbid_demo_write
+from fastapi import APIRouter, Body, Depends, Request
+
+from core.security import forbid_demo_write, get_client_ip, get_current_user
 from services.subscription_service import subscription_service
 
 router = APIRouter(prefix="/api/subscription", tags=["subscription"])
@@ -16,18 +17,24 @@ async def subscription_status(user=Depends(get_current_user)):
 
 
 @router.post("/create-stripe-session")
-async def create_stripe_session(payload: dict = Body(...), user=Depends(forbid_demo_write)):
+async def create_stripe_session(
+    payload: dict = Body(...), user=Depends(forbid_demo_write)
+):
     return await subscription_service.create_stripe_session(user, payload)
 
 
 @router.post("/checkout-expired")
-async def checkout_expired(payload: dict = Body(...), request: Request = None):
+# FastAPI riconosce l'iniezione automatica di Request solo con l'annotazione
+# esatta `Request` (vedi lo stesso caso in routers/admin.py::make_admin).
+async def checkout_expired(payload: dict = Body(...), request: Request = None):  # type: ignore[assignment]
     """Endpoint pubblico: permette di avviare un pagamento Stripe a un utente il cui
     trial è scaduto e che quindi non può più autenticarsi. Richiede email+password
     nel body per verificare che sia il titolare dell'account (vedi payload atteso:
     email, password, plan, return_url)."""
     ip_address = get_client_ip(request) if request else None
-    return await subscription_service.create_checkout_for_expired_account(payload, ip_address=ip_address)
+    return await subscription_service.create_checkout_for_expired_account(
+        payload, ip_address=ip_address
+    )
 
 
 @router.post("/stripe-webhook")

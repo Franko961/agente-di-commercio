@@ -9,8 +9,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_make_admin_hardening.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 from fastapi import HTTPException
@@ -71,7 +72,11 @@ def test_secret_sbagliato_rifiutato_e_tracciato(monkeypatch):
     service = build_service(monkeypatch)
 
     with pytest.raises(HTTPException) as exc_info:
-        run(service.make_admin("franco@test.it", "secret-sbagliato", ip_address="1.2.3.4"))
+        run(
+            service.make_admin(
+                "franco@test.it", "secret-sbagliato", ip_address="1.2.3.4"
+            )
+        )
     assert exc_info.value.status_code == 403
 
     # Il tentativo fallito lascia comunque una traccia in audit, distinta

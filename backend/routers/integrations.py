@@ -1,9 +1,11 @@
 import logging
+from typing import Optional
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import RedirectResponse
 
-from core.security import get_current_user, forbid_demo_write
 from core.config import FRONTEND_URL
+from core.security import forbid_demo_write, get_current_user
 from services.google_calendar_service import google_calendar_service
 
 logger = logging.getLogger(__name__)
@@ -24,13 +26,21 @@ async def connect(user=Depends(forbid_demo_write)):
 
 
 @router.get("/callback")
-async def callback(code: str = None, state: str = None, error: str = None):
+async def callback(
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    error: Optional[str] = None,
+):
     """Google reindirizza qui il browser al termine del consenso (nessuna auth cookie richiesta:
     l'identità dell'utente è nello state firmato generato da /connect)."""
     if error:
-        return RedirectResponse(f"{FRONTEND_URL}/app/impostazioni?gcal=error&reason={error}")
+        return RedirectResponse(
+            f"{FRONTEND_URL}/app/impostazioni?gcal=error&reason={error}"
+        )
     if not code or not state:
-        return RedirectResponse(f"{FRONTEND_URL}/app/impostazioni?gcal=error&reason=missing_params")
+        return RedirectResponse(
+            f"{FRONTEND_URL}/app/impostazioni?gcal=error&reason=missing_params"
+        )
     try:
         await google_calendar_service.handle_oauth_callback(code, state)
     except ValueError as e:

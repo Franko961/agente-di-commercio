@@ -9,12 +9,11 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_employee_ai_summary.py -v
 """
+
+import asyncio
 import sys
 import types
-import asyncio
 from types import SimpleNamespace
-
-import pytest
 
 sys.path.insert(0, ".")
 
@@ -58,12 +57,24 @@ def install_fake_anthropic(messages_holder):
     return fake_module
 
 
-EMPLOYEE = {"id": "emp-1", "name": "Mario", "surname": "Rossi", "role": "Autista", "employment_status": "attivo"}
+EMPLOYEE = {
+    "id": "emp-1",
+    "name": "Mario",
+    "surname": "Rossi",
+    "role": "Autista",
+    "employment_status": "attivo",
+}
 SUMMARY = {
     "ferie": {"spettanti": 26, "godute": 5, "residue": 21},
     "permessi": {"ore_richieste": 4, "ore_approvate": 4},
     "malattie": {"giorni": 3, "richieste": []},
-    "kpi": {"presenze_stimate": 150, "assenze_giorni": 8, "ferie_giorni": 5, "permessi_ore": 4, "malattie_giorni": 3},
+    "kpi": {
+        "presenze_stimate": 150,
+        "assenze_giorni": 8,
+        "ferie_giorni": 5,
+        "permessi_ore": 4,
+        "malattie_giorni": 3,
+    },
     "current_status": None,
 }
 
@@ -76,12 +87,20 @@ def test_generate_employee_summary_senza_api_key(monkeypatch):
 
 def test_generate_employee_summary_happy_path(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-    messages = FakeMessages(responses=[make_text_message("Mario ha 3 giorni di malattia quest'anno, ferie quasi esaurite.")])
+    messages = FakeMessages(
+        responses=[
+            make_text_message(
+                "Mario ha 3 giorni di malattia quest'anno, ferie quasi esaurite."
+            )
+        ]
+    )
     install_fake_anthropic({"messages": messages})
 
     result = run(ai_service_mod.ai_service.generate_employee_summary(EMPLOYEE, SUMMARY))
 
-    assert result == {"summary": "Mario ha 3 giorni di malattia quest'anno, ferie quasi esaurite."}
+    assert result == {
+        "summary": "Mario ha 3 giorni di malattia quest'anno, ferie quasi esaurite."
+    }
     assert len(messages.calls) == 1
 
 
@@ -95,7 +114,7 @@ def test_generate_employee_summary_include_nome_e_numeri_nel_prompt(monkeypatch)
     prompt = messages.calls[0]["messages"][0]["content"]
     assert "Mario Rossi" in prompt
     assert "21" in prompt  # ferie residue
-    assert "3" in prompt   # giorni malattia
+    assert "3" in prompt  # giorni malattia
 
 
 def test_generate_employee_summary_non_menziona_diagnosi_nel_system_prompt(monkeypatch):

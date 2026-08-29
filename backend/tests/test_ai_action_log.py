@@ -9,20 +9,21 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     ANTHROPIC_API_KEY=test python -m pytest test_ai_action_log.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 sys.path.insert(0, ".")
 
 from tests.test_ai_tool_forcing import (
+    FAKE_USER,
+    Payload,
     build_service,
     build_service_with_offer,
     install_fake_anthropic,
     make_message,
     make_text_block,
     make_tool_use_block,
-    Payload,
-    FAKE_USER,
 )
 
 
@@ -36,7 +37,11 @@ def test_tool_diretto_eseguito_subito_viene_loggato_come_eseguita():
     responses = {
         "responses": [
             make_message(
-                [make_tool_use_block("add_client", {"company_name": "Bar Rossi"}, "tu_1")],
+                [
+                    make_tool_use_block(
+                        "add_client", {"company_name": "Bar Rossi"}, "tu_1"
+                    )
+                ],
                 stop_reason="tool_use",
             ),
             make_message(
@@ -72,12 +77,18 @@ def test_offerta_proposta_resta_in_attesa_finche_non_confermata():
     responses = {
         "responses": [
             make_message(
-                [make_tool_use_block(
-                    "add_offer",
-                    {"client_name": "Rossi", "mandante_name": "Paginesi",
-                     "total_amount": 1500, "accepted": False},
-                    "tu_1",
-                )],
+                [
+                    make_tool_use_block(
+                        "add_offer",
+                        {
+                            "client_name": "Rossi",
+                            "mandante_name": "Paginesi",
+                            "total_amount": 1500,
+                            "accepted": False,
+                        },
+                        "tu_1",
+                    )
+                ],
                 stop_reason="tool_use",
             ),
             make_message(
@@ -126,11 +137,17 @@ def test_offerta_proposta_e_poi_annullata():
     responses = {
         "responses": [
             make_message(
-                [make_tool_use_block(
-                    "add_offer",
-                    {"client_name": "Rossi", "mandante_name": "Paginesi", "total_amount": 800},
-                    "tu_1",
-                )],
+                [
+                    make_tool_use_block(
+                        "add_offer",
+                        {
+                            "client_name": "Rossi",
+                            "mandante_name": "Paginesi",
+                            "total_amount": 800,
+                        },
+                        "tu_1",
+                    )
+                ],
                 stop_reason="tool_use",
             ),
             make_message(
@@ -155,12 +172,26 @@ def test_offerta_proposta_e_poi_annullata():
 
 def test_list_actions_filtra_per_utente_e_rispetta_i_filtri_del_fake_repo():
     service, _ = build_service()
-    run(service.action_log_repo.insert({
-        "id": "l1", "user_id": "user-1", "tool_name": "add_client", "status": "eseguita",
-    }))
-    run(service.action_log_repo.insert({
-        "id": "l2", "user_id": "user-2", "tool_name": "add_client", "status": "eseguita",
-    }))
+    run(
+        service.action_log_repo.insert(
+            {
+                "id": "l1",
+                "user_id": "user-1",
+                "tool_name": "add_client",
+                "status": "eseguita",
+            }
+        )
+    )
+    run(
+        service.action_log_repo.insert(
+            {
+                "id": "l2",
+                "user_id": "user-2",
+                "tool_name": "add_client",
+                "status": "eseguita",
+            }
+        )
+    )
     results = run(service.list_actions("user-1"))
     assert len(results) == 1
     assert results[0]["id"] == "l1"

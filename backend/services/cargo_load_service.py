@@ -1,15 +1,18 @@
-from core.utils import gen_id, now_iso
 from core.exceptions import NotFoundError, ValidationAppError
+from core.utils import gen_id, now_iso
 from repositories.cargo_load_repository import cargo_load_repository
-from repositories.vehicle_repository import vehicle_repository
 from repositories.client_repository import client_repository
 from repositories.order_repository import order_repository
+from repositories.vehicle_repository import vehicle_repository
 
 
 class CargoLoadService:
     def __init__(
-        self, repo=cargo_load_repository, vehicles=vehicle_repository,
-        clients=client_repository, orders=order_repository,
+        self,
+        repo=cargo_load_repository,
+        vehicles=vehicle_repository,
+        clients=client_repository,
+        orders=order_repository,
     ):
         self.repo = repo
         self.vehicles = vehicles
@@ -32,7 +35,9 @@ class CargoLoadService:
         vehicle = await self.vehicles.find_one(payload.vehicle_id, user["id"])
         if not vehicle:
             raise ValidationAppError("Mezzo non valido")
-        await self._validate_optional_links(user["id"], payload.client_id, payload.order_id)
+        await self._validate_optional_links(
+            user["id"], payload.client_id, payload.order_id
+        )
         doc = {
             "id": gen_id(),
             "user_id": user["id"],
@@ -59,28 +64,38 @@ class CargoLoadService:
         vehicle = await self.vehicles.find_one(payload.vehicle_id, user["id"])
         if not vehicle:
             raise ValidationAppError("Mezzo non valido")
-        await self._validate_optional_links(user["id"], payload.client_id, payload.order_id)
-        ok = await self.repo.update(lid, user["id"], {
-            "vehicle_id": payload.vehicle_id,
-            "vehicle_plate": vehicle["plate"],
-            "date": payload.date.isoformat(),
-            "description": payload.description.strip(),
-            "destination": (payload.destination or "").strip(),
-            "notes": (payload.notes or "").strip(),
-            "client_id": payload.client_id,
-            "order_id": payload.order_id,
-            "quantity": payload.quantity,
-            "colli": payload.colli,
-            "peso": payload.peso,
-            "status": payload.status,
-        })
+        await self._validate_optional_links(
+            user["id"], payload.client_id, payload.order_id
+        )
+        ok = await self.repo.update(
+            lid,
+            user["id"],
+            {
+                "vehicle_id": payload.vehicle_id,
+                "vehicle_plate": vehicle["plate"],
+                "date": payload.date.isoformat(),
+                "description": payload.description.strip(),
+                "destination": (payload.destination or "").strip(),
+                "notes": (payload.notes or "").strip(),
+                "client_id": payload.client_id,
+                "order_id": payload.order_id,
+                "quantity": payload.quantity,
+                "colli": payload.colli,
+                "peso": payload.peso,
+                "status": payload.status,
+            },
+        )
         if not ok:
             raise NotFoundError("Carico non trovato")
 
-    async def sign_load(self, user: dict, lid: str, signature: str, signer_name: str) -> None:
+    async def sign_load(
+        self, user: dict, lid: str, signature: str, signer_name: str
+    ) -> None:
         """Firma di conferma consegna: come offer_service.sign_offer, porta
         anche lo stato a 'consegnato' (vedi cargo_load_repository.sign)."""
-        matched = await self.repo.sign(lid, user["id"], signature, signer_name.strip(), now_iso())
+        matched = await self.repo.sign(
+            lid, user["id"], signature, signer_name.strip(), now_iso()
+        )
         if not matched:
             raise NotFoundError("Carico non trovato")
 

@@ -1,16 +1,23 @@
 import json
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from core.security import get_current_user, forbid_demo_write, require_module, get_client_ip
-from core.rate_limit import check_and_record
+
 from core.config import FRONTEND_URL
+from core.rate_limit import check_and_record
+from core.security import (
+    forbid_demo_write,
+    get_client_ip,
+    get_current_user,
+    require_module,
+)
+from models.employee import EmployeeActiveUpdate, EmployeeIn
+from services.ai_service import ai_service
+from services.attendance_service import attendance_service
+from services.employee_activity_service import employee_activity_service
 from services.employee_service import employee_service
 from services.leave_request_service import leave_request_service
-from services.vehicle_service import vehicle_service
 from services.vehicle_deadline_service import vehicle_deadline_service
-from services.employee_activity_service import employee_activity_service
-from services.attendance_service import attendance_service
-from services.ai_service import ai_service
-from models.employee import EmployeeIn, EmployeeActiveUpdate
+from services.vehicle_service import vehicle_service
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
 
@@ -28,13 +35,17 @@ async def create_employee(payload: EmployeeIn, user=Depends(forbid_demo_write)):
 
 
 @router.put("/{eid}", dependencies=[MODULE_DEP])
-async def update_employee(eid: str, payload: EmployeeIn, user=Depends(forbid_demo_write)):
+async def update_employee(
+    eid: str, payload: EmployeeIn, user=Depends(forbid_demo_write)
+):
     await employee_service.update_employee(user, eid, payload)
     return {"ok": True}
 
 
 @router.patch("/{eid}/active", dependencies=[MODULE_DEP])
-async def set_employee_active(eid: str, payload: EmployeeActiveUpdate, user=Depends(forbid_demo_write)):
+async def set_employee_active(
+    eid: str, payload: EmployeeActiveUpdate, user=Depends(forbid_demo_write)
+):
     await employee_service.set_active(user, eid, payload.active)
     return {"ok": True}
 
@@ -70,7 +81,9 @@ async def get_employee_detail(eid: str, user=Depends(get_current_user)):
     vehicle = await vehicle_service.find_assigned(user, eid)
     next_revisione = None
     if vehicle:
-        next_revisione = await vehicle_deadline_service.next_deadline(user, vehicle["id"], "revisione")
+        next_revisione = await vehicle_deadline_service.next_deadline(
+            user, vehicle["id"], "revisione"
+        )
     return {
         "employee": employee,
         "summary": summary,
@@ -84,7 +97,9 @@ async def get_employee_activity(eid: str, user=Depends(get_current_user)):
     return await employee_activity_service.get_activity(user, eid)
 
 
-@router.get("/{eid}/ai-summary", dependencies=[MODULE_DEP, Depends(require_module("ai"))])
+@router.get(
+    "/{eid}/ai-summary", dependencies=[MODULE_DEP, Depends(require_module("ai"))]
+)
 async def get_employee_ai_summary(eid: str, user=Depends(get_current_user)):
     """Riepilogo in linguaggio naturale generato su richiesta (non
     precalcolato): richiede sia il modulo Personale sia il modulo AI
@@ -94,7 +109,9 @@ async def get_employee_ai_summary(eid: str, user=Depends(get_current_user)):
     pagamento al modello — vedi ai_service.generate_employee_summary,
     che degrada senza errore (summary: None) se ANTHROPIC_API_KEY non è
     configurata."""
-    ok = await check_and_record("ai_employee_summary", user["id"], max_attempts=20, window_minutes=60)
+    ok = await check_and_record(
+        "ai_employee_summary", user["id"], max_attempts=20, window_minutes=60
+    )
     if not ok:
         raise HTTPException(429, "Troppe richieste, riprova più tardi")
     employee = await employee_service.get_employee(user, eid)
@@ -111,9 +128,13 @@ async def get_employee_by_token(token: str, request: Request):
     senza, chiunque potrebbe martellare l'endpoint provando molti token
     diversi da un unico indirizzo."""
     ip_address = get_client_ip(request)
-    ok = await check_and_record("employee_by_token_ip", ip_address, max_attempts=30, window_minutes=60)
+    ok = await check_and_record(
+        "employee_by_token_ip", ip_address, max_attempts=30, window_minutes=60
+    )
     if not ok:
-        raise HTTPException(429, "Troppe richieste da questo indirizzo, riprova più tardi.")
+        raise HTTPException(
+            429, "Troppe richieste da questo indirizzo, riprova più tardi."
+        )
     employee = await employee_service.get_by_token(token)
     return {"name": employee["name"]}
 
@@ -125,11 +146,17 @@ async def get_employee_manifest(token: str, request: Request):
     l'intera app invece di questa pagina su iOS). Pubblico apposta, stesso
     principio e stesso limite per IP di GET /by-token qui sopra."""
     ip_address = get_client_ip(request)
-    ok = await check_and_record("employee_by_token_ip", ip_address, max_attempts=30, window_minutes=60)
+    ok = await check_and_record(
+        "employee_by_token_ip", ip_address, max_attempts=30, window_minutes=60
+    )
     if not ok:
-        raise HTTPException(429, "Troppe richieste da questo indirizzo, riprova più tardi.")
+        raise HTTPException(
+            429, "Troppe richieste da questo indirizzo, riprova più tardi."
+        )
     manifest = await employee_service.get_manifest_for_token(token, FRONTEND_URL)
-    return Response(content=json.dumps(manifest), media_type="application/manifest+json")
+    return Response(
+        content=json.dumps(manifest), media_type="application/manifest+json"
+    )
 
 
 @router.post("/{eid}/attendance/pin", dependencies=[MODULE_DEP])

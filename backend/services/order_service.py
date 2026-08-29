@@ -1,9 +1,15 @@
+from typing import Optional
+
+from core.exceptions import ConflictError, NotFoundError
 from core.utils import gen_id, now_iso, now_local
-from core.exceptions import NotFoundError, ConflictError
-from repositories.order_repository import order_repository
-from repositories.mandante_repository import mandante_repository
 from repositories.client_repository import client_repository
-from services.commission_service import calc_offer_total, get_commission_rate, commission_service
+from repositories.mandante_repository import mandante_repository
+from repositories.order_repository import order_repository
+from services.commission_service import (
+    calc_offer_total,
+    commission_service,
+    get_commission_rate,
+)
 
 # Stati che comportano la rimozione della provvigione collegata: un ordine
 # annullato o reso non rappresenta più fatturato reale, quindi non deve più
@@ -22,12 +28,19 @@ _MAX_AUTO_NUMBER_RETRIES = 5
 
 
 class OrderService:
-    def __init__(self, repo=order_repository, mandante_repo=mandante_repository, client_repo=client_repository):
+    def __init__(
+        self,
+        repo=order_repository,
+        mandante_repo=mandante_repository,
+        client_repo=client_repository,
+    ):
         self.repo = repo
         self.mandante_repo = mandante_repo
         self.client_repo = client_repo
 
-    async def _validate_ownership(self, user_id: str, client_id: str, mandante_id: str) -> None:
+    async def _validate_ownership(
+        self, user_id: str, client_id: str, mandante_id: str
+    ) -> None:
         """client_id/mandante_id arrivano dal payload dell'utente: senza
         verificarne l'appartenenza, un id di un altro utente (indovinato o
         enumerato) verrebbe comunque accettato — nessuna lettura successiva
@@ -54,7 +67,7 @@ class OrderService:
             o["commission"] = by_order_id.get(o["id"])
         return orders
 
-    async def list_orders(self, user: dict, mandante_id: str = None) -> list:
+    async def list_orders(self, user: dict, mandante_id: Optional[str] = None) -> list:
         orders = await self.repo.find_many(user["id"], mandante_id)
         return await self._attach_commissions(user["id"], orders)
 
@@ -74,22 +87,33 @@ class OrderService:
         # A differenza delle offerte (bozza → inviata → accettata), un ordine è già
         # un fatto compiuto: la provvigione viene generata subito alla creazione,
         # con la stessa logica usata per un'offerta che passa ad "accettata".
-        mandante = await self.mandante_repo.find_one(order_doc["mandante_id"], user["id"])
+        mandante = await self.mandante_repo.find_one(
+            order_doc["mandante_id"], user["id"]
+        )
         sale_type = order_doc.get("sale_type", "nuovo")
         rate = get_commission_rate(mandante, sale_type) if mandante else 5.0
         amount = order_doc.get("total", 0) * rate / 100
         comm = {
-            "id": gen_id(), "user_id": user["id"], "offer_id": None, "order_id": order_doc["id"],
-            "client_id": order_doc["client_id"], "mandante_id": order_doc["mandante_id"],
-            "amount": round(amount, 2), "rate": rate, "base_amount": order_doc.get("total", 0),
-            "sale_type": sale_type, "status": "maturato",
+            "id": gen_id(),
+            "user_id": user["id"],
+            "offer_id": None,
+            "order_id": order_doc["id"],
+            "client_id": order_doc["client_id"],
+            "mandante_id": order_doc["mandante_id"],
+            "amount": round(amount, 2),
+            "rate": rate,
+            "base_amount": order_doc.get("total", 0),
+            "sale_type": sale_type,
+            "status": "maturato",
             # Vedi commission_service.check_and_award_bonus per il perché
             # "period" va calcolato in ora italiana e non UTC.
             "period": now_local().strftime("%Y-%m"),
             "created_at": now_iso(),
         }
         await commission_service.repo.insert(comm)
-        await commission_service.check_and_award_bonus(user["id"], order_doc["mandante_id"])
+        await commission_service.check_and_award_bonus(
+            user["id"], order_doc["mandante_id"]
+        )
 
     async def _remove_commission_for_order(self, user_id: str, order: dict) -> None:
         """Rimuove la provvigione collegata a un ordine e ricalcola i bonus
@@ -98,11 +122,21 @@ class OrderService:
         await commission_service.repo.delete_by_order(order["id"], user_id)
         await commission_service.check_and_award_bonus(user_id, order["mandante_id"])
 
-    async def _create_order_doc(self, user: dict, client_id: str, mandante_id: str, items: list,
-                                 sale_type: str = "nuovo", notes: str = "", source_offer_id: str = None,
-                                 numero_ordine: str = None, status: str = "confermato",
-                                 payment_status: str = "non_pagato", expected_delivery_date: str = None,
-                                 delivery_date: str = None) -> dict:
+    async def _create_order_doc(
+        self,
+        user: dict,
+        client_id: str,
+        mandante_id: str,
+        items: list,
+        sale_type: str = "nuovo",
+        notes: str = "",
+        source_offer_id: Optional[str] = None,
+        numero_ordine: Optional[str] = None,
+        status: str = "confermato",
+        payment_status: str = "non_pagato",
+        expected_delivery_date: Optional[str] = None,
+        delivery_date: Optional[str] = None,
+    ) -> dict:
         total = calc_offer_total(items)
         auto_generate = not numero_ordine
 
@@ -111,11 +145,21 @@ class OrderService:
             if auto_generate:
                 numero_ordine = await self.repo.next_order_number(user["id"])
             doc = {
-                "id": gen_id(), "user_id": user["id"], "client_id": client_id, "mandante_id": mandante_id,
-                "items": items, "sale_type": sale_type, "notes": notes, "total": total,
-                "numero_ordine": numero_ordine, "status": status, "payment_status": payment_status,
-                "expected_delivery_date": expected_delivery_date, "delivery_date": delivery_date,
-                "source_offer_id": source_offer_id, "created_at": now_iso(),
+                "id": gen_id(),
+                "user_id": user["id"],
+                "client_id": client_id,
+                "mandante_id": mandante_id,
+                "items": items,
+                "sale_type": sale_type,
+                "notes": notes,
+                "total": total,
+                "numero_ordine": numero_ordine,
+                "status": status,
+                "payment_status": payment_status,
+                "expected_delivery_date": expected_delivery_date,
+                "delivery_date": delivery_date,
+                "source_offer_id": source_offer_id,
+                "created_at": now_iso(),
             }
             try:
                 await self.repo.insert(doc)
@@ -137,11 +181,18 @@ class OrderService:
 
     async def create_order(self, user: dict, payload) -> dict:
         data = payload.model_dump()
-        await self._validate_ownership(user["id"], data["client_id"], data["mandante_id"])
+        await self._validate_ownership(
+            user["id"], data["client_id"], data["mandante_id"]
+        )
         return await self._create_order_doc(
-            user, data["client_id"], data["mandante_id"], data["items"],
-            data.get("sale_type", "nuovo"), data.get("notes", ""),
-            numero_ordine=data.get("numero_ordine"), status=data.get("status", "confermato"),
+            user,
+            data["client_id"],
+            data["mandante_id"],
+            data["items"],
+            data.get("sale_type", "nuovo"),
+            data.get("notes", ""),
+            numero_ordine=data.get("numero_ordine"),
+            status=data.get("status", "confermato"),
             payment_status=data.get("payment_status", "non_pagato"),
             expected_delivery_date=data.get("expected_delivery_date"),
             delivery_date=data.get("delivery_date"),
@@ -158,8 +209,12 @@ class OrderService:
             return existing
         try:
             return await self._create_order_doc(
-                user, offer["client_id"], offer["mandante_id"], offer.get("items", []),
-                offer.get("sale_type", "nuovo"), offer.get("notes", ""),
+                user,
+                offer["client_id"],
+                offer["mandante_id"],
+                offer.get("items", []),
+                offer.get("sale_type", "nuovo"),
+                offer.get("notes", ""),
                 source_offer_id=offer["id"],
             )
         except ConflictError:
@@ -193,10 +248,14 @@ class OrderService:
         old_mandante_id = existing["mandante_id"]
 
         data = payload.model_dump()
-        await self._validate_ownership(user["id"], data["client_id"], data["mandante_id"])
+        await self._validate_ownership(
+            user["id"], data["client_id"], data["mandante_id"]
+        )
         data["total"] = calc_offer_total(data["items"])
         if not data.get("numero_ordine"):
-            data["numero_ordine"] = existing.get("numero_ordine") or await self.repo.next_order_number(user["id"])
+            data["numero_ordine"] = existing.get(
+                "numero_ordine"
+            ) or await self.repo.next_order_number(user["id"])
         await self.repo.update(oid, user["id"], data)
 
         new_mandante_id = data["mandante_id"]
@@ -253,7 +312,9 @@ class OrderService:
         await self.repo.delete(oid, user["id"])
         if order:
             await commission_service.repo.delete_by_order(oid, user["id"])
-            await commission_service.check_and_award_bonus(user["id"], order["mandante_id"])
+            await commission_service.check_and_award_bonus(
+                user["id"], order["mandante_id"]
+            )
 
 
 order_service = OrderService()

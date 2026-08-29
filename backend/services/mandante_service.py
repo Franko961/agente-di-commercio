@@ -1,5 +1,5 @@
-from core.utils import gen_id, now_iso
 from core.exceptions import NotFoundError
+from core.utils import gen_id, now_iso
 from repositories.mandante_repository import mandante_repository
 
 
@@ -11,7 +11,12 @@ class MandanteService:
         return await self.repo.find_many(user["id"])
 
     async def create_mandante(self, user: dict, payload) -> dict:
-        doc = {"id": gen_id(), "user_id": user["id"], **payload.model_dump(), "created_at": now_iso()}
+        doc = {
+            "id": gen_id(),
+            "user_id": user["id"],
+            **payload.model_dump(),
+            "created_at": now_iso(),
+        }
         return await self.repo.insert(doc)
 
     async def update_mandante(self, user: dict, mid: str, payload) -> None:

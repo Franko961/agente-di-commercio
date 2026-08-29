@@ -9,8 +9,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_export_service_rate_limit.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 from fastapi import HTTPException
@@ -64,9 +65,15 @@ def test_export_permesso_normalmente(monkeypatch):
     assert response.status_code == 200
 
 
-@pytest.mark.parametrize("method_name", [
-    "export_clients", "export_offers", "export_commissions", "export_leads",
-])
+@pytest.mark.parametrize(
+    "method_name",
+    [
+        "export_clients",
+        "export_offers",
+        "export_commissions",
+        "export_leads",
+    ],
+)
 def test_export_bloccato_da_troppe_richieste(monkeypatch, method_name):
     monkeypatch.setattr(export_mod, "db", FakeDb())
     monkeypatch.setattr(export_mod, "check_and_record", _deny_always)

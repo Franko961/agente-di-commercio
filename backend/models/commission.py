@@ -1,6 +1,12 @@
 from typing import Optional
+
 from pydantic import BaseModel, Field
-from core.validation_limits import MAX_MONETARY_TARGET, SHORT_TEXT_MAX_LENGTH, LONG_TEXT_MAX_LENGTH
+
+from core.validation_limits import (
+    LONG_TEXT_MAX_LENGTH,
+    MAX_MONETARY_TARGET,
+    SHORT_TEXT_MAX_LENGTH,
+)
 
 
 class ManualCommissionIn(BaseModel):
@@ -18,6 +24,7 @@ class ManualCommissionIn(BaseModel):
     provvigioni calcolate dagli ordini (vedi models Commission esistente),
     per restare comparabili quando le due liste vengono unite (vedi
     commission_service.get_effective_commissions)."""
+
     period: str = Field(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")  # "YYYY-MM"
     # gt=0, non ge=0: una provvigione manuale da 0€ non ha significato
     # operativo, e con il CRUD per id (POST/PUT/DELETE) l'eliminazione ha

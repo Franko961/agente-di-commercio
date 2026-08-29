@@ -6,6 +6,7 @@ La chiave Fernet viene derivata deterministicamente da JWT_SECRET tramite SHA-25
 così non serve gestire un'ulteriore variabile d'ambiente segreta su Railway:
 JWT_SECRET è già obbligatoria e già trattata come segreto critico.
 """
+
 import base64
 import hashlib
 

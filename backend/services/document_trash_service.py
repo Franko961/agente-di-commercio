@@ -24,7 +24,9 @@ class DocumentTrashService:
     conservazione, il file e il record vengono cancellati per davvero."""
 
     async def purge_expired(self, retention_days: int) -> int:
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=retention_days)).isoformat()
+        cutoff = (
+            datetime.now(timezone.utc) - timedelta(days=retention_days)
+        ).isoformat()
         purged = 0
         for collection_name in TRASH_COLLECTIONS:
             collection = db[collection_name]
@@ -46,7 +48,9 @@ class DocumentTrashService:
                         # rimosso: meglio ritentare al giro successivo che
                         # perdere il record e lasciare il file orfano per
                         # sempre (l'unico modo per ritrovarlo, a quel punto).
-                        logger.warning(f"Pulizia cestino documenti: impossibile cancellare file S3 {storage_path}: {e}")
+                        logger.warning(
+                            f"Pulizia cestino documenti: impossibile cancellare file S3 {storage_path}: {e}"
+                        )
                         continue
                 ids_to_delete.append(doc["id"])
 

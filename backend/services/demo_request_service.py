@@ -1,15 +1,16 @@
 import html
 import logging
 import secrets
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from fastapi import HTTPException
 
-from core.utils import gen_id, now_iso
-from core.security import hash_password, generate_reset_token
+from core.config import ADMIN_NOTIFY_EMAIL, FRONTEND_URL, TRIAL_DAYS
 from core.exceptions import ValidationAppError
-from core.config import FRONTEND_URL, ADMIN_NOTIFY_EMAIL, TRIAL_DAYS
 from core.rate_limit import check_and_record
+from core.security import generate_reset_token, hash_password
+from core.utils import gen_id, now_iso
 from repositories.demo_request_repository import demo_request_repository
 from repositories.user_repository import user_repository
 from services.email_service import send_email
@@ -22,7 +23,9 @@ logger = logging.getLogger(__name__)
 # così restano tracciate le condizioni esatte accettate da ciascun utente nel tempo.
 PRIVACY_POLICY_VERSION = "1.0-2026-07-14"
 
-TRIAL_PLAN = "base"  # piano assegnato di default all'account di prova creato dal form demo
+TRIAL_PLAN = (
+    "base"  # piano assegnato di default all'account di prova creato dal form demo
+)
 
 
 def _generate_placeholder_secret(length: int = 32) -> str:
@@ -40,7 +43,12 @@ class DemoRequestService:
         self.repo = repo
         self.users = users
 
-    async def create(self, payload, ip_address: str = None, user_agent: str = None) -> dict:
+    async def create(
+        self,
+        payload,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+    ) -> dict:
         # Endpoint pubblico non autenticato che crea un account VERO e
         # funzionante (con dati demo già seminati) e manda un'email con il
         # link per impostare la password all'indirizzo indicato: senza un
@@ -51,9 +59,13 @@ class DemoRequestService:
         # sempre diverse, è l'IP a doversi arginare), stesso principio già
         # applicato a forgot-password in auth_service.
         if ip_address:
-            ip_ok = await check_and_record("demo_request_ip", ip_address, max_attempts=5, window_minutes=60)
+            ip_ok = await check_and_record(
+                "demo_request_ip", ip_address, max_attempts=5, window_minutes=60
+            )
             if not ip_ok:
-                raise HTTPException(429, "Troppe richieste da questo indirizzo, riprova più tardi.")
+                raise HTTPException(
+                    429, "Troppe richieste da questo indirizzo, riprova più tardi."
+                )
 
         if not payload.privacy_consent:
             raise ValidationAppError(
@@ -94,7 +106,9 @@ class DemoRequestService:
             "created_at": now_iso(),
             "plan": TRIAL_PLAN,
             "subscription_status": "trial",
-            "trial_ends_at": (datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)).isoformat(),
+            "trial_ends_at": (
+                datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)
+            ).isoformat(),
             "stripe_customer_id": None,
             "stripe_subscription_id": None,
             "paypal_subscription_id": None,
@@ -153,7 +167,9 @@ class DemoRequestService:
             html=self._admin_email_html(demo_request_doc),
         )
         if not admin_email_sent:
-            logger.warning(f"Invio email notifica admin fallito per richiesta demo di {email}")
+            logger.warning(
+                f"Invio email notifica admin fallito per richiesta demo di {email}"
+            )
 
         return {"ok": True, "setup_email_sent": setup_email_sent}
 

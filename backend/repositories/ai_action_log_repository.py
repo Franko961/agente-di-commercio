@@ -1,6 +1,7 @@
+from typing import Optional
+
 from core.database import db
 from core.utils import now_iso
-from typing import Optional
 
 
 class AiActionLogRepository:
@@ -12,10 +13,16 @@ class AiActionLogRepository:
         return doc
 
     async def update_by_id(self, log_id: str, user_id: str, data: dict) -> None:
-        await self.collection.update_one({"id": log_id, "user_id": user_id}, {"$set": data})
+        await self.collection.update_one(
+            {"id": log_id, "user_id": user_id}, {"$set": data}
+        )
 
     async def transition(
-        self, log_id: str, user_id: str, from_status: str, data: dict,
+        self,
+        log_id: str,
+        user_id: str,
+        from_status: str,
+        data: dict,
         extra_match: Optional[dict] = None,
     ) -> bool:
         """Aggiorna il log SOLO se si trova ancora in `from_status`, in
@@ -43,7 +50,7 @@ class AiActionLogRepository:
         date_to: Optional[str] = None,
         limit: int = 200,
     ) -> list:
-        query = {"user_id": user_id}
+        query: dict = {"user_id": user_id}
         if tool_name:
             query["tool_name"] = tool_name
         if status:
@@ -57,12 +64,20 @@ class AiActionLogRepository:
                 # giornata di date_to, non solo l'istante 00:00:00.
                 date_query["$lte"] = date_to + "T23:59:59.999999"
             query["created_at"] = date_query
-        return await self.collection.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
+        return (
+            await self.collection.find(query, {"_id": 0})
+            .sort("created_at", -1)
+            .to_list(limit)
+        )
 
     async def find_one(self, log_id: str, user_id: str) -> Optional[dict]:
-        return await self.collection.find_one({"id": log_id, "user_id": user_id}, {"_id": 0})
+        return await self.collection.find_one(
+            {"id": log_id, "user_id": user_id}, {"_id": 0}
+        )
 
-    async def reclaim_stale_executions(self, threshold_iso: str, result_message: str) -> int:
+    async def reclaim_stale_executions(
+        self, threshold_iso: str, result_message: str
+    ) -> int:
         """Segna come 'fallita' ogni log rimasto in 'in_esecuzione' da prima
         di `threshold_iso`: copre il caso in cui il server si sia arrestato
         (o il processo sia crashato) esattamente tra la transizione atomica
@@ -83,7 +98,13 @@ class AiActionLogRepository:
         viene toccato da questa procedura."""
         result = await self.collection.update_many(
             {"status": "in_esecuzione", "execution_started_at": {"$lt": threshold_iso}},
-            {"$set": {"status": "fallita", "result": result_message, "confirmed_at": now_iso()}},
+            {
+                "$set": {
+                    "status": "fallita",
+                    "result": result_message,
+                    "confirmed_at": now_iso(),
+                }
+            },
         )
         return result.modified_count
 

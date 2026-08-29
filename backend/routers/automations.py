@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends
-from core.security import get_current_user, forbid_demo_write, require_module
-from services.automation_service import automation_service
+
+from core.security import forbid_demo_write, get_current_user, require_module
 from models.automation import AutomationIn
+from services.automation_service import automation_service
 
 router = APIRouter(prefix="/api/automations", tags=["automations"])
 
@@ -25,7 +26,9 @@ async def create_automation(payload: AutomationIn, user=Depends(forbid_demo_writ
 
 
 @router.put("/{aid}", dependencies=[MODULE_DEP])
-async def update_automation(aid: str, payload: AutomationIn, user=Depends(forbid_demo_write)):
+async def update_automation(
+    aid: str, payload: AutomationIn, user=Depends(forbid_demo_write)
+):
     await automation_service.update_automation(user, aid, payload)
     return {"ok": True}
 

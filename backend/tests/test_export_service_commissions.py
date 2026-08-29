@@ -9,10 +9,11 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_export_service_commissions.py -v
 """
-import sys
+
 import asyncio
 import csv
 import io
+import sys
 
 sys.path.insert(0, ".")
 
@@ -37,7 +38,9 @@ class FakeCollection:
         self._docs = docs
 
     def find(self, query, projection=None):
-        return FakeCursor([d for d in self._docs if d.get("user_id") == query.get("user_id")])
+        return FakeCursor(
+            [d for d in self._docs if d.get("user_id") == query.get("user_id")]
+        )
 
 
 class FakeDb:
@@ -51,12 +54,22 @@ class FakeDb:
 USER = {"id": "user-1"}
 
 REAL_COMMISSION = {
-    "id": "c-1", "user_id": "user-1", "period": "2026-08", "client_id": "cl-1",
-    "mandante_id": "m-1", "amount": 100, "rate": 10, "status": "maturato",
+    "id": "c-1",
+    "user_id": "user-1",
+    "period": "2026-08",
+    "client_id": "cl-1",
+    "mandante_id": "m-1",
+    "amount": 100,
+    "rate": 10,
+    "status": "maturato",
 }
 MANUAL_COMMISSION = {
-    "user_id": "user-1", "period": "2026-08", "amount": 250,
-    "client_id": None, "mandante_id": "m-1", "stato": "incassato",
+    "user_id": "user-1",
+    "period": "2026-08",
+    "amount": 250,
+    "client_id": None,
+    "mandante_id": "m-1",
+    "stato": "incassato",
 }
 CLIENTS = [{"id": "cl-1", "user_id": "user-1", "company_name": "Bar Rossi"}]
 MANDANTI = [{"id": "m-1", "user_id": "user-1", "name": "Azienda A"}]
@@ -67,12 +80,14 @@ async def _allow_always(*a, **kw):
 
 
 def build_service(monkeypatch, commissions=None, manual_commissions=None):
-    fake_db = FakeDb({
-        "commissions": commissions or [],
-        "manual_commissions": manual_commissions or [],
-        "clients": CLIENTS,
-        "mandanti": MANDANTI,
-    })
+    fake_db = FakeDb(
+        {
+            "commissions": commissions or [],
+            "manual_commissions": manual_commissions or [],
+            "clients": CLIENTS,
+            "mandanti": MANDANTI,
+        }
+    )
     monkeypatch.setattr(export_mod, "db", fake_db)
     monkeypatch.setattr(export_mod, "check_and_record", _allow_always)
     return ExportService()
@@ -87,7 +102,11 @@ async def _collect_csv_rows(response):
 
 
 def test_export_include_provvigioni_reali_e_manuali(monkeypatch):
-    service = build_service(monkeypatch, commissions=[REAL_COMMISSION], manual_commissions=[MANUAL_COMMISSION])
+    service = build_service(
+        monkeypatch,
+        commissions=[REAL_COMMISSION],
+        manual_commissions=[MANUAL_COMMISSION],
+    )
     response = run(service.export_commissions(USER))
     rows = run(_collect_csv_rows(response))
     assert len(rows) == 2
@@ -119,4 +138,5 @@ def test_export_senza_provvigioni_manuali_non_rompe(monkeypatch):
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

@@ -8,6 +8,7 @@ provvigione calcolata su di esso (services.commission_service).
 Esegui con:
     JWT_SECRET=test python -m pytest tests/test_financial_field_bounds.py -v
 """
+
 import sys
 
 import pytest
@@ -15,13 +16,13 @@ from pydantic import ValidationError
 
 sys.path.insert(0, ".")
 
+from models.mandante import BonusTier, MandanteIn
 from models.offer import OfferLineItem
 from models.order import OrderLineItem
 from models.product import ProductIn
-from models.mandante import MandanteIn, BonusTier
-
 
 # ---------- OfferLineItem / OrderLineItem ----------
+
 
 @pytest.mark.parametrize("ItemModel", [OfferLineItem, OrderLineItem])
 def test_riga_valida_accettata(ItemModel):
@@ -58,8 +59,11 @@ def test_sconto_100_per_cento_accettato(ItemModel):
 
 # ---------- ProductIn ----------
 
+
 def test_prodotto_valido_accettato():
-    p = ProductIn(mandante_id="m1", name="Prodotto A", price=50, cost=20, commission_rate=10)
+    p = ProductIn(
+        mandante_id="m1", name="Prodotto A", price=50, cost=20, commission_rate=10
+    )
     assert p.price == 50
 
 
@@ -79,6 +83,7 @@ def test_prodotto_aliquota_fuori_limiti_rifiutata():
 
 
 # ---------- MandanteIn / BonusTier ----------
+
 
 def test_mandante_valido_accettato():
     m = MandanteIn(name="Mandante Test", commission_rate=8)

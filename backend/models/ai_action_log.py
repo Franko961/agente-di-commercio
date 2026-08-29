@@ -15,7 +15,14 @@
 #   conferma, nessun record è stato scritto.
 # - "fallita": tentativo di esecuzione (diretta o dopo conferma) terminato con
 #   un errore di validazione o di sistema.
-AI_ACTION_STATUSES = ["eseguita", "in_attesa", "in_esecuzione", "confermata", "annullata", "fallita"]
+AI_ACTION_STATUSES = [
+    "eseguita",
+    "in_attesa",
+    "in_esecuzione",
+    "confermata",
+    "annullata",
+    "fallita",
+]
 
 # Etichette leggibili dei tool, usate lato backend solo se serve normalizzare;
 # il frontend ha la propria mappa per la visualizzazione.

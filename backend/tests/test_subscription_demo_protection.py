@@ -8,8 +8,9 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_subscription_demo_protection.py -v
 """
-import sys
+
 import asyncio
+import sys
 
 import pytest
 from fastapi import HTTPException
@@ -37,7 +38,9 @@ NORMAL_USER = {"id": "user-1", "email": "mario@example.com", "is_demo": False}
 
 
 def _fail_if_called(*a, **k):
-    raise AssertionError("nessuna chiamata reale al provider di pagamento doveva partire per l'account demo")
+    raise AssertionError(
+        "nessuna chiamata reale al provider di pagamento doveva partire per l'account demo"
+    )
 
 
 def test_create_stripe_session_bloccata_per_demo(monkeypatch):
@@ -85,15 +88,22 @@ def test_create_stripe_session_funziona_per_utente_normale(monkeypatch):
     class FakeStripeModule:
         api_key = None
         Customer = type("C", (), {"create": staticmethod(lambda **k: FakeCustomer())})
-        checkout = type("Checkout", (), {
-            "Session": type("Session", (), {"create": staticmethod(lambda **k: FakeSession())})
-        })
+        checkout = type(
+            "Checkout",
+            (),
+            {
+                "Session": type(
+                    "Session", (), {"create": staticmethod(lambda **k: FakeSession())}
+                )
+            },
+        )
 
     monkeypatch.setitem(sys.modules, "stripe", FakeStripeModule)
     repo = FakeUserRepo({"user-1": {**NORMAL_USER, "name": "Mario"}})
 
     async def _update_by_id(uid, data):
         repo.users_by_id[uid].update(data)
+
     repo.update_by_id = _update_by_id
 
     service = SubscriptionService(repo=repo)

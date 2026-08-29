@@ -1,13 +1,17 @@
 from datetime import date
-from pydantic import BaseModel, Field, model_validator
 from typing import Literal, Optional
-from core.validation_limits import SHORT_TEXT_MAX_LENGTH, LONG_TEXT_MAX_LENGTH
+
+from pydantic import BaseModel, Field, model_validator
+
+from core.validation_limits import LONG_TEXT_MAX_LENGTH, SHORT_TEXT_MAX_LENGTH
 
 EQUIPMENT_STATUSES = ("consegnato", "restituito")
 
 
 class EmployeeEquipmentIn(BaseModel):
-    name: str = Field(max_length=SHORT_TEXT_MAX_LENGTH)  # es. "Divisa taglia L", "DPI casco", "Telefono aziendale"
+    name: str = Field(
+        max_length=SHORT_TEXT_MAX_LENGTH
+    )  # es. "Divisa taglia L", "DPI casco", "Telefono aziendale"
     delivered_date: Optional[date] = None
     returned_date: Optional[date] = None
     status: Literal["consegnato", "restituito"] = "consegnato"
@@ -31,7 +35,15 @@ class EmployeeEquipmentIn(BaseModel):
             self.returned_date = None
             return self
         if self.status == "restituito" and not self.returned_date:
-            raise ValueError('La data di restituzione è obbligatoria quando lo stato è "restituito"')
-        if self.delivered_date and self.returned_date and self.returned_date < self.delivered_date:
-            raise ValueError("La data di restituzione non può essere precedente alla data di consegna")
+            raise ValueError(
+                'La data di restituzione è obbligatoria quando lo stato è "restituito"'
+            )
+        if (
+            self.delivered_date
+            and self.returned_date
+            and self.returned_date < self.delivered_date
+        ):
+            raise ValueError(
+                "La data di restituzione non può essere precedente alla data di consegna"
+            )
         return self

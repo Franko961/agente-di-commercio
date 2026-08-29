@@ -7,14 +7,18 @@ browser) e sanitizzazione del nome file prima di riusarlo in un header HTTP.
 Puramente logica, nessuna dipendenza da DB/S3: esegui con
     python -m pytest tests/test_document_upload_security.py -v
 """
+
 import sys
 
 sys.path.insert(0, ".")
 
-from services.storage_service import _sniff_matches_extension, _looks_like_html_or_script, sanitize_filename
-
+from services.storage_service import (
+    _sniff_matches_extension,
+    sanitize_filename,
+)
 
 # ---------- _sniff_matches_extension: casi validi ----------
+
 
 def test_pdf_valido_riconosciuto():
     assert _sniff_matches_extension(b"%PDF-1.7\n%...resto del file...", "pdf")
@@ -34,7 +38,9 @@ def test_docx_valido_riconosciuto():
 
 
 def test_doc_legacy_ole2_riconosciuto():
-    assert _sniff_matches_extension(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 10, "doc")
+    assert _sniff_matches_extension(
+        b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 10, "doc"
+    )
 
 
 def test_mp4_valido_riconosciuto():
@@ -47,10 +53,13 @@ def test_webm_valido_riconosciuto():
 
 
 def test_txt_semplice_accettato():
-    assert _sniff_matches_extension(b"Note di lavoro: chiamare il cliente domani.", "txt")
+    assert _sniff_matches_extension(
+        b"Note di lavoro: chiamare il cliente domani.", "txt"
+    )
 
 
 # ---------- _sniff_matches_extension: il cuore del fix, contenuto camuffato ----------
+
 
 def test_html_camuffato_da_txt_viene_rifiutato():
     """Il caso che ha motivato il fix: un file con estensione .txt (quindi
@@ -73,7 +82,9 @@ def test_pdf_falso_con_estensione_pdf_viene_rifiutato():
 
 def test_eseguibile_rinominato_png_viene_rifiutato():
     # Un eseguibile Windows (firma MZ) con estensione .png non deve passare.
-    assert not _sniff_matches_extension(b"MZ\x90\x00\x03\x00\x00\x00" + b"\x00" * 20, "png")
+    assert not _sniff_matches_extension(
+        b"MZ\x90\x00\x03\x00\x00\x00" + b"\x00" * 20, "png"
+    )
 
 
 def test_file_vuoto_sempre_rifiutato():
@@ -87,8 +98,12 @@ def test_estensione_sconosciuta_sempre_rifiutata():
 
 # ---------- sanitize_filename ----------
 
+
 def test_nome_normale_invariato():
-    assert sanitize_filename("Contratto Mandante 2026.pdf") == "Contratto Mandante 2026.pdf"
+    assert (
+        sanitize_filename("Contratto Mandante 2026.pdf")
+        == "Contratto Mandante 2026.pdf"
+    )
 
 
 def test_virgolette_sostituite():

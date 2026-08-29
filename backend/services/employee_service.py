@@ -1,8 +1,8 @@
 import secrets
 
-from core.utils import gen_id, now_iso
 from core.exceptions import NotFoundError
 from core.security import hash_reset_token, module_enabled
+from core.utils import gen_id, now_iso
 from repositories.employee_repository import employee_repository
 from repositories.user_repository import user_repository
 
@@ -38,7 +38,8 @@ class EmployeeService:
     async def create_employee(self, user: dict, payload) -> dict:
         token, token_hash = _generate_token()
         doc = {
-            "id": gen_id(), "user_id": user["id"],
+            "id": gen_id(),
+            "user_id": user["id"],
             **payload.model_dump(),
             "request_token_hash": token_hash,
             "last_used_at": None,
@@ -111,8 +112,18 @@ class EmployeeService:
             "background_color": "#F9F9F8",
             "orientation": "portrait-primary",
             "icons": [
-                {"src": f"{frontend_url}/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any maskable"},
-                {"src": f"{frontend_url}/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any maskable"},
+                {
+                    "src": f"{frontend_url}/icon-192.png",
+                    "type": "image/png",
+                    "sizes": "192x192",
+                    "purpose": "any maskable",
+                },
+                {
+                    "src": f"{frontend_url}/icon-512.png",
+                    "type": "image/png",
+                    "sizes": "512x512",
+                    "purpose": "any maskable",
+                },
             ],
         }
 

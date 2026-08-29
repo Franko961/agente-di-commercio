@@ -10,18 +10,19 @@ Esegui con:
     ANTHROPIC_API_KEY=test AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
     AWS_S3_BUCKET=test python -m pytest test_mandante_filter.py -v
 """
+
 import asyncio
 import sys
 
 sys.path.insert(0, ".")
 
 from core.database import db
-from core.utils import now_local, local_wallclock_to_utc_iso
-from services.dashboard_service import dashboard_service
+from core.utils import local_wallclock_to_utc_iso, now_local
+from repositories.client_repository import client_repository
+from repositories.commission_repository import commission_repository
 from repositories.offer_repository import offer_repository
 from repositories.order_repository import order_repository
-from repositories.commission_repository import commission_repository
-from repositories.client_repository import client_repository
+from services.dashboard_service import dashboard_service
 
 
 def run(coro):
@@ -35,6 +36,7 @@ class FakeCursor:
     def to_list(self, n):
         async def _inner():
             return self._docs[:n]
+
         return _inner()
 
 
@@ -71,29 +73,99 @@ class FakeCollection:
 USER = {"id": "u1"}
 
 CLIENTS = [
-    {"id": "c1", "user_id": "u1", "mandante_ids": ["m1"], "company_name": "Bar Rossi", "status": "attivo"},
-    {"id": "c2", "user_id": "u1", "mandante_ids": ["m2"], "company_name": "Alimentari Verdi", "status": "attivo"},
-    {"id": "c3", "user_id": "u1", "mandante_ids": ["m1", "m2"], "company_name": "Ristorante Blu", "status": "attivo"},
+    {
+        "id": "c1",
+        "user_id": "u1",
+        "mandante_ids": ["m1"],
+        "company_name": "Bar Rossi",
+        "status": "attivo",
+    },
+    {
+        "id": "c2",
+        "user_id": "u1",
+        "mandante_ids": ["m2"],
+        "company_name": "Alimentari Verdi",
+        "status": "attivo",
+    },
+    {
+        "id": "c3",
+        "user_id": "u1",
+        "mandante_ids": ["m1", "m2"],
+        "company_name": "Ristorante Blu",
+        "status": "attivo",
+    },
 ]
 OFFERS = [
-    {"id": "o1", "user_id": "u1", "mandante_id": "m1", "client_id": "c1", "status": "accettata", "total": 1000, "created_at": "2026-07-01"},
-    {"id": "o2", "user_id": "u1", "mandante_id": "m2", "client_id": "c2", "status": "accettata", "total": 2000, "created_at": "2026-07-01"},
+    {
+        "id": "o1",
+        "user_id": "u1",
+        "mandante_id": "m1",
+        "client_id": "c1",
+        "status": "accettata",
+        "total": 1000,
+        "created_at": "2026-07-01",
+    },
+    {
+        "id": "o2",
+        "user_id": "u1",
+        "mandante_id": "m2",
+        "client_id": "c2",
+        "status": "accettata",
+        "total": 2000,
+        "created_at": "2026-07-01",
+    },
 ]
 COMMISSIONS = [
-    {"id": "cm1", "user_id": "u1", "mandante_id": "m1", "status": "maturato", "amount": 100},
-    {"id": "cm2", "user_id": "u1", "mandante_id": "m2", "status": "incassato", "amount": 200},
+    {
+        "id": "cm1",
+        "user_id": "u1",
+        "mandante_id": "m1",
+        "status": "maturato",
+        "amount": 100,
+    },
+    {
+        "id": "cm2",
+        "user_id": "u1",
+        "mandante_id": "m2",
+        "status": "incassato",
+        "amount": 200,
+    },
 ]
 # "Oggi" calcolato dinamicamente in ora italiana (stessa logica usata da
 # get_today_brief), non una data fissa: una data hardcoded scade non appena
 # passa quel giorno, rompendo il test per chiunque lo esegua dopo.
 _TODAY = now_local().strftime("%Y-%m-%d")
 APPTS = [
-    {"id": "a1", "user_id": "u1", "client_id": "c1", "start": local_wallclock_to_utc_iso(f"{_TODAY}T10:00:00"), "status": "pianificato"},
-    {"id": "a2", "user_id": "u1", "client_id": "c2", "start": local_wallclock_to_utc_iso(f"{_TODAY}T11:00:00"), "status": "pianificato"},
+    {
+        "id": "a1",
+        "user_id": "u1",
+        "client_id": "c1",
+        "start": local_wallclock_to_utc_iso(f"{_TODAY}T10:00:00"),
+        "status": "pianificato",
+    },
+    {
+        "id": "a2",
+        "user_id": "u1",
+        "client_id": "c2",
+        "start": local_wallclock_to_utc_iso(f"{_TODAY}T11:00:00"),
+        "status": "pianificato",
+    },
 ]
 ORDERS = [
-    {"id": "or1", "user_id": "u1", "mandante_id": "m1", "client_id": "c1", "created_at": "2026-07-01"},
-    {"id": "or2", "user_id": "u1", "mandante_id": "m2", "client_id": "c2", "created_at": "2026-07-01"},
+    {
+        "id": "or1",
+        "user_id": "u1",
+        "mandante_id": "m1",
+        "client_id": "c1",
+        "created_at": "2026-07-01",
+    },
+    {
+        "id": "or2",
+        "user_id": "u1",
+        "mandante_id": "m2",
+        "client_id": "c2",
+        "created_at": "2026-07-01",
+    },
 ]
 
 
@@ -109,6 +181,7 @@ def install_fake_db(monkeypatch):
 
 
 # ---------- dashboard_service.get_stats ----------
+
 
 def test_get_stats_senza_mandante_e_globale(monkeypatch):
     install_fake_db(monkeypatch)
@@ -136,6 +209,7 @@ def test_get_stats_mandante_diverso_da_risultati_diversi(monkeypatch):
 
 # ---------- dashboard_service.get_today_brief ----------
 
+
 def test_get_today_brief_filtra_appuntamenti_per_cliente_del_mandante(monkeypatch):
     install_fake_db(monkeypatch)
     brief_all = run(dashboard_service.get_today_brief(USER))
@@ -158,9 +232,21 @@ def test_get_today_brief_pagamenti_da_verificare_filtrati(monkeypatch):
 
 MANUAL_COMMISSIONS = [
     # Senza mandante_id: non attribuibile a un mandante specifico.
-    {"user_id": "u1", "period": "2026-07", "amount": 300, "mandante_id": None, "stato": "maturato"},
+    {
+        "user_id": "u1",
+        "period": "2026-07",
+        "amount": 300,
+        "mandante_id": None,
+        "stato": "maturato",
+    },
     # Taggata su m1: deve contare SOLO quando il filtro è m1 (o assente).
-    {"user_id": "u1", "period": "2026-07", "amount": 50, "mandante_id": "m1", "stato": "incassato"},
+    {
+        "user_id": "u1",
+        "period": "2026-07",
+        "amount": 50,
+        "mandante_id": "m1",
+        "stato": "incassato",
+    },
 ]
 
 
@@ -174,7 +260,9 @@ def test_get_stats_include_provvigioni_manuali_in_vista_globale(monkeypatch):
     assert stats["kpi"]["commissions_collected"] == 250
 
 
-def test_get_stats_provvigione_manuale_senza_mandante_esclusa_da_filtro_specifico(monkeypatch):
+def test_get_stats_provvigione_manuale_senza_mandante_esclusa_da_filtro_specifico(
+    monkeypatch,
+):
     install_fake_db(monkeypatch)
     monkeypatch.setattr(db, "manual_commissions", FakeCollection(MANUAL_COMMISSIONS))
     stats = run(dashboard_service.get_stats(USER, mandante_id="m1"))
@@ -193,6 +281,7 @@ def test_get_today_brief_pagamenti_da_verificare_include_manuali(monkeypatch):
 
 
 # ---------- repository: query costruita correttamente ----------
+
 
 def test_offer_repository_aggiunge_filtro_mandante_alla_query():
     fake = FakeCollection(OFFERS)

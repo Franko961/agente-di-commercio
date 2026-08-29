@@ -13,6 +13,7 @@ Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
     python -m pytest tests/test_upper_bounds.py -v
 """
+
 import sys
 
 import pytest
@@ -21,24 +22,31 @@ from pydantic import ValidationError
 sys.path.insert(0, ".")
 
 from core.validation_limits import (
-    SHORT_TEXT_MAX_LENGTH, LONG_TEXT_MAX_LENGTH,
-    MAX_QUANTITY, MAX_UNIT_PRICE, MAX_EXPENSE_AMOUNT, MAX_MONETARY_TARGET,
-    MAX_COUNT, MAX_LINE_ITEMS, MAX_TAGS, MAX_MANDANTI_PER_CLIENT,
+    LONG_TEXT_MAX_LENGTH,
+    MAX_COUNT,
+    MAX_EXPENSE_AMOUNT,
+    MAX_LINE_ITEMS,
+    MAX_MANDANTI_PER_CLIENT,
+    MAX_MONETARY_TARGET,
+    MAX_QUANTITY,
+    MAX_TAGS,
+    MAX_UNIT_PRICE,
+    SHORT_TEXT_MAX_LENGTH,
 )
-from models.offer import OfferIn, OfferLineItem
-from models.order import OrderIn, OrderLineItem
-from models.expense import ExpenseIn
-from models.contact_request import ContactRequestIn
+from models.ai import AIQuery
+from models.auth import PASSWORD_MAX_LENGTH, RegisterIn
 from models.client import ClientIn
+from models.contact_request import ContactRequestIn
+from models.document import DocumentIn
+from models.expense import ExpenseIn
 from models.lead import LeadIn
 from models.mandante import MandanteIn
-from models.document import DocumentIn
+from models.offer import OfferIn, OfferLineItem
+from models.order import OrderIn, OrderLineItem
 from models.route_planning import RoutePlanIn
-from models.auth import RegisterIn, PASSWORD_MAX_LENGTH
-from models.ai import AIQuery
-
 
 # ---------- Quantità e prezzo unitario (riga offerta/ordine) ----------
+
 
 @pytest.mark.parametrize("ItemModel", [OfferLineItem, OrderLineItem])
 def test_quantita_astronomica_rifiutata(ItemModel):
@@ -65,10 +73,16 @@ def test_descrizione_riga_troppo_lunga_rifiutata():
 
 # ---------- Numero di righe offerta/ordine ----------
 
+
 def test_troppe_righe_offerta_rifiutato():
     riga = OfferLineItem(description="Prodotto", quantity=1, unit_price=10)
     with pytest.raises(ValidationError):
-        OfferIn(client_id="c1", mandante_id="m1", title="Offerta", items=[riga] * (MAX_LINE_ITEMS + 1))
+        OfferIn(
+            client_id="c1",
+            mandante_id="m1",
+            title="Offerta",
+            items=[riga] * (MAX_LINE_ITEMS + 1),
+        )
 
 
 def test_troppe_righe_ordine_rifiutato():
@@ -78,6 +92,7 @@ def test_troppe_righe_ordine_rifiutato():
 
 
 # ---------- Importo spesa ----------
+
 
 def test_importo_spesa_enorme_rifiutato():
     with pytest.raises(ValidationError):
@@ -98,17 +113,20 @@ def test_importo_spesa_zero_ancora_rifiutato_dal_validatore_esistente():
 
 # ---------- Messaggio contatti ----------
 
+
 def test_messaggio_contatti_troppo_lungo_rifiutato():
     with pytest.raises(ValidationError):
         ContactRequestIn(
-            nome="Mario Rossi", email="mario@example.com",
+            nome="Mario Rossi",
+            email="mario@example.com",
             messaggio="x" * (LONG_TEXT_MAX_LENGTH + 1),
         )
 
 
 def test_messaggio_contatti_al_limite_accettato():
     req = ContactRequestIn(
-        nome="Mario Rossi", email="mario@example.com",
+        nome="Mario Rossi",
+        email="mario@example.com",
         messaggio="x" * LONG_TEXT_MAX_LENGTH,
     )
     assert len(req.messaggio) == LONG_TEXT_MAX_LENGTH
@@ -116,10 +134,15 @@ def test_messaggio_contatti_al_limite_accettato():
 
 def test_nome_contatti_troppo_lungo_rifiutato():
     with pytest.raises(ValidationError):
-        ContactRequestIn(nome="x" * (SHORT_TEXT_MAX_LENGTH + 1), email="mario@example.com", messaggio="Ciao")
+        ContactRequestIn(
+            nome="x" * (SHORT_TEXT_MAX_LENGTH + 1),
+            email="mario@example.com",
+            messaggio="Ciao",
+        )
 
 
 # ---------- Note/descrizioni generiche ----------
+
 
 def test_note_cliente_troppo_lunghe_rifiutate():
     with pytest.raises(ValidationError):
@@ -128,10 +151,16 @@ def test_note_cliente_troppo_lunghe_rifiutate():
 
 def test_note_offerta_troppo_lunghe_rifiutate():
     with pytest.raises(ValidationError):
-        OfferIn(client_id="c1", mandante_id="m1", title="Offerta", notes="x" * (LONG_TEXT_MAX_LENGTH + 1))
+        OfferIn(
+            client_id="c1",
+            mandante_id="m1",
+            title="Offerta",
+            notes="x" * (LONG_TEXT_MAX_LENGTH + 1),
+        )
 
 
 # ---------- Campi prima privi di QUALUNQUE limite (né inferiore né superiore) ----------
+
 
 def test_estimated_value_lead_negativo_ora_rifiutato():
     with pytest.raises(ValidationError):
@@ -170,6 +199,7 @@ def test_visit_minutes_valore_ragionevole_accettato():
 
 # ---------- Liste (tag, mandanti collegati) ----------
 
+
 def test_troppi_tag_documento_rifiutato():
     with pytest.raises(ValidationError):
         DocumentIn(name="File.pdf", tags=[f"tag{i}" for i in range(MAX_TAGS + 1)])
@@ -177,22 +207,33 @@ def test_troppi_tag_documento_rifiutato():
 
 def test_troppi_mandanti_collegati_a_cliente_rifiutato():
     with pytest.raises(ValidationError):
-        ClientIn(company_name="Acme", mandante_ids=[f"m{i}" for i in range(MAX_MANDANTI_PER_CLIENT + 1)])
+        ClientIn(
+            company_name="Acme",
+            mandante_ids=[f"m{i}" for i in range(MAX_MANDANTI_PER_CLIENT + 1)],
+        )
 
 
 # ---------- Password (troncatura silenziosa bcrypt oltre 72 byte) ----------
 
+
 def test_password_oltre_72_caratteri_rifiutata_in_registrazione():
     with pytest.raises(ValidationError):
-        RegisterIn(email="a@example.com", password="x" * (PASSWORD_MAX_LENGTH + 1), name="Mario")
+        RegisterIn(
+            email="a@example.com",
+            password="x" * (PASSWORD_MAX_LENGTH + 1),
+            name="Mario",
+        )
 
 
 def test_password_72_caratteri_accettata_in_registrazione():
-    reg = RegisterIn(email="a@example.com", password="x" * PASSWORD_MAX_LENGTH, name="Mario")
+    reg = RegisterIn(
+        email="a@example.com", password="x" * PASSWORD_MAX_LENGTH, name="Mario"
+    )
     assert len(reg.password) == PASSWORD_MAX_LENGTH
 
 
 # ---------- Messaggio assistente AI ----------
+
 
 def test_messaggio_ai_troppo_lungo_rifiutato():
     with pytest.raises(ValidationError):

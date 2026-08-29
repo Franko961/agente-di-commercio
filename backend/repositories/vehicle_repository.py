@@ -1,4 +1,5 @@
 from pymongo.errors import DuplicateKeyError
+
 from core.database import db
 from core.exceptions import ValidationAppError
 
@@ -7,16 +8,24 @@ class VehicleRepository:
     collection = db.vehicles
 
     async def find_many(self, user_id: str) -> list:
-        return await self.collection.find({"user_id": user_id}, {"_id": 0}).sort("plate", 1).to_list(1000)
+        return (
+            await self.collection.find({"user_id": user_id}, {"_id": 0})
+            .sort("plate", 1)
+            .to_list(1000)
+        )
 
     async def find_one(self, vid: str, user_id: str):
-        return await self.collection.find_one({"id": vid, "user_id": user_id}, {"_id": 0})
+        return await self.collection.find_one(
+            {"id": vid, "user_id": user_id}, {"_id": 0}
+        )
 
     async def find_by_plate(self, plate: str, user_id: str):
         """Usato per il controllo anti-duplicati: `plate` è già normalizzata
         (maiuscolo, senza spazi/trattini) da models.vehicle.normalize_plate
         prima di arrivare qui, quindi il confronto è un match esatto."""
-        return await self.collection.find_one({"plate": plate, "user_id": user_id}, {"_id": 0})
+        return await self.collection.find_one(
+            {"plate": plate, "user_id": user_id}, {"_id": 0}
+        )
 
     async def insert(self, doc: dict) -> dict:
         # L'indice univoco su (user_id, plate) — vedi startup_service.run_startup
@@ -27,15 +36,21 @@ class VehicleRepository:
         try:
             await self.collection.insert_one(doc)
         except DuplicateKeyError:
-            raise ValidationAppError(f"Esiste già un mezzo con targa {doc.get('plate')}")
+            raise ValidationAppError(
+                f"Esiste già un mezzo con targa {doc.get('plate')}"
+            )
         doc.pop("_id", None)
         return doc
 
     async def update(self, vid: str, user_id: str, data: dict) -> bool:
         try:
-            res = await self.collection.update_one({"id": vid, "user_id": user_id}, {"$set": data})
+            res = await self.collection.update_one(
+                {"id": vid, "user_id": user_id}, {"$set": data}
+            )
         except DuplicateKeyError:
-            raise ValidationAppError(f"Esiste già un mezzo con targa {data.get('plate')}")
+            raise ValidationAppError(
+                f"Esiste già un mezzo con targa {data.get('plate')}"
+            )
         return res.matched_count > 0
 
     async def delete(self, vid: str, user_id: str) -> None:

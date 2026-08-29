@@ -43,10 +43,18 @@ class JobLockRepository:
         quella nuova."""
         now_iso = datetime.now(timezone.utc).isoformat()
         owner_id = str(uuid.uuid4())
-        locked_until_iso = (datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)).isoformat()
+        locked_until_iso = (
+            datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)
+        ).isoformat()
 
         try:
-            await self.collection.insert_one({"_id": job_name, "owner_id": owner_id, "locked_until": locked_until_iso})
+            await self.collection.insert_one(
+                {
+                    "_id": job_name,
+                    "owner_id": owner_id,
+                    "locked_until": locked_until_iso,
+                }
+            )
             return owner_id
         except DuplicateKeyError:
             pass  # un lock esiste già: proviamo comunque a "rubarlo" sotto, se scaduto
@@ -70,7 +78,9 @@ class JobLockRepository:
         riassegnato altrove nel frattempo): il chiamante non deve
         considerare l'effetto ottenuto (es. il cooldown anti-spam
         dell'alert anomalie) come impostato con successo."""
-        locked_until_iso = (datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)).isoformat()
+        locked_until_iso = (
+            datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)
+        ).isoformat()
         result = await self.collection.update_one(
             {"_id": job_name, "owner_id": owner_id},
             {"$set": {"locked_until": locked_until_iso}},
