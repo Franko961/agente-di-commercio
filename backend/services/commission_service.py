@@ -255,7 +255,7 @@ def normalize_manual_commission(user_id: str, m: dict) -> dict:
     in ogni caso (CET o CEST). id: fallback sintetico usato SOLO da fixture
     di test prive di id — ogni documento reale ne ha sempre uno (creato da
     CommissionService.create_manual_commission, oppure backfillato dalla
-    migrazione una tantum in startup_service.run_startup per i documenti
+    migrazione una tantum in services.startup.migrations per i documenti
     creati prima che id esistesse). Il fallback resta basato su period per
     semplicità nei test, ma non deve mai essere raggiunto su dati reali:
     con period non più univoco, righe diverse senza id vi collidrebbero."""

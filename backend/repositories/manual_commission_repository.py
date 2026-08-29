@@ -10,7 +10,7 @@ class ManualCommissionRepository:
     flusso ordini del CRM (es. un accordo concluso fuori sistema) — vedi
     services/commission_service.py. Nessun indice univoco composto: l'unica
     chiave è id (come per le provvigioni reali in commission_repository),
-    indice su user_id in startup_service.py solo per le query, non univoco."""
+    indice su user_id in services/startup/indexes.py solo per le query, non univoco."""
 
     collection = db.manual_commissions
 

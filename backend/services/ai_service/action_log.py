@@ -91,7 +91,7 @@ async def reclaim_stuck_executions(action_log_repo) -> int:
     da più di STUCK_EXECUTION_THRESHOLD_SECONDS (vedi
     AiActionLogRepository.reclaim_stale_executions per il motivo:
     tipicamente un crash del server a metà dell'esecuzione confermata).
-    Chiamato periodicamente da startup_service, non da una richiesta
+    Chiamato periodicamente da services.startup.cleanup_jobs, non da una richiesta
     utente. Non riesegue mai l'azione: potrebbe essere già stata scritta
     sul CRM prima del crash."""
     threshold_iso = (

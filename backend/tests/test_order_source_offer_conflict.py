@@ -7,7 +7,7 @@ Verifica la protezione contro la doppia conversione offerta -> ordine
 - rete di sicurezza per la race condition che il check da solo non copre
   (due richieste concorrenti sulla stessa offerta, es. pulsante di stato e
   firma digitale quasi simultanei): l'indice univoco DB su
-  (user_id, source_offer_id) — vedi startup_service — blocca il secondo
+  (user_id, source_offer_id) — vedi services.startup.indexes — blocca il secondo
   insert, e create_from_offer deve recuperare e restituire l'ordine appena
   creato dall'altra richiesta invece di propagare l'errore all'utente.
 

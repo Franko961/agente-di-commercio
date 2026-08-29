@@ -1,6 +1,6 @@
 """
 Verifica DemoRequestRepository.delete_older_than(): la pulizia periodica
-delle richieste demo vecchie (vedi startup_service._demo_request_cleanup_loop).
+delle richieste demo vecchie (vedi services.startup.cleanup_jobs._demo_request_cleanup_loop).
 created_at è salvato come stringa ISO (non una data BSON nativa), quindi il
 filtro è un confronto testuale — questo test verifica che tale confronto
 selezioni davvero solo i record più vecchi del cutoff, non quelli più recenti

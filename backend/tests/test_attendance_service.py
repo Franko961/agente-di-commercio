@@ -191,7 +191,7 @@ class FakeAttendanceRepo:
 
     async def insert(self, doc):
         # Simula l'indice parziale univoco MongoDB su (employee_id,
-        # user_id) con clock_out=null (vedi startup_service.run_startup e
+        # user_id) con clock_out=null (vedi services.startup.indexes e
         # attendance_repository.insert): al massimo una sessione aperta
         # per dipendente, indipendentemente da cosa abbia visto
         # find_open_session() poco prima.

@@ -27,7 +27,7 @@ class ReconciliationService:
     fine — o se update/delete si fermano a metà — un lato resta orfano.
     Il rollback esplicito in creazione (vedi create_compensation/create_cost)
     chiude il caso più probabile; questo scan periodico (vedi
-    services/startup_service.py) è la rete di sicurezza per gli altri.
+    services/startup/monitoring_jobs.py) è la rete di sicurezza per gli altri.
 
     Deliberatamente di sola segnalazione: un'incoerenza economica va rivista
     da una persona prima di essere corretta, non riparata in automatico."""

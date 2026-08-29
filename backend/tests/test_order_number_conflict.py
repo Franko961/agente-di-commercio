@@ -6,7 +6,7 @@ Verifica la gestione dei conflitti sul numero ordine (numero_ordine):
 - MA numero_ordine resta un campo modificabile a mano da form (creazione e
   modifica ordine — vedi models/order.py e la UI in Ordini.jsx), quindi un
   valore digitato dall'utente può collidere con uno già esistente;
-- l'indice univoco su (user_id, numero_ordine) (vedi startup_service) è la
+- l'indice univoco su (user_id, numero_ordine) (vedi services.startup.indexes) è la
   rete di sicurezza a livello database;
 - order_service._create_order_doc ritenta automaticamente con il numero
   successivo SOLO quando il numero era stato generato in automatico (mai

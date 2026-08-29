@@ -9,7 +9,7 @@ from core.database import db
 
 class JobLockRepository:
     """Lock distribuito per i cicli periodici avviati da ogni processo
-    backend (vedi services/startup_service.py). Con una sola replica
+    backend (vedi services/startup/). Con una sola replica
     Railway ogni ciclo è naturalmente unico; con più repliche, ognuna
     avvia lo stesso asyncio.create_task allo stesso intervallo — senza un
     lock, sync Google Calendar, reset demo, alert anomalie, pulizia

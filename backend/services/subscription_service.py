@@ -56,7 +56,7 @@ async def _claim_webhook_event_once(collection, event_id: str, event_type: str) 
     lo stesso evento più volte) potevano passare il controllo find_one
     prima che una delle due scrivesse, elaborando l'evento due volte.
     insert_one fallisce da solo con DuplicateKeyError sul secondo tentativo
-    grazie all'indice univoco su event_id (creato in startup_service.py) —
+    grazie all'indice univoco su event_id (creato in services/startup/indexes.py) —
     un'unica operazione atomica lato server, nessuna finestra residua."""
     try:
         await collection.insert_one({"event_id": event_id, "event_type": event_type})

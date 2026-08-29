@@ -65,7 +65,7 @@ from routers.subscription import router as subscription_router
 from routers.vehicle_costs import router as vehicle_costs_router
 from routers.vehicle_deadlines import router as vehicle_deadlines_router
 from routers.vehicles import router as vehicles_router
-from services.startup_service import run_shutdown, run_startup
+from services.startup import run_shutdown, run_startup
 
 app = FastAPI(title="Gestionale Agenti di Commercio")
 

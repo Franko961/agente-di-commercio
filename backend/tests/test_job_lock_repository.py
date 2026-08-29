@@ -1,6 +1,6 @@
 """
 Verifica JobLockRepository.try_acquire()/extend(): il lock distribuito che
-protegge i cicli periodici di services/startup_service.py (sync Google
+protegge i cicli periodici di services/startup/ (sync Google
 Calendar, reset demo, alert anomalie, pulizia richieste demo/contatti,
 finalizzazione abbonamenti, recupero azioni AI bloccate) dall'essere
 eseguiti contemporaneamente da più repliche Railway.
