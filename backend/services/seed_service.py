@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timedelta, timezone
+from typing import cast
 
 from core.utils import gen_id, now_iso
 from repositories.appointment_repository import appointment_repository
@@ -543,14 +544,17 @@ class SeedService:
         for o in offer_docs:
             if o["status"] == "accettata":
                 mand = next(m for m in mandanti if m["id"] == o["mandante_id"])
-                # offer_docs è una list di dict letterali con valori di tipo
-                # eterogeneo (str, float, list...): mypy inferisce ogni valore
-                # come "object", da cui i cast espliciti sotto (già i tipi
-                # reali a runtime, nessun cambio di comportamento).
-                total = float(o["total"])
+                # offer_docs/mandanti sono list di dict letterali con valori
+                # di tipo eterogeneo (str, float, list...): mypy inferisce
+                # ogni valore come "object", da cui i cast espliciti sotto
+                # (typing.cast, non conversione: sono già i tipi reali a
+                # runtime, nessun cambio di comportamento — float(object) non
+                # è comunque accettato dallo stub del builtin).
+                total = cast(float, o["total"])
                 title = str(o["title"])
                 created_at = str(o["created_at"])
-                amount = total * mand["commission_rate"] / 100
+                commission_rate = cast(float, mand["commission_rate"])
+                amount = total * commission_rate / 100
                 comm_docs.append(
                     {
                         "id": gen_id(),

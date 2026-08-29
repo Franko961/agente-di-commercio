@@ -2,7 +2,7 @@ import calendar
 import logging
 import math
 from datetime import date, datetime, timedelta, timezone
-from typing import Dict, Optional
+from typing import Dict, Optional, cast
 
 from core.database import db
 from core.utils import local_date_str, local_month_str, now_local
@@ -213,8 +213,10 @@ class DashboardService:
                 for k, v in exp_by_category.items()
             ],
             # stesso motivo del cast sopra: dict a valori misti (category:
-            # str, amount: float) -> object non tipizzato per l'operatore -.
-            key=lambda x: -float(x["amount"]),
+            # str, amount: float) -> object non tipizzato per l'operatore -;
+            # cast invece di float() perché il valore è già un float reale
+            # (float(object) non è comunque accettato dallo stub del builtin).
+            key=lambda x: -cast(float, x["amount"]),
         )
 
         # Upcoming appointments (next 7 days). Qui "today"/"week_later" sono
