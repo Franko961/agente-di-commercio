@@ -64,6 +64,13 @@ const PAGES = {
     changefreq: "monthly",
     priority: "0.5",
   },
+  "/chi-siamo": {
+    title: "Chi siamo — SALESFLY",
+    description:
+      "SALESFLY nasce da vent'anni di lavoro sul campo come agente di commercio: la storia di chi ha costruito un CRM pensato davvero per chi vende su più mandati.",
+    changefreq: "yearly",
+    priority: "0.5",
+  },
   "/blog": {
     title: "Blog per Agenti di Commercio — SALESFLY",
     description:
