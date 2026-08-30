@@ -43,14 +43,16 @@ jobs:
     defaults:
       run:
         working-directory: backend
-    # MongoDB e MinIO come service container effimeri, non servizi esterni
-    # remoti: un problema di rete/credenziali/disponibilità condiviso non
-    # deve poter far fallire i test a codice perfetto. MongoDB standalone
-    # (nessun replica set: nel codice non si usano transazioni). MinIO è
-    # S3-compatibile (services/storage_service.py::get_s3 supporta già un
-    # endpoint personalizzato, pensato per provider S3-compatibili non-AWS)
-    # — serve ai test che caricano documenti (test_documents_iter6.py,
-    # test_documents_upload.py).
+    # MongoDB come service container effimero, non un servizio esterno
+    # remoto: un problema di rete/credenziali/disponibilità condiviso non
+    # deve poter far fallire i test a codice perfetto. Standalone (nessun
+    # replica set: nel codice non si usano transazioni MongoDB). MinIO
+    # (S3-compatibile, serve ai test che caricano documenti) è avviato più
+    # sotto con un semplice `docker run`, non come service container: i
+    # service container di GitHub Actions non permettono di passare
+    # argomenti al comando, e l'immagine ufficiale minio/minio richiede
+    # `server /data` per avviare il server (a differenza di mongo:7, il cui
+    # CMD di default è già pronto all'uso).
     services:
       mongodb:
         image: mongo:7
@@ -58,18 +60,6 @@ jobs:
           - 27017:27017
         options: >-
           --health-cmd "mongosh --quiet --eval 'db.runCommand({ping:1}).ok'"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
-      minio:
-        image: bitnami/minio:latest
-        ports:
-          - 9000:9000
-        env:
-          MINIO_ROOT_USER: minio-ci-user
-          MINIO_ROOT_PASSWORD: minio-ci-password
-        options: >-
-          --health-cmd "curl -sf http://localhost:9000/minio/health/live"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
@@ -93,6 +83,21 @@ jobs:
           enable-cache: true
           cache-suffix: backend-test
       - run: uv sync
+      - name: Avvia MinIO (S3 compatibile) in background
+        run: |
+          docker run -d --name minio-ci -p 9000:9000 \
+            -e MINIO_ROOT_USER=minio-ci-user \
+            -e MINIO_ROOT_PASSWORD=minio-ci-password \
+            minio/minio server /data
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:9000/minio/health/live && break
+            sleep 1
+          done
+          curl -sf http://localhost:9000/minio/health/live || {
+            echo "MinIO non ha risposto entro 30s"
+            docker logs minio-ci
+            exit 1
+          }
       - name: Crea il bucket S3 di test su MinIO
         run: |
           aws --endpoint-url http://localhost:9000 s3 mb s3://salesfly-ci-test
@@ -129,6 +134,9 @@ jobs:
       - name: Ferma il backend
         if: always()
         run: kill "$(cat /tmp/uvicorn.pid)" 2>/dev/null || true
+      - name: Ferma MinIO
+        if: always()
+        run: docker rm -f minio-ci 2>/dev/null || true
 
   frontend-lint:
     name: Frontend · lint
