@@ -1,15 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Menu, X } from "lucide-react";
-
-const NAV_LINKS = [
-  { to: "/blog", label: "Blog" },
-  { to: "/tour", label: "Tour guidato" },
-  { to: "/perche-salesfly", label: "Perché SalesFly" },
-  { to: "/contatti", label: "Contatti" },
-  { to: "/prezzi", label: "Prezzi" },
-  { to: "/chi-siamo", label: "Chi siamo" },
-];
+import { PUBLIC_NAV_LINKS } from "@/content/publicNavLinks";
 
 export default function PublicHeader() {
   const navigate = useNavigate();
@@ -25,7 +17,7 @@ export default function PublicHeader() {
           <span className="font-cabinet font-black text-xl">SALESFLY.</span>
         </Link>
         <nav className="hidden md:flex items-center gap-6 text-[14px] font-medium text-[#3F3F46]">
-          {NAV_LINKS.map((l) => (
+          {PUBLIC_NAV_LINKS.map((l) => (
             <Link key={l.to} to={l.to} className="hover:text-[#0A192F] transition-colors">{l.label}</Link>
           ))}
         </nav>
@@ -51,7 +43,7 @@ export default function PublicHeader() {
       </div>
       {open && (
         <nav className="md:hidden border-t border-[#E4E4E1] px-6 py-2 flex flex-col bg-white">
-          {NAV_LINKS.map((l) => (
+          {PUBLIC_NAV_LINKS.map((l) => (
             <Link
               key={l.to}
               to={l.to}
