@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Plug, Target, Home, History, ShieldCheck, Star } from "lucide-react";
+import { Plug, Target, Home, History, ShieldCheck, Star, Percent } from "lucide-react";
 import AiActionsLog from "../components/AiActionsLog";
 import IntegrazioniTab from "../components/settings/IntegrazioniTab";
 import ObiettiviTab from "../components/settings/ObiettiviTab";
 import PercorsiTab from "../components/settings/PercorsiTab";
+import FiscaleTab from "../components/settings/FiscaleTab";
 import PrivacyTab from "../components/settings/PrivacyTab";
 import FeedbackTab from "../components/settings/FeedbackTab";
 
@@ -11,6 +12,7 @@ const TABS = [
   ["integrazioni", "Integrazioni", Plug],
   ["obiettivi", "Obiettivi", Target],
   ["percorsi", "Punti di partenza", Home],
+  ["fiscale", "Situazione fiscale", Percent],
   ["registro-ai", "Registro AI", History],
   ["privacy", "Privacy e dati", ShieldCheck],
   ["feedback", "Feedback", Star],
@@ -41,6 +43,7 @@ export default function Settings() {
       {tab === "integrazioni" && <IntegrazioniTab />}
       {tab === "obiettivi" && <ObiettiviTab />}
       {tab === "percorsi" && <PercorsiTab />}
+      {tab === "fiscale" && <FiscaleTab />}
       {tab === "registro-ai" && <AiActionsLog />}
       {tab === "privacy" && <PrivacyTab />}
       {tab === "feedback" && <FeedbackTab />}

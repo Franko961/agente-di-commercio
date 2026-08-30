@@ -31,6 +31,13 @@ export function updateCompanySettings(payload) {
   return api.put("/settings/company", payload).then(({ data }) => data);
 }
 
+export function getFiscalSettings() {
+  return api.get("/settings/fiscal").then(({ data }) => data);
+}
+export function updateFiscalSettings(payload) {
+  return api.put("/settings/fiscal", payload).then(({ data }) => data);
+}
+
 // --- Chiosco QR di timbratura: token e rigenerazione (non il chiosco
 // pubblico in sé, vedi api/attendance.js per quello) ---
 export function getAttendanceKiosk() {

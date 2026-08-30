@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 from core.security import forbid_demo_write, get_current_user
 from models.addresses import AddressesIn
 from models.company_settings import CompanySettingsIn
+from models.fiscal_settings import FiscalSettingsIn
 from models.goals import GoalsIn
 from models.leave_settings import LeaveSettingsIn
 from services.attendance_service import attendance_service
@@ -53,6 +54,18 @@ async def update_company_settings(
     payload: CompanySettingsIn, user=Depends(forbid_demo_write)
 ):
     return await settings_service.update_company_settings(user, payload)
+
+
+@router.get("/fiscal")
+async def get_fiscal_settings(user=Depends(get_current_user)):
+    return await settings_service.get_fiscal_settings(user)
+
+
+@router.put("/fiscal")
+async def update_fiscal_settings(
+    payload: FiscalSettingsIn, user=Depends(forbid_demo_write)
+):
+    return await settings_service.update_fiscal_settings(user, payload)
 
 
 @router.get("/attendance-kiosk")

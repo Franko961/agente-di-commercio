@@ -1,29 +1,21 @@
 import { useState } from "react";
 import { Calculator } from "lucide-react";
+import { computeFiscalBreakdown, formatEuro } from "@/utils/fiscalCalc";
 
-// Calcolatore client-side, nessuna chiamata al backend: pura aritmetica
-// sulle regole verificate nell'articolo (art. 25-bis DPR 600/1973 per la
-// ritenuta, aliquota ENASARCO 2026 per il contributo). I due importi sono
-// indipendenti tra loro — cambia solo la ritenuta in base al regime
-// fiscale, il contributo ENASARCO (quota a carico dell'agente) è sempre
-// dell'8,5%, forfettario compreso.
-const RITENUTA_ALIQUOTA = 0.23; // aliquota fissa (art. 25-bis DPR 600/1973)
-const ENASARCO_QUOTA_AGENTE = 0.085; // metà dell'aliquota 17% totale 2026
-
-function formatEuro(n) {
-  return n.toLocaleString("it-IT", { style: "currency", currency: "EUR" });
-}
+// Calcolatore client-side, nessuna chiamata al backend: un numero inserito
+// a mano dal lettore, non dati reali dell'agente (per quelli vedi il
+// riepilogo fiscale nella pagina Provvigioni dell'app). La formula vive in
+// utils/fiscalCalc.js, condivisa con quel riepilogo — vedi il commento
+// lì per aliquote e riferimenti normativi.
 
 export default function RitenutaEnasarcoCalculator() {
   const [importo, setImporto] = useState("1000");
   const [regime, setRegime] = useState("forfettario");
   const [baseRitenuta, setBaseRitenuta] = useState("50");
 
-  const lordo = Math.max(0, parseFloat(importo.replace(",", ".")) || 0);
-  const baseImponibileRitenuta = regime === "ordinario" ? (baseRitenuta === "50" ? 0.5 : 0.2) : 0;
-  const ritenuta = lordo * baseImponibileRitenuta * RITENUTA_ALIQUOTA;
-  const enasarco = lordo * ENASARCO_QUOTA_AGENTE;
-  const netto = lordo - ritenuta - enasarco;
+  const lordoInput = parseFloat(importo.replace(",", ".")) || 0;
+  const { lordo, ritenutaAcconto: ritenuta, contributoEnasarco: enasarco, netto } =
+    computeFiscalBreakdown(lordoInput, regime, baseRitenuta);
 
   return (
     <div className="my-8 bg-white border border-[#E4E4E1] rounded-xl p-6">
