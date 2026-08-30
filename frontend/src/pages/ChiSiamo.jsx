@@ -3,6 +3,40 @@ import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
 import PageMeta from "@/components/PageMeta";
 
+// Illustrazione originale (non una foto), stesso linguaggio visivo delle
+// grafiche di WhySalesFly.jsx (forme piatte nei colori del brand su uno
+// sfondo tenue): racconta la storia in tre passaggi — il foglio Excel
+// sovraffollato, la scintilla dell'idea, SalesFly ordinato e chiaro.
+function FounderIllustration() {
+  return (
+    <div
+      className="relative w-full h-40 md:h-48 rounded-xl flex items-center justify-center overflow-hidden mb-14"
+      style={{ background: "#0A192F0D" }}
+    >
+      <svg viewBox="0 0 300 140" className="w-full max-w-md h-32 md:h-36">
+        <g opacity="0.55">
+          <rect x="20" y="30" width="70" height="80" rx="4" fill="none" stroke="#0A192F" strokeWidth="2" />
+          <line x1="20" y1="46" x2="90" y2="46" stroke="#0A192F" strokeWidth="1.5" opacity="0.4" />
+          <line x1="20" y1="62" x2="90" y2="62" stroke="#0A192F" strokeWidth="1.5" opacity="0.4" />
+          <line x1="20" y1="78" x2="90" y2="78" stroke="#0A192F" strokeWidth="1.5" opacity="0.4" />
+          <line x1="20" y1="94" x2="90" y2="94" stroke="#0A192F" strokeWidth="1.5" opacity="0.4" />
+          <line x1="37.5" y1="30" x2="37.5" y2="110" stroke="#0A192F" strokeWidth="1.5" opacity="0.4" />
+          <line x1="55" y1="30" x2="55" y2="110" stroke="#0A192F" strokeWidth="1.5" opacity="0.4" />
+          <line x1="72.5" y1="30" x2="72.5" y2="110" stroke="#0A192F" strokeWidth="1.5" opacity="0.4" />
+        </g>
+        <path d="M150 26 l4 9 9 4 -9 4 -4 9 -4 -9 -9 -4 9 -4 z" fill="#B23E00" />
+        <path d="M95,70 Q125,70 150,58" fill="none" stroke="#B23E00" strokeWidth="3" strokeDasharray="6 5" strokeLinecap="round" />
+        <path d="M150,58 Q175,48 205,55" fill="none" stroke="#B23E00" strokeWidth="3" strokeDasharray="6 5" strokeLinecap="round" />
+        <rect x="205" y="35" width="75" height="75" rx="8" fill="#0A192F" />
+        <rect x="217" y="50" width="51" height="6" rx="3" fill="#B23E00" />
+        <rect x="217" y="64" width="35" height="5" rx="2.5" fill="white" opacity="0.7" />
+        <rect x="217" y="75" width="42" height="5" rx="2.5" fill="white" opacity="0.7" />
+        <path d="M217,92 l8,8 16,-16" fill="none" stroke="#059669" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+  );
+}
+
 export default function ChiSiamo() {
   return (
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
@@ -22,6 +56,8 @@ export default function ChiSiamo() {
             agenti di commercio da fuori. È nato da chi quel mercato lo vive da vent'anni.
           </p>
         </div>
+
+        <FounderIllustration />
 
         <article>
           <h2 className="font-cabinet font-black text-2xl mt-10 mb-4">Vent'anni sul campo</h2>
