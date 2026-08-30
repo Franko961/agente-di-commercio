@@ -63,6 +63,7 @@ const BlogPost = lazy(() => import("./pages/BlogPost"));
 const GuidedTour = lazy(() => import("./pages/GuidedTour"));
 const HelpCenter = lazy(() => import("./pages/HelpCenter"));
 const WhySalesFly = lazy(() => import("./pages/WhySalesFly"));
+const ChiSiamo = lazy(() => import("./pages/ChiSiamo"));
 const Contatti = lazy(() => import("./pages/Contatti"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
@@ -104,6 +105,7 @@ function App() {
               <Route path="/blog/:slug" element={<BlogPost />} />
               <Route path="/tour" element={<GuidedTour />} />
               <Route path="/perche-salesfly" element={<WhySalesFly />} />
+              <Route path="/chi-siamo" element={<ChiSiamo />} />
               <Route path="/contatti" element={<Contatti />} />
               <Route path="/password-dimenticata" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
