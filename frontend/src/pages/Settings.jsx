@@ -22,7 +22,7 @@ export default function Settings() {
   const [tab, setTab] = useState("integrazioni");
 
   return (
-    <div className={tab === "registro-ai" ? "max-w-5xl" : "max-w-3xl"}>
+    <div className={`p-4 md:p-8 ${tab === "registro-ai" ? "max-w-5xl" : "max-w-3xl"}`}>
       {/* overflow-x-auto: senza, i tab non ci stanno su una riga sotto una
       certa larghezza e si accavallano — stesso pattern già corretto in
       ClientDetail.jsx per lo stesso motivo. */}
