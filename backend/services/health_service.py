@@ -17,7 +17,10 @@ class HealthService:
     async def get_health(self, hours: float = 24) -> dict:
         since = datetime.now(timezone.utc) - timedelta(hours=hours)
 
-        endpoints = await db.api_metrics_minute.aggregate(
+        # PyMongo Async: a differenza di find(), aggregate() va awaitato per
+        # ottenere il cursore, poi si awaita di nuovo to_list() sul cursore
+        # (in Motor era un'unica chiamata concatenata).
+        endpoints_cursor = await db.api_metrics_minute.aggregate(
             [
                 {"$match": {"created_at": {"$gte": since}}},
                 {
@@ -67,7 +70,8 @@ class HealthService:
                 },
                 {"$sort": {"avg_duration_ms": -1}},
             ]
-        ).to_list(200)
+        )
+        endpoints = await endpoints_cursor.to_list(200)
 
         slowest = sorted(endpoints, key=lambda e: e["avg_duration_ms"], reverse=True)[
             :10
@@ -107,12 +111,13 @@ class HealthService:
         for field in extra_sum_fields or []:
             group_stage[f"sum_{field}"] = {"$sum": {"$ifNull": [f"${field}", 0]}}
 
-        rows = await db.system_events.aggregate(
+        rows_cursor = await db.system_events.aggregate(
             [
                 {"$match": {"category": category, "created_at": {"$gte": since}}},
                 {"$group": group_stage},
             ]
-        ).to_list(10)
+        )
+        rows = await rows_cursor.to_list(10)
 
         by_status = {r["_id"]: r for r in rows}
         success = by_status.get("success", {}).get("count", 0)

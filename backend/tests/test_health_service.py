@@ -3,7 +3,9 @@ Test per health_service.get_health(): la logica di aggregazione (tassi di
 fallimento, ordinamento endpoint lenti/con errori) verificata con un fake
 per db.*.aggregate() che restituisce righe pre-impostate — non re-implementa
 la semantica reale di $group di MongoDB, ma verifica che i calcoli e
-l'assemblaggio del risultato finale siano corretti.
+l'assemblaggio del risultato finale siano corretti. Il fake replica il
+comportamento PyMongo Async (aggregate() coroutine da awaitare per ottenere
+il cursore), non quello di Motor.
 
 Esegui con:
     JWT_SECRET=test MONGO_URL=mongodb://localhost DB_NAME=test \
@@ -38,7 +40,11 @@ class FakeCollection:
         self._rows_by_call = list(rows_by_call)
         self.calls = []
 
-    def aggregate(self, pipeline):
+    async def aggregate(self, pipeline):
+        # PyMongo Async: aggregate() è essa stessa una coroutine che va
+        # awaitata per ottenere il cursore (diversamente da find()) — a
+        # differenza di Motor, dove era sincrona. Il fake deve rispecchiare
+        # questo per restare fedele al comportamento reale.
         self.calls.append(pipeline)
         rows = self._rows_by_call.pop(0) if self._rows_by_call else []
         return FakeAggregateCursor(rows)

@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Any, Optional
 
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
@@ -34,7 +34,7 @@ async def check_and_record(
     now_iso = now.isoformat()
     since_iso = (now - timedelta(minutes=window_minutes)).isoformat()
 
-    pipeline = [
+    pipeline: list[dict[str, Any]] = [
         {
             "$set": {
                 "attempts": {
@@ -77,6 +77,10 @@ async def check_and_record(
             return_document=ReturnDocument.AFTER,
         )
 
+    # upsert=True + return_document=AFTER (in entrambi i rami): un documento
+    # è sempre restituito — lo stub tipizza comunque il risultato come
+    # Optional.
+    assert doc is not None
     attempts = doc.get("attempts") or []
     # Concesso solo se il tentativo di ADESSO è stato davvero aggiunto in
     # fondo all'array: se il conteggio era già al limite, la pipeline lascia
