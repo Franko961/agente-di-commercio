@@ -67,6 +67,12 @@ jobs:
       REACT_APP_BACKEND_URL: http://localhost:8000
       CORS_ORIGINS: http://localhost:3000
     steps:
+      - name: "DIAGNOSTICA TEMPORANEA: verifica ANTHROPIC_API_KEY (da rimuovere)"
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" https://api.anthropic.com/v1/models \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01")
+          echo "HTTP $code (200 = chiave valida, 401 = placeholder/non valida)"
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
