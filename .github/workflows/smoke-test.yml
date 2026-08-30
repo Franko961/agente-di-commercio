@@ -1,0 +1,28 @@
+name: Smoke test produzione
+
+# Non un gate sui merge: un disservizio transitorio di salesfly.it non deve
+# bloccare una PR già verde su ci.yml. Trigger separati da pull_request
+# apposta — questo workflow non compare tra i check richiesti dalla branch
+# protection.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: salesfly.it
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests pytest
+      - name: Esegui gli smoke test contro salesfly.it
+        env:
+          DEMO_ACCOUNT_EMAIL: ${{ secrets.DEMO_ACCOUNT_EMAIL }}
+          DEMO_ACCOUNT_PASSWORD: ${{ secrets.DEMO_ACCOUNT_PASSWORD }}
+        run: pytest -q smoke-tests/test_production.py -v
