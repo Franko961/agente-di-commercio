@@ -24,8 +24,9 @@ import { article as minimaliMassimali } from "./articles/enasarco-minimali-massi
 import { article as inquadramentoAgente } from "./articles/diventare-agente-di-commercio-requisiti-iscrizioni";
 import { article as catalogoDigitale } from "./articles/catalogo-digitale-agenti-di-commercio";
 import { article as ritenutaAcconto } from "./articles/ritenuta-acconto-contributi-enasarco-fattura";
+import { article as firr } from "./articles/firr-agenti-commercio-calcolo-indennita";
 
-const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot, migliorCrmVenditori, crmAiVenditori, aumentareProvvigioni, daExcelAlCrm, implementareInDueMinuti, contrattoDiAgenzia, rimborsoTasseStudio, bonusScolasticoFigli, minimaliMassimali, inquadramentoAgente, catalogoDigitale, ritenutaAcconto];
+const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot, migliorCrmVenditori, crmAiVenditori, aumentareProvvigioni, daExcelAlCrm, implementareInDueMinuti, contrattoDiAgenzia, rimborsoTasseStudio, bonusScolasticoFigli, minimaliMassimali, inquadramentoAgente, catalogoDigitale, ritenutaAcconto, firr];
 
 export const articles = [...allArticles].sort(
   (a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)
