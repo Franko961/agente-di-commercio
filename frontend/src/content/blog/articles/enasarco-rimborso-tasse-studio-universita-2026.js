@@ -34,6 +34,13 @@ const article = {
       type: "p",
       text: "Tenere traccia delle spese legate a ENASARCO — inclusa la documentazione di prestazioni come questa — insieme alle altre spese personali e aziendali aiuta ad avere un quadro chiaro nel tempo: è uno degli usi più comuni che gli agenti fanno della sezione Spese di SalesFly, con la categoria ENASARCO già pronta all'uso (ne parliamo più nel dettaglio nell'articolo dedicato a ENASARCO).",
     },
+    {
+      type: "cta",
+      title: "Tieni sotto controllo le spese ENASARCO",
+      text: "Con SalesFly registri e categorizzi ogni spesa in pochi secondi, categoria ENASARCO già pronta all'uso.",
+      href: "/richiedi-demo",
+      cta: "Inizia prova gratuita",
+    },
   ],
 };
 

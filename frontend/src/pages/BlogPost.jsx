@@ -21,6 +21,25 @@ function renderBlock(block, i) {
           ))}
         </ul>
       );
+    case "cta":
+      return (
+        <div
+          key={i}
+          className="my-8 bg-[#0A192F] text-white rounded-xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+        >
+          <div>
+            <div className="font-cabinet font-black text-lg mb-1">{block.title}</div>
+            <p className="text-[14px] text-white/70">{block.text}</p>
+          </div>
+          <Link
+            to={block.href || "/richiedi-demo"}
+            className="shrink-0 inline-flex items-center gap-2 bg-[#B23E00] text-white rounded-lg px-5 py-3 text-[14px] font-bold hover:bg-[#e04e00] transition-colors whitespace-nowrap"
+          >
+            {block.cta || "Inizia prova gratuita"}
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      );
     case "p":
     default:
       return (

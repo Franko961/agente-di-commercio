@@ -1,8 +1,8 @@
 const article = {
   slug: "contratto-di-agenzia-clausole-da-controllare",
-  title: "Contratto di agenzia: le clausole da controllare prima di firmare",
+  title: "Contratto di agenzia: le 6 clausole da controllare prima di firmare",
   description:
-    "Le clausole del contratto di agenzia che vale la pena leggere con attenzione prima di firmare con un nuovo mandante: esclusiva, provvigioni, star del credere, preavviso, non concorrenza e indennità di fine rapporto.",
+    "Le 6 clausole del contratto di agenzia da leggere con attenzione prima di firmare con un nuovo mandante — esclusiva, provvigioni, star del credere, preavviso, non concorrenza, indennità di fine rapporto — cosa significano e a cosa fare attenzione.",
   publishedAt: "2026-08-25",
   draft: false,
   blocks: [
@@ -48,6 +48,13 @@ const article = {
     {
       type: "p",
       text: "Una volta firmato, il passo successivo è assicurarsi che quanto negoziato — aliquota, eventuale scala premi, soglie — venga effettivamente applicato mandante per mandante, invece di fidarsi a memoria o di un estratto conto letto una volta l'anno. In SalesFly ogni mandante ha la propria aliquota e la propria scala premi tracciata automaticamente, con il calcolo delle provvigioni sempre visibile invece che ricostruito a fine trimestre: un modo semplice per accorgersi subito se un versamento non torna con quanto scritto nel contratto.",
+    },
+    {
+      type: "cta",
+      title: "Verifica ogni provvigione, mandante per mandante",
+      text: "Aliquote e scale premi tracciate automaticamente, calcolo sempre visibile — non ricostruito a fine trimestre.",
+      href: "/richiedi-demo",
+      cta: "Inizia prova gratuita",
     },
   ],
 };
