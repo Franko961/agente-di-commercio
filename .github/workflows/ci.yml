@@ -43,9 +43,23 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    # MongoDB come service container effimero, non un Atlas remoto: un
+    # problema di rete/credenziali/disponibilità di un DB esterno condiviso
+    # non deve poter far fallire i test a codice perfetto. Standalone (nessun
+    # replica set) basta: nel codice non si usano transazioni MongoDB.
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ping:1}).ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     env:
-      MONGO_URL: ${{ secrets.MONGO_URL }}
-      DB_NAME: ${{ secrets.DB_NAME }}
+      MONGO_URL: mongodb://localhost:27017
+      DB_NAME: salesfly_ci
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       PAYPAL_CLIENT_ID: ${{ secrets.PAYPAL_CLIENT_ID }}
