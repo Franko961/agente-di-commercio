@@ -44,9 +44,9 @@ const PAGES = {
     priority: "0.8",
   },
   "/perche-salesfly": {
-    title: "Perché SalesFly — Il CRM per Agenti di Commercio",
+    title: "CRM per Agenti di Commercio: perché scegliere SalesFly",
     description:
-      "L'unico CRM con un assistente che il lavoro non lo spiega: lo fa. Scopri i vantaggi concreti che SalesFly porta nella giornata di un agente di commercio plurimandatario.",
+      "SalesFly è il CRM pensato per chi vende su più mandati: pianifica il giro visite, calcola le provvigioni per mandante e aggiorna il CRM parlando — non un CRM generico adattato al tuo lavoro.",
     changefreq: "monthly",
     priority: "0.8",
   },
