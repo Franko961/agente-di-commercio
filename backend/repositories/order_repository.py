@@ -94,6 +94,10 @@ class OrderRepository:
             upsert=True,
             return_document=ReturnDocument.AFTER,
         )
+        # upsert=True + return_document=AFTER: un documento è sempre
+        # restituito (creato se non esisteva) — lo stub tipizza comunque il
+        # risultato come Optional.
+        assert counter is not None
         return f"ORD-{counter['seq']:04d}"
 
 
