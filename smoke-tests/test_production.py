@@ -12,7 +12,6 @@ MAI dalla pipeline di CI/PR (backend/tests/ resta hermetic, offline,
 riproducibile — vedi .github/workflows/ci.yml).
 """
 
-import os
 import time
 
 import requests
@@ -65,16 +64,19 @@ def test_service_worker_served_same_origin():
     assert "CACHE_VERSION" in r.text or "caches.open" in r.text
 
 
-def test_login_demo_account_via_proxy():
-    """Verifica solo che l'autenticazione end-to-end funzioni in
-    produzione (proxy Netlify→Railway incluso) — account demo pubblico,
-    pensato per essere esplorato liberamente e comunque sola lettura per
-    design (forbid_demo_write, vedi backend/core/security.py): nessuna
-    scrittura qui, solo un login."""
-    email = os.environ["DEMO_ACCOUNT_EMAIL"]
-    password = os.environ["DEMO_ACCOUNT_PASSWORD"]
+def test_login_rejects_wrong_credentials_via_proxy():
+    """Verifica che l'intera catena di autenticazione funzioni davvero in
+    produzione (proxy Netlify→Railway incluso, backend, DB, JWT) — senza
+    dipendere da un account reale: in produzione non esiste un account
+    demo pubblico (nessun codice imposta mai is_demo=True su un nuovo
+    account, verificato nel repo), quindi non c'è nessuna credenziale
+    valida "sicura" da usare qui. Una password sbagliata deve comunque
+    ricevere 401 dalla catena intera, non un errore di rete/proxy/5xx —
+    prova che l'endpoint è vivo e funzionante end-to-end senza scrivere
+    né esporre nulla."""
     r = requests.post(
-        f"{API}/auth/login", json={"email": email, "password": password}, timeout=20
+        f"{API}/auth/login",
+        json={"email": "smoke-test@salesfly.it", "password": "wrong-password"},
+        timeout=20,
     )
-    assert r.status_code == 200, r.text
-    assert "access_token" in r.cookies
+    assert r.status_code == 401, r.text

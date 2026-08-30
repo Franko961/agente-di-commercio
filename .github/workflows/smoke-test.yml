@@ -22,7 +22,4 @@ jobs:
           python-version: "3.12"
       - run: pip install requests pytest
       - name: Esegui gli smoke test contro salesfly.it
-        env:
-          DEMO_ACCOUNT_EMAIL: ${{ secrets.DEMO_ACCOUNT_EMAIL }}
-          DEMO_ACCOUNT_PASSWORD: ${{ secrets.DEMO_ACCOUNT_PASSWORD }}
         run: pytest -q smoke-tests/test_production.py -v
