@@ -80,5 +80,23 @@ class SettingsService:
         await self.repo.update_by_id(user["id"], data)
         return self._company_view({**user, **data})
 
+    @staticmethod
+    def _fiscal_view(user: dict) -> dict:
+        # Stessi default del model FiscalSettingsIn: un utente che non ha
+        # mai aperto questa impostazione va trattato come se avesse il
+        # default legale (ordinario, base 50%), non come "non impostato".
+        return {
+            "regime_fiscale": user.get("regime_fiscale") or "ordinario",
+            "base_ritenuta": user.get("base_ritenuta") or "50",
+        }
+
+    async def get_fiscal_settings(self, user: dict) -> dict:
+        return self._fiscal_view(user)
+
+    async def update_fiscal_settings(self, user: dict, payload) -> dict:
+        data = payload.model_dump()
+        await self.repo.update_by_id(user["id"], data)
+        return self._fiscal_view({**user, **data})
+
 
 settings_service = SettingsService()

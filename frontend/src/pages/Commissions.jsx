@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { exportCommissions } from "../utils/export";
 import { useMandante } from "../contexts/MandanteContext";
 import { listClients } from "../api/clients";
 import { listMandanti } from "../api/mandanti";
+import { getFiscalSettings } from "../api/settings";
+import { computeFiscalBreakdown } from "../utils/fiscalCalc";
 import {
   listCommissions, getBonusSummary, updateCommissionStatus, deleteCommission as deleteCommissionApi,
   listManualCommissions, createManualCommission, updateManualCommission, deleteManualCommission,
@@ -24,6 +27,7 @@ export default function Commissions() {
   const [filter, setFilter] = useState("all");
   const [clientFilter, setClientFilter] = useState("all");
   const [manualCommissions, setManualCommissions] = useState([]);
+  const [fiscalSettings, setFiscalSettings] = useState(null); // null finché non caricata
   const [manualForm, setManualForm] = useState(emptyManualForm);
   const [editingManualId, setEditingManualId] = useState(null);
   const [savingManual, setSavingManual] = useState(false);
@@ -49,6 +53,12 @@ export default function Commissions() {
     setManualCommissions(mc);
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [mandanteParam]);
+  // Impostazione indipendente dal mandante/filtro selezionato, quindi
+  // caricata una sola volta e non dentro load() (che invece va rieseguita
+  // a ogni cambio di mandanteParam).
+  useEffect(() => {
+    getFiscalSettings().then(setFiscalSettings).catch(() => {});
+  }, []);
 
   const startNewManualEntry = () => {
     setEditingManualId(null);
@@ -95,6 +105,19 @@ export default function Commissions() {
   // mandante/cliente corrente: si aggiunge al totale calcolato dagli ordini,
   // per provvigioni concluse fuori dal flusso ordini del CRM.
   const manualTotal = manualAccrued + manualCollected;
+  // Ritenuta/ENASARCO si applicano alla provvigione lorda una volta
+  // incassata, non a quella ancora solo maturata (che il mandante deve
+  // ancora versare) — coerente con come funziona nella realtà: il
+  // mandante trattiene ritenuta ed ENASARCO al momento del pagamento, non
+  // prima. Stessa formula del calcolatore dell'articolo del blog, vedi
+  // utils/fiscalCalc.js.
+  const fiscalBreakdown = fiscalSettings
+    ? computeFiscalBreakdown(
+        collected + manualCollected,
+        fiscalSettings.regime_fiscale,
+        fiscalSettings.base_ritenuta
+      )
+    : null;
   const manualEntriesByPeriod = useMemo(() => {
     const map = {};
     for (const m of visibleManualCommissions) {
@@ -204,6 +227,40 @@ export default function Commissions() {
           </div>
         </div>
       </div>
+
+      {fiscalBreakdown && (collected + manualCollected) > 0 && (
+        <div className="bg-white border border-[#E4E4E1] rounded-md p-5 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72]">
+              Netto stimato sull'incassato
+            </div>
+            <Link to="/app/impostazioni" className="text-[11px] text-[#B23E00] font-medium hover:underline">
+              {fiscalSettings.regime_fiscale === "forfettario" ? "Regime forfettario" : "Regime ordinario"} · Modifica
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[13px]">
+            <div>
+              <div className="text-[#6B6B72] mb-1">Lordo incassato</div>
+              <div className="font-mono font-semibold">{fmt(fiscalBreakdown.lordo)}</div>
+            </div>
+            <div>
+              <div className="text-[#6B6B72] mb-1">Ritenuta d'acconto</div>
+              <div className="font-mono font-semibold text-[#DC2626]">− {fmt(fiscalBreakdown.ritenutaAcconto)}</div>
+            </div>
+            <div>
+              <div className="text-[#6B6B72] mb-1">ENASARCO (quota agente)</div>
+              <div className="font-mono font-semibold text-[#DC2626]">− {fmt(fiscalBreakdown.contributoEnasarco)}</div>
+            </div>
+            <div>
+              <div className="text-[#6B6B72] mb-1">Netto stimato</div>
+              <div className="font-mono font-black text-[#059669]">{fmt(fiscalBreakdown.netto)}</div>
+            </div>
+          </div>
+          <p className="text-[11px] text-[#6B6B72] mt-3">
+            Calcolo indicativo in base alla situazione fiscale impostata, non sostituisce il commercialista.
+          </p>
+        </div>
+      )}
 
       <ManualCommissionForm
         manualForm={manualForm} setManualForm={setManualForm} editingManualId={editingManualId}
