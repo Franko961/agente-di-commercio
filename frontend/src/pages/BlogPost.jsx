@@ -5,12 +5,14 @@ import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
 import PageMeta from "@/components/PageMeta";
 import RitenutaEnasarcoCalculator from "@/components/RitenutaEnasarcoCalculator";
+import FirrCalculator from "@/components/FirrCalculator";
 
 // Registro dei componenti interattivi richiamabili da un blocco di tipo
 // "calculator" — solo il nome nel file dell'articolo, così un nuovo
 // calcolatore si aggiunge qui senza toccare renderBlock.
 const CALCULATORS = {
   ritenutaEnasarco: RitenutaEnasarcoCalculator,
+  firr: FirrCalculator,
 };
 
 function renderBlock(block, i) {
