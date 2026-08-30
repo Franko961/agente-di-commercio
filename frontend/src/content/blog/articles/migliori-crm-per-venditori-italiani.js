@@ -1,8 +1,8 @@
 const article = {
   slug: "migliori-crm-per-venditori-italiani",
-  title: "I migliori CRM per venditori italiani (e quale scegliere se sei un agente plurimandatario)",
+  title: "I migliori CRM per venditori italiani (2026)",
   description:
-    "Una rassegna dei CRM più usati da chi vende in Italia — Pipedrive, Zoho CRM, monday CRM, Salesforce, HubSpot — con prezzi indicativi e cosa manca a ciascuno per il lavoro specifico dell'agente di commercio con più mandanti.",
+    "Pipedrive, Zoho CRM, monday CRM, Salesforce, HubSpot: prezzi indicativi e cosa manca a ciascuno per il lavoro specifico dell'agente di commercio plurimandatario, con più mandanti da gestire insieme.",
   publishedAt: "2026-08-23",
   draft: false,
   blocks: [
