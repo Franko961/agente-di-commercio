@@ -6,9 +6,9 @@ const NAV_LINKS = [
   { to: "/blog", label: "Blog" },
   { to: "/tour", label: "Tour guidato" },
   { to: "/perche-salesfly", label: "Perché SalesFly" },
-  { to: "/chi-siamo", label: "Chi siamo" },
   { to: "/contatti", label: "Contatti" },
   { to: "/prezzi", label: "Prezzi" },
+  { to: "/chi-siamo", label: "Chi siamo" },
 ];
 
 export default function PublicHeader() {
