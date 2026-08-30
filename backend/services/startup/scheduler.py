@@ -101,4 +101,5 @@ async def run_shutdown() -> None:
         _document_trash_cleanup_task.cancel()
     if _reconciliation_check_task:
         _reconciliation_check_task.cancel()
-    close_db()
+    # PyMongo Async: close() è una coroutine (in Motor era sincrono).
+    await close_db()

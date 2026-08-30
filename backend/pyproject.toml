@@ -11,14 +11,13 @@ dependencies = [
   "requests-oauthlib>=2.0.0",
   "cryptography>=42.0.8",
   "python-dotenv>=1.0.1",
-  "pymongo==4.6.3",
+  "pymongo>=4.9",
   "pydantic>=2.6.4",
   "email-validator>=2.2.0",
   "pyjwt>=2.10.1",
   "bcrypt==4.1.3",
   "passlib>=1.7.4",
   "tzdata>=2024.2",
-  "motor==3.3.1",
   "requests>=2.31.0",
   "pandas>=2.2.0",
   "numpy>=1.26.0",
@@ -68,18 +67,6 @@ check_untyped_defs = true
 # di test deliberato, non un bug, che mypy non può verificare staticamente.
 # pytest è già una rete di sicurezza molto più efficace per il codice dei test.
 exclude = ["^tests/"]
-
-[[tool.mypy.overrides]]
-# Motor (il driver MongoDB async) ha una compatibilità mypy nota per essere
-# incompleta: i suoi metodi generici (es. find_one) risolvono a "None" invece
-# di "Optional[_DocumentType]" quando la collection non è parametrizzata
-# esplicitamente (com'è ovunque in questo codebase — vedi core/database.py),
-# causando falsi "Function does not return a value" su ogni find_one/
-# find_one_and_update del repository layer. follow_imports = "skip" dice a
-# mypy di non fidarsi dei tipi di motor invece di far collassare a None ogni
-# funzione che ne usa il risultato.
-module = "motor.*"
-follow_imports = "skip"
 
 [[tool.mypy.overrides]]
 # Stesso motivo del type: ignore già usato in routers/documents.py e
