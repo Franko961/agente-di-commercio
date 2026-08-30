@@ -44,6 +44,13 @@ const article = {
       type: "p",
       text: "Da lì in poi, le provvigioni si calcolano da sole in base alle aliquote di ogni mandante, il giro visite si pianifica su mappa, e i promemoria per clienti inattivi o offerte in scadenza arrivano da soli. Si può provare con 14 giorni di prova gratuita, senza carta di credito, per vedere se il proprio elenco clienti si importa davvero senza sorprese prima di decidere.",
     },
+    {
+      type: "cta",
+      title: "Importa il tuo Excel in pochi minuti",
+      text: "14 giorni di prova gratuita per vedere se il tuo elenco clienti si importa senza sorprese.",
+      href: "/richiedi-demo",
+      cta: "Inizia prova gratuita",
+    },
   ],
 };
 

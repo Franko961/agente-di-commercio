@@ -40,6 +40,13 @@ const article = {
       type: "p",
       text: "Non serve necessariamente un CRM per applicare queste cinque leve — ma un CRM pensato per un plurimandatario le rende molto più semplici da mettere in pratica ogni giorno, invece che a fine mese quando è tardi. In SalesFly ogni mandante ha la propria aliquota (differenziata tra nuovo e rinnovo, se previsto) e la propria scala premi a scaglioni tracciata automaticamente, con l'obiettivo di fatturato del mese sempre visibile in dashboard. Le automazioni possono generare un promemoria per i clienti senza ordini da troppo tempo, i lead inattivi o le offerte in scadenza, così le occasioni mancate per distrazione diventano l'eccezione, non la norma.",
     },
+    {
+      type: "cta",
+      title: "Non perdere più provvigioni per distrazione",
+      text: "Aliquote, scale premi e promemoria automatici, mandante per mandante.",
+      href: "/richiedi-demo",
+      cta: "Inizia prova gratuita",
+    },
   ],
 };
 

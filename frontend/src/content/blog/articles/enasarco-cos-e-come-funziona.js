@@ -47,6 +47,13 @@ const article = {
       type: "p",
       text: "Tenere traccia dei contributi ENASARCO versati, insieme alle altre spese personali e aziendali (INPS, assicurazione auto, commercialista), aiuta ad avere un quadro chiaro della propria posizione contributiva nel tempo — è uno degli usi più comuni che gli agenti fanno della sezione Spese di SalesFly, con la categoria ENASARCO già pronta all'uso. Per un agente plurimandatario, indicare il mandante di riferimento nella descrizione o nelle note della spesa aiuta a distinguere i versamenti di ciascuno.",
     },
+    {
+      type: "cta",
+      title: "Un CRM pensato per agenti plurimandatari",
+      text: "Clienti, provvigioni e spese ENASARCO per ogni mandante, sempre sotto controllo in un unico posto.",
+      href: "/richiedi-demo",
+      cta: "Inizia prova gratuita",
+    },
   ],
 };
 

@@ -41,6 +41,13 @@ const article = {
       type: "p",
       text: "Questo tempo guadagnato può essere reindirizzato verso attività ad alto valore aggiunto: l'acquisizione di nuovi clienti, la cura dei rapporti già consolidati e il raggiungimento degli obiettivi di fatturato.",
     },
+    {
+      type: "cta",
+      title: "Recupera fino a 10 ore a settimana",
+      text: "Prova l'assistente AI di SalesFly che aggiorna davvero il CRM al posto tuo, non solo risponde.",
+      href: "/richiedi-demo",
+      cta: "Inizia prova gratuita",
+    },
   ],
 };
 

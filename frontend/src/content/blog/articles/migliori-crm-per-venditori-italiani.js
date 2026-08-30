@@ -81,6 +81,13 @@ const article = {
       type: "p",
       text: "Il prezzo è per singolo agente, non per posto: Base a €6/mese e Pro a €11/mese, entrambi con 14 giorni di prova gratuita senza carta di credito — una frazione del costo minimo di ciascuno dei CRM generalisti descritti sopra, senza dover ricostruire da zero la logica di mandante e provvigione che qui è già pronta all'uso.",
     },
+    {
+      type: "cta",
+      title: "Provalo prima di decidere",
+      text: "14 giorni di prova gratuita su entrambi i piani, nessuna carta di credito richiesta.",
+      href: "/richiedi-demo",
+      cta: "Inizia prova gratuita",
+    },
   ],
 };
 

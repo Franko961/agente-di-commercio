@@ -47,6 +47,13 @@ const article = {
       type: "p",
       text: "Un'ultima nota: la scala premi e gli obiettivi per mandante sono strumenti di monitoraggio, pensati per avere sott'occhio a che punto si è rispetto a una soglia o un target — non calcolano automaticamente l'erogazione di un bonus, che resta un accordo tra agente e mandante da verificare caso per caso.",
     },
+    {
+      type: "cta",
+      title: "Ogni mandante, la sua aliquota",
+      text: "Cataloghi, obiettivi e provvigioni separati per mandante, senza fogli da tenere sincronizzati.",
+      href: "/richiedi-demo",
+      cta: "Inizia prova gratuita",
+    },
   ],
 };
 

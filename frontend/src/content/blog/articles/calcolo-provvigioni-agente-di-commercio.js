@@ -44,6 +44,13 @@ const article = {
       type: "p",
       text: "Se un cliente restituisce la merce o l'ordine viene stornato, la provvigione già maturata su quella vendita viene normalmente recuperata dal mandante tramite una nota di credito che riduce le provvigioni del periodo successivo. Tenere traccia di questi storni separatamente dalle nuove vendite è essenziale per capire il proprio andamento reale, invece di vedere solo il saldo netto in busta.",
     },
+    {
+      type: "cta",
+      title: "Provvigioni calcolate automaticamente",
+      text: "Aliquota per mandante, scaglioni e storni tracciati da soli — mai più ricalcoli a mano.",
+      href: "/richiedi-demo",
+      cta: "Inizia prova gratuita",
+    },
   ],
 };
 

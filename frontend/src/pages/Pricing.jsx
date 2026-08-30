@@ -20,7 +20,7 @@ export default function Pricing() {
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
       <PageMeta
         path="/prezzi"
-        description={`Piani ${base.name} (€${base.price_eur}/mese) e ${pro.name} (€${pro.price_eur}/mese) per il CRM SALESFLY. ${trialDays} giorni di prova gratuita, nessuna carta di credito richiesta.`}
+        description={`Confronta i piani ${base.name} (€${base.price_eur}/mese) e ${pro.name} (€${pro.price_eur}/mese) di SALESFLY. ${trialDays} giorni di prova gratuita, nessuna carta di credito richiesta: inizia subito.`}
       />
       <PublicHeader />
 

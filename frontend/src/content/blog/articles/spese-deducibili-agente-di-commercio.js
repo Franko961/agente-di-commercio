@@ -49,6 +49,13 @@ const article = {
       type: "p",
       text: "Un'ultima nota: questo articolo parla di come organizzare e tracciare le spese, non di quali siano fiscalmente deducibili e in quale misura — quello dipende dal proprio regime fiscale e da regole che è il commercialista a dover valutare caso per caso. Avere le spese già categorizzate, documentate e organizzate mese per mese è comunque ciò che rende quel confronto rapido, invece di partire da una busta di scontrini a gennaio.",
     },
+    {
+      type: "cta",
+      title: "Organizza le spese in pochi secondi",
+      text: "Categorizza e documenta ogni spesa mese per mese, pronta per il confronto col commercialista.",
+      href: "/richiedi-demo",
+      cta: "Inizia prova gratuita",
+    },
   ],
 };
 

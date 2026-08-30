@@ -39,6 +39,13 @@ const article = {
       type: "p",
       text: "Un'ultima nota: essere ottimizzato per il mobile non significa avere meno funzioni rispetto al desktop — le stesse funzionalità di clienti, provvigioni, mandanti e automazioni restano disponibili, solo organizzate in modo diverso per uno schermo piccolo usato con una mano.",
     },
+    {
+      type: "cta",
+      title: "Il CRM che ti segue sul territorio",
+      text: "App installabile, giro visite da smartphone, aggiornamenti a voce tra una visita e l'altra.",
+      href: "/richiedi-demo",
+      cta: "Inizia prova gratuita",
+    },
   ],
 };
 

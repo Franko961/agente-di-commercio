@@ -30,9 +30,9 @@ const PAGES = {
     priority: "1.0",
   },
   "/prezzi": {
-    title: "Prezzi — SALESFLY, il CRM per Agenti di Commercio",
+    title: "Prezzi CRM SALESFLY: piani trasparenti, prova gratis senza carta",
     description:
-      "Piani Base e Pro per il CRM SALESFLY, con giorni di prova gratuita e nessuna carta di credito richiesta.",
+      "Confronta i piani Base e Pro di SALESFLY, il CRM per agenti di commercio plurimandatari: prezzo chiaro, nessun costo nascosto, prova gratuita senza carta di credito.",
     changefreq: "monthly",
     priority: "0.8",
   },
