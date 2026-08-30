@@ -4,9 +4,21 @@ import { getArticleBySlug, getPublishedArticles } from "@/content/blog";
 import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
 import PageMeta from "@/components/PageMeta";
+import RitenutaEnasarcoCalculator from "@/components/RitenutaEnasarcoCalculator";
+
+// Registro dei componenti interattivi richiamabili da un blocco di tipo
+// "calculator" — solo il nome nel file dell'articolo, così un nuovo
+// calcolatore si aggiunge qui senza toccare renderBlock.
+const CALCULATORS = {
+  ritenutaEnasarco: RitenutaEnasarcoCalculator,
+};
 
 function renderBlock(block, i) {
   switch (block.type) {
+    case "calculator": {
+      const Calc = CALCULATORS[block.name];
+      return Calc ? <Calc key={i} /> : null;
+    }
     case "h2":
       return (
         <h2 key={i} className="font-cabinet font-black text-2xl mt-10 mb-4">
