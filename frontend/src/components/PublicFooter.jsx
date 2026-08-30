@@ -1,4 +1,4 @@
-﻿import { Facebook } from "lucide-react";
+﻿import { Facebook, Star } from "lucide-react";
 import { useCookieConsent } from "../contexts/CookieConsentContext";
 
 export default function PublicFooter() {
@@ -18,6 +18,15 @@ export default function PublicFooter() {
           className="w-8 h-8 flex items-center justify-center rounded-full bg-[#0A192F] text-white hover:bg-[#B23E00] transition-colors shrink-0"
         >
           <Facebook className="w-4 h-4" />
+        </a>
+        <a
+          href="https://www.capterra.com/p/10182022/Salesfly/"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="SalesFly su Capterra"
+          className="w-8 h-8 flex items-center justify-center rounded-full bg-[#0A192F] text-white hover:bg-[#B23E00] transition-colors shrink-0"
+        >
+          <Star className="w-4 h-4" />
         </a>
       </div>
     </footer>

@@ -93,6 +93,14 @@ async def onboarding_seen(user=Depends(forbid_demo_write)):
     return await auth_service.mark_onboarding_seen(user)
 
 
+@router.post("/capterra-review-dismissed")
+async def capterra_review_dismissed(user=Depends(forbid_demo_write)):
+    """Chiuso il banner "lascia una recensione su Capterra" (mostrato in
+    Layout.jsx 14 giorni dopo la registrazione) — stesso schema di
+    onboarding-seen sopra, stesso motivo per bloccarlo sull'account demo."""
+    return await auth_service.mark_capterra_review_dismissed(user)
+
+
 @router.post("/forgot-password")
 async def forgot_password(payload: ForgotPasswordIn, request: Request):
     ip_address = get_client_ip(request)

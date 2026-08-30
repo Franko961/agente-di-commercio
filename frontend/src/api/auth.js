@@ -29,6 +29,10 @@ export function markOnboardingSeen() {
   return api.post("/auth/onboarding-seen").then(({ data }) => data);
 }
 
+export function markCapterraReviewDismissed() {
+  return api.post("/auth/capterra-review-dismissed").then(({ data }) => data);
+}
+
 export function forgotPassword(email) {
   return api.post("/auth/forgot-password", { email }).then(({ data }) => data);
 }
