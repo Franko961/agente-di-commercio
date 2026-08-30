@@ -103,6 +103,11 @@ EXCLUDED_FROM_USER_SCOPED_COLLECTIONS = {
     # tecnico (es. "demo_reset", "health_alert"), non per utente — nessun
     # dato personale, nessuno user_id da seguire.
     "job_locks",
+    # Tracciamento delle migrazioni dati una tantum già applicate (vedi
+    # migrations/runner.py): un documento per NOME DI MIGRAZIONE tecnico
+    # (es. "_001_document_deleted_at"), non per utente — nessun dato
+    # personale, nessuno user_id da seguire.
+    "schema_migrations",
 }
 
 # Campi da rimuovere sempre dall'export e mai includere: segreti tecnici che

@@ -1,5 +1,5 @@
 """
-Verifica services.startup.migrations.backfill_manual_commission_ids: i documenti
+Verifica migrations._002_manual_commission_ids.run: i documenti
 manual_commissions creati prima dell'introduzione del CRUD per id (vecchio
 upsert per (user_id, period), senza campo id) devono ricevere un id reale
 all'avvio — altrimenti, con l'indice univoco (user_id, period) rimosso, due
@@ -16,8 +16,8 @@ import sys
 
 sys.path.insert(0, ".")
 
-import services.startup.migrations as startup_service_mod
-from services.startup.migrations import backfill_manual_commission_ids
+import migrations._002_manual_commission_ids as startup_service_mod
+from migrations._002_manual_commission_ids import run as backfill_manual_commission_ids
 
 
 def run(coro):
