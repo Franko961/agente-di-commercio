@@ -43,10 +43,16 @@ jobs:
     defaults:
       run:
         working-directory: backend
-    # MongoDB come service container effimero, non un Atlas remoto: un
-    # problema di rete/credenziali/disponibilità di un DB esterno condiviso
-    # non deve poter far fallire i test a codice perfetto. Standalone (nessun
-    # replica set) basta: nel codice non si usano transazioni MongoDB.
+    # MongoDB come service container effimero, non un servizio esterno
+    # remoto: un problema di rete/credenziali/disponibilità condiviso non
+    # deve poter far fallire i test a codice perfetto. Standalone (nessun
+    # replica set: nel codice non si usano transazioni MongoDB). MinIO
+    # (S3-compatibile, serve ai test che caricano documenti) è avviato più
+    # sotto con un semplice `docker run`, non come service container: i
+    # service container di GitHub Actions non permettono di passare
+    # argomenti al comando, e l'immagine ufficiale minio/minio richiede
+    # `server /data` per avviare il server (a differenza di mongo:7, il cui
+    # CMD di default è già pronto all'uso).
     services:
       mongodb:
         image: mongo:7
@@ -64,6 +70,10 @@ jobs:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       PAYPAL_CLIENT_ID: ${{ secrets.PAYPAL_CLIENT_ID }}
       PAYPAL_CLIENT_SECRET: ${{ secrets.PAYPAL_CLIENT_SECRET }}
+      AWS_ACCESS_KEY_ID: minio-ci-user
+      AWS_SECRET_ACCESS_KEY: minio-ci-password
+      AWS_S3_BUCKET: salesfly-ci-test
+      S3_ENDPOINT: http://localhost:9000
       REACT_APP_BACKEND_URL: http://localhost:8000
       CORS_ORIGINS: http://localhost:3000
     steps:
@@ -73,6 +83,24 @@ jobs:
           enable-cache: true
           cache-suffix: backend-test
       - run: uv sync
+      - name: Avvia MinIO (S3 compatibile) in background
+        run: |
+          docker run -d --name minio-ci -p 9000:9000 \
+            -e MINIO_ROOT_USER=minio-ci-user \
+            -e MINIO_ROOT_PASSWORD=minio-ci-password \
+            minio/minio server /data
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:9000/minio/health/live && break
+            sleep 1
+          done
+          curl -sf http://localhost:9000/minio/health/live || {
+            echo "MinIO non ha risposto entro 30s"
+            docker logs minio-ci
+            exit 1
+          }
+      - name: Crea il bucket S3 di test su MinIO
+        run: |
+          aws --endpoint-url http://localhost:9000 s3 mb s3://salesfly-ci-test
       - name: Avvia il backend in background
         run: |
           uv run uvicorn server:app --host 0.0.0.0 --port 8000 &
@@ -89,19 +117,16 @@ jobs:
       # il backend nudo. Deselezionati solo qui, non modificati: restano validi
       # come smoke test contro l'ambiente reale.
       #
-      # test_backend_api.py: 26 dei suoi 28 test dipendono da un fixture di login
-      # che si aspetta un token nel body JSON della risposta — il backend ora
-      # autentica via cookie httpOnly, il token nel body non esiste più. Non un
-      # regressione di questo lavoro: prima semplicemente si "skippavano" tutti
-      # perché l'account demo fixture non esisteva nel DB, mascherando il
-      # problema. Riscrivere i fixture per usare una sessione con cookie è un
-      # lavoro a sé, non in scope qui — file escluso dalla suite CI finché non
-      # viene fatto.
+      # test_ai_chat/test_ai_suggestions chiamano davvero l'endpoint AI (non
+      # mockato) con ANTHROPIC_API_KEY: qui è un placeholder (verificato con
+      # una chiamata reale a /v1/models: HTTP 401), come PAYPAL_CLIENT_ID/
+      # SECRET — deselezionati per lo stesso motivo delle 2 righe sopra.
       - run: >
           uv run pytest -q
-          --ignore=tests/test_backend_api.py
           --deselect tests/test_p1_features.py::TestPwaAssets::test_manifest
           --deselect tests/test_p1_features.py::TestPwaAssets::test_sw
+          --deselect tests/test_backend_api.py::TestAI::test_ai_chat
+          --deselect tests/test_backend_api.py::TestAI::test_ai_suggestions
       # Il post-step di setup-uv (salvataggio/pruning cache) falliva con
       # "exit code 2" mentre il processo uvicorn avviato sopra era ancora
       # vivo — probabile conflitto sui file di .venv. if: always() perché
@@ -109,6 +134,9 @@ jobs:
       - name: Ferma il backend
         if: always()
         run: kill "$(cat /tmp/uvicorn.pid)" 2>/dev/null || true
+      - name: Ferma MinIO
+        if: always()
+        run: docker rm -f minio-ci 2>/dev/null || true
 
   frontend-lint:
     name: Frontend · lint

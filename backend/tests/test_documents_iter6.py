@@ -7,15 +7,14 @@ Iteration 6 - Documents new features
 - GET /api/documents returns tags array
 """
 
-import os
-
 import pytest
 import requests
 
-BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
-API = f"{BASE_URL}/api"
-EMAIL = "agente@demo.it"
-PASSWORD = "demo1234"
+from tests.live_backend_helpers import (
+    API,
+    delete_live_backend_account,
+    register_live_backend_account,
+)
 
 MINI_PDF = (
     b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
@@ -29,12 +28,11 @@ MINI_PDF = (
 
 @pytest.fixture(scope="module")
 def token():
-    r = requests.post(
-        f"{API}/auth/login", json={"email": EMAIL, "password": PASSWORD}, timeout=30
-    )
-    if r.status_code != 200:
-        pytest.skip(f"Login failed: {r.status_code}")
-    return r.json()["token"]
+    account = register_live_backend_account("docs-iter6")
+    if not account:
+        pytest.skip("Registrazione account di test fallita o backend non raggiungibile")
+    yield account["token"]
+    delete_live_backend_account(account)
 
 
 @pytest.fixture(scope="module")
@@ -177,19 +175,11 @@ class TestPatchDocument:
             requests.delete(f"{API}/documents/{did}", headers=auth_headers)
 
     def test_patch_other_users_doc_returns_404(self, auth_headers):
-        # Register a new agent — different user_id
-        import uuid
-
-        em = f"test_{uuid.uuid4().hex[:8]}@example.com"
-        r = requests.post(
-            f"{API}/auth/register",
-            json={"email": em, "password": "secret12", "name": "Other"},
-            timeout=30,
-        )
-        if r.status_code != 200:
-            pytest.skip(f"register failed: {r.status_code}")
-        other_token = r.json()["token"]
-        other_headers = {"Authorization": f"Bearer {other_token}"}
+        # Registra un secondo agente — user_id diverso
+        other_account = register_live_backend_account("docs-iter6-other")
+        if not other_account:
+            pytest.skip("Registrazione del secondo account di test fallita")
+        other_headers = {"Authorization": f"Bearer {other_account['token']}"}
 
         # Upload as original user
         j = _upload(auth_headers, name="TEST_patch_other", tags="")
@@ -204,6 +194,7 @@ class TestPatchDocument:
             assert r.status_code == 404
         finally:
             requests.delete(f"{API}/documents/{did}", headers=auth_headers)
+            delete_live_backend_account(other_account)
 
 
 class TestBackwardCompat:
