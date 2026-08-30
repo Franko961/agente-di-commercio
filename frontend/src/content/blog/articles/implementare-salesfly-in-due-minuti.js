@@ -39,6 +39,13 @@ const article = {
       type: "p",
       text: "Il modo più diretto per verificare quanto tempo richiede davvero nel proprio caso è provarlo: 14 giorni di prova gratuita, nessuna carta di credito richiesta.",
     },
+    {
+      type: "cta",
+      title: "Verifica tu stesso quanto richiede",
+      text: "14 giorni di prova gratuita, nessuna carta di credito richiesta.",
+      href: "/richiedi-demo",
+      cta: "Inizia prova gratuita",
+    },
   ],
 };
 

@@ -39,6 +39,13 @@ const article = {
       type: "p",
       text: "Per chi gestisce più mandanti e quindi più cataloghi, listini e clienti sparsi sullo stesso territorio, ridurre anche solo i chilometri superflui tra una visita e l'altra si traduce in più tempo utile durante la giornata lavorativa — tempo che può essere dedicato a un cliente in più, invece che al tragitto per raggiungerlo.",
     },
+    {
+      type: "cta",
+      title: "Meno chilometri, più visite",
+      text: "Pianifica il giro visite su mappa, con partenza dalla tua posizione reale.",
+      href: "/richiedi-demo",
+      cta: "Inizia prova gratuita",
+    },
   ],
 };
 

@@ -40,6 +40,13 @@ const article = {
       type: "p",
       text: "Un'ultima nota: il riconoscimento vocale usato è quello nativo del browser dello smartphone, quindi la qualità dipende dal dispositivo — su Chrome per Android funziona in modo affidabile, su altri browser il supporto può essere più limitato. Quando manca il microfono o si preferisce non parlare (es. in un ambiente rumoroso o durante l'incontro stesso), tutte le stesse azioni restano disponibili anche scrivendo, dalla stessa finestra dell'assistente.",
     },
+    {
+      type: "cta",
+      title: "Aggiorna il CRM parlando, non digitando",
+      text: "Note, appuntamenti e vendite registrati a voce, con conferma sui dati economici.",
+      href: "/richiedi-demo",
+      cta: "Inizia prova gratuita",
+    },
   ],
 };
 

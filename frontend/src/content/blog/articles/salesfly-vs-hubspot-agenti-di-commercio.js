@@ -48,6 +48,13 @@ const article = {
       type: "p",
       text: "Il modo più diretto per capire quale dei due si adatta meglio al proprio modo di lavorare resta provarlo: SalesFly offre 14 giorni di prova gratuita su entrambi i piani, senza richiedere una carta di credito.",
     },
+    {
+      type: "cta",
+      title: "Provalo prima di decidere",
+      text: "14 giorni di prova gratuita su entrambi i piani, nessuna carta di credito richiesta.",
+      href: "/richiedi-demo",
+      cta: "Inizia prova gratuita",
+    },
   ],
 };
 

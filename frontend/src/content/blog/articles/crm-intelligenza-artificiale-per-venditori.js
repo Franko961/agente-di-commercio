@@ -43,6 +43,13 @@ const article = {
       type: "p",
       text: "Il modo più diretto per verificarlo è provarlo: 14 giorni di prova gratuita su entrambi i piani, senza carta di credito richiesta.",
     },
+    {
+      type: "cta",
+      title: "Prova l'assistente AI di SalesFly",
+      text: "Scrive dati veri, con conferma su ogni azione economica — incluso nel prezzo base.",
+      href: "/richiedi-demo",
+      cta: "Inizia prova gratuita",
+    },
   ],
 };
 
