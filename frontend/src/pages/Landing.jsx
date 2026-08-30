@@ -9,6 +9,7 @@ import {
 
 const LANDING_NAV_LINKS = [
   { to: "/prezzi", label: "Prezzi" },
+  { to: "/chi-siamo", label: "Chi siamo" },
   { to: "/blog", label: "Blog" },
   { to: "/tour", label: "Tour guidato" },
   { to: "/perche-salesfly", label: "Perché SalesFly" },
