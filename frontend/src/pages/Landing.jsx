@@ -7,14 +7,7 @@ import {
   LayoutDashboard, Menu, X, Facebook, Star,
 } from "lucide-react";
 
-const LANDING_NAV_LINKS = [
-  { to: "/prezzi", label: "Prezzi" },
-  { to: "/chi-siamo", label: "Chi siamo" },
-  { to: "/blog", label: "Blog" },
-  { to: "/tour", label: "Tour guidato" },
-  { to: "/perche-salesfly", label: "Perché SalesFly" },
-  { to: "/contatti", label: "Contatti" },
-];
+import { PUBLIC_NAV_LINKS } from "../content/publicNavLinks";
 import usePlans from "../hooks/usePlans";
 import { useCookieConsent } from "../contexts/CookieConsentContext";
 import PageMeta from "../components/PageMeta";
@@ -219,7 +212,7 @@ export default function Landing() {
               scrolled ? "text-white/80" : "text-[#3F3F46]"
             }`}
           >
-            {LANDING_NAV_LINKS.map((l) => (
+            {PUBLIC_NAV_LINKS.map((l) => (
               <Link key={l.to} to={l.to} className={`transition-colors ${scrolled ? "hover:text-white" : "hover:text-[#0A192F]"}`}>{l.label}</Link>
             ))}
           </nav>
@@ -252,7 +245,7 @@ export default function Landing() {
         </div>
         {mobileNavOpen && (
           <nav className="md:hidden border-t border-[#E4E4E1] px-6 py-2 flex flex-col bg-white">
-            {LANDING_NAV_LINKS.map((l) => (
+            {PUBLIC_NAV_LINKS.map((l) => (
               <Link
                 key={l.to}
                 to={l.to}
