@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
 import PageMeta from "@/components/PageMeta";
+import Reveal from "@/components/Reveal";
 
 export default function Contatti() {
   const [form, setForm] = useState({ nome: "", email: "", telefono: "", messaggio: "", privacy_consent: false });
@@ -47,16 +48,16 @@ export default function Contatti() {
 
       <main className="flex-1 px-6 py-16 max-w-lg mx-auto w-full">
         {sent ? (
-          <div className="bg-white border border-[#E4E4E1] rounded-xl p-8 text-center">
+          <Reveal className="bg-white border border-[#E4E4E1] rounded-xl p-8 text-center">
             <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
             <h1 className="font-cabinet font-black text-2xl mb-2">Messaggio inviato</h1>
             <p className="text-[#52525B] text-sm">
               Grazie, abbiamo ricevuto il tuo messaggio. Ti risponderemo il prima possibile all'indirizzo email che ci hai lasciato.
             </p>
-          </div>
+          </Reveal>
         ) : (
           <>
-            <div className="text-center mb-8">
+            <Reveal className="text-center mb-8">
               <div className="w-11 h-11 rounded-full bg-[#0A192F0D] flex items-center justify-center mx-auto mb-4">
                 <Mail className="w-5 h-5 text-[#0A192F]" />
               </div>
@@ -64,9 +65,9 @@ export default function Contatti() {
               <p className="text-[#52525B] text-sm">
                 Domande sul prodotto, sui prezzi o sull'attivazione? Scrivici, ti risponderemo il prima possibile.
               </p>
-            </div>
+            </Reveal>
 
-            <form onSubmit={submit} className="bg-white border border-[#E4E4E1] rounded-xl p-6 space-y-4">
+            <Reveal as="form" delay={100} onSubmit={submit} className="bg-white border border-[#E4E4E1] rounded-xl p-6 space-y-4">
               <div>
                 <label className="block text-[12px] font-medium text-[#52525B] mb-1">Nome *</label>
                 <input
@@ -136,7 +137,7 @@ export default function Contatti() {
               </button>
 
               <p className="text-[11px] text-[#999] text-center">* Campi obbligatori</p>
-            </form>
+            </Reveal>
           </>
         )}
       </main>

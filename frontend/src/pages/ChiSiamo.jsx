@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
 import PageMeta from "@/components/PageMeta";
+import Reveal from "@/components/Reveal";
 
 // Illustrazione originale (non una foto), stesso linguaggio visivo delle
 // grafiche di WhySalesFly.jsx (forme piatte nei colori del brand su uno
@@ -44,7 +45,7 @@ export default function ChiSiamo() {
       <PublicHeader />
 
       <main className="flex-1 px-6 py-16 max-w-2xl mx-auto w-full">
-        <div className="text-center mb-14">
+        <Reveal className="text-center mb-14">
           <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-4">
             Chi siamo
           </div>
@@ -55,11 +56,13 @@ export default function ChiSiamo() {
             SalesFly non è il progetto di un team di prodotto che ha studiato il mercato degli
             agenti di commercio da fuori. È nato da chi quel mercato lo vive da vent'anni.
           </p>
-        </div>
+        </Reveal>
 
-        <FounderIllustration />
+        <Reveal delay={100}>
+          <FounderIllustration />
+        </Reveal>
 
-        <article>
+        <Reveal as="article" delay={150}>
           <h2 className="font-cabinet font-black text-2xl mt-10 mb-4">Vent'anni sul campo</h2>
           <p className="text-[15px] leading-relaxed text-[#3F3F46] mb-4">
             Mi chiamo Franco Bruni e lavoro nella vendita da vent'anni, come agente di commercio.
@@ -110,16 +113,16 @@ export default function ChiSiamo() {
             uno strumento pensato da un agente per altri agenti — non un prodotto generico
             adattato in un secondo momento al nostro lavoro.
           </p>
-        </article>
+        </Reveal>
 
-        <div className="text-center mt-14">
+        <Reveal delay={200} className="text-center mt-14">
           <Link
             to="/richiedi-demo"
             className="px-7 py-3.5 bg-[#B23E00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors inline-flex items-center gap-2"
           >
             Prova SalesFly gratis
           </Link>
-        </div>
+        </Reveal>
       </main>
 
       <PublicFooter />
