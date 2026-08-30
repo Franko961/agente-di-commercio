@@ -5,6 +5,7 @@ import MobileNav from "./MobileNav";
 import VoiceAssistant from "./VoiceAssistant";
 import NotificationBell from "./NotificationBell";
 import OnboardingTour from "./OnboardingTour";
+import CapterraReviewBanner from "./CapterraReviewBanner";
 import { Sheet, SheetContent } from "./ui/sheet";
 import { useAuth } from "../contexts/AuthContext";
 import { useMandante } from "../contexts/MandanteContext";
@@ -130,6 +131,8 @@ export default function Layout() {
             <NotificationBell />
           </div>
         </header>
+
+        <CapterraReviewBanner />
 
         <Outlet />
 

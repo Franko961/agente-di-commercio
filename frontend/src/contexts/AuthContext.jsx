@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import {
   getMe, login as loginApi, register as registerApi, logout as logoutApi,
   exitImpersonation as exitImpersonationApi, markOnboardingSeen as markOnboardingSeenApi,
+  markCapterraReviewDismissed as markCapterraReviewDismissedApi,
 } from "../api/auth";
 
 const AuthContext = createContext(null);
@@ -75,8 +76,14 @@ export function AuthProvider({ children }) {
     try { await markOnboardingSeenApi(); } catch (e) {}
   };
 
+  const dismissCapterraReview = async () => {
+    // Stesso pattern ottimista di markOnboardingSeen.
+    setUser((prev) => (prev ? { ...prev, capterra_review_dismissed: true } : prev));
+    try { await markCapterraReviewDismissedApi(); } catch (e) {}
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, markOnboardingSeen, exitImpersonation }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, markOnboardingSeen, dismissCapterraReview, exitImpersonation }}>
       {children}
     </AuthContext.Provider>
   );

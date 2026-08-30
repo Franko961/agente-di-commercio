@@ -323,5 +323,11 @@ class AuthService:
         await self.repo.update_by_id(user["id"], {"onboarding_seen": True})
         return {"ok": True}
 
+    async def mark_capterra_review_dismissed(self, user: dict) -> dict:
+        """Chiuso il banner "lascia una recensione su Capterra" (Layout.jsx),
+        così non ricompare alle sessioni successive."""
+        await self.repo.update_by_id(user["id"], {"capterra_review_dismissed": True})
+        return {"ok": True}
+
 
 auth_service = AuthService()
