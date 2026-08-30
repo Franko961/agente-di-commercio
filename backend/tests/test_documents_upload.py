@@ -5,15 +5,15 @@ Iteration 4 - Document Upload (Emergent object storage)
 - DELETE /api/documents/{id} soft delete + listing excludes them
 """
 
-import os
-
 import pytest
 import requests
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL").rstrip("/")
-API = f"{BASE_URL}/api"
-EMAIL = "agente@demo.it"
-PASSWORD = "demo1234"
+from tests.live_backend_helpers import (
+    API,
+    BASE_URL,
+    delete_live_backend_account,
+    register_live_backend_account,
+)
 
 # Minimal valid PDF bytes
 MINI_PDF = (
@@ -28,12 +28,11 @@ MINI_PDF = (
 
 @pytest.fixture(scope="module")
 def token():
-    r = requests.post(
-        f"{API}/auth/login", json={"email": EMAIL, "password": PASSWORD}, timeout=30
-    )
-    if r.status_code != 200:
-        pytest.skip(f"Login failed: {r.status_code}")
-    return r.json()["token"]
+    account = register_live_backend_account("docs-upload")
+    if not account:
+        pytest.skip("Registrazione account di test fallita o backend non raggiungibile")
+    yield account["token"]
+    delete_live_backend_account(account)
 
 
 @pytest.fixture(scope="module")

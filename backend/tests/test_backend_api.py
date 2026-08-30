@@ -4,53 +4,77 @@ Tests cover: auth, clients, leads, appointments, offers, commissions,
 mandanti, products, documents, automations, dashboard, AI.
 """
 
-import os
+import uuid
 
 import pytest
 import requests
 
-BASE_URL = os.environ.get(
-    "REACT_APP_BACKEND_URL", "https://visit-planner-32.preview.emergentagent.com"
-).rstrip("/")
-API = f"{BASE_URL}/api"
+from tests.live_backend_helpers import API, BASE_URL
 
-EMAIL = "agente@demo.it"
-PASSWORD = "DemoAgente2026"
+EMAIL = f"test-backend-api-{uuid.uuid4().hex[:10]}@example.com"
+PASSWORD = "TestBackendApi2026!"
 
 
 # ---------- Fixtures ----------
 @pytest.fixture(scope="session")
-def auth_token():
-    r = requests.post(
-        f"{API}/auth/login", json={"email": EMAIL, "password": PASSWORD}, timeout=30
-    )
-    if r.status_code != 200:
-        pytest.skip(f"Login failed: {r.status_code} {r.text}")
-    return r.json()["token"]
+def client():
+    """Registra un account di test dedicato e mantiene una vera sessione
+    autenticata via cookie (non più un Authorization: Bearer letto da un
+    token nel body — login/registrazione non lo restituiscono più da
+    quando l'autenticazione è passata a cookie httpOnly).
 
+    Account dedicato e fresco, non l'account demo pubblico condiviso: quello
+    ha is_demo=True, e forbid_demo_write (core/security.py) blocca con 403
+    qualunque scrittura per un account demo — i test di create/update/delete
+    qui sotto non potrebbero mai passare contro di esso. Ogni registrazione
+    viene seminata automaticamente con dati CRM coerenti
+    (services/seed_service.py) — da cui gli assert "almeno N
+    clienti/lead/offerte" più sotto.
 
-@pytest.fixture(scope="session")
-def client(auth_token):
+    Il token viene impostato come header Cookie esplicito sulla sessione,
+    non lasciato al meccanismo automatico di requests.Session — verificato
+    dal vivo che quel meccanismo NON rispedisce un cookie Secure su http://
+    (come questo backend locale in CI/dev): a ogni richiesta,
+    Session.prepare_request ricostruisce i cookie da inviare in un
+    CookieJar temporaneo con policy di default (non quella eventualmente
+    impostata su session.cookies), che scarta un cookie Secure su una
+    richiesta non-https. Impostare l'header direttamente bypassa questo
+    limite noto della libreria, senza toccare il comportamento reale del
+    cookie in produzione (lì la richiesta è sempre https)."""
     s = requests.Session()
-    s.headers.update(
-        {"Authorization": f"Bearer {auth_token}", "Content-Type": "application/json"}
-    )
-    return s
+    try:
+        r = s.post(
+            f"{API}/auth/register",
+            json={"email": EMAIL, "password": PASSWORD, "name": "Test Backend API"},
+            timeout=30,
+        )
+    except requests.exceptions.ConnectionError as e:
+        pytest.skip(f"Backend non raggiungibile su {BASE_URL}: {e}")
+    if r.status_code != 200:
+        pytest.skip(f"Registrazione account di test fallita: {r.status_code} {r.text}")
+    token = r.cookies.get("access_token")
+    if not token:
+        pytest.skip(
+            "Registrazione riuscita ma nessun cookie access_token nella risposta"
+        )
+    s.headers["Cookie"] = f"access_token={token}"
+    yield s
+    s.post(f"{API}/privacy/delete-account", json={"password": PASSWORD})
 
 
 # ---------- Auth ----------
 class TestAuth:
-    def test_login_success(self):
+    def test_login_success(self, client):
         r = requests.post(
             f"{API}/auth/login", json={"email": EMAIL, "password": PASSWORD}
         )
         assert r.status_code == 200
         d = r.json()
-        assert "token" in d and isinstance(d["token"], str) and len(d["token"]) > 10
         assert d["email"] == EMAIL
         assert "password_hash" not in d
+        assert "access_token" in r.cookies
 
-    def test_login_invalid(self):
+    def test_login_invalid(self, client):
         r = requests.post(
             f"{API}/auth/login", json={"email": EMAIL, "password": "wrong"}
         )

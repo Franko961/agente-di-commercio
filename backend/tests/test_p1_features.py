@@ -7,32 +7,32 @@ Iteration 2 - P1 features:
 
 import csv
 import io
-import os
 
 import pytest
 import requests
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL").rstrip("/")
-API = f"{BASE_URL}/api"
-EMAIL = "agente@demo.it"
-PASSWORD = "demo1234"
+from tests.live_backend_helpers import (
+    API,
+    BASE_URL,
+    delete_live_backend_account,
+    register_live_backend_account,
+)
 
 
 @pytest.fixture(scope="module")
 def client():
-    r = requests.post(
-        f"{API}/auth/login", json={"email": EMAIL, "password": PASSWORD}, timeout=30
-    )
-    if r.status_code != 200:
-        pytest.skip(f"Login failed: {r.status_code}")
+    account = register_live_backend_account("p1-features")
+    if not account:
+        pytest.skip("Registrazione account di test fallita o backend non raggiungibile")
     s = requests.Session()
     s.headers.update(
         {
-            "Authorization": f"Bearer {r.json()['token']}",
+            "Authorization": f"Bearer {account['token']}",
             "Content-Type": "application/json",
         }
     )
-    return s
+    yield s
+    delete_live_backend_account(account)
 
 
 # ---------- Auth gate ----------

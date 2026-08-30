@@ -2,6 +2,7 @@ import logging
 import re
 
 import boto3
+from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import HTTPException
 
@@ -152,6 +153,15 @@ def get_s3():
     )
     if S3_ENDPOINT:
         kwargs["endpoint_url"] = S3_ENDPOINT
+        # I provider S3-compatibili non-AWS (incluso MinIO, usato in CI —
+        # vedi .github/workflows/ci.yml) generalmente non fanno wildcard
+        # DNS su sottodomini per bucket: l'addressing "virtual-hosted"
+        # predefinito di boto3 (https://<bucket>.<endpoint>/...) non
+        # risolverebbe. "path" (https://<endpoint>/<bucket>/...) funziona
+        # ovunque, AWS reale incluso — ma qui si applica solo quando
+        # S3_ENDPOINT è impostato (mai per AWS reale, vedi core/config.py
+        # dove S3_ENDPOINT resta None per host amazonaws.com).
+        kwargs["config"] = Config(s3={"addressing_style": "path"})
     _s3_client = boto3.client("s3", **kwargs)
     return _s3_client
 

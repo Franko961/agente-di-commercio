@@ -43,10 +43,14 @@ jobs:
     defaults:
       run:
         working-directory: backend
-    # MongoDB come service container effimero, non un Atlas remoto: un
-    # problema di rete/credenziali/disponibilità di un DB esterno condiviso
-    # non deve poter far fallire i test a codice perfetto. Standalone (nessun
-    # replica set) basta: nel codice non si usano transazioni MongoDB.
+    # MongoDB e MinIO come service container effimeri, non servizi esterni
+    # remoti: un problema di rete/credenziali/disponibilità condiviso non
+    # deve poter far fallire i test a codice perfetto. MongoDB standalone
+    # (nessun replica set: nel codice non si usano transazioni). MinIO è
+    # S3-compatibile (services/storage_service.py::get_s3 supporta già un
+    # endpoint personalizzato, pensato per provider S3-compatibili non-AWS)
+    # — serve ai test che caricano documenti (test_documents_iter6.py,
+    # test_documents_upload.py).
     services:
       mongodb:
         image: mongo:7
@@ -57,6 +61,18 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
+      minio:
+        image: bitnami/minio:latest
+        ports:
+          - 9000:9000
+        env:
+          MINIO_ROOT_USER: minio-ci-user
+          MINIO_ROOT_PASSWORD: minio-ci-password
+        options: >-
+          --health-cmd "curl -sf http://localhost:9000/minio/health/live"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     env:
       MONGO_URL: mongodb://localhost:27017
       DB_NAME: salesfly_ci
@@ -64,21 +80,22 @@ jobs:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       PAYPAL_CLIENT_ID: ${{ secrets.PAYPAL_CLIENT_ID }}
       PAYPAL_CLIENT_SECRET: ${{ secrets.PAYPAL_CLIENT_SECRET }}
+      AWS_ACCESS_KEY_ID: minio-ci-user
+      AWS_SECRET_ACCESS_KEY: minio-ci-password
+      AWS_S3_BUCKET: salesfly-ci-test
+      S3_ENDPOINT: http://localhost:9000
       REACT_APP_BACKEND_URL: http://localhost:8000
       CORS_ORIGINS: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
-      - name: "DIAGNOSTICA TEMPORANEA: verifica ANTHROPIC_API_KEY (da rimuovere)"
-        run: |
-          code=$(curl -s -o /dev/null -w "%{http_code}" https://api.anthropic.com/v1/models \
-            -H "x-api-key: $ANTHROPIC_API_KEY" \
-            -H "anthropic-version: 2023-06-01")
-          echo "HTTP $code (200 = chiave valida, 401 = placeholder/non valida)"
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
           cache-suffix: backend-test
       - run: uv sync
+      - name: Crea il bucket S3 di test su MinIO
+        run: |
+          aws --endpoint-url http://localhost:9000 s3 mb s3://salesfly-ci-test
       - name: Avvia il backend in background
         run: |
           uv run uvicorn server:app --host 0.0.0.0 --port 8000 &
@@ -95,19 +112,16 @@ jobs:
       # il backend nudo. Deselezionati solo qui, non modificati: restano validi
       # come smoke test contro l'ambiente reale.
       #
-      # test_backend_api.py: 26 dei suoi 28 test dipendono da un fixture di login
-      # che si aspetta un token nel body JSON della risposta — il backend ora
-      # autentica via cookie httpOnly, il token nel body non esiste più. Non un
-      # regressione di questo lavoro: prima semplicemente si "skippavano" tutti
-      # perché l'account demo fixture non esisteva nel DB, mascherando il
-      # problema. Riscrivere i fixture per usare una sessione con cookie è un
-      # lavoro a sé, non in scope qui — file escluso dalla suite CI finché non
-      # viene fatto.
+      # test_ai_chat/test_ai_suggestions chiamano davvero l'endpoint AI (non
+      # mockato) con ANTHROPIC_API_KEY: qui è un placeholder (verificato con
+      # una chiamata reale a /v1/models: HTTP 401), come PAYPAL_CLIENT_ID/
+      # SECRET — deselezionati per lo stesso motivo delle 2 righe sopra.
       - run: >
           uv run pytest -q
-          --ignore=tests/test_backend_api.py
           --deselect tests/test_p1_features.py::TestPwaAssets::test_manifest
           --deselect tests/test_p1_features.py::TestPwaAssets::test_sw
+          --deselect tests/test_backend_api.py::TestAI::test_ai_chat
+          --deselect tests/test_backend_api.py::TestAI::test_ai_suggestions
       # Il post-step di setup-uv (salvataggio/pruning cache) falliva con
       # "exit code 2" mentre il processo uvicorn avviato sopra era ancora
       # vivo — probabile conflitto sui file di .venv. if: always() perché
