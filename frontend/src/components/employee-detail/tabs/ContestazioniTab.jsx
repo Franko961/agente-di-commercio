@@ -220,7 +220,7 @@ function ContestazioneForm({ employeeId, initial, onDone, onCancel }) {
         className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
       <textarea value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Descrizione dei fatti (opzionale)" rows={3}
         className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <div>
           <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1">Data dei fatti</label>
           <input type="date" value={f.event_date} onChange={(e) => setF({ ...f, event_date: e.target.value })}
@@ -237,7 +237,7 @@ function ContestazioneForm({ employeeId, initial, onDone, onCancel }) {
             className="w-full bg-white border border-[#E4E4E1] rounded-md px-2 py-2 text-[13px]" />
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <div>
           <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1">Giustificazioni presentate</label>
           <select value={f.justification_submitted ? "si" : "no"} onChange={(e) => {
