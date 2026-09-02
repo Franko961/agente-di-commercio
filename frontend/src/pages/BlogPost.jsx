@@ -2,6 +2,7 @@
 import { useParams, Navigate, Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Calendar } from "lucide-react";
 import { getArticleBySlug, getPublishedArticles } from "@/content/blog";
+import { themeForSlug } from "@/content/blog/theme";
 import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
 import PageMeta from "@/components/PageMeta";
@@ -84,13 +85,20 @@ export default function BlogPost() {
 
   if (!article) return <Navigate to="/blog" replace />;
 
-  // Fino a 2 altri articoli pubblicati, i più recenti dopo quello corrente:
-  // collega ogni articolo agli altri invece di lasciarlo isolato (nessun
-  // link interno tra i pezzi del blog finora), aiutando sia il crawling
-  // di Google sia la permanenza del lettore sul sito.
-  const relatedArticles = getPublishedArticles()
-    .filter((a) => a.slug !== article.slug)
-    .slice(0, 2);
+  // Fino a 2 altri articoli pubblicati: prima quelli dello stesso cluster
+  // tematico (stessa "macro" di content/blog/theme.js — Vendita/Fisco/
+  // Tecnologia/Guide, la stessa usata dal filtro in /blog), poi — solo se
+  // il cluster non basta a riempire i 2 slot — i più recenti in assoluto.
+  // Prima di questo, "Leggi anche" mostrava sempre e solo i 2 articoli più
+  // recenti del blog, indipendentemente dall'argomento: un lettore
+  // dell'articolo sul FIRR poteva ritrovarsi rimandato a un confronto tra
+  // CRM. getPublishedArticles() è già ordinato per data decrescente, quindi
+  // sia il cluster sia il fallback restano "più recente prima".
+  const otherArticles = getPublishedArticles().filter((a) => a.slug !== article.slug);
+  const currentMacro = themeForSlug(article.slug).macro;
+  const sameCluster = otherArticles.filter((a) => themeForSlug(a.slug).macro === currentMacro);
+  const restArticles = otherArticles.filter((a) => themeForSlug(a.slug).macro !== currentMacro);
+  const relatedArticles = [...sameCluster, ...restArticles].slice(0, 2);
 
   return (
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
