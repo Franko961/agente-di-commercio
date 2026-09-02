@@ -32,8 +32,9 @@ import { article as percorsoOttimizzato } from "./articles/software-calcolo-perc
 import { article as verificaVies } from "./articles/verifica-partita-iva-vies";
 import { article as stornoProvvigioni } from "./articles/storno-provvigioni-mancato-incasso";
 import { article as annunciAgenti } from "./articles/annunci-agenti-di-commercio-settore-regione";
+import { article as organizzareSettimana } from "./articles/organizzare-settimana-agente-plurimandatario";
 
-const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot, migliorCrmVenditori, crmAiVenditori, aumentareProvvigioni, daExcelAlCrm, implementareInDueMinuti, contrattoDiAgenzia, rimborsoTasseStudio, bonusScolasticoFigli, minimaliMassimali, inquadramentoAgente, catalogoDigitale, ritenutaAcconto, firr, agenteSportivo, deducibilitaAuto, crmItaliano, percorsoOttimizzato, verificaVies, stornoProvvigioni, annunciAgenti];
+const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot, migliorCrmVenditori, crmAiVenditori, aumentareProvvigioni, daExcelAlCrm, implementareInDueMinuti, contrattoDiAgenzia, rimborsoTasseStudio, bonusScolasticoFigli, minimaliMassimali, inquadramentoAgente, catalogoDigitale, ritenutaAcconto, firr, agenteSportivo, deducibilitaAuto, crmItaliano, percorsoOttimizzato, verificaVies, stornoProvvigioni, annunciAgenti, organizzareSettimana];
 
 // A parità di publishedAt (risoluzione giornaliera: capita pubblicare più
 // articoli lo stesso giorno) Array.prototype.sort è stabile — senza un
