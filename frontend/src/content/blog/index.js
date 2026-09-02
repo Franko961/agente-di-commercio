@@ -30,8 +30,9 @@ import { article as deducibilitaAuto } from "./articles/deducibilita-fiscale-aut
 import { article as crmItaliano } from "./articles/crm-italiano-agenti-di-commercio";
 import { article as percorsoOttimizzato } from "./articles/software-calcolo-percorso-ottimizzato-agenti";
 import { article as verificaVies } from "./articles/verifica-partita-iva-vies";
+import { article as stornoProvvigioni } from "./articles/storno-provvigioni-mancato-incasso";
 
-const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot, migliorCrmVenditori, crmAiVenditori, aumentareProvvigioni, daExcelAlCrm, implementareInDueMinuti, contrattoDiAgenzia, rimborsoTasseStudio, bonusScolasticoFigli, minimaliMassimali, inquadramentoAgente, catalogoDigitale, ritenutaAcconto, firr, agenteSportivo, deducibilitaAuto, crmItaliano, percorsoOttimizzato, verificaVies];
+const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot, migliorCrmVenditori, crmAiVenditori, aumentareProvvigioni, daExcelAlCrm, implementareInDueMinuti, contrattoDiAgenzia, rimborsoTasseStudio, bonusScolasticoFigli, minimaliMassimali, inquadramentoAgente, catalogoDigitale, ritenutaAcconto, firr, agenteSportivo, deducibilitaAuto, crmItaliano, percorsoOttimizzato, verificaVies, stornoProvvigioni];
 
 export const articles = [...allArticles].sort(
   (a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)
