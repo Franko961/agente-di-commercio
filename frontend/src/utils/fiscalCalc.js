@@ -22,6 +22,19 @@
 export const RITENUTA_ALIQUOTA = 0.23;
 export const ENASARCO_QUOTA_AGENTE = 0.085;
 
+// Arrotonda a 2 decimali con Math.round (non un semplice toFixed, che
+// tronca): tiene i valori restituiti allineati a come li arrotonda il
+// gemello Python (services/fiscal_calc.py usa round(x, 2) su ogni campo) —
+// senza questo, un confronto diretto tra i due (es. un futuro endpoint che
+// espone il calcolo Python allo stesso frontend) potrebbe mostrare un
+// centesimo di differenza sullo stesso importo. I nomi dei campi restano
+// invece camelCase qui e snake_case lato Python, per convenzione idiomatica
+// di ciascun linguaggio — un eventuale endpoint che esponga il calcolo
+// Python dovrà comunque tradurli, non è un refuso.
+function round2(n) {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
 export function computeFiscalBreakdown(lordo, regimeFiscale, baseRitenuta) {
   const lordoSafe = Math.max(0, lordo || 0);
   const baseImponibile =
@@ -29,13 +42,24 @@ export function computeFiscalBreakdown(lordo, regimeFiscale, baseRitenuta) {
   const ritenuta = lordoSafe * baseImponibile * RITENUTA_ALIQUOTA;
   const enasarco = lordoSafe * ENASARCO_QUOTA_AGENTE;
   return {
-    lordo: lordoSafe,
-    ritenutaAcconto: ritenuta,
-    contributoEnasarco: enasarco,
-    netto: lordoSafe - ritenuta - enasarco,
+    lordo: round2(lordoSafe),
+    ritenutaAcconto: round2(ritenuta),
+    contributoEnasarco: round2(enasarco),
+    netto: round2(lordoSafe - ritenuta - enasarco),
   };
 }
 
 export function formatEuro(n) {
   return (n || 0).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
+}
+
+// Converte un numero digitato in formato italiano (punto = separatore
+// delle migliaia, virgola = decimale) in un float JS. Senza questo,
+// parseFloat("15.000".replace(",", ".")) restituisce 15 invece di 15000,
+// perché "." è già un punto decimale valido in JS — un refuso di tre
+// ordini di grandezza, silenzioso, se l'utente digita l'importo con il
+// formato italiano standard (es. "15.000" per quindicimila euro).
+export function parseItalianNumber(str) {
+  const normalized = String(str ?? "").replace(/\./g, "").replace(",", ".");
+  return parseFloat(normalized) || 0;
 }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Calculator } from "lucide-react";
-import { formatEuro } from "@/utils/fiscalCalc";
+import { formatEuro, parseItalianNumber } from "@/utils/fiscalCalc";
 
 // Calcolatore client-side, nessuna chiamata al backend: applica gli
 // scaglioni FIRR 2026 (AEC Commercio siglato il 4/6/2025, in vigore dal
@@ -15,7 +15,12 @@ const SCAGLIONI = {
 
 function computeFirr(provvigioni, tipoMandato, mesi) {
   const p = Math.max(0, provvigioni || 0);
-  const factor = Math.min(12, Math.max(1, mesi || 12)) / 12;
+  // mesi=0 è un valore legittimo (mandato senza mesi di attività), non
+  // "mancante": va vincolato al minimo di 1, non sostituito con 12 —
+  // Number.isFinite distingue "0 digitato davvero" da "campo vuoto/non
+  // numerico" (NaN), che invece ricade sul default di un anno intero.
+  const mesiValid = Number.isFinite(mesi) ? mesi : 12;
+  const factor = Math.min(12, Math.max(1, mesiValid)) / 12;
   const [soglia1Full, soglia2Full] = SCAGLIONI[tipoMandato];
   const soglia1 = soglia1Full * factor;
   const soglia2 = soglia2Full * factor;
@@ -36,8 +41,12 @@ export default function FirrCalculator() {
   const [tipoMandato, setTipoMandato] = useState("plurimandatario");
   const [mesi, setMesi] = useState("12");
 
-  const provvigioniNum = parseFloat(provvigioni.replace(",", ".")) || 0;
-  const mesiNum = parseInt(mesi, 10) || 12;
+  const provvigioniNum = parseItalianNumber(provvigioni);
+  // parseInt("0", 10) è 0 (un mesi valido, non mancante): il fallback a 12
+  // deve scattare solo su un campo vuoto/non numerico (NaN), non su uno
+  // zero digitato davvero — vedi il commento su mesiValid in computeFirr.
+  const mesiParsed = parseInt(mesi, 10);
+  const mesiNum = Number.isNaN(mesiParsed) ? 12 : mesiParsed;
   const { firr, soglia1, soglia2 } = computeFirr(provvigioniNum, tipoMandato, mesiNum);
 
   return (

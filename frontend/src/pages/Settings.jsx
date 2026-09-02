@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Plug, Target, Home, History, ShieldCheck, Star, Percent } from "lucide-react";
 import AiActionsLog from "../components/AiActionsLog";
 import IntegrazioniTab from "../components/settings/IntegrazioniTab";
@@ -18,8 +19,19 @@ const TABS = [
   ["feedback", "Feedback", Star],
 ];
 
+const TAB_KEYS = TABS.map(([key]) => key);
+
 export default function Settings() {
-  const [tab, setTab] = useState("integrazioni");
+  // Permette di arrivare già su un tab specifico via link (es. da
+  // Provvigioni → "Netto stimato" → "Modifica"), con ?tab=fiscale.
+  // Un valore mancante o non riconosciuto ricade sul default storico
+  // ("integrazioni"), così un link rotto/vecchio non porta a una pagina
+  // vuota.
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab");
+  const [tab, setTab] = useState(
+    TAB_KEYS.includes(initialTab) ? initialTab : "integrazioni"
+  );
 
   return (
     <div className={`p-4 md:p-8 ${tab === "registro-ai" ? "max-w-5xl" : "max-w-3xl"}`}>

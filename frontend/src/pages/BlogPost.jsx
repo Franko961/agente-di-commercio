@@ -1,25 +1,39 @@
-﻿import { useParams, Navigate, Link } from "react-router-dom";
+﻿import { lazy, Suspense } from "react";
+import { useParams, Navigate, Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Calendar } from "lucide-react";
 import { getArticleBySlug, getPublishedArticles } from "@/content/blog";
 import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
 import PageMeta from "@/components/PageMeta";
-import RitenutaEnasarcoCalculator from "@/components/RitenutaEnasarcoCalculator";
-import FirrCalculator from "@/components/FirrCalculator";
 
 // Registro dei componenti interattivi richiamabili da un blocco di tipo
 // "calculator" — solo il nome nel file dell'articolo, così un nuovo
-// calcolatore si aggiunge qui senza toccare renderBlock.
+// calcolatore si aggiunge qui senza toccare renderBlock. Caricati con
+// lazy(): solo i 2 articoli su ~30 che hanno davvero un blocco
+// "calculator" pagano il costo di questo JS, non ogni pagina del blog.
 const CALCULATORS = {
-  ritenutaEnasarco: RitenutaEnasarcoCalculator,
-  firr: FirrCalculator,
+  ritenutaEnasarco: lazy(() => import("@/components/RitenutaEnasarcoCalculator")),
+  firr: lazy(() => import("@/components/FirrCalculator")),
 };
 
 function renderBlock(block, i) {
   switch (block.type) {
     case "calculator": {
       const Calc = CALCULATORS[block.name];
-      return Calc ? <Calc key={i} /> : null;
+      if (!Calc) {
+        // Un nome che non corrisponde a nessun calcolatore registrato
+        // andrebbe altrimenti perso in silenzio (nessun errore, nessun
+        // avviso da nessuna parte) — un refuso nel campo "name" di un
+        // futuro articolo sparirebbe dalla pagina pubblicata senza che
+        // nessuno se ne accorga finché non la legge manualmente.
+        console.warn(`Blocco "calculator" con name non registrato: "${block.name}"`);
+        return null;
+      }
+      return (
+        <Suspense key={i} fallback={null}>
+          <Calc />
+        </Suspense>
+      );
     }
     case "h2":
       return (

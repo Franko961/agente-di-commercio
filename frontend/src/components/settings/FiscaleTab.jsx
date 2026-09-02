@@ -1,16 +1,22 @@
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { getFiscalSettings, updateFiscalSettings } from "../../api/settings";
 
 export default function FiscaleTab() {
   const [settings, setSettings] = useState(null); // null = caricamento
   const [busy, setBusy] = useState(false);
+  // Distinto da "settings === null": senza questo, un caricamento fallito
+  // (rete, 401 momentaneo) restava indistinguibile da "ancora in corso" —
+  // lo spinner girava per sempre, senza un modo per riprovare.
+  const [loadError, setLoadError] = useState(false);
 
   const load = async () => {
+    setLoadError(false);
     try {
       setSettings(await getFiscalSettings());
     } catch {
+      setLoadError(true);
       toast.error("Impossibile caricare la situazione fiscale");
     }
   };
@@ -44,7 +50,18 @@ export default function FiscaleTab() {
         </p>
       </div>
 
-      {settings === null ? (
+      {settings === null && loadError ? (
+        <div className="flex items-center gap-3 text-[13px] text-[#6B6B72]">
+          <span>Impossibile caricare la situazione fiscale.</span>
+          <button
+            type="button"
+            onClick={load}
+            className="flex items-center gap-1.5 text-[#B23E00] font-medium hover:underline"
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> Riprova
+          </button>
+        </div>
+      ) : settings === null ? (
         <div className="flex items-center gap-2 text-[13px] text-[#6B6B72]">
           <Loader2 className="w-4 h-4 animate-spin" /> Caricamento…
         </div>

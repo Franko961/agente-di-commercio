@@ -24,6 +24,15 @@ RITENUTA_ALIQUOTA = 0.23
 ENASARCO_QUOTA_AGENTE = 0.085
 
 
+# Nota per chi collegherà questa funzione a un endpoint reale (vedi sopra,
+# "importabile da più punti"): il gemello JS (frontend/src/utils/fiscalCalc.js
+# computeFiscalBreakdown) restituisce le stesse quattro grandezze ma in
+# camelCase (ritenutaAcconto, contributoEnasarco), per convenzione idiomatica
+# di ciascun linguaggio — non è un disallineamento accidentale, ma un
+# endpoint che esponga questo dict come JSON dovrà comunque tradurre le
+# chiavi se il consumer si aspetta il formato camelCase già in uso lato
+# frontend. Entrambe le implementazioni arrotondano ora a 2 decimali con lo
+# stesso criterio, per restare numericamente identiche a parità di input.
 class FiscalBreakdown(TypedDict):
     lordo: float
     ritenuta_acconto: float

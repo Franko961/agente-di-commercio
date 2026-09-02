@@ -234,7 +234,7 @@ export default function Commissions() {
             <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72]">
               Netto stimato sull'incassato
             </div>
-            <Link to="/app/impostazioni" className="text-[11px] text-[#B23E00] font-medium hover:underline">
+            <Link to="/app/impostazioni?tab=fiscale" className="text-[11px] text-[#B23E00] font-medium hover:underline">
               {fiscalSettings.regime_fiscale === "forfettario" ? "Regime forfettario" : "Regime ordinario"} · Modifica
             </Link>
           </div>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Calculator } from "lucide-react";
-import { computeFiscalBreakdown, formatEuro } from "@/utils/fiscalCalc";
+import { computeFiscalBreakdown, formatEuro, parseItalianNumber } from "@/utils/fiscalCalc";
 
 // Calcolatore client-side, nessuna chiamata al backend: un numero inserito
 // a mano dal lettore, non dati reali dell'agente (per quelli vedi il
@@ -13,7 +13,7 @@ export default function RitenutaEnasarcoCalculator() {
   const [regime, setRegime] = useState("forfettario");
   const [baseRitenuta, setBaseRitenuta] = useState("50");
 
-  const lordoInput = parseFloat(importo.replace(",", ".")) || 0;
+  const lordoInput = parseItalianNumber(importo);
   const { lordo, ritenutaAcconto: ritenuta, contributoEnasarco: enasarco, netto } =
     computeFiscalBreakdown(lordoInput, regime, baseRitenuta);
 
