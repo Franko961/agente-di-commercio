@@ -38,6 +38,7 @@ const THEME_RULES = [
   [(s) => s.includes("minimali-massimali"), "MASSIMALI", "1633158829585-23ba8f7c8caf", "Fisco"],
   [(s) => s.includes("enasarco"), "ENASARCO", "1637763723578-79a4ca9225f7", "Fisco"],
   [(s) => s.includes("spese"), "SPESE", "1649209979970-f01d950cc5ed", "Fisco"],
+  [(s) => s.includes("annunci-agenti"), "ANNUNCI", "1504711434969-e33886168f5c", "Guide"],
   [(s) => s.includes("diventare-agente-di-commercio-requisiti"), "REQUISITI", "1562564055-71e051d33c19", "Guide"],
   [(s) => s.includes("differenza-agente-commercio-agente-sportivo"), "PROFESSIONI", "1533073526757-2c8ca1df9f1c", "Guide"],
   [(s) => s.includes("contratto"), "CONTRATTI", "1450101499163-c8848c66ca85", "Guide"],
