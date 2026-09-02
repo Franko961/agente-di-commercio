@@ -1,4 +1,9 @@
-export const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
+// Riesporta l'unica implementazione reale (utils/fiscalCalc.js) invece di
+// duplicarla: prima esisteva una seconda formattazione valuta identica
+// (formatEuro) usata dai calcolatori del blog, con lo stesso identico
+// comportamento ma mantenuta separatamente — nessun cambiamento visibile
+// qui, solo un'unica fonte da cui entrambe le versioni del nome derivano.
+export { formatEuro as fmt } from "../../utils/fiscalCalc";
 // Mese di calendario locale, non new Date().toISOString().slice(0,7): quel
 // metodo legge l'anno/mese in UTC, che nell'ultima/prima ora o due del
 // giorno locale (a seconda del fuso) può differire dal mese di calendario
