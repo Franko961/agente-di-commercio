@@ -33,6 +33,9 @@ const THEME_RULES = [
   [(s) => s.includes("firr"), "INDENNITÀ", "1707157284454-553ef0a4ed0d", "Fisco"],
   [(s) => s.includes("deducibilita-fiscale-auto"), "AUTO", "1616805111996-e39d9a19e35c", "Fisco"],
   [(s) => s.includes("verifica-partita-iva-vies"), "FISCO UE", "1608817576136-0f3a56922823", "Fisco"],
+  // Va prima della regola generica "enasarco" qui sotto, altrimenti le due
+  // finiscono con la stessa foto (è successo, vedi il commento sopra).
+  [(s) => s.includes("minimali-massimali"), "MASSIMALI", "1633158829585-23ba8f7c8caf", "Fisco"],
   [(s) => s.includes("enasarco"), "ENASARCO", "1637763723578-79a4ca9225f7", "Fisco"],
   [(s) => s.includes("spese"), "SPESE", "1649209979970-f01d950cc5ed", "Fisco"],
   [(s) => s.includes("diventare-agente-di-commercio-requisiti"), "REQUISITI", "1562564055-71e051d33c19", "Guide"],
@@ -43,13 +46,22 @@ const THEME_RULES = [
   [(s) => s.includes("storno-provvigioni"), "PROVVIGIONI", "1638262052640-82e94d64664a", "Vendita"],
   [(s) => s.includes("catalogo-digitale"), "CATALOGO", "1700165644892-3dd6b67b25bc", "Vendita"],
   [(s) => s.includes("percorso-ottimizzato"), "PERCORSO", "1461183479101-6c14cd5299c4", "Vendita"],
+  // "come-calcolare-provvigioni" va prima: senza questa regola dedicata
+  // non veniva intercettato da nessun'altra ("calcolo-provvigioni" ≠
+  // "calcolare-provvigioni") e ricadeva sul tema generico.
+  [(s) => s.includes("come-calcolare-provvigioni"), "PROVVIGIONI", "1580048915913-4f8f5cb481c4", "Vendita"],
   [(s) => s.includes("aumentare-provvigioni") || s.includes("calcolo-provvigioni"), "PROVVIGIONI", "1560221328-12fe60f83ab8", "Vendita"],
   [(s) => s.includes("giro-visite"), "TERRITORIO", "1684836571999-f3dc511935e7", "Vendita"],
   [(s) => s.includes("mandanti"), "MANDANTI", "1672380135241-c024f7fbfa13", "Vendita"],
   [(s) => s.includes("crm-italiano"), "CRM ITALIANO", "1536140012599-830a641c27e6", "Tecnologia"],
-  [(s) => s.includes("hubspot") || s.includes("migliori-crm"), "CONFRONTO", "1539992190939-08f22d7ebaad", "Tecnologia"],
+  [(s) => s.includes("hubspot"), "CONFRONTO", "1616279468745-de6fdbad0262", "Tecnologia"],
+  [(s) => s.includes("migliori-crm"), "CONFRONTO", "1539992190939-08f22d7ebaad", "Tecnologia"],
+  // "come-ai-e-crm" va prima della regola generica "ai-crm" qui sotto:
+  // "ai-e-crm" non contiene "ai-crm" come sottostringa esatta.
+  [(s) => s.includes("come-ai-e-crm"), "AI", "1600087626120-062700394a01", "Tecnologia"],
   [(s) => s.includes("intelligenza-artificiale") || s.includes("ai-crm"), "AI", "1674027444485-cec3da58eef4", "Tecnologia"],
-  [(s) => s.includes("mobile") || s.includes("telefono"), "MOBILE", "1592890288564-76628a30a657", "Tecnologia"],
+  [(s) => s.includes("telefono"), "MOBILE", "1511707171634-5f897ff02aa9", "Tecnologia"],
+  [(s) => s.includes("mobile"), "MOBILE", "1592890288564-76628a30a657", "Tecnologia"],
 ];
 const DEFAULT_THEME = { category: "GUIDA", photoId: "1612367980327-7454a7276aa7", macro: "Guide" };
 
