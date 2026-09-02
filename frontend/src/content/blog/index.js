@@ -34,9 +34,21 @@ import { article as stornoProvvigioni } from "./articles/storno-provvigioni-manc
 
 const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot, migliorCrmVenditori, crmAiVenditori, aumentareProvvigioni, daExcelAlCrm, implementareInDueMinuti, contrattoDiAgenzia, rimborsoTasseStudio, bonusScolasticoFigli, minimaliMassimali, inquadramentoAgente, catalogoDigitale, ritenutaAcconto, firr, agenteSportivo, deducibilitaAuto, crmItaliano, percorsoOttimizzato, verificaVies, stornoProvvigioni];
 
-export const articles = [...allArticles].sort(
-  (a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)
-);
+// A parità di publishedAt (risoluzione giornaliera: capita pubblicare più
+// articoli lo stesso giorno) Array.prototype.sort è stabile — senza un
+// criterio esplicito per questo caso, resterebbe primo chi è stato
+// aggiunto per primo all'array allArticles sopra, non l'ultimo scritto
+// davvero. Qui invece, a parità di data, vince l'ultimo aggiunto
+// all'array: è così che la card "in evidenza" del blog (il primo
+// elemento di questa lista) mostra sempre l'ultimo articolo pubblicato,
+// anche quando ne escono più di uno nello stesso giorno.
+export const articles = allArticles
+  .map((article, index) => ({ article, index }))
+  .sort((a, b) => {
+    const dateDiff = new Date(b.article.publishedAt) - new Date(a.article.publishedAt);
+    return dateDiff !== 0 ? dateDiff : b.index - a.index;
+  })
+  .map(({ article }) => article);
 
 export function getArticleBySlug(slug) {
   return articles.find((a) => a.slug === slug);
