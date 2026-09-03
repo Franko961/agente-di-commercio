@@ -35,7 +35,7 @@ USER = {"id": "user-1", "email": "manager@example.com"}
 def test_get_company_settings_ritorna_none_se_mai_impostato():
     service = SettingsService(repo=FakeUserRepo())
     result = run(service.get_company_settings(USER))
-    assert result == {"logo": None}
+    assert result == {"logo": None, "vat_number": None}
 
 
 def test_update_company_settings_salva_il_logo():
@@ -45,8 +45,11 @@ def test_update_company_settings_salva_il_logo():
 
     result = run(service.update_company_settings(USER, CompanySettingsIn(logo=logo)))
 
-    assert result == {"logo": logo}
-    assert repo.updates[USER["id"]] == {"company_logo": logo}
+    assert result == {"logo": logo, "vat_number": None}
+    assert repo.updates[USER["id"]] == {
+        "company_logo": logo,
+        "company_vat_number": None,
+    }
 
 
 def test_update_company_settings_puo_rimuovere_il_logo():
@@ -60,8 +63,25 @@ def test_update_company_settings_puo_rimuovere_il_logo():
     )
     result = run(service.update_company_settings(USER, CompanySettingsIn(logo=None)))
 
-    assert result == {"logo": None}
+    assert result == {"logo": None, "vat_number": None}
     assert repo.updates[USER["id"]]["company_logo"] is None
+
+
+def test_update_company_settings_salva_la_partita_iva():
+    repo = FakeUserRepo()
+    service = SettingsService(repo=repo)
+
+    result = run(
+        service.update_company_settings(
+            USER, CompanySettingsIn(vat_number="01234567890")
+        )
+    )
+
+    assert result == {"logo": None, "vat_number": "01234567890"}
+    assert repo.updates[USER["id"]] == {
+        "company_logo": None,
+        "company_vat_number": "01234567890",
+    }
 
 
 def test_get_fiscal_settings_ritorna_i_default_legali_se_mai_impostato():

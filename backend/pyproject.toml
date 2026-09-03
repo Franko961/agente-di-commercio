@@ -36,6 +36,7 @@ dependencies = [
   "opentelemetry-instrumentation-pymongo>=0.48b0",
   "opentelemetry-instrumentation-requests>=0.48b0",
   "opentelemetry-instrumentation-logging>=0.48b0",
+  "reportlab>=5.0.1",
 ]
 
 [dependency-groups]

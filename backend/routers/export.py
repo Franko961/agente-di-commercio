@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends
 
 from core.security import get_current_user, require_module
@@ -24,3 +26,17 @@ async def export_commissions(user=Depends(get_current_user)):
 @router.get("/leads.csv", dependencies=[Depends(require_module("lead"))])
 async def export_leads(user=Depends(get_current_user)):
     return await export_service.export_leads(user)
+
+
+@router.get(
+    "/mandante-report.pdf", dependencies=[Depends(require_module("provvigioni"))]
+)
+async def export_mandante_report(
+    mandante_id: str,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    user=Depends(get_current_user),
+):
+    return await export_service.export_mandante_report(
+        user, mandante_id, date_from, date_to
+    )

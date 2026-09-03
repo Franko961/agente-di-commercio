@@ -1,13 +1,18 @@
 import csv
 import io
-from typing import List
+from datetime import date, timedelta
+from typing import List, Optional
 
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 
 from core.database import db
+from core.exceptions import NotFoundError, ValidationAppError
 from core.rate_limit import check_and_record
-from services.commission_service import normalize_manual_commission
+from core.utils import local_date_str, now_local
+from repositories.mandante_repository import mandante_repository
+from services.commission_service import commission_service, normalize_manual_commission
+from services.mandante_report_service import build_mandante_report_pdf
 
 # Caratteri che Excel/Google Sheets interpretano come inizio di una formula
 # quando aprono un file CSV: un valore testuale come '=HYPERLINK(...)' o
@@ -66,6 +71,23 @@ def xlsx_response(wb, filename: str) -> StreamingResponse:
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+def pdf_response(pdf_bytes: bytes, filename: str) -> StreamingResponse:
+    """Equivalente PDF di xlsx_response/csv_response qui sopra — stesso
+    accorgimento del blocco unico (i PDF sono binari come gli xlsx)."""
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+def _parse_report_date(value: str, field_name: str) -> date:
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        raise ValidationAppError(f"{field_name} non valida: usa il formato YYYY-MM-DD")
 
 
 class ExportService:
@@ -199,6 +221,78 @@ class ExportService:
             "origine",
         ]
         return csv_response(rows, headers, "provvigioni.csv")
+
+    async def export_mandante_report(
+        self,
+        user: dict,
+        mandante_id: str,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+    ) -> StreamingResponse:
+        """Report PDF riepilogativo delle provvigioni di UN mandante in un
+        intervallo di date, pensato per essere mandato al mandante stesso —
+        vedi services/mandante_report_service.py per il contenuto/layout e
+        per la nota sul perché non è un documento fiscale."""
+        await self._enforce_rate_limit(user)
+
+        mandante = await mandante_repository.find_one(mandante_id, user["id"])
+        if not mandante:
+            raise NotFoundError("Mandante non trovato")
+
+        # Date non specificate: dal primo giorno del mese corrente a oggi —
+        # non l'intero mese corrente, che per un report generato a metà
+        # mese includerebbe giorni futuri senza senso (nessuna provvigione
+        # può ancora esistere per una data non ancora trascorsa).
+        today = now_local().date()
+        parsed_from = (
+            _parse_report_date(date_from, "date_from")
+            if date_from
+            else today.replace(day=1)
+        )
+        parsed_to = _parse_report_date(date_to, "date_to") if date_to else today
+        if parsed_from > parsed_to:
+            raise ValidationAppError("date_from non può essere successiva a date_to")
+        # Limite ampio ma non illimitato: un intervallo assurdo (es. 50 anni)
+        # non ha senso per un report "per questo mandante in questo periodo"
+        # e costringerebbe comunque a caricare/ordinare l'intero storico.
+        if (parsed_to - parsed_from) > timedelta(days=5 * 365):
+            raise ValidationAppError("L'intervallo di date non può superare 5 anni")
+
+        commissions = await commission_service.get_effective_commissions(
+            user, mandante_id=mandante_id
+        )
+        commissions = [
+            c
+            for c in commissions
+            if parsed_from.isoformat()
+            <= local_date_str(c.get("created_at"))
+            <= parsed_to.isoformat()
+        ]
+        clients = {
+            c["id"]: c
+            for c in await db.clients.find({"user_id": user["id"]}, {"_id": 0}).to_list(
+                5000
+            )
+        }
+
+        pdf_bytes = build_mandante_report_pdf(
+            user,
+            mandante,
+            commissions,
+            clients,
+            parsed_from.isoformat(),
+            parsed_to.isoformat(),
+        )
+        safe_name = (
+            "".join(
+                ch if ch.isalnum() or ch in "-_" else "-" for ch in mandante["name"]
+            ).strip("-")
+            or "mandante"
+        )
+        filename = (
+            f"report-{safe_name}-{parsed_from.isoformat()}_{parsed_to.isoformat()}.pdf"
+        )
+        return pdf_response(pdf_bytes, filename)
 
     async def export_leads(self, user: dict) -> StreamingResponse:
         await self._enforce_rate_limit(user)
