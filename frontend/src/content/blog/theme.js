@@ -21,6 +21,7 @@ export const THEME_RULES = [
   [(s) => s.includes("firr"), "INDENNITÀ", "1707157284454-553ef0a4ed0d", "Fisco"],
   [(s) => s.includes("deducibilita-fiscale-auto"), "AUTO", "1616805111996-e39d9a19e35c", "Fisco"],
   [(s) => s.includes("verifica-partita-iva-vies"), "FISCO UE", "1608817576136-0f3a56922823", "Fisco"],
+  [(s) => s.includes("scadenze-fiscali"), "SCADENZE", "1611988615248-5d4f0b9ac31e", "Fisco"],
   // Va prima della regola generica "enasarco" qui sotto, altrimenti le due
   // finiscono con la stessa foto (è successo, vedi il commento sopra).
   [(s) => s.includes("minimali-massimali"), "MASSIMALI", "1633158829585-23ba8f7c8caf", "Fisco"],
