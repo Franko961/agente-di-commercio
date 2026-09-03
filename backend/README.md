@@ -2,6 +2,8 @@
 
 API FastAPI per SALESFLY (CRM per agenti di commercio plurimandatari). Deploy su Railway (Railpack), servizio con Root Directory `/backend`.
 
+Per il quadro generale del progetto (architettura, variabili ambiente, frontend, deployment, migrazioni, backup), vedi il [README alla radice del repo](../README.md). Qui sotto solo la gestione delle dipendenze Python.
+
 ## Dipendenze: pyproject.toml + uv.lock
 
 Dal 2026-08-28 le dipendenze sono gestite con [uv](https://docs.astral.sh/uv/), non più con `requirements.txt`:

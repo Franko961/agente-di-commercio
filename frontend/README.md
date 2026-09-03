@@ -1,70 +1,24 @@
-# Getting Started with Create React App
+# Frontend — SALESFLY
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+React + [Vite](https://vitejs.dev/), Tailwind CSS. Deploy su Netlify (build statica, publish directory `build`).
 
-## Available Scripts
+## Script disponibili
 
-In the project directory, you can run:
+```bash
+npm start        # dev server, http://localhost:3000 (porta scelta per continuità con il precedente setup CRA)
+npm run build     # vite build + prerendering statico delle pagine pubbliche (scripts/prerender.js) + sitemap.xml/llms.txt
+npm run lint      # eslint
+```
 
-### `npm start`
+Non c'è una suite di test automatizzata per il frontend al momento — solo lint e build, entrambi gate in CI (`.github/workflows/ci.yml`).
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Variabili ambiente
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+`VITE_BACKEND_URL` (solo sviluppo locale, in `.env.development.local`) — in produzione il frontend chiama sempre `/api/*` sulla stessa origin, instradato verso il backend Railway da `public/_redirects`.
 
-### `npm test`
+## Note
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- Migrato da Create React App a Vite il 2026-08-23 — se trovi riferimenti residui a CRA altrove, sono da correggere.
+- `public/_redirects` e `public/_headers` sono la configurazione Netlify (redirect API, header di sicurezza) — non esiste un `netlify.toml`.
 
-### `npm run build`
-
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Per il quadro generale del progetto (backend, variabili ambiente, deployment, migrazioni), vedi il [README alla radice del repo](../README.md).
