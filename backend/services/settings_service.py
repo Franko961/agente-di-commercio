@@ -70,13 +70,19 @@ class SettingsService:
 
     @staticmethod
     def _company_view(user: dict) -> dict:
-        return {"logo": user.get("company_logo")}
+        return {
+            "logo": user.get("company_logo"),
+            "vat_number": user.get("company_vat_number"),
+        }
 
     async def get_company_settings(self, user: dict) -> dict:
         return self._company_view(user)
 
     async def update_company_settings(self, user: dict, payload) -> dict:
-        data = {"company_logo": payload.logo}
+        data = {
+            "company_logo": payload.logo,
+            "company_vat_number": payload.vat_number,
+        }
         await self.repo.update_by_id(user["id"], data)
         return self._company_view({**user, **data})
 

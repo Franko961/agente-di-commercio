@@ -24,6 +24,21 @@ export const exportCommissions = () => downloadCsv("/api/export/commissions.csv"
 export const exportLeads = () => downloadCsv("/api/export/leads.csv", "lead.csv");
 export const exportLeaveRequests = () => downloadCsv("/api/leave-requests/export.csv", "assenze.csv");
 export const exportAttendance = (month) => downloadCsv(`/api/attendance/export.xlsx?month=${month}`, `presenze_${month}.xlsx`);
+// dateFrom/dateTo opzionali (formato YYYY-MM-DD): se assenti, il backend
+// usa come default dal primo giorno del mese corrente a oggi (vedi
+// ExportService.export_mandante_report). Il nome del file scaricato lo
+// decide SOLO il client (download da un blob: URL, che non porta con sé
+// il Content-Disposition della risposta originale) — mandanteName è
+// opzionale solo per restare compatibile con eventuali altri chiamanti,
+// ma va sempre passato quando disponibile per un nome file leggibile.
+export const exportMandanteReport = (mandanteId, dateFrom, dateTo, mandanteName) => {
+  const params = new URLSearchParams({ mandante_id: mandanteId });
+  if (dateFrom) params.set("date_from", dateFrom);
+  if (dateTo) params.set("date_to", dateTo);
+  const safeName = mandanteName ? mandanteName.replace(/[^\w-]+/g, "-") : "mandante";
+  const filename = `report-${safeName}${dateFrom ? `-${dateFrom}` : ""}${dateTo ? `_${dateTo}` : ""}.pdf`;
+  return downloadCsv(`/api/export/mandante-report.pdf?${params}`, filename);
+};
 
 // WhatsApp click-to-chat helper
 export function whatsappLink(phone, message = "") {

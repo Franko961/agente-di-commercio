@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Download } from "lucide-react";
+import { Download, FileText } from "lucide-react";
 import { toast } from "sonner";
-import { exportCommissions } from "../utils/export";
+import { exportCommissions, exportMandanteReport } from "../utils/export";
 import { useMandante } from "../contexts/MandanteContext";
 import { listClients } from "../api/clients";
 import { listMandanti } from "../api/mandanti";
@@ -31,6 +31,18 @@ export default function Commissions() {
   const [manualForm, setManualForm] = useState(emptyManualForm);
   const [editingManualId, setEditingManualId] = useState(null);
   const [savingManual, setSavingManual] = useState(false);
+  // Default coerente con quello del backend quando le date non sono
+  // specificate (vedi ExportService.export_mandante_report): dal primo
+  // giorno del mese corrente a oggi, non l'intero mese, che a inizio mese
+  // includerebbe giorni futuri senza senso. toISOString() usa UTC — al
+  // massimo sbaglia di un giorno vicino alla mezzanotte italiana, ininfluente
+  // per un valore di default che l'utente può comunque modificare a mano.
+  const today = new Date();
+  const [reportDateFrom, setReportDateFrom] = useState(
+    new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10)
+  );
+  const [reportDateTo, setReportDateTo] = useState(today.toISOString().slice(0, 10));
+  const [generatingReport, setGeneratingReport] = useState(false);
   const [expandedPeriods, setExpandedPeriods] = useState(() => new Set([currentPeriod()]));
   const togglePeriod = (key) => setExpandedPeriods((prev) => {
     const next = new Set(prev);
@@ -190,6 +202,20 @@ export default function Commissions() {
     load();
   };
 
+  const generateMandanteReport = async () => {
+    if (!mandanteParam) return;
+    const mandanteName = mandanti.find((m) => m.id === mandanteParam)?.name;
+    setGeneratingReport(true);
+    try {
+      await exportMandanteReport(mandanteParam, reportDateFrom, reportDateTo, mandanteName);
+      toast.success("Report PDF scaricato");
+    } catch {
+      toast.error("Errore nella generazione del report");
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
+
   return (
     <div className="p-4 md:p-8">
       <div className="border-b border-[#E4E4E1] pb-6 mb-6 flex items-end justify-between">
@@ -258,6 +284,48 @@ export default function Commissions() {
           </div>
           <p className="text-[11px] text-[#6B6B72] mt-3">
             Calcolo indicativo in base alla situazione fiscale impostata, non sostituisce il commercialista.
+          </p>
+        </div>
+      )}
+
+      {/* Report PDF: ha senso solo per UN mandante alla volta (non
+      "Tutti"), coerente con l'endpoint backend che richiede mandante_id. */}
+      {mandanteParam && (
+        <div className="bg-white border border-[#E4E4E1] rounded-md p-5 mb-6">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mb-3">
+            Report provvigioni per {mandanti.find((m) => m.id === mandanteParam)?.name || "questo mandante"}
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="text-[12px]">
+              <span className="block text-[#6B6B72] mb-1">Dal</span>
+              <input
+                type="date"
+                value={reportDateFrom}
+                onChange={(e) => setReportDateFrom(e.target.value)}
+                className="px-3 py-2 rounded-md border border-[#E4E4E1] text-[13px]"
+              />
+            </label>
+            <label className="text-[12px]">
+              <span className="block text-[#6B6B72] mb-1">Al</span>
+              <input
+                type="date"
+                value={reportDateTo}
+                onChange={(e) => setReportDateTo(e.target.value)}
+                className="px-3 py-2 rounded-md border border-[#E4E4E1] text-[13px]"
+              />
+            </label>
+            <button
+              onClick={generateMandanteReport}
+              disabled={generatingReport}
+              data-testid="generate-mandante-report-button"
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#0A192F] text-white rounded-md text-[13px] font-medium disabled:opacity-50"
+            >
+              <FileText className="w-4 h-4" />
+              {generatingReport ? "Generazione…" : "Genera report PDF"}
+            </button>
+          </div>
+          <p className="text-[11px] text-[#6B6B72] mt-3">
+            Un riepilogo pronto da mandare al mandante: provvigioni del periodo, netto stimato, dettaglio per cliente.
           </p>
         </div>
       )}
