@@ -29,6 +29,7 @@ export const THEME_RULES = [
   // Va prima della regola generica "enasarco" qui sotto, stesso motivo di
   // "minimali-massimali": lo slug contiene "enasarco" come sottostringa.
   [(s) => s.includes("iscrizione-enasarco"), "ISCRIZIONE", "1554252116-ed7971ea7623", "Fisco"],
+  [(s) => s.includes("pensione-enasarco"), "PENSIONE", "1522016480855-67a9f8416d98", "Fisco"],
   [(s) => s.includes("enasarco"), "ENASARCO", "1637763723578-79a4ca9225f7", "Fisco"],
   [(s) => s.includes("spese"), "SPESE", "1649209979970-f01d950cc5ed", "Fisco"],
   [(s) => s.includes("annunci-agenti"), "ANNUNCI", "1504711434969-e33886168f5c", "Guide"],
