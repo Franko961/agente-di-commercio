@@ -156,8 +156,19 @@ Per aggiungerne una: crea un nuovo file `_00N_descrizione.py` in `backend/migrat
 
 ## Backup
 
-Non esiste uno script di backup nel repo: la protezione dei dati si affida ai backup nativi di **MongoDB Atlas** (Atlas → cluster → tab *Backup*), non a qualcosa che il codice di questo repo controlli o garantisca. Da verificare periodicamente direttamente lì, non assunto:
+La protezione dei dati si affida in primo luogo ai backup nativi di **MongoDB Atlas** (Atlas → cluster → tab *Backup*), non a qualcosa che il codice di questo repo controlli o garantisca. Da verificare periodicamente direttamente lì, non assunto:
 
-- Se i backup automatici sono attivi sul cluster in uso (dipende dal tier: i cluster gratuiti M0 non li includono).
+- Se i backup automatici sono attivi sul cluster in uso (dipende dal tier: **i cluster gratuiti M0 non li includono**, disponibili solo da M10 in su).
 - La finestra di retention e se è disponibile il point-in-time recovery.
 - Come si esegue un ripristino in pratica (Atlas → *Backup* → snapshot → *Restore*) — vale la pena provarlo almeno una volta su un cluster di test, non solo leggerlo, prima che serva davvero in produzione.
+
+**Su un cluster M0** (nessun backup automatico di Atlas), `backend/scripts/backup_local.ps1` è un compromesso a costo zero: un dump manuale con `mongodump`, da lanciare ogni tanto, non un sostituto di un vero backup gestito.
+
+```powershell
+# Richiede MongoDB Database Tools (mongodump) nel PATH:
+# https://www.mongodb.com/try/download/database-tools
+cd backend
+.\scripts\backup_local.ps1
+```
+
+Legge `MONGO_URL`/`DB_NAME` da `backend/.env` se non passati esplicitamente (`-Uri`/`-Database`), salva in `backups/<data>/` alla radice del repo (mai committata, esclusa in `.gitignore`), e cancella in automatico i backup più vecchi di 14 giorni (`-KeepDays 0` per disattivare la pulizia).

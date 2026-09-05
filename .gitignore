@@ -110,3 +110,7 @@ credentials.json
 # valore reale), va tracciato per l'onboarding — le regole .env.* sopra lo
 # escluderebbero altrimenti.
 !backend/.env.example
+
+# Dump prodotti da backend/scripts/backup_local.ps1 — dati reali dei
+# clienti, non devono mai finire in un repository Git.
+/backups/
