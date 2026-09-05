@@ -47,6 +47,7 @@ export const THEME_RULES = [
   // "calcolare-provvigioni") e ricadeva sul tema generico.
   [(s) => s.includes("come-calcolare-provvigioni"), "PROVVIGIONI", "1580048915913-4f8f5cb481c4", "Vendita"],
   [(s) => s.includes("aumentare-provvigioni") || s.includes("calcolo-provvigioni"), "PROVVIGIONI", "1560221328-12fe60f83ab8", "Vendita"],
+  [(s) => s.includes("provvigioni-scalari"), "SCALA PREMI", "1502101872923-d48509bff386", "Vendita"],
   [(s) => s.includes("giro-visite"), "TERRITORIO", "1684836571999-f3dc511935e7", "Vendita"],
   [(s) => s.includes("mandanti"), "MANDANTI", "1672380135241-c024f7fbfa13", "Vendita"],
   [(s) => s.includes("primi-90-giorni"), "AVVIO", "1465765639406-044153778532", "Vendita"],
