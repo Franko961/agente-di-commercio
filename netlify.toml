@@ -1,0 +1,18 @@
+# Configurazione di build tracciata nel repo, invece di vivere solo nelle
+# impostazioni del sito su Netlify (rischio di "configuration drift": un
+# cambiamento fatto dalla UI, non versionato, non rivedibile in una PR).
+#
+# Header di sicurezza e redirect (incluso il proxy /api/* verso Railway)
+# restano nei file dedicati che Netlify legge dalla cartella pubblicata —
+# frontend/public/_headers e frontend/public/_redirects — deliberatamente
+# NON duplicati qui, per avere un'unica fonte per ciascuna cosa.
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "frontend/build"
+
+[build.environment]
+  # Stessa versione già usata dal job "Frontend" in .github/workflows/ci.yml
+  # — evita che un build passi in CI e fallisca (o si comporti diversamente)
+  # su Netlify per una versione di Node diversa.
+  NODE_VERSION = "24"
