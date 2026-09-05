@@ -9,7 +9,10 @@
 [build]
   base = "frontend"
   command = "npm run build"
-  publish = "frontend/build"
+  # Relativo a "base" qui sopra, non alla radice del repo — "frontend/build"
+  # avrebbe risolto a "frontend/frontend/build" (inesistente): è esattamente
+  # l'errore osservato nel primo deploy di prova di questo file.
+  publish = "build"
 
 [build.environment]
   # Stessa versione già usata dal job "Frontend" in .github/workflows/ci.yml
