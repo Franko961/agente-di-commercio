@@ -9,12 +9,11 @@ import logging
 import time
 
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 
 from core.config import CORS_ORIGINS, SENTRY_DSN, TRUSTED_PROXY_HOPS
-from core.exceptions import AppError
+from core.exception_handlers import register_exception_handlers
 from core.observability import (
     configure_logging,
     init_opentelemetry,
@@ -68,12 +67,7 @@ from routers.vehicles import router as vehicles_router
 from services.startup import run_shutdown, run_startup
 
 app = FastAPI(title="Gestionale Agenti di Commercio")
-
-
-@app.exception_handler(AppError)
-async def app_error_handler(request, exc: AppError):
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
-
+register_exception_handlers(app)
 
 configure_logging()
 
