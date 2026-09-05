@@ -105,3 +105,8 @@ credentials.json
 *.pem
 *.key
 .credentials
+
+# Eccezione: è un template senza segreti (solo nomi di variabile, nessun
+# valore reale), va tracciato per l'onboarding — le regole .env.* sopra lo
+# escluderebbero altrimenti.
+!backend/.env.example

@@ -16,7 +16,7 @@ backend/    FastAPI (Python), ~40 router / ~50 servizi, MongoDB via pymongo asyn
             → Railway (Railpack, root directory /backend)
 ```
 
-Il frontend non parla mai direttamente con Railway: ogni chiamata `/api/*` fatta dal browser resta sulla stessa origin (`salesfly.it`) e viene inoltrata al backend da un redirect Netlify (`frontend/public/_redirects`). Stesso principio per gli header di sicurezza (`frontend/public/_headers`) — non esiste un `netlify.toml`, la configurazione del sito (base directory, comando di build) vive nelle impostazioni del sito su Netlify, non nel repo.
+Il frontend non parla mai direttamente con Railway: ogni chiamata `/api/*` fatta dal browser resta sulla stessa origin (`salesfly.it`) e viene inoltrata al backend da un redirect Netlify (`frontend/public/_redirects`). Stesso principio per gli header di sicurezza (`frontend/public/_headers`). La configurazione di build (base directory, comando, publish directory) è in `netlify.toml` alla radice del repo, non nelle impostazioni del sito su Netlify — versionata e rivedibile in una PR come il resto.
 
 Servizi esterni usati dal backend: MongoDB Atlas (dati), S3/S3-compatibile (documenti), Stripe e PayPal (abbonamenti, sempre come redirect a checkout ospitato, mai SDK/iframe embeddato), Google Calendar (sync appuntamenti, OAuth), Anthropic Claude (assistente AI), Resend (email transazionali), OpenRouteService (percorso ottimizzato, opzionale), Sentry e OpenTelemetry (osservabilità, opzionali).
 
@@ -32,9 +32,10 @@ Servizi esterni usati dal backend: MongoDB Atlas (dati), S3/S3-compatibile (docu
 ```bash
 cd backend
 uv sync
+cp .env.example .env
 ```
 
-Crea `backend/.env` con almeno le variabili obbligatorie (vedi [Variabili ambiente](#variabili-ambiente) sotto). Non esiste un `.env.example` nel repo: le variabili gestite sono tutte elencate in `backend/core/config.py`, con i default usati quando una è assente.
+Poi valorizza almeno le variabili obbligatorie in `.env` (vedi [Variabili ambiente](#variabili-ambiente) sotto) — l'elenco completo, con descrizioni, è comunque `backend/core/config.py`, con i default usati quando una variabile è assente.
 
 ## Installazione frontend
 
@@ -144,7 +145,7 @@ C'è inoltre una pipeline separata di **smoke test** (`.github/workflows/smoke-t
 ## Deployment
 
 - **Backend → Railway**: root directory `/backend`, rilevamento automatico (Railpack) di `pyproject.toml` + `uv.lock` + `.python-version`, nessun build command custom.
-- **Frontend → Netlify**: base directory `frontend`, build command `npm run build` (esegue anche il prerendering statico delle pagine pubbliche e rigenera `sitemap.xml`), publish directory `frontend/build`. Redirect (`/api/*` verso Railway) e header di sicurezza sono file (`_redirects`, `_headers`) in `frontend/public/`, non nella UI di Netlify.
+- **Frontend → Netlify**: base directory, build command (che esegue anche il prerendering statico delle pagine pubbliche e rigenera `sitemap.xml`) e publish directory sono in `netlify.toml` alla radice del repo, non nella UI di Netlify. Redirect (`/api/*` verso Railway) e header di sicurezza restano invece file (`_redirects`, `_headers`) in `frontend/public/` — letti da Netlify dalla cartella pubblicata, non da `netlify.toml`.
 - Entrambi si deployano automaticamente al merge su `main`, dopo che la CI è verde.
 
 ## Migrazioni
@@ -155,4 +156,8 @@ Per aggiungerne una: crea un nuovo file `_00N_descrizione.py` in `backend/migrat
 
 ## Backup
 
-Non esiste uno script di backup nel repo: la protezione dei dati si affida ai backup nativi di **MongoDB Atlas**. Vale la pena verificare direttamente nel pannello Atlas che i backup automatici siano attivi sul cluster in uso e qual è la finestra di retention/point-in-time recovery — non è qualcosa che il codice di questo repo controlla o garantisce.
+Non esiste uno script di backup nel repo: la protezione dei dati si affida ai backup nativi di **MongoDB Atlas** (Atlas → cluster → tab *Backup*), non a qualcosa che il codice di questo repo controlli o garantisca. Da verificare periodicamente direttamente lì, non assunto:
+
+- Se i backup automatici sono attivi sul cluster in uso (dipende dal tier: i cluster gratuiti M0 non li includono).
+- La finestra di retention e se è disponibile il point-in-time recovery.
+- Come si esegue un ripristino in pratica (Atlas → *Backup* → snapshot → *Restore*) — vale la pena provarlo almeno una volta su un cluster di test, non solo leggerlo, prima che serva davvero in produzione.
