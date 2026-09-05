@@ -37,8 +37,9 @@ import { article as scadenzeFiscali } from "./articles/scadenze-fiscali-calendar
 import { article as ferieMalattia } from "./articles/ferie-malattia-agente-di-commercio-partita-iva";
 import { article as iscrizioneEnasarco } from "./articles/iscrizione-enasarco-obbligo-mandante-agente";
 import { article as pensioneEnasarco } from "./articles/pensione-enasarco-requisiti-quota-92";
+import { article as primi90Giorni } from "./articles/primi-90-giorni-nuovo-mandante";
 
-const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot, migliorCrmVenditori, crmAiVenditori, aumentareProvvigioni, daExcelAlCrm, implementareInDueMinuti, contrattoDiAgenzia, rimborsoTasseStudio, bonusScolasticoFigli, minimaliMassimali, inquadramentoAgente, catalogoDigitale, ritenutaAcconto, firr, agenteSportivo, deducibilitaAuto, crmItaliano, percorsoOttimizzato, verificaVies, stornoProvvigioni, annunciAgenti, organizzareSettimana, scadenzeFiscali, ferieMalattia, iscrizioneEnasarco, pensioneEnasarco];
+const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot, migliorCrmVenditori, crmAiVenditori, aumentareProvvigioni, daExcelAlCrm, implementareInDueMinuti, contrattoDiAgenzia, rimborsoTasseStudio, bonusScolasticoFigli, minimaliMassimali, inquadramentoAgente, catalogoDigitale, ritenutaAcconto, firr, agenteSportivo, deducibilitaAuto, crmItaliano, percorsoOttimizzato, verificaVies, stornoProvvigioni, annunciAgenti, organizzareSettimana, scadenzeFiscali, ferieMalattia, iscrizioneEnasarco, pensioneEnasarco, primi90Giorni];
 
 // A parità di publishedAt (risoluzione giornaliera: capita pubblicare più
 // articoli lo stesso giorno) Array.prototype.sort è stabile — senza un

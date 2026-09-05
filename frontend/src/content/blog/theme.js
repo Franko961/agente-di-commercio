@@ -49,6 +49,7 @@ export const THEME_RULES = [
   [(s) => s.includes("aumentare-provvigioni") || s.includes("calcolo-provvigioni"), "PROVVIGIONI", "1560221328-12fe60f83ab8", "Vendita"],
   [(s) => s.includes("giro-visite"), "TERRITORIO", "1684836571999-f3dc511935e7", "Vendita"],
   [(s) => s.includes("mandanti"), "MANDANTI", "1672380135241-c024f7fbfa13", "Vendita"],
+  [(s) => s.includes("primi-90-giorni"), "AVVIO", "1465765639406-044153778532", "Vendita"],
   [(s) => s.includes("crm-italiano"), "CRM ITALIANO", "1536140012599-830a641c27e6", "Tecnologia"],
   [(s) => s.includes("hubspot"), "CONFRONTO", "1616279468745-de6fdbad0262", "Tecnologia"],
   [(s) => s.includes("migliori-crm"), "CONFRONTO", "1539992190939-08f22d7ebaad", "Tecnologia"],
