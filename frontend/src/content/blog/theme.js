@@ -55,6 +55,7 @@ export const THEME_RULES = [
   [(s) => s.includes("hubspot"), "CONFRONTO", "1616279468745-de6fdbad0262", "Tecnologia"],
   [(s) => s.includes("migliori-crm"), "CONFRONTO", "1539992190939-08f22d7ebaad", "Tecnologia"],
   [(s) => s.includes("crm-gratuito"), "GRATUITO", "1612012060851-20f943c02d3d", "Tecnologia"],
+  [(s) => s.includes("migrare-crm-generico"), "PASSAGGIO", "1490041125797-76d80076bf80", "Tecnologia"],
   // "come-ai-e-crm" va prima della regola generica "ai-crm" qui sotto:
   // "ai-e-crm" non contiene "ai-crm" come sottostringa esatta.
   [(s) => s.includes("come-ai-e-crm"), "AI", "1600087626120-062700394a01", "Tecnologia"],
