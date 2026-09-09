@@ -40,8 +40,9 @@ import { article as pensioneEnasarco } from "./articles/pensione-enasarco-requis
 import { article as primi90Giorni } from "./articles/primi-90-giorni-nuovo-mandante";
 import { article as provvigioniScalari } from "./articles/provvigioni-scalari-a-target";
 import { article as crmGratuito } from "./articles/crm-gratuito-agenti-di-commercio-limiti";
+import { article as migrareCrmGenerico } from "./articles/migrare-crm-generico-verticale-agenti";
 
-const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot, migliorCrmVenditori, crmAiVenditori, aumentareProvvigioni, daExcelAlCrm, implementareInDueMinuti, contrattoDiAgenzia, rimborsoTasseStudio, bonusScolasticoFigli, minimaliMassimali, inquadramentoAgente, catalogoDigitale, ritenutaAcconto, firr, agenteSportivo, deducibilitaAuto, crmItaliano, percorsoOttimizzato, verificaVies, stornoProvvigioni, annunciAgenti, organizzareSettimana, scadenzeFiscali, ferieMalattia, iscrizioneEnasarco, pensioneEnasarco, primi90Giorni, provvigioniScalari, crmGratuito];
+const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot, migliorCrmVenditori, crmAiVenditori, aumentareProvvigioni, daExcelAlCrm, implementareInDueMinuti, contrattoDiAgenzia, rimborsoTasseStudio, bonusScolasticoFigli, minimaliMassimali, inquadramentoAgente, catalogoDigitale, ritenutaAcconto, firr, agenteSportivo, deducibilitaAuto, crmItaliano, percorsoOttimizzato, verificaVies, stornoProvvigioni, annunciAgenti, organizzareSettimana, scadenzeFiscali, ferieMalattia, iscrizioneEnasarco, pensioneEnasarco, primi90Giorni, provvigioniScalari, crmGratuito, migrareCrmGenerico];
 
 // A parità di publishedAt (risoluzione giornaliera: capita pubblicare più
 // articoli lo stesso giorno) Array.prototype.sort è stabile — senza un
