@@ -1,21 +1,61 @@
 import { useState } from "react";
-import { Calculator } from "lucide-react";
-import { computeFiscalBreakdown, formatEuro, parseItalianNumber } from "@/utils/fiscalCalc";
+import { Calculator, AlertTriangle } from "lucide-react";
+import {
+  computeFiscalBreakdown,
+  formatEuro,
+  parseItalianNumber,
+  ENASARCO_QUOTA_AGENTE,
+} from "@/utils/fiscalCalc";
 
 // Calcolatore client-side, nessuna chiamata al backend: un numero inserito
 // a mano dal lettore, non dati reali dell'agente (per quelli vedi il
-// riepilogo fiscale nella pagina Provvigioni dell'app). La formula vive in
-// utils/fiscalCalc.js, condivisa con quel riepilogo — vedi il commento
-// lì per aliquote e riferimenti normativi.
+// riepilogo fiscale nella pagina Provvigioni dell'app). La ritenuta
+// d'acconto usa ancora computeFiscalBreakdown (utils/fiscalCalc.js,
+// condivisa con quel riepilogo — nessun massimale non si applica alla
+// ritenuta). Il contributo ENASARCO invece è ricalcolato QUI, non più
+// preso da computeFiscalBreakdown: quella funzione applica sempre l'8,5%
+// sull'intera provvigione, senza sapere quanto già maturato nell'anno per
+// lo stesso mandante — informazione che solo questo calcolatore chiede
+// esplicitamente all'utente. Un cambiamento equivalente nel riepilogo
+// reale dell'app (che conosce già le provvigioni reali dell'agente)
+// resta una decisione a parte, non fatta qui.
+//
+// Massimali/minimali 2026 verificati per l'articolo del blog
+// "ENASARCO: i nuovi minimali e massimali provvigionali 2026" — un valore
+// per ciascun rapporto di agenzia, non complessivo su più mandanti.
+const SOGLIE_ENASARCO = {
+  plurimandatario: { massimale: 30478, minimale: 515 },
+  monomandatario: { massimale: 45717, minimale: 1026 },
+};
 
 export default function RitenutaEnasarcoCalculator() {
   const [importo, setImporto] = useState("1000");
   const [regime, setRegime] = useState("forfettario");
   const [baseRitenuta, setBaseRitenuta] = useState("50");
+  const [tipoMandato, setTipoMandato] = useState("plurimandatario");
+  const [cumulativoPrima, setCumulativoPrima] = useState("0");
 
   const lordoInput = parseItalianNumber(importo);
-  const { lordo, ritenutaAcconto: ritenuta, contributoEnasarco: enasarco, netto } =
-    computeFiscalBreakdown(lordoInput, regime, baseRitenuta);
+  const cumulativoPrimaNum = Math.max(0, parseItalianNumber(cumulativoPrima));
+  const { lordo, ritenutaAcconto: ritenuta } = computeFiscalBreakdown(
+    lordoInput,
+    regime,
+    baseRitenuta
+  );
+
+  const { massimale, minimale } = SOGLIE_ENASARCO[tipoMandato];
+  // Solo la quota di QUESTA fattura che rientra ancora nel massimale (dato
+  // quanto già maturato prima) è soggetta a contributo — non l'intero
+  // importo, se il cumulato lo supera durante questa stessa fattura.
+  const spazioResiduo = Math.max(0, massimale - cumulativoPrimaNum);
+  const imponibileEnasarco = Math.min(lordo, spazioResiduo);
+  const enasarco = imponibileEnasarco * ENASARCO_QUOTA_AGENTE;
+  const netto = lordo - ritenuta - enasarco;
+
+  const cumulativoDopo = cumulativoPrimaNum + lordo;
+  const massimaleGiaSuperato = cumulativoPrimaNum >= massimale;
+  const massimaleSuperatoOra = !massimaleGiaSuperato && cumulativoDopo > massimale;
+  const sottoMinimale = cumulativoDopo < minimale;
 
   return (
     <div className="my-8 bg-white border border-[#E4E4E1] rounded-xl p-6">
@@ -105,7 +145,82 @@ export default function RitenutaEnasarcoCalculator() {
             </p>
           </div>
         )}
+
+        <div>
+          <label className="block text-[12px] font-medium text-[#52525B] mb-1">
+            Tipo di mandato con questo mandante
+          </label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setTipoMandato("plurimandatario")}
+              className={`flex-1 border rounded-md px-3 py-2 text-[13px] font-medium transition-colors ${
+                tipoMandato === "plurimandatario"
+                  ? "border-[#0A192F] bg-[#0A192F] text-white"
+                  : "border-[#E4E4E1] text-[#52525B]"
+              }`}
+            >
+              Plurimandatario
+            </button>
+            <button
+              type="button"
+              onClick={() => setTipoMandato("monomandatario")}
+              className={`flex-1 border rounded-md px-3 py-2 text-[13px] font-medium transition-colors ${
+                tipoMandato === "monomandatario"
+                  ? "border-[#0A192F] bg-[#0A192F] text-white"
+                  : "border-[#E4E4E1] text-[#52525B]"
+              }`}
+            >
+              Monomandatario
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-[12px] font-medium text-[#52525B] mb-1">
+            Provvigioni già maturate quest'anno da questo mandante, prima di questa fattura (€)
+          </label>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={cumulativoPrima}
+            onChange={(e) => setCumulativoPrima(e.target.value)}
+            className="w-full border border-[#E4E4E1] rounded-md px-3 py-2 text-sm"
+          />
+          <p className="text-[11px] text-[#6B6B72] mt-1.5">
+            0 se questa è la prima fattura dell'anno a questo mandante — serve a sapere quanto
+            resta del massimale annuo su cui è dovuto il contributo ENASARCO.
+          </p>
+        </div>
       </div>
+
+      {(massimaleGiaSuperato || massimaleSuperatoOra) && (
+        <div className="mt-4 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-md p-3 text-[12px] text-amber-800">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          {massimaleGiaSuperato ? (
+            <span>
+              Hai già superato il massimale annuo ({formatEuro(massimale)}) per questo mandante:
+              su questa fattura non è dovuto altro contributo ENASARCO.
+            </span>
+          ) : (
+            <span>
+              Con questa fattura superi il massimale annuo ({formatEuro(massimale)}) per questo
+              mandante: il contributo si applica solo sulla quota fino al tetto (
+              {formatEuro(spazioResiduo)}), non sull'intero importo in fattura.
+            </span>
+          )}
+        </div>
+      )}
+      {sottoMinimale && !massimaleGiaSuperato && !massimaleSuperatoOra && (
+        <div className="mt-4 flex items-start gap-2 bg-[#F5F5F4] border border-[#E4E4E1] rounded-md p-3 text-[12px] text-[#52525B]">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>
+            Il cumulato per questo mandante resta sotto il minimale contributivo annuo (
+            {formatEuro(minimale)}): il mandante verserà comunque almeno il minimo dovuto a
+            trimestre, indipendentemente da quanto hai fatturato finora.
+          </span>
+        </div>
+      )}
 
       <div className="mt-5 pt-5 border-t border-[#E4E4E1] space-y-2.5">
         <div className="flex items-center justify-between text-[13px]">
@@ -130,8 +245,7 @@ export default function RitenutaEnasarcoCalculator() {
 
       <p className="text-[11px] text-[#6B6B72] mt-4">
         Calcolo indicativo, non sostituisce il commercialista: non considera eventuali note di
-        credito, storni, o il superamento del massimale provvigionale ENASARCO nell'anno (vedi
-        l'articolo dedicato a minimali e massimali 2026).
+        credito o storni successivi alla fattura.
       </p>
     </div>
   );

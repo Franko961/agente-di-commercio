@@ -119,6 +119,13 @@ const PAGES = {
     changefreq: "monthly",
     priority: "0.6",
   },
+  "/calcolatori/sconto-provvigione": {
+    title: "Calcolatore sconto e provvigione per agenti di commercio — SALESFLY",
+    description:
+      "Calcola online quanto sconto puoi concedere a un cliente senza erodere la tua provvigione minima. Gratuito, senza registrazione.",
+    changefreq: "monthly",
+    priority: "0.6",
+  },
 };
 
 // Stessi valori per ogni articolo blog (a differenza di slug/title/ecc.,

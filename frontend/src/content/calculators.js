@@ -36,6 +36,14 @@ export const CALCULATORS = {
     component: lazy(() => import("@/components/RegimeForfettarioCalculator")),
     articleSlug: null,
   },
+  scontoProvvigione: {
+    slug: "sconto-provvigione",
+    title: "Calcolatore sconto e provvigione",
+    description:
+      "Calcola quanto perdi di provvigione con uno sconto al cliente, e lo sconto massimo che puoi concedere senza scendere sotto una provvigione minima.",
+    component: lazy(() => import("@/components/ScontoProvvigioneCalculator")),
+    articleSlug: "provvigioni-scalari-a-target",
+  },
 };
 
 export function getCalculatorBySlug(slug) {
