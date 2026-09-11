@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createDemoRequest } from "../api/demoRequests";
+import { trackEvent } from "../lib/analytics";
 import { toast } from "sonner";
 import usePlans from "../hooks/usePlans";
 import PageMeta from "../components/PageMeta";
@@ -31,6 +32,11 @@ export default function RichiediDemo() {
     setBusy(true);
     try {
       const data = await createDemoRequest(form);
+      // Evento chiave: sul backend l'invio crea già l'account (vedi
+      // demo_request_service.py) — non esiste un passo di "registrazione"
+      // separato per un prospect, quindi questo È il momento di conversione
+      // reale da tracciare su GA4, non solo un lead da ricontattare a mano.
+      trackEvent("demo_richiesta_inviata");
       // Naviga su un URL dedicato (invece di un semplice stato locale)
       // raggiungibile SOLO dopo un invio riuscito: serve da bersaglio per
       // il tracciamento conversioni (Google Ads/Analytics) — un URL che

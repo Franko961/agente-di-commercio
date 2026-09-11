@@ -5,6 +5,7 @@ import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
 import { TOUR_STEPS as STEPS } from "@/content/tourSteps";
 import PageMeta from "@/components/PageMeta";
+import { trackEvent } from "@/lib/analytics";
 
 function WelcomeScreen({ onStart }) {
   return (
@@ -98,7 +99,14 @@ export default function GuidedTour() {
             total={STEPS.length}
             isLast={isLast}
             onPrev={() => setStep((s) => Math.max(0, s - 1))}
-            onNext={() => (isLast ? navigate("/richiedi-demo") : setStep((s) => s + 1))}
+            onNext={() => {
+              if (isLast) {
+                trackEvent("cta_click", { location: "guided_tour_end" });
+                navigate("/richiedi-demo");
+              } else {
+                setStep((s) => s + 1);
+              }
+            }}
             onSkip={() => navigate("/")}
           />
         )}

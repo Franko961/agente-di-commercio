@@ -142,6 +142,18 @@ export function loadPostHog() {
   setSessionRecordingEnabled(isPublicPath(window.location.pathname));
 }
 
+// Evento GA4 custom, oltre alle pageview automatiche (Enhanced Measurement
+// già traccia i cambi di rotta della SPA via history.pushState, ma non le
+// interazioni "di intenzione" come un click su una CTA prima ancora di
+// atterrare sulla pagina successiva). No-op silenzioso se l'utente non ha
+// dato consenso (gtag non è mai stato caricato in quel caso, vedi
+// loadGoogleAnalytics) — stesso pattern difensivo di setSessionRecordingEnabled
+// qui sotto, nessun errore da sollevare per un tracciamento mancato.
+export function trackEvent(name, params = {}) {
+  if (typeof window === "undefined" || typeof window.gtag !== "function") return;
+  window.gtag("event", name, params);
+}
+
 export function setSessionRecordingEnabled(enabled) {
   if (typeof window === "undefined" || !window.posthog) return;
   if (enabled) window.posthog.startSessionRecording();

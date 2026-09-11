@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { PUBLIC_NAV_LINKS } from "@/content/publicNavLinks";
+import { trackEvent } from "@/lib/analytics";
 
 export default function PublicHeader() {
   const navigate = useNavigate();
@@ -56,7 +57,10 @@ export default function PublicHeader() {
             Accedi
           </button>
           <button
-            onClick={() => navigate("/richiedi-demo")}
+            onClick={() => {
+              trackEvent("cta_click", { location: "header" });
+              navigate("/richiedi-demo");
+            }}
             className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-md text-[12px] sm:text-[13px] font-medium whitespace-nowrap transition-colors duration-200 ${
               scrolled ? "bg-white text-[#0A192F] hover:bg-white/90" : "bg-[#0A192F] text-white hover:bg-[#172A45]"
             }`}

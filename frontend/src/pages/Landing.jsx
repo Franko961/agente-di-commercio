@@ -14,6 +14,7 @@ import PageMeta from "../components/PageMeta";
 import Reveal from "../components/Reveal";
 import CountUp from "../components/CountUp";
 import { getPublicFeedback } from "../api/feedback";
+import { trackEvent } from "../lib/analytics";
 
 const FEATURES = [
   { icon: Users, title: "Clienti & anagrafiche", desc: "Tutti i tuoi clienti, contatti e storico visite in un unico posto, sempre a portata di mano." },
@@ -226,7 +227,10 @@ export default function Landing() {
               Accedi
             </button>
             <button
-              onClick={() => navigate("/richiedi-demo")}
+              onClick={() => {
+                trackEvent("cta_click", { location: "landing_nav" });
+                navigate("/richiedi-demo");
+              }}
               className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-md text-[12px] sm:text-[13px] font-medium whitespace-nowrap transition-colors duration-200 ${
                 scrolled ? "bg-white text-[#0A192F] hover:bg-white/90" : "bg-[#0A192F] text-white hover:bg-[#172A45]"
               }`}
@@ -319,7 +323,10 @@ export default function Landing() {
               </div>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button
-                  onClick={() => navigate("/richiedi-demo")}
+                  onClick={() => {
+                    trackEvent("cta_click", { location: "landing_hero" });
+                    navigate("/richiedi-demo");
+                  }}
                   className="w-full sm:w-auto px-6 py-3.5 bg-[#B23E00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors flex items-center justify-center gap-2"
                 >
                   Prova gratis {trialDays} giorni <ArrowRight className="w-4 h-4" />
@@ -419,7 +426,10 @@ export default function Landing() {
               Prova SALESFLY gratis per {trialDays} giorni. Nessuna carta di credito, nessun vincolo.
             </p>
             <button
-              onClick={() => navigate("/richiedi-demo")}
+              onClick={() => {
+                trackEvent("cta_click", { location: "landing_bottom" });
+                navigate("/richiedi-demo");
+              }}
               className="px-7 py-3.5 bg-[#B23E00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors inline-flex items-center gap-2"
             >
               Inizia gratis <ArrowRight className="w-4 h-4" />

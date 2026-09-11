@@ -6,6 +6,7 @@ import {
 import PublicFooter from "@/components/PublicFooter";
 import PageMeta from "@/components/PageMeta";
 import usePlans from "../hooks/usePlans";
+import { trackEvent } from "@/lib/analytics";
 
 // Pagina di atterraggio dedicata a campagne pubblicitarie sull'assistente AI
 // (la differenziazione più unica del prodotto), non collegata dalla
@@ -63,7 +64,10 @@ export default function LandingAI() {
               Accedi
             </button>
             <button
-              onClick={() => navigate("/richiedi-demo")}
+              onClick={() => {
+                trackEvent("cta_click", { location: "assistente_ai_nav" });
+                navigate("/richiedi-demo");
+              }}
               className="px-4 py-2 bg-[#B23E00] text-white rounded-md text-[13px] font-bold hover:bg-[#e04e00] transition-colors"
             >
               Prova gratis
@@ -89,7 +93,10 @@ export default function LandingAI() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <button
-                onClick={() => navigate("/richiedi-demo")}
+                onClick={() => {
+                  trackEvent("cta_click", { location: "assistente_ai_hero" });
+                  navigate("/richiedi-demo");
+                }}
                 className="w-full sm:w-auto px-6 py-3.5 bg-[#B23E00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors flex items-center justify-center gap-2"
               >
                 Prova gratis {trialDays} giorni <ArrowRight className="w-4 h-4" />
@@ -158,7 +165,10 @@ export default function LandingAI() {
               {trialDays} giorni gratis, nessuna carta di credito, nessun vincolo.
             </p>
             <button
-              onClick={() => navigate("/richiedi-demo")}
+              onClick={() => {
+                trackEvent("cta_click", { location: "assistente_ai_bottom" });
+                navigate("/richiedi-demo");
+              }}
               className="px-7 py-3.5 bg-[#B23E00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors inline-flex items-center gap-2"
             >
               Inizia gratis <ArrowRight className="w-4 h-4" />
