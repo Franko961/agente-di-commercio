@@ -42,8 +42,9 @@ import { article as provvigioniScalari } from "./articles/provvigioni-scalari-a-
 import { article as crmGratuito } from "./articles/crm-gratuito-agenti-di-commercio-limiti";
 import { article as migrareCrmGenerico } from "./articles/migrare-crm-generico-verticale-agenti";
 import { article as costruirePortafoglio } from "./articles/costruire-portafoglio-clienti-nuova-zona";
+import { article as followUpCommerciale } from "./articles/follow-up-commerciale-quanto-aspettare";
 
-const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot, migliorCrmVenditori, crmAiVenditori, aumentareProvvigioni, daExcelAlCrm, implementareInDueMinuti, contrattoDiAgenzia, rimborsoTasseStudio, bonusScolasticoFigli, minimaliMassimali, inquadramentoAgente, catalogoDigitale, ritenutaAcconto, firr, agenteSportivo, deducibilitaAuto, crmItaliano, percorsoOttimizzato, verificaVies, stornoProvvigioni, annunciAgenti, organizzareSettimana, scadenzeFiscali, ferieMalattia, iscrizioneEnasarco, pensioneEnasarco, primi90Giorni, provvigioniScalari, crmGratuito, migrareCrmGenerico, costruirePortafoglio];
+const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot, migliorCrmVenditori, crmAiVenditori, aumentareProvvigioni, daExcelAlCrm, implementareInDueMinuti, contrattoDiAgenzia, rimborsoTasseStudio, bonusScolasticoFigli, minimaliMassimali, inquadramentoAgente, catalogoDigitale, ritenutaAcconto, firr, agenteSportivo, deducibilitaAuto, crmItaliano, percorsoOttimizzato, verificaVies, stornoProvvigioni, annunciAgenti, organizzareSettimana, scadenzeFiscali, ferieMalattia, iscrizioneEnasarco, pensioneEnasarco, primi90Giorni, provvigioniScalari, crmGratuito, migrareCrmGenerico, costruirePortafoglio, followUpCommerciale];
 
 // A parità di publishedAt (risoluzione giornaliera: capita pubblicare più
 // articoli lo stesso giorno) Array.prototype.sort è stabile — senza un
