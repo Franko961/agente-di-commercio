@@ -91,6 +91,34 @@ const PAGES = {
     changefreq: "monthly",
     priority: "0.5",
   },
+  "/calcolatori": {
+    title: "Calcolatori per agenti di commercio: FIRR, ENASARCO, forfettario — SALESFLY",
+    description:
+      "Calcolatori gratuiti per agenti di commercio, senza registrazione: FIRR, ritenuta d'acconto e contributo ENASARCO, regime forfettario.",
+    changefreq: "monthly",
+    priority: "0.6",
+  },
+  "/calcolatori/firr": {
+    title: "Calcolatore FIRR 2026 per agenti di commercio — SALESFLY",
+    description:
+      "Calcola online l'accantonamento annuo del FIRR per un mandante, con i nuovi scaglioni 2026. Gratuito, senza registrazione.",
+    changefreq: "monthly",
+    priority: "0.6",
+  },
+  "/calcolatori/ritenuta-acconto-enasarco": {
+    title: "Calcolatore ritenuta d'acconto e contributo ENASARCO — SALESFLY",
+    description:
+      "Calcola online ritenuta d'acconto e contributo ENASARCO da esporre in fattura su una provvigione. Gratuito, senza registrazione.",
+    changefreq: "monthly",
+    priority: "0.6",
+  },
+  "/calcolatori/regime-forfettario": {
+    title: "Calcolatore regime forfettario per agenti di commercio — SALESFLY",
+    description:
+      "Stima online l'imposta sostitutiva nel regime forfettario per agenti di commercio, coefficiente di redditività 62%. Gratuito, senza registrazione.",
+    changefreq: "monthly",
+    priority: "0.6",
+  },
 };
 
 // Stessi valori per ogni articolo blog (a differenza di slug/title/ecc.,

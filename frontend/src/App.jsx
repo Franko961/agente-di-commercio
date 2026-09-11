@@ -60,6 +60,8 @@ const RichiediDemoGrazie = lazy(() => import("./pages/RichiediDemoGrazie"));
 const LandingAI = lazy(() => import("./pages/LandingAI"));
 const BlogIndex = lazy(() => import("./pages/BlogIndex"));
 const BlogPost = lazy(() => import("./pages/BlogPost"));
+const Calcolatori = lazy(() => import("./pages/Calcolatori"));
+const CalcolatorePage = lazy(() => import("./pages/CalcolatorePage"));
 const GuidedTour = lazy(() => import("./pages/GuidedTour"));
 const HelpCenter = lazy(() => import("./pages/HelpCenter"));
 const WhySalesFly = lazy(() => import("./pages/WhySalesFly"));
@@ -103,6 +105,16 @@ function App() {
               <Route path="/assistente-ai" element={<LandingAI />} />
               <Route path="/blog" element={<BlogIndex />} />
               <Route path="/blog/:slug" element={<BlogPost />} />
+              <Route path="/calcolatori" element={<Calcolatori />} />
+              <Route path="/calcolatori/firr" element={<CalcolatorePage calcKey="firr" />} />
+              <Route
+                path="/calcolatori/ritenuta-acconto-enasarco"
+                element={<CalcolatorePage calcKey="ritenutaEnasarco" />}
+              />
+              <Route
+                path="/calcolatori/regime-forfettario"
+                element={<CalcolatorePage calcKey="regimeForfettario" />}
+              />
               <Route path="/tour" element={<GuidedTour />} />
               <Route path="/perche-salesfly" element={<WhySalesFly />} />
               <Route path="/chi-siamo" element={<ChiSiamo />} />
