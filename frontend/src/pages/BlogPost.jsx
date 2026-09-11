@@ -1,27 +1,24 @@
-﻿import { lazy, Suspense } from "react";
+﻿import { Suspense } from "react";
 import { useParams, Navigate, Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Calendar } from "lucide-react";
 import { getArticleBySlug, getPublishedArticles } from "@/content/blog";
 import { themeForSlug } from "@/content/blog/theme";
+import { CALCULATORS } from "@/content/calculators";
 import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
 import PageMeta from "@/components/PageMeta";
 import { trackEvent } from "@/lib/analytics";
 
-// Registro dei componenti interattivi richiamabili da un blocco di tipo
-// "calculator" — solo il nome nel file dell'articolo, così un nuovo
-// calcolatore si aggiunge qui senza toccare renderBlock. Caricati con
-// lazy(): solo i 2 articoli su ~30 che hanno davvero un blocco
-// "calculator" pagano il costo di questo JS, non ogni pagina del blog.
-const CALCULATORS = {
-  ritenutaEnasarco: lazy(() => import("@/components/RitenutaEnasarcoCalculator")),
-  firr: lazy(() => import("@/components/FirrCalculator")),
-};
-
 function renderBlock(block, i, articleSlug) {
   switch (block.type) {
     case "calculator": {
-      const Calc = CALCULATORS[block.name];
+      // Registro condiviso con le pagine standalone /calcolatori/:slug
+      // (content/calculators.js) — solo il nome nel blocco dell'articolo,
+      // così un nuovo calcolatore si aggiunge in un solo posto senza
+      // toccare renderBlock. Caricati con lazy() dentro il registro: solo
+      // i pochi articoli che hanno davvero un blocco "calculator" pagano
+      // il costo di questo JS, non ogni pagina del blog.
+      const Calc = CALCULATORS[block.name]?.component;
       if (!Calc) {
         // Un nome che non corrisponde a nessun calcolatore registrato
         // andrebbe altrimenti perso in silenzio (nessun errore, nessun
