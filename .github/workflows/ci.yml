@@ -50,9 +50,20 @@ jobs:
     # (S3-compatibile, serve ai test che caricano documenti) è avviato più
     # sotto con un semplice `docker run`, non come service container: i
     # service container di GitHub Actions non permettono di passare
-    # argomenti al comando, e l'immagine ufficiale minio/minio richiede
-    # `server /data` per avviare il server (a differenza di mongo:7, il cui
-    # CMD di default è già pronto all'uso).
+    # argomenti al comando, e l'immagine richiede `server /data` per
+    # avviare il server (a differenza di mongo:7, il cui CMD di default è
+    # già pronto all'uso).
+    #
+    # Immagine cgr.dev/chainguard/minio, non più minio/minio: MinIO ha
+    # interrotto la distribuzione gratuita delle proprie immagini Docker su
+    # Docker Hub/Quay a ottobre 2025 (fonte: annuncio ufficiale minio/minio
+    # su GitHub), rendendo "minio/minio" irraggiungibile ("pull access
+    # denied", repository rimosso) — scoperto il 2026-09-11 quando ha
+    # iniziato a far fallire ogni pipeline backend, non solo quella di un
+    # PR specifico. Chainguard ridistribuisce gratuitamente una build da
+    # sorgente con la stessa sintassi di avvio (stesso comando `server
+    # /data`, stesse variabili MINIO_ROOT_USER/PASSWORD) — nessun altro
+    # cambiamento richiesto oltre al nome dell'immagine.
     services:
       mongodb:
         image: mongo:7
@@ -88,7 +99,7 @@ jobs:
           docker run -d --name minio-ci -p 9000:9000 \
             -e MINIO_ROOT_USER=minio-ci-user \
             -e MINIO_ROOT_PASSWORD=minio-ci-password \
-            minio/minio server /data
+            cgr.dev/chainguard/minio server /data
           for i in $(seq 1 30); do
             curl -sf http://localhost:9000/minio/health/live && break
             sleep 1
