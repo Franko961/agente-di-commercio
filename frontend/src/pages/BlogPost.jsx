@@ -6,6 +6,7 @@ import { themeForSlug } from "@/content/blog/theme";
 import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
 import PageMeta from "@/components/PageMeta";
+import { trackEvent } from "@/lib/analytics";
 
 // Registro dei componenti interattivi richiamabili da un blocco di tipo
 // "calculator" — solo il nome nel file dell'articolo, così un nuovo
@@ -17,7 +18,7 @@ const CALCULATORS = {
   firr: lazy(() => import("@/components/FirrCalculator")),
 };
 
-function renderBlock(block, i) {
+function renderBlock(block, i, articleSlug) {
   switch (block.type) {
     case "calculator": {
       const Calc = CALCULATORS[block.name];
@@ -62,6 +63,7 @@ function renderBlock(block, i) {
           </div>
           <Link
             to={block.href || "/richiedi-demo"}
+            onClick={() => trackEvent("cta_click", { location: "blog_article", article_slug: articleSlug })}
             className="shrink-0 inline-flex items-center gap-2 bg-[#B23E00] text-white rounded-lg px-5 py-3 text-[14px] font-bold hover:bg-[#e04e00] transition-colors whitespace-nowrap"
           >
             {block.cta || "Inizia prova gratuita"}
@@ -154,7 +156,7 @@ export default function BlogPost() {
           />
         )}
 
-        <article>{article.blocks.map(renderBlock)}</article>
+        <article>{article.blocks.map((block, i) => renderBlock(block, i, article.slug))}</article>
 
         {relatedArticles.length > 0 && (
           <div className="mt-16 pt-10 border-t border-[#E4E4E1]">

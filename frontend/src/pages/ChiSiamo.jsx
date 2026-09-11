@@ -3,6 +3,7 @@ import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
 import PageMeta from "@/components/PageMeta";
 import Reveal from "@/components/Reveal";
+import { trackEvent } from "@/lib/analytics";
 
 // Illustrazione originale (non una foto), stesso linguaggio visivo delle
 // grafiche di WhySalesFly.jsx (forme piatte nei colori del brand su uno
@@ -118,6 +119,7 @@ export default function ChiSiamo() {
         <Reveal delay={200} className="text-center mt-14">
           <Link
             to="/richiedi-demo"
+            onClick={() => trackEvent("cta_click", { location: "chi_siamo" })}
             className="px-7 py-3.5 bg-[#B23E00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors inline-flex items-center gap-2"
           >
             Prova SalesFly gratis

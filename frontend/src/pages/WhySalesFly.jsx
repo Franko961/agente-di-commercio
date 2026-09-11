@@ -4,6 +4,7 @@ import PublicHeader from "@/components/PublicHeader";
 import PublicFooter from "@/components/PublicFooter";
 import PageMeta from "@/components/PageMeta";
 import Reveal from "@/components/Reveal";
+import { trackEvent } from "@/lib/analytics";
 
 // Illustrazioni originali (non screenshot dell'app): una scena semplice per
 // beneficio, stesso linguaggio visivo (blob di sfondo tenue + forme piatte
@@ -207,7 +208,10 @@ export default function WhySalesFly() {
 
         <div className="text-center">
           <button
-            onClick={() => navigate("/richiedi-demo")}
+            onClick={() => {
+              trackEvent("cta_click", { location: "why_salesfly" });
+              navigate("/richiedi-demo");
+            }}
             className="px-7 py-3.5 bg-[#B23E00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors inline-flex items-center gap-2"
           >
             Provalo gratis <ArrowRight className="w-4 h-4" />
