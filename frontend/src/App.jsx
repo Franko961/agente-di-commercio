@@ -115,6 +115,10 @@ function App() {
                 path="/calcolatori/regime-forfettario"
                 element={<CalcolatorePage calcKey="regimeForfettario" />}
               />
+              <Route
+                path="/calcolatori/sconto-provvigione"
+                element={<CalcolatorePage calcKey="scontoProvvigione" />}
+              />
               <Route path="/tour" element={<GuidedTour />} />
               <Route path="/perche-salesfly" element={<WhySalesFly />} />
               <Route path="/chi-siamo" element={<ChiSiamo />} />
