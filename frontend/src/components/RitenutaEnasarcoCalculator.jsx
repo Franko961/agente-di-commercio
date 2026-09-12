@@ -5,28 +5,21 @@ import {
   formatEuro,
   parseItalianNumber,
   ENASARCO_QUOTA_AGENTE,
+  ENASARCO_SOGLIE,
 } from "@/utils/fiscalCalc";
 
 // Calcolatore client-side, nessuna chiamata al backend: un numero inserito
 // a mano dal lettore, non dati reali dell'agente (per quelli vedi il
-// riepilogo fiscale nella pagina Provvigioni dell'app). La ritenuta
-// d'acconto usa ancora computeFiscalBreakdown (utils/fiscalCalc.js,
-// condivisa con quel riepilogo — nessun massimale non si applica alla
-// ritenuta). Il contributo ENASARCO invece è ricalcolato QUI, non più
-// preso da computeFiscalBreakdown: quella funzione applica sempre l'8,5%
-// sull'intera provvigione, senza sapere quanto già maturato nell'anno per
-// lo stesso mandante — informazione che solo questo calcolatore chiede
-// esplicitamente all'utente. Un cambiamento equivalente nel riepilogo
-// reale dell'app (che conosce già le provvigioni reali dell'agente)
-// resta una decisione a parte, non fatta qui.
-//
-// Massimali/minimali 2026 verificati per l'articolo del blog
-// "ENASARCO: i nuovi minimali e massimali provvigionali 2026" — un valore
-// per ciascun rapporto di agenzia, non complessivo su più mandanti.
-const SOGLIE_ENASARCO = {
-  plurimandatario: { massimale: 30478, minimale: 515 },
-  monomandatario: { massimale: 45717, minimale: 1026 },
-};
+// riepilogo fiscale nella pagina Provvigioni dell'app, che dal 2026-09-12
+// applica la stessa logica di massimale su dati reali — vedi
+// computeEnasarcoConMassimale in utils/fiscalCalc.js). La ritenuta
+// d'acconto usa ancora computeFiscalBreakdown (nessun massimale non si
+// applica alla ritenuta). Il contributo ENASARCO invece è ricalcolato QUI
+// con lo stesso schema, non tramite computeFiscalBreakdown: quella
+// funzione applica sempre l'8,5% sull'intera provvigione, senza sapere
+// quanto già maturato nell'anno — informazione che solo questo
+// calcolatore chiede esplicitamente all'utente (il riepilogo reale
+// dell'app invece la ricava dai dati già caricati).
 
 export default function RitenutaEnasarcoCalculator() {
   const [importo, setImporto] = useState("1000");
@@ -43,7 +36,7 @@ export default function RitenutaEnasarcoCalculator() {
     baseRitenuta
   );
 
-  const { massimale, minimale } = SOGLIE_ENASARCO[tipoMandato];
+  const { massimale, minimale } = ENASARCO_SOGLIE[tipoMandato];
   // Solo la quota di QUESTA fattura che rientra ancora nel massimale (dato
   // quanto già maturato prima) è soggetta a contributo — non l'intero
   // importo, se il cumulato lo supera durante questa stessa fattura.

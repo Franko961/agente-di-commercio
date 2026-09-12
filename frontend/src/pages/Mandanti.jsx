@@ -6,7 +6,7 @@ import { useMandante } from "../contexts/MandanteContext";
 import { toast } from "sonner";
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(n || 0);
-const EMPTY = { name: "", brand_color: "#0A192F", commission_rate: 5, commission_rate_new: "", commission_rate_renewal: "", notes: "", target_monthly: "", target_yearly: "", target_clients: "", target_notes: "", bonus_tiers: [] };
+const EMPTY = { name: "", brand_color: "#0A192F", commission_rate: 5, commission_rate_new: "", commission_rate_renewal: "", notes: "", esclusiva: false, target_monthly: "", target_yearly: "", target_clients: "", target_notes: "", bonus_tiers: [] };
 
 export default function Mandanti() {
   const { mandanti, refreshMandanti } = useMandante();
@@ -81,7 +81,14 @@ export default function Mandanti() {
                 </div>
               </div>
 
-              <div className="font-cabinet font-bold text-lg leading-tight">{m.name}</div>
+              <div className="flex items-center gap-2">
+                <div className="font-cabinet font-bold text-lg leading-tight">{m.name}</div>
+                {m.esclusiva && (
+                  <span className="font-mono text-[9px] uppercase tracking-widest text-[#0A192F] bg-[#F3F3F1] border border-[#E4E4E1] rounded px-1.5 py-0.5 shrink-0">
+                    Esclusiva
+                  </span>
+                )}
+              </div>
               <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mt-2">Provvigione standard</div>
               <div className="font-cabinet font-black text-2xl text-[#B23E00]">{m.commission_rate}%</div>
               {(m.commission_rate_new != null || m.commission_rate_renewal != null) && (
@@ -193,6 +200,15 @@ function MandanteForm({ initial, onSave, submitLabel = "Salva" }) {
             <textarea value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} rows={2}
               className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
           </div>
+          <label className="flex items-start gap-2 text-[13px] text-[#3F3F46]">
+            <input type="checkbox" checked={!!f.esclusiva} onChange={(e) => setF({ ...f, esclusiva: e.target.checked })} className="mt-0.5" />
+            <span>
+              Rapporto in esclusiva (monomandatario con questo mandante)
+              <span className="block text-[11px] text-[#6B6B72] mt-0.5">
+                Determina la soglia di massimale/minimale ENASARCO usata nel riepilogo fiscale — più alta per un rapporto in esclusiva. Lascia deselezionato se plurimandatario (la maggior parte dei casi).
+              </span>
+            </span>
+          </label>
         </>
       )}
 

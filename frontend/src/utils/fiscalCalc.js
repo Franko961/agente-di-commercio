@@ -22,6 +22,17 @@
 export const RITENUTA_ALIQUOTA = 0.23;
 export const ENASARCO_QUOTA_AGENTE = 0.085;
 
+// Massimali/minimali contributivi ENASARCO 2026, un tetto per ciascun
+// rapporto di agenzia (non complessivo su più mandanti) — verificati per
+// l'articolo del blog "ENASARCO: i nuovi minimali e massimali provvigionali
+// 2026". Unica fonte: prima esisteva solo una copia locale dentro
+// RitenutaEnasarcoCalculator.jsx, che non poteva essere riusata dal
+// riepilogo fiscale reale dell'app (vedi computeEnasarcoConMassimale sotto).
+export const ENASARCO_SOGLIE = {
+  plurimandatario: { massimale: 30478, minimale: 515 },
+  monomandatario: { massimale: 45717, minimale: 1026 },
+};
+
 // Arrotonda a 2 decimali con Math.round (non un semplice toFixed, che
 // tronca): tiene i valori restituiti allineati a come li arrotonda il
 // gemello Python (services/fiscal_calc.py usa round(x, 2) su ogni campo) —
@@ -31,8 +42,52 @@ export const ENASARCO_QUOTA_AGENTE = 0.085;
 // invece camelCase qui e snake_case lato Python, per convenzione idiomatica
 // di ciascun linguaggio — un eventuale endpoint che esponga il calcolo
 // Python dovrà comunque tradurli, non è un refuso.
-function round2(n) {
+export function round2(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+// Contributo ENASARCO su un insieme di importi attribuiti a mandanti (già
+// filtrati da chi chiama per status/anno rilevanti), rispettando il
+// massimale annuo PER SINGOLO MANDANTE — un plurimandatario con 3 mandanti
+// ha 3 tetti separati da 30.478€, non un unico tetto da dividere tra loro
+// (stesso punto verificato per l'articolo minimali/massimali). Importi
+// senza un mandante noto (es. una provvigione manuale non attribuita a
+// nessuno) non hanno un tetto applicabile: trattati con l'aliquota piena,
+// senza cap — stesso comportamento di prima dell'introduzione di questa
+// funzione, quando il massimale non era considerato affatto.
+//
+// items: [{ mandanteId: string|null, amount: number }]
+// mandantiById: { [id]: { esclusiva?: boolean } }
+export function computeEnasarcoConMassimale(items, mandantiById) {
+  const perMandante = new Map();
+  let senzaMandante = 0;
+  for (const { mandanteId, amount } of items || []) {
+    const a = Math.max(0, amount || 0);
+    if (!mandanteId) {
+      senzaMandante += a;
+      continue;
+    }
+    perMandante.set(mandanteId, (perMandante.get(mandanteId) || 0) + a);
+  }
+
+  let contributo = senzaMandante * ENASARCO_QUOTA_AGENTE;
+  const dettagliPerMandante = [];
+  for (const [mandanteId, cumulato] of perMandante) {
+    const esclusiva = !!mandantiById?.[mandanteId]?.esclusiva;
+    const soglie = esclusiva ? ENASARCO_SOGLIE.monomandatario : ENASARCO_SOGLIE.plurimandatario;
+    const imponibile = Math.min(cumulato, soglie.massimale);
+    contributo += imponibile * ENASARCO_QUOTA_AGENTE;
+    dettagliPerMandante.push({
+      mandanteId,
+      cumulato,
+      massimale: soglie.massimale,
+      minimale: soglie.minimale,
+      superaMassimale: cumulato > soglie.massimale,
+      sottoMinimale: cumulato < soglie.minimale,
+    });
+  }
+
+  return { contributo: round2(contributo), dettagliPerMandante };
 }
 
 export function computeFiscalBreakdown(lordo, regimeFiscale, baseRitenuta) {
