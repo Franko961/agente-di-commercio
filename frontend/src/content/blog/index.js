@@ -43,8 +43,9 @@ import { article as crmGratuito } from "./articles/crm-gratuito-agenti-di-commer
 import { article as migrareCrmGenerico } from "./articles/migrare-crm-generico-verticale-agenti";
 import { article as costruirePortafoglio } from "./articles/costruire-portafoglio-clienti-nuova-zona";
 import { article as followUpCommerciale } from "./articles/follow-up-commerciale-quanto-aspettare";
+import { article as clienteRescindeOrdini } from "./articles/cliente-rescinde-ordini-come-gestirlo";
 
-const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot, migliorCrmVenditori, crmAiVenditori, aumentareProvvigioni, daExcelAlCrm, implementareInDueMinuti, contrattoDiAgenzia, rimborsoTasseStudio, bonusScolasticoFigli, minimaliMassimali, inquadramentoAgente, catalogoDigitale, ritenutaAcconto, firr, agenteSportivo, deducibilitaAuto, crmItaliano, percorsoOttimizzato, verificaVies, stornoProvvigioni, annunciAgenti, organizzareSettimana, scadenzeFiscali, ferieMalattia, iscrizioneEnasarco, pensioneEnasarco, primi90Giorni, provvigioniScalari, crmGratuito, migrareCrmGenerico, costruirePortafoglio, followUpCommerciale];
+const allArticles = [calcoloProvvigioni, aiCrmAutomazione, enasarco, giroVisite, speseDeducibili, multiMandante, crmMobile, crmDaTelefono, salesflyVsHubspot, migliorCrmVenditori, crmAiVenditori, aumentareProvvigioni, daExcelAlCrm, implementareInDueMinuti, contrattoDiAgenzia, rimborsoTasseStudio, bonusScolasticoFigli, minimaliMassimali, inquadramentoAgente, catalogoDigitale, ritenutaAcconto, firr, agenteSportivo, deducibilitaAuto, crmItaliano, percorsoOttimizzato, verificaVies, stornoProvvigioni, annunciAgenti, organizzareSettimana, scadenzeFiscali, ferieMalattia, iscrizioneEnasarco, pensioneEnasarco, primi90Giorni, provvigioniScalari, crmGratuito, migrareCrmGenerico, costruirePortafoglio, followUpCommerciale, clienteRescindeOrdini];
 
 // A parità di publishedAt (risoluzione giornaliera: capita pubblicare più
 // articoli lo stesso giorno) Array.prototype.sort è stabile — senza un

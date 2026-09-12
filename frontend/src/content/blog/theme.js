@@ -40,6 +40,7 @@ export const THEME_RULES = [
   [(s) => s.includes("excel"), "MIGRAZIONE", "1487017159836-4e23ece2e4cf", "Guide"],
   [(s) => s.includes("due-minuti"), "SETUP", "1449247709967-d4461a6a6103", "Guide"],
   [(s) => s.includes("storno-provvigioni"), "PROVVIGIONI", "1638262052640-82e94d64664a", "Vendita"],
+  [(s) => s.includes("cliente-rescinde-ordini"), "ANNULLAMENTI", "1573376670774-4427757f7963", "Vendita"],
   [(s) => s.includes("catalogo-digitale"), "CATALOGO", "1700165644892-3dd6b67b25bc", "Vendita"],
   [(s) => s.includes("percorso-ottimizzato"), "PERCORSO", "1461183479101-6c14cd5299c4", "Vendita"],
   // "come-calcolare-provvigioni" va prima: senza questa regola dedicata
