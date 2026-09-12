@@ -168,6 +168,84 @@ def test_report_senza_provvigioni_nel_periodo_e_comunque_un_pdf_valido(monkeypat
     assert pdf_bytes.startswith(b"%PDF-")
 
 
+def test_report_calcola_il_cumulato_prima_dell_anno_per_il_massimale(monkeypatch):
+    # Una provvigione già maturata a gennaio (30.000€) più una nel periodo
+    # di agosto (2.000€): il massimale ENASARCO è annuo, non per periodo di
+    # report, quindi export_mandante_report deve passare a
+    # build_mandante_report_pdf il cumulato di gennaio (fuori dal periodo
+    # richiesto) come `cumulato_prima_anno`, non 0 — altrimenti il report
+    # applicherebbe il tetto solo sui 2.000€ del periodo, ignorando quanto
+    # già maturato con lo stesso mandante prima. Bug reale trovato da una
+    # code review il 2026-09-12 (il PDF usava la formula piatta senza
+    # alcun tetto, l'app quella con massimale: cifre diverse per lo stesso
+    # mandante/periodo).
+    gennaio = {
+        "id": "c-jan",
+        "client_id": "cl-1",
+        "mandante_id": "m-1",
+        "amount": 30000.0,
+        "rate": 10.0,
+        "status": "maturato",
+        "created_at": "2026-01-15T12:00:00+00:00",
+        "source": "order",
+    }
+    agosto = {**COMMISSION_IN_RANGE, "id": "c-aug", "amount": 2000.0}
+    service = build_service(monkeypatch, commissions=[gennaio, agosto])
+
+    captured = {}
+    real_build = export_mod.build_mandante_report_pdf
+
+    def spy_build(*args, **kwargs):
+        captured["cumulato_prima_anno"] = kwargs.get("cumulato_prima_anno")
+        return real_build(*args, **kwargs)
+
+    monkeypatch.setattr(export_mod, "build_mandante_report_pdf", spy_build)
+
+    response = run(
+        service.export_mandante_report(
+            USER, "m-1", date_from="2026-08-01", date_to="2026-08-31"
+        )
+    )
+    pdf_bytes = run(_pdf_bytes(response))
+    assert pdf_bytes.startswith(b"%PDF-")
+    assert captured["cumulato_prima_anno"] == 30000.0
+
+
+def test_report_esclude_dal_cumulato_prima_le_provvigioni_di_anni_diversi(monkeypatch):
+    # Una provvigione dell'anno precedente non deve contare nel cumulato
+    # "prima dell'anno" del periodo richiesto — il massimale è per anno
+    # solare, non a vita.
+    dicembre_anno_prima = {
+        "id": "c-dec-prev",
+        "client_id": "cl-1",
+        "mandante_id": "m-1",
+        "amount": 25000.0,
+        "rate": 10.0,
+        "status": "maturato",
+        "created_at": "2025-12-20T12:00:00+00:00",
+        "source": "order",
+    }
+    service = build_service(
+        monkeypatch, commissions=[dicembre_anno_prima, COMMISSION_IN_RANGE]
+    )
+
+    captured = {}
+    real_build = export_mod.build_mandante_report_pdf
+
+    def spy_build(*args, **kwargs):
+        captured["cumulato_prima_anno"] = kwargs.get("cumulato_prima_anno")
+        return real_build(*args, **kwargs)
+
+    monkeypatch.setattr(export_mod, "build_mandante_report_pdf", spy_build)
+
+    run(
+        service.export_mandante_report(
+            USER, "m-1", date_from="2026-08-01", date_to="2026-08-31"
+        )
+    )
+    assert captured["cumulato_prima_anno"] == 0
+
+
 if __name__ == "__main__":
     import pytest
 

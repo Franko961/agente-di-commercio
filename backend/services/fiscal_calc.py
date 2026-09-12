@@ -15,13 +15,53 @@ Riferimenti normativi (verificati per l'articolo del blog):
 - Esenzione totale dalla ritenuta per il regime forfettario: L. 190/2014,
   comma 67.
 - Contributo ENASARCO 2026: 17% totale, 8,5% a carico dell'agente,
-  indipendente dal regime fiscale (forfettario incluso).
+  indipendente dal regime fiscale (forfettario incluso), calcolato su un
+  imponibile con massimale/minimale annuo PER MANDANTE (non complessivo):
+  30.478€/515€ plurimandatario, 45.717€/1.026€ monomandatario/esclusiva —
+  vedi l'articolo blog sui minimali/massimali 2026 e il gemello JS
+  (frontend/src/utils/fiscalCalc.js, ENASARCO_SOGLIE/
+  computeEnasarcoConMassimale).
 """
 
 from typing import Literal, TypedDict
 
 RITENUTA_ALIQUOTA = 0.23
 ENASARCO_QUOTA_AGENTE = 0.085
+
+ENASARCO_SOGLIE = {
+    "plurimandatario": {"massimale": 30478.0, "minimale": 515.0},
+    "monomandatario": {"massimale": 45717.0, "minimale": 1026.0},
+}
+
+
+class EnasarcoConMassimale(TypedDict):
+    imponibile: float
+    contributo_enasarco: float
+    supera_massimale: bool
+    sotto_minimale: bool
+
+
+def compute_enasarco_con_massimale(
+    cumulato_prima: float, lordo_periodo: float, esclusiva: bool
+) -> EnasarcoConMassimale:
+    """Calcola il contributo ENASARCO su `lordo_periodo` tenendo conto di
+    quanto già maturato con lo stesso mandante nell'anno prima di questo
+    periodo (`cumulato_prima`): solo la parte di `lordo_periodo` che rientra
+    ancora nel massimale annuo residuo è imponibile — il resto è esente. Vedi
+    RitenutaEnasarcoCalculator.jsx (stesso concetto "cumulativo prima" nel
+    calcolatore interattivo) per la logica gemella lato utente."""
+    soglie = ENASARCO_SOGLIE["monomandatario" if esclusiva else "plurimandatario"]
+    cumulato_prima = max(0.0, cumulato_prima)
+    lordo_periodo = max(0.0, lordo_periodo)
+    residuo = max(0.0, soglie["massimale"] - cumulato_prima)
+    imponibile = min(lordo_periodo, residuo)
+    cumulato_totale = cumulato_prima + lordo_periodo
+    return {
+        "imponibile": round(imponibile, 2),
+        "contributo_enasarco": round(imponibile * ENASARCO_QUOTA_AGENTE, 2),
+        "supera_massimale": cumulato_totale > soglie["massimale"],
+        "sotto_minimale": cumulato_totale < soglie["minimale"],
+    }
 
 
 # Nota per chi collegherà questa funzione a un endpoint reale (vedi sopra,
