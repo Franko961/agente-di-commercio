@@ -162,9 +162,12 @@ export default function Leads() {
                     <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: col.color }} />
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="font-medium text-[13px] truncate">{l.company_name}</div>
+                        <div className="font-medium text-[13px] truncate" title={l.company_name}>{l.company_name}</div>
                         {(l.contact_name || l.source) && (
-                          <div className="text-[11px] text-[#8A8A8F] truncate">
+                          <div
+                            className="text-[11px] text-[#8A8A8F] truncate"
+                            title={[l.contact_name, l.source].filter(Boolean).join(" · ")}
+                          >
                             {[l.contact_name, l.source].filter(Boolean).join(" · ")}
                           </div>
                         )}
