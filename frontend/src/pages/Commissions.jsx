@@ -7,7 +7,7 @@ import { useMandante } from "../contexts/MandanteContext";
 import { listClients } from "../api/clients";
 import { listMandanti } from "../api/mandanti";
 import { getFiscalSettings } from "../api/settings";
-import { computeFiscalBreakdown } from "../utils/fiscalCalc";
+import { computeFiscalBreakdown, computeEnasarcoConMassimale, round2 } from "../utils/fiscalCalc";
 import {
   listCommissions, getBonusSummary, updateCommissionStatus, deleteCommission as deleteCommissionApi,
   listManualCommissions, createManualCommission, updateManualCommission, deleteManualCommission,
@@ -123,12 +123,58 @@ export default function Commissions() {
   // mandante trattiene ritenuta ed ENASARCO al momento del pagamento, non
   // prima. Stessa formula del calcolatore dell'articolo del blog, vedi
   // utils/fiscalCalc.js.
+  //
+  // A differenza delle card sopra (che aggregano tutto lo storico
+  // incassato), il "Netto stimato" si limita all'ANNO SOLARE CORRENTE:
+  // ritenuta ed ENASARCO si versano su base annuale, e il massimale
+  // ENASARCO è esplicitamente un tetto annuo — un aggregato multi-anno
+  // non avrebbe alcun senso a cui applicarlo. period è sempre "YYYY-MM"
+  // sia sulle commissioni reali sia su quelle manuali.
+  const currentYear = String(new Date().getFullYear());
+  const collectedThisYearItems = byClient.filter(
+    (c) => c.status === "incassato" && c.period?.startsWith(currentYear)
+  );
+  const manualCollectedThisYearItems = visibleManualCommissions.filter(
+    (m) => m.stato === "incassato" && m.period?.startsWith(currentYear)
+  );
+  const lordoAnno =
+    collectedThisYearItems.reduce((s, c) => s + c.amount, 0) +
+    manualCollectedThisYearItems.reduce((s, m) => s + (m.amount || 0), 0);
+  // Il massimale ENASARCO è per singolo mandante, non complessivo (vedi
+  // computeEnasarcoConMassimale): serve sapere a quale mandante appartiene
+  // ciascun importo, non solo il totale.
+  const mandantiById = useMemo(
+    () => Object.fromEntries(mandanti.map((m) => [m.id, m])),
+    [mandanti]
+  );
+  const enasarcoItems = [
+    ...collectedThisYearItems.map((c) => ({ mandanteId: c.mandante_id, amount: c.amount })),
+    ...manualCollectedThisYearItems.map((m) => ({ mandanteId: m.mandante_id, amount: m.amount })),
+  ];
+  const { contributo: enasarcoContributo, dettagliPerMandante } = computeEnasarcoConMassimale(
+    enasarcoItems,
+    mandantiById
+  );
   const fiscalBreakdown = fiscalSettings
-    ? computeFiscalBreakdown(
-        collected + manualCollected,
-        fiscalSettings.regime_fiscale,
-        fiscalSettings.base_ritenuta
-      )
+    ? (() => {
+        const { ritenutaAcconto } = computeFiscalBreakdown(
+          lordoAnno,
+          fiscalSettings.regime_fiscale,
+          fiscalSettings.base_ritenuta
+        );
+        return {
+          lordo: round2(lordoAnno),
+          ritenutaAcconto: round2(ritenutaAcconto),
+          contributoEnasarco: enasarcoContributo,
+          netto: round2(lordoAnno - ritenutaAcconto - enasarcoContributo),
+        };
+      })()
+    : null;
+  // Dettaglio massimale/minimale per il mandante attivo, solo quando uno
+  // specifico è selezionato (il tetto è per rapporto, mostrarlo su "Tutti
+  // i mandanti" non avrebbe un singolo valore a cui riferirsi).
+  const dettaglioMandanteAttivo = mandanteParam
+    ? dettagliPerMandante.find((d) => d.mandanteId === mandanteParam)
     : null;
   const manualEntriesByPeriod = useMemo(() => {
     const map = {};
@@ -254,11 +300,11 @@ export default function Commissions() {
         </div>
       </div>
 
-      {fiscalBreakdown && (collected + manualCollected) > 0 && (
+      {fiscalBreakdown && lordoAnno > 0 && (
         <div className="bg-white border border-[#E4E4E1] rounded-md p-5 mb-6">
           <div className="flex items-center justify-between mb-3">
             <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72]">
-              Netto stimato sull'incassato
+              Netto stimato sull'incassato · {currentYear}
             </div>
             <Link to="/app/impostazioni?tab=fiscale" className="text-[11px] text-[#B23E00] font-medium hover:underline">
               {fiscalSettings.regime_fiscale === "forfettario" ? "Regime forfettario" : "Regime ordinario"} · Modifica
@@ -282,8 +328,25 @@ export default function Commissions() {
               <div className="font-mono font-black text-[#059669]">{fmt(fiscalBreakdown.netto)}</div>
             </div>
           </div>
+          {dettaglioMandanteAttivo && (dettaglioMandanteAttivo.superaMassimale || dettaglioMandanteAttivo.sottoMinimale) && (
+            <div className="mt-3 text-[11px] text-[#B23E00] bg-[#FEF3EE] border border-[#F5DDD0] rounded-md p-2.5">
+              {dettaglioMandanteAttivo.superaMassimale ? (
+                <>
+                  Hai superato il massimale annuo ENASARCO per questo mandante ({fmt(dettaglioMandanteAttivo.massimale)}
+                  ): oltre questa soglia non è più dovuto altro contributo, già escluso dal calcolo sopra.
+                </>
+              ) : (
+                <>
+                  Sei sotto il minimale contributivo annuo per questo mandante ({fmt(dettaglioMandanteAttivo.minimale)}
+                  ): il mandante verserà comunque almeno il minimo dovuto a trimestre, indipendentemente da quanto
+                  hai incassato finora.
+                </>
+              )}
+            </div>
+          )}
           <p className="text-[11px] text-[#6B6B72] mt-3">
-            Calcolo indicativo in base alla situazione fiscale impostata, non sostituisce il commercialista.
+            Calcolo indicativo in base alla situazione fiscale impostata e ai massimali/minimali ENASARCO 2026 per
+            mandante, non sostituisce il commercialista.
           </p>
         </div>
       )}

@@ -33,6 +33,14 @@ class MandanteIn(BaseModel):
     commission_rate_renewal: Optional[float] = Field(
         None, ge=0, le=100
     )  # override su rinnovi, se impostato
+    # Determina la soglia di massimale/minimale ENASARCO applicabile a
+    # questo rapporto nel riepilogo fiscale (services/mandante_report_service.py
+    # e il calcolo lato frontend in Commissions.jsx): un mandante in
+    # esclusiva ha soglie più alte (45.717€/1.026€) di uno plurimandatario
+    # (30.478€/515€) — vedi l'articolo blog sui minimali/massimali 2026.
+    # Default False (plurimandatario): il caso più comune per il prodotto,
+    # pensato apposta per chi rappresenta più mandanti in parallelo.
+    esclusiva: bool = False
     notes: Optional[str] = Field("", max_length=LONG_TEXT_MAX_LENGTH)
     # Prima senza alcun limite, nemmeno inferiore: un obiettivo negativo o
     # assurdo restava salvato così com'è (modificabile dalla pagina Mandanti).
