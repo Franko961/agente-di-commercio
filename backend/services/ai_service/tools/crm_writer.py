@@ -78,6 +78,19 @@ async def _add_appointment(
 
 
 async def _add_lead(lead_repo, tool_input: dict, user_id: str) -> str:
+    # "status": "aperto" era un valore non valido — non fa parte di
+    # LEAD_STATUSES (models/lead.py: nuovo/contattato/qualificato/
+    # trattativa/vinto/perso). lead_repository.insert() scrive il dict
+    # così com'è, senza validazione Pydantic, quindi l'errore non falliva:
+    # il lead veniva creato per davvero, ma restava invisibile in ogni
+    # colonna della pipeline Kanban (Leads.jsx filtra strettamente
+    # `l.status === col.id`, nessuna vista alternativa che ignori lo
+    # stato) — scoperto da una segnalazione reale di Franco il 2026-09-12.
+    # "stage" non è mai stato un campo del modello Lead: scritto ma
+    # ignorato dal resto del sistema, rimosso. "value" rinominato in
+    # "estimated_value" per combaciare con LeadIn (il form web usa questo
+    # nome, non "value"). I lead già creati con lo status errato sono
+    # corretti retroattivamente da migrations/_003_fix_lead_status_from_ai_tool.py.
     doc = {
         "id": gen_id(),
         "user_id": user_id,
@@ -85,10 +98,9 @@ async def _add_lead(lead_repo, tool_input: dict, user_id: str) -> str:
         "contact_name": tool_input.get("contact_name", ""),
         "email": tool_input.get("email", ""),
         "phone": tool_input.get("phone", ""),
-        "value": tool_input.get("value", 0),
+        "estimated_value": tool_input.get("value", 0),
         "notes": tool_input.get("notes", ""),
-        "stage": "nuovo",
-        "status": "aperto",
+        "status": "nuovo",
         "created_at": now_iso(),
     }
     await lead_repo.insert(doc)
