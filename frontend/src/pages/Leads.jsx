@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { exportLeads } from "../utils/export";
 import { logLeadContact } from "../api/leads";
 import useLeads from "../hooks/useLeads";
-import { formatDistanceToNow, parseISO, format } from "date-fns";
+import { parseISO, format } from "date-fns";
 import { it } from "date-fns/locale";
 
 const COLUMNS = [
@@ -24,6 +24,29 @@ const COLUMNS = [
 const PAGE_SIZE = 10;
 
 const fmt = (n) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n || 0);
+// Formato compatto per il valore sulla card ("2k €" invece di "2.000 €") —
+// Intl.NumberFormat con notation "compact" in it-IT scrive per esteso
+// ("2 mila"), non nel formato breve con la "k" che serve qui, quindi un
+// formato manuale invece di affidarsi a Intl per questo caso specifico.
+const fmtCompact = (n) => {
+  const v = Math.abs(n || 0);
+  if (v >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M €`;
+  if (v >= 1_000) return `${(n / 1_000).toFixed(n % 1_000 === 0 ? 0 : 1)}k €`;
+  return `${Math.round(n || 0)} €`;
+};
+// "39m fa"/"2h fa"/"3g fa" invece di "39 minuti fa" (date-fns
+// formatDistanceToNow in locale it): più corto sulla card, dove lo spazio
+// verticale conta più della precisione — la data esatta resta comunque nel
+// dettaglio del lead per chi la vuole.
+const shortTimeAgo = (iso) => {
+  const mins = Math.round((Date.now() - parseISO(iso).getTime()) / 60000);
+  if (mins < 1) return "ora";
+  if (mins < 60) return `${mins}m fa`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h fa`;
+  return `${Math.round(hours / 24)}g fa`;
+};
+const isOverdue = (iso) => parseISO(iso).getTime() < Date.now();
 
 export default function Leads() {
   const { leads, reload: load, create, update, remove, moveStatus } = useLeads();
@@ -131,10 +154,23 @@ export default function Leads() {
               <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-0.5">
                 {shownItems.map((l) => (
                   <div key={l.id} draggable onDragStart={() => setDrag(l)} data-testid={`lead-card-${l.id}`}
-                       className="bg-white border border-[#E4E4E1] rounded-md p-3 cursor-grab active:cursor-grabbing">
+                       className="relative bg-white border border-[#E4E4E1] rounded-md pl-3.5 pr-2.5 py-2 cursor-grab active:cursor-grabbing overflow-hidden">
+                    {/* Barra di stato a sinistra invece di ripetere lo
+                    stesso colore in più punti della card (icone, testo,
+                    badge): un solo punto colorato, coerente con quello
+                    della colonna. */}
+                    <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: col.color }} />
                     <div className="flex items-start justify-between gap-2">
-                      <div className="font-medium text-[13px] flex-1">{l.company_name}</div>
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-[13px] truncate">{l.company_name}</div>
+                        {(l.contact_name || l.source) && (
+                          <div className="text-[11px] text-[#8A8A8F] truncate">
+                            {[l.contact_name, l.source].filter(Boolean).join(" · ")}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="font-mono text-[11px] font-bold text-[#B23E00]">{fmtCompact(l.estimated_value)}</span>
                         <button onClick={() => setLoggingContact(l)} data-testid={`log-contact-${l.id}`} title="Registra contatto" aria-label="Registra contatto" className="text-[#6B6B72] hover:text-[#059669]">
                           <PhoneCall className="w-3.5 h-3.5" />
                         </button>
@@ -146,43 +182,40 @@ export default function Leads() {
                         </button>
                       </div>
                     </div>
-                    {l.contact_name && <div className="text-[11px] text-[#52525B] mt-0.5">{l.contact_name}</div>}
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="font-mono text-[10px] text-[#6B6B72] uppercase tracking-widest">{l.source || "—"}</span>
-                      <span className="font-mono text-[11px] font-bold text-[#B23E00]">{fmt(l.estimated_value)}</span>
-                    </div>
                     {(l.last_interaction_at || l.next_follow_up_at) && (
-                      <div className="mt-2 pt-2 border-t border-[#F3F3F1] space-y-0.5">
+                      <div className="flex items-center gap-3 mt-1">
                         {l.last_interaction_at && (
-                          <div className="flex items-center gap-1 text-[10px] text-[#52525B]">
-                            <Clock className="w-3 h-3 shrink-0" />
-                            ultimo contatto {formatDistanceToNow(parseISO(l.last_interaction_at), { addSuffix: true, locale: it })}
-                          </div>
+                          <span className="flex items-center gap-1 text-[10px] text-[#8A8A8F]">
+                            <Clock className="w-3 h-3 shrink-0" /> {shortTimeAgo(l.last_interaction_at)}
+                          </span>
                         )}
                         {l.next_follow_up_at && (
-                          <div className="flex items-center gap-1 text-[10px] text-[#B23E00] font-medium">
+                          <span
+                            className={`flex items-center gap-1 text-[10px] font-medium ${
+                              isOverdue(l.next_follow_up_at) ? "text-[#DC2626]" : "text-[#B23E00]"
+                            }`}
+                          >
                             <CalendarClock className="w-3 h-3 shrink-0" />
-                            prossimo follow-up: {format(parseISO(l.next_follow_up_at), "d MMM", { locale: it })}
-                          </div>
+                            {format(parseISO(l.next_follow_up_at), "d MMM", { locale: it })}
+                          </span>
                         )}
                       </div>
                     )}
                     {/* Alternativa al drag-and-drop (che su touch non
                     genera alcun evento): sposta lo stato dello stesso lead
-                    da qualunque dispositivo. */}
-                    <div className="mt-2 pt-2 border-t border-[#F3F3F1]">
-                      <select
-                        value={l.status}
-                        onChange={(e) => moveLead(l.id, e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        data-testid={`lead-status-select-${l.id}`}
-                        className="w-full bg-white border border-[#E4E4E1] rounded-md px-2 py-1.5 text-[11px] font-mono uppercase tracking-widest"
-                      >
-                        {COLUMNS.map((c) => (
-                          <option key={c.id} value={c.id}>{c.label}</option>
-                        ))}
-                      </select>
-                    </div>
+                    da qualunque dispositivo — SalesFly è pensato apposta
+                    per l'uso da smartphone, non si può togliere. */}
+                    <select
+                      value={l.status}
+                      onChange={(e) => moveLead(l.id, e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      data-testid={`lead-status-select-${l.id}`}
+                      className="mt-1.5 w-full bg-[#F9F9F8] border border-[#E4E4E1] rounded px-1.5 py-1 text-[10px] font-mono uppercase tracking-wider"
+                    >
+                      {COLUMNS.map((c) => (
+                        <option key={c.id} value={c.id}>{c.label}</option>
+                      ))}
+                    </select>
                   </div>
                 ))}
               </div>
