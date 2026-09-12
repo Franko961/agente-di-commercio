@@ -98,7 +98,7 @@ export default function Login() {
       {/* Left: form */}
       <div className="flex flex-col justify-between p-6 sm:p-10 lg:p-14">
         <header className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2">
             <div className="w-10 h-10 flex items-center justify-center shrink-0">
               <img src="/logo-mark.webp" alt="SALESFLY" className="w-full h-full object-contain" />
             </div>
@@ -106,7 +106,7 @@ export default function Login() {
               <div className="font-cabinet font-black text-[16px] leading-none">SALESFLY.</div>
               <div className="font-mono text-[10px] uppercase tracking-widest text-[#6B6B72] mt-0.5">gestionale per agenti di commercio</div>
             </div>
-          </div>
+          </Link>
           <Link to="/prezzi" className="text-[12px] font-mono uppercase tracking-widest text-[#B23E00] hover:underline hidden sm:block">
             Piani & Prezzi →
           </Link>
