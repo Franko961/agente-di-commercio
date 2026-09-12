@@ -258,12 +258,25 @@ class ExportService:
         if (parsed_to - parsed_from) > timedelta(days=5 * 365):
             raise ValidationAppError("L'intervallo di date non può superare 5 anni")
 
-        commissions = await commission_service.get_effective_commissions(
+        all_commissions = await commission_service.get_effective_commissions(
             user, mandante_id=mandante_id
+        )
+        # Il massimale ENASARCO è annuo, non per periodo di report: serve
+        # sapere quanto già maturato con questo mandante da inizio anno
+        # (solare) a prima di date_from, per capire quanta parte del
+        # periodo richiesto rientra ancora nell'imponibile — vedi
+        # compute_enasarco_con_massimale. Va calcolato sulla lista NON
+        # ancora filtrata per il periodo del report.
+        year_start = parsed_from.replace(month=1, day=1).isoformat()
+        cumulato_prima_anno = sum(
+            c.get("amount", 0)
+            for c in all_commissions
+            if (d := local_date_str(c.get("created_at")))
+            and year_start <= d < parsed_from.isoformat()
         )
         commissions = [
             c
-            for c in commissions
+            for c in all_commissions
             if parsed_from.isoformat()
             <= local_date_str(c.get("created_at"))
             <= parsed_to.isoformat()
@@ -282,6 +295,7 @@ class ExportService:
             clients,
             parsed_from.isoformat(),
             parsed_to.isoformat(),
+            cumulato_prima_anno=cumulato_prima_anno,
         )
         safe_name = (
             "".join(

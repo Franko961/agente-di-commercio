@@ -11,6 +11,14 @@ logger = logging.getLogger(__name__)
 
 
 async def _add_client(client_repo, tool_input: dict, user_id: str) -> str:
+    # "segment"/"status" non sono mai stati campi del modello Client
+    # (models/client.py: ClientIn non li definisce) — client_repo.insert()
+    # scrive il dict così com'è, senza validazione Pydantic, quindi
+    # l'errore non falliva: venivano scritti due campi morti, ignorati da
+    # tutto il resto del sistema. Stesso bug shape di _add_lead (vedi
+    # sotto), trovato per analogia da una code review, non da una
+    # segnalazione — qui non ha ancora sintomi visibili perché nulla legge
+    # ancora questi campi, ma è lo stesso rischio di drift silenzioso.
     doc = {
         "id": gen_id(),
         "user_id": user_id,
@@ -29,8 +37,6 @@ async def _add_client(client_repo, tool_input: dict, user_id: str) -> str:
         "mandante_ids": [],
         "lat": tool_input.get("lat"),
         "lng": tool_input.get("lng"),
-        "segment": "prospect",
-        "status": "attivo",
         "created_at": now_iso(),
     }
     await client_repo.insert(doc)

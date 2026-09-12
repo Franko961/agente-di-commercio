@@ -28,7 +28,10 @@ from reportlab.platypus import (
 )
 
 from core.utils import local_date_str
-from services.fiscal_calc import compute_fiscal_breakdown
+from services.fiscal_calc import (
+    compute_enasarco_con_massimale,
+    compute_fiscal_breakdown,
+)
 
 
 def _format_euro(n: float) -> str:
@@ -48,11 +51,16 @@ def build_mandante_report_pdf(
     clients: dict,
     date_from: str,
     date_to: str,
+    cumulato_prima_anno: float = 0.0,
 ) -> bytes:
     """clients: dict {client_id: client_doc}, stesso pattern di join già
     usato in export_service.export_commissions. commissions: lista già
     filtrata per mandante_id e per data (vedi
-    ExportService.export_mandante_report)."""
+    ExportService.export_mandante_report). cumulato_prima_anno: quanto già
+    maturato con questo mandante nell'anno solare di date_from, PRIMA di
+    date_from — necessario per applicare correttamente il massimale ENASARCO
+    (annuo, non per periodo di report) quando il report copre solo una
+    parte dell'anno."""
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
         buf,
@@ -88,16 +96,29 @@ def build_mandante_report_pdf(
     story.append(Spacer(1, 8 * mm))
 
     # --- Riepilogo fiscale, stessa formula di Commissions.jsx "Netto stimato" ---
+    # ENASARCO calcolato con massimale/minimale annuo per mandante (non più
+    # la formula piatta di compute_fiscal_breakdown, che ignorava il tetto e
+    # poteva mostrare qui una cifra diversa da quella corretta già in app).
     lordo_totale = sum(c.get("amount", 0) for c in commissions)
     regime_fiscale = user.get("regime_fiscale", "ordinario")
     base_ritenuta = user.get("base_ritenuta", "50")
     breakdown = compute_fiscal_breakdown(lordo_totale, regime_fiscale, base_ritenuta)
+    esclusiva = bool(mandante.get("esclusiva"))
+    enasarco = compute_enasarco_con_massimale(
+        cumulato_prima_anno, breakdown["lordo"], esclusiva
+    )
+    netto = round(
+        breakdown["lordo"]
+        - breakdown["ritenuta_acconto"]
+        - enasarco["contributo_enasarco"],
+        2,
+    )
 
     summary_data = [
         ["Provvigioni lorde", _format_euro(breakdown["lordo"])],
         ["Ritenuta d'acconto", _format_euro(breakdown["ritenuta_acconto"])],
-        ["Contributo ENASARCO", _format_euro(breakdown["contributo_enasarco"])],
-        ["Netto stimato", _format_euro(breakdown["netto"])],
+        ["Contributo ENASARCO", _format_euro(enasarco["contributo_enasarco"])],
+        ["Netto stimato", _format_euro(netto)],
     ]
     summary_table = Table(summary_data, colWidths=[70 * mm, 40 * mm])
     summary_table.setStyle(
@@ -114,6 +135,24 @@ def build_mandante_report_pdf(
         )
     )
     story.append(summary_table)
+
+    if enasarco["supera_massimale"] or enasarco["sotto_minimale"]:
+        soglia_label = "monomandatario/esclusiva" if esclusiva else "plurimandatario"
+        if enasarco["supera_massimale"]:
+            nota = (
+                f"Il cumulato ENASARCO con questo mandante ha superato il massimale "
+                f"annuo {soglia_label} nel corso dell'anno: il contributo sopra "
+                f"indicato è calcolato solo sulla quota ancora imponibile in questo "
+                f"periodo."
+            )
+        else:
+            nota = (
+                f"Il cumulato ENASARCO con questo mandante è ancora sotto il minimale "
+                f"annuo {soglia_label}."
+            )
+        story.append(Spacer(1, 3 * mm))
+        story.append(Paragraph(nota, small))
+
     story.append(Spacer(1, 8 * mm))
 
     # --- Dettaglio, una riga per provvigione ---
