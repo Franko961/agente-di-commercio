@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { listOrders, createOrder, updateOrder, updateOrderStatus, deleteOrder } from "../api/orders";
+import { trackEvent } from "../lib/analytics";
 
 /**
  * Elenco ordini (filtrabile per mandante) + mutazioni, stesso pattern di
@@ -29,6 +30,11 @@ export default function useOrders(filters = {}) {
 
   const create = useCallback(async (payload) => {
     const created = await createOrder(payload);
+    // Vedi useClients.js per il perché di questo campo. Copre anche gli
+    // ordini nati da un'offerta accettata (create_from_offer lato backend
+    // passa per lo stesso _create_order_doc), NON invece quelli creati
+    // tramite acceptOffer in Ordini.jsx, che non passa da questo hook.
+    if (created?._first_action) trackEvent("first_real_action", { type: "order" });
     await reload();
     return created;
   }, [reload]);

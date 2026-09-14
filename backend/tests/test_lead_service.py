@@ -26,6 +26,14 @@ def run(coro):
     return asyncio.run(coro)
 
 
+async def _no_first_action(user_id):
+    """Sostituisce mark_first_action_if_needed (che tocca db.users
+    direttamente) per non rendere questi test dipendenti da un Mongo
+    reale raggiungibile — non è il comportamento sotto test qui, vedi
+    test_activation_service.py per quello."""
+    return False
+
+
 class FakeLeadRepo:
     def __init__(self):
         self.docs = {}
@@ -88,7 +96,7 @@ def _payload(**overrides):
 
 
 def build_service():
-    return LeadService(repo=FakeLeadRepo())
+    return LeadService(repo=FakeLeadRepo(), mark_first_action=_no_first_action)
 
 
 def test_creazione_imposta_last_interaction_at():
@@ -158,6 +166,22 @@ def test_log_contact_su_lead_inesistente_solleva_not_found():
     service = build_service()
     with pytest.raises(NotFoundError):
         run(service.log_contact({"id": "user-1"}, "id-inesistente", "nota"))
+
+
+def test_create_lead_espone_first_action_solo_quando_e_il_primo():
+    calls = []
+
+    async def stub_mark_first_action(user_id):
+        calls.append(user_id)
+        return len(calls) == 1
+
+    service = LeadService(repo=FakeLeadRepo(), mark_first_action=stub_mark_first_action)
+
+    first = run(service.create_lead({"id": "user-1"}, _payload()))
+    second = run(service.create_lead({"id": "user-1"}, _payload()))
+
+    assert first["_first_action"] is True
+    assert "_first_action" not in second
 
 
 def test_log_contact_non_tocca_lead_di_un_altro_utente():

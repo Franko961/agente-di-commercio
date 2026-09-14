@@ -27,6 +27,14 @@ def run(coro):
     return asyncio.run(coro)
 
 
+async def _no_first_action(user_id):
+    """Sostituisce mark_first_action_if_needed (che tocca db.users
+    direttamente) per non rendere questi test dipendenti da un Mongo
+    reale raggiungibile — non è il comportamento sotto test qui, vedi
+    test_activation_service.py per quello."""
+    return False
+
+
 class FakeOrderRepo:
     def __init__(self):
         self.docs = {}
@@ -170,7 +178,10 @@ def build_service(monkeypatch):
         order_service_mod, "commission_service", fake_commission_service
     )
     service = OrderService(
-        repo=order_repo, mandante_repo=mandante_repo, client_repo=client_repo
+        repo=order_repo,
+        mandante_repo=mandante_repo,
+        client_repo=client_repo,
+        mark_first_action=_no_first_action,
     )
     return service, order_repo, fake_commission_service
 

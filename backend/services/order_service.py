@@ -5,6 +5,7 @@ from core.utils import gen_id, now_iso, now_local
 from repositories.client_repository import client_repository
 from repositories.mandante_repository import mandante_repository
 from repositories.order_repository import order_repository
+from services.activation_service import mark_first_action_if_needed
 from services.commission_service import (
     calc_offer_total,
     commission_service,
@@ -33,10 +34,15 @@ class OrderService:
         repo=order_repository,
         mandante_repo=mandante_repository,
         client_repo=client_repository,
+        mark_first_action=mark_first_action_if_needed,
     ):
         self.repo = repo
         self.mandante_repo = mandante_repo
         self.client_repo = client_repo
+        # Iniettabile per lo stesso motivo di LeadService.mark_first_action:
+        # tocca db.users direttamente, un test con solo FakeOrderRepo non
+        # deve diventare dipendente da un Mongo reale raggiungibile.
+        self.mark_first_action = mark_first_action
 
     async def _validate_ownership(
         self, user_id: str, client_id: str, mandante_id: str
@@ -177,6 +183,11 @@ class OrderService:
 
         if status not in _CANCELLED_STATUSES:
             await self._create_commission_for_order(user, doc)
+        # Vedi client_service.create_client per il perché di questo campo —
+        # unico punto raggiunto sia da create_order sia da create_from_offer,
+        # quindi copre entrambi i modi in cui un ordine può nascere.
+        if await self.mark_first_action(user["id"]):
+            doc["_first_action"] = True
         return doc
 
     async def create_order(self, user: dict, payload) -> dict:
