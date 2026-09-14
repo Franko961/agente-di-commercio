@@ -31,13 +31,36 @@ const FEATURES = [
 // realistico. Mostra il vero elemento differenziante del prodotto — l'AI
 // che aggiorna davvero il CRM al posto dell'agente — invece di una
 // dashboard generica che qualunque CRM potrebbe avere.
+//
+// Animata in loop (mic che pulsa -> frase trascritta -> elaborazione ->
+// checklist che si popola una voce alla volta): un mockup statico non
+// comunicava l'idea di "sto parlando e il CRM si aggiorna da solo" con la
+// stessa immediatezza di vederlo succedere. `cycle` forza il remount del
+// blocco animato ad ogni giro (le animazioni CSS con fill-mode "both" non
+// ripartono da sole senza un remount) — fermo per chi ha impostato
+// prefers-reduced-motion, che vede direttamente lo stato finale statico.
+const AZIONI = ["Cliente aggiornato", "Nota registrata", "Follow-up creato", "Appuntamento venerdì"];
+const CICLO_MS = 7000;
+const RITARDI = { frase: 1.1, badge: 2.2, azioni: [2.6, 2.95, 3.3, 3.65] };
+
 function PhoneMockupScreen() {
-  const azioni = [
-    "Cliente aggiornato",
-    "Nota registrata",
-    "Follow-up creato",
-    "Appuntamento venerdì",
-  ];
+  const [ciclo, setCiclo] = useState(0);
+  const [animato, setAnimato] = useState(true);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setAnimato(!mq.matches);
+    const onChange = (e) => setAnimato(!e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    if (!animato) return;
+    const id = setInterval(() => setCiclo((c) => c + 1), CICLO_MS);
+    return () => clearInterval(id);
+  }, [animato]);
+
   return (
     <div className="h-full w-full bg-[#F9F9F8] overflow-hidden text-[#0A0A0A] flex flex-col">
       <div className="px-3.5 pt-7 pb-3">
@@ -47,38 +70,50 @@ function PhoneMockupScreen() {
         <div className="font-cabinet font-black text-[15px] tracking-tight leading-none">Parla, non digitare.</div>
       </div>
 
-      <div className="mx-3 bg-[#0A192F] rounded-md px-2.5 py-2.5 shrink-0">
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <div className="w-3.5 h-3.5 rounded-full bg-[#B23E00] flex items-center justify-center shrink-0">
-            <Mic className="w-1.5 h-1.5 text-white" strokeWidth={2.5} />
-          </div>
-          <span className="font-mono text-[4.5px] uppercase tracking-widest text-white/60">In ascolto</span>
-        </div>
-        <div className="text-[6px] text-white leading-snug italic">
-          "Aggiungi Rossi Spa. Ho parlato con Marco Rossi. Gli ho presentato il nuovo catalogo.
-          Richiamami venerdì."
-        </div>
-      </div>
-
-      <div className="flex flex-col items-center gap-1 my-2 shrink-0">
-        <div className="w-px h-3 bg-[#E4E4E1]" />
-        <div className="flex items-center gap-1 bg-white border border-[#E4E4E1] rounded-full px-2 py-0.5">
-          <Sparkles className="w-2 h-2 text-[#B23E00]" />
-          <span className="font-mono text-[4.5px] font-bold uppercase tracking-widest text-[#0A192F]">SalesFly AI</span>
-        </div>
-        <div className="w-px h-3 bg-[#E4E4E1]" />
-      </div>
-
-      <div className="mx-3 bg-white border border-[#E4E4E1] rounded-md px-2.5 py-2 shrink-0">
-        <div className="flex flex-col gap-1.5">
-          {azioni.map((azione) => (
-            <div key={azione} className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-emerald-500/15 flex items-center justify-center shrink-0">
-                <Check className="w-1.5 h-1.5 text-emerald-600" strokeWidth={3} />
-              </div>
-              <span className="text-[6px] font-medium">{azione}</span>
+      <div key={animato ? ciclo : "statico"}>
+        <div className="mx-3 bg-[#0A192F] rounded-md px-2.5 py-2.5 shrink-0">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <div className={`w-3.5 h-3.5 rounded-full bg-[#B23E00] flex items-center justify-center shrink-0 ${animato ? "mic-pulse" : ""}`}>
+              <Mic className="w-1.5 h-1.5 text-white" strokeWidth={2.5} />
             </div>
-          ))}
+            <span className="font-mono text-[4.5px] uppercase tracking-widest text-white/60">In ascolto</span>
+          </div>
+          <div
+            className="text-[6px] text-white leading-snug italic"
+            style={animato ? { animation: `fadeUp 0.5s ease-out ${RITARDI.frase}s both` } : undefined}
+          >
+            "Aggiungi Rossi Spa. Ho parlato con Marco Rossi. Gli ho presentato il nuovo catalogo.
+            Richiamami venerdì."
+          </div>
+        </div>
+
+        <div className="flex flex-col items-center gap-1 my-2 shrink-0">
+          <div className="w-px h-3 bg-[#E4E4E1]" />
+          <div
+            className="flex items-center gap-1 bg-white border border-[#E4E4E1] rounded-full px-2 py-0.5"
+            style={animato ? { animation: `popIn 0.4s ease-out ${RITARDI.badge}s both` } : undefined}
+          >
+            <Sparkles className="w-2 h-2 text-[#B23E00]" />
+            <span className="font-mono text-[4.5px] font-bold uppercase tracking-widest text-[#0A192F]">SalesFly AI</span>
+          </div>
+          <div className="w-px h-3 bg-[#E4E4E1]" />
+        </div>
+
+        <div className="mx-3 bg-white border border-[#E4E4E1] rounded-md px-2.5 py-2 shrink-0">
+          <div className="flex flex-col gap-1.5">
+            {AZIONI.map((azione, i) => (
+              <div
+                key={azione}
+                className="flex items-center gap-1.5"
+                style={animato ? { animation: `fadeUp 0.4s ease-out ${RITARDI.azioni[i]}s both` } : undefined}
+              >
+                <div className="w-3 h-3 rounded-full bg-emerald-500/15 flex items-center justify-center shrink-0">
+                  <Check className="w-1.5 h-1.5 text-emerald-600" strokeWidth={3} />
+                </div>
+                <span className="text-[6px] font-medium">{azione}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
