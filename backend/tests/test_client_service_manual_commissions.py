@@ -104,7 +104,9 @@ def build_service(monkeypatch, commissions=None, manual_commissions=None):
         }
     )
     monkeypatch.setattr(client_service_mod, "db", fake_db)
-    return ClientService(repo=FakeClientRepo(CLIENT), mark_first_action=_no_first_action)
+    return ClientService(
+        repo=FakeClientRepo(CLIENT), mark_first_action=_no_first_action
+    )
 
 
 def test_include_provvigioni_manuali_del_cliente(monkeypatch):

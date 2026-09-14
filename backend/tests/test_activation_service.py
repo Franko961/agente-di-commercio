@@ -38,7 +38,10 @@ class FakeUsersCollection:
             return None
         # Riproduce solo il filtro usato dalla funzione reale: match solo se
         # activated_at non è ancora presente sul documento.
-        if filt.get("activated_at", {}).get("$exists") is False and "activated_at" in doc:
+        if (
+            filt.get("activated_at", {}).get("$exists") is False
+            and "activated_at" in doc
+        ):
             return None
         doc.update(update["$set"])
         return dict(doc)
@@ -70,7 +73,9 @@ def test_seconda_chiamata_sullo_stesso_utente_ritorna_false(monkeypatch):
 
 
 def test_utente_gia_attivato_in_precedenza_ritorna_false(monkeypatch):
-    _patch_db(monkeypatch, [{"id": "user-1", "activated_at": "2026-01-01T00:00:00+00:00"}])
+    _patch_db(
+        monkeypatch, [{"id": "user-1", "activated_at": "2026-01-01T00:00:00+00:00"}]
+    )
     result = run(mark_first_action_if_needed("user-1"))
     assert result is False
 

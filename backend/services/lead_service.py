@@ -7,7 +7,9 @@ from services.activation_service import mark_first_action_if_needed
 
 
 class LeadService:
-    def __init__(self, repo=lead_repository, mark_first_action=mark_first_action_if_needed):
+    def __init__(
+        self, repo=lead_repository, mark_first_action=mark_first_action_if_needed
+    ):
         self.repo = repo
         # Iniettabile (non solo importata a livello di modulo) perché tocca
         # db.users direttamente — senza poterla sostituire, ogni test di

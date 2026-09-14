@@ -44,10 +44,14 @@ def test_create_client_espone_first_action_solo_quando_e_il_primo():
         calls.append(user_id)
         return len(calls) == 1
 
-    service = ClientService(repo=FakeClientRepo(), mark_first_action=stub_mark_first_action)
+    service = ClientService(
+        repo=FakeClientRepo(), mark_first_action=stub_mark_first_action
+    )
 
     first = run(service.create_client({"id": "user-1"}, _payload()))
-    second = run(service.create_client({"id": "user-1"}, _payload(company_name="Bar Bianchi")))
+    second = run(
+        service.create_client({"id": "user-1"}, _payload(company_name="Bar Bianchi"))
+    )
 
     assert first["_first_action"] is True
     assert "_first_action" not in second
