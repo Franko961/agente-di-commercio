@@ -299,11 +299,11 @@ export default function Landing() {
                 Il CRM per agenti plurimandatari
               </div>
               <h1 className="font-cabinet font-black text-4xl md:text-5xl tracking-tight mb-6">
-                Il CRM che aggiorna clienti, appuntamenti e provvigioni al posto tuo.
+                Tu vendi. L'AI aggiorna il CRM.
               </h1>
               <p className="text-[16px] md:text-[18px] text-[#52525B] mb-6">
-                Parla con SALESFLY: l'AI aggiorna clienti, appuntamenti, ordini e provvigioni
-                mentre tu sei dai clienti.
+                Parla con SALESFLY mentre sei dal cliente: aggiungi visite, clienti, appuntamenti,
+                ordini e note senza fermarti a compilare il CRM.
               </p>
               <div className="flex flex-wrap items-center justify-center gap-2.5 mb-8">
                 {[
@@ -329,7 +329,7 @@ export default function Landing() {
                   }}
                   className="w-full sm:w-auto px-6 py-3.5 bg-[#B23E00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors flex items-center justify-center gap-2"
                 >
-                  Prova gratis {trialDays} giorni <ArrowRight className="w-4 h-4" />
+                  Prova gratis <ArrowRight className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => navigate("/prezzi")}
@@ -339,7 +339,7 @@ export default function Landing() {
                 </button>
               </div>
               <div className="font-mono text-[11px] uppercase tracking-widest text-[#6B6B72] mt-5">
-                Nessuna carta di credito richiesta
+                Nessuna carta · {trialDays} giorni · Nessun vincolo
               </div>
             </div>
           </div>
