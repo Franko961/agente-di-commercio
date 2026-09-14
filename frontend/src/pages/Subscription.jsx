@@ -6,6 +6,7 @@ import {
 import usePlans from "../hooks/usePlans";
 import { CheckCircle, XCircle, CreditCard, AlertTriangle, ExternalLink, Receipt } from "lucide-react";
 import { toast } from "sonner";
+import { trackEvent } from "../lib/analytics";
 
 // Etichette leggibili per gli stati grezzi restituiti dai provider (Stripe
 // usa "paid"/"open"/..., PayPal "COMPLETED"/"DECLINED"/...) — non c'è
@@ -36,6 +37,7 @@ export default function Subscription() {
     } catch {
       setPaymentHistory([]);
     }
+    return data;
   };
 
   useEffect(() => {
@@ -50,6 +52,11 @@ export default function Subscription() {
         .then((data) => {
           if (data.status === "active") {
             toast.success("Abbonamento attivato! Grazie.");
+            // Solo qui, non su "pending": il backend ha già verificato lo
+            // stato reale con PayPal (paypal_capture), a differenza del
+            // ritorno da Stripe qui sotto che si basa sul redirect prima
+            // ancora di ricaricare lo stato vero.
+            trackEvent("paga", { provider: "paypal", plan: data.plan });
           } else {
             toast.info("Pagamento in verifica: l'abbonamento si attiverà a breve.");
           }
@@ -65,7 +72,19 @@ export default function Subscription() {
 
     load();
     // Gestisci redirect da Stripe
-    if (params.get("success")) { toast.success("Abbonamento attivato! Grazie."); load(); }
+    if (params.get("success")) {
+      toast.success("Abbonamento attivato! Grazie.");
+      // A differenza del ritorno da PayPal sopra, qui ci si fida del solo
+      // redirect per il toast (il webhook Stripe che conferma davvero può
+      // arrivare con un attimo di ritardo) — ma l'evento di conversione lo
+      // facciamo scattare solo dopo che load() ha ricaricato lo stato reale
+      // dal backend, non sul semplice parametro nell'URL: altrimenti
+      // visitare a mano /abbonamento?success=stripe farebbe scattare
+      // l'evento senza che sia davvero avvenuto un pagamento.
+      load().then((data) => {
+        if (data.status === "active") trackEvent("paga", { provider: "stripe", plan: data.plan });
+      });
+    }
     if (params.get("cancelled")) toast.info("Pagamento annullato.");
   }, []);
 
