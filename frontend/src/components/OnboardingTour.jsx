@@ -45,7 +45,7 @@ export default function OnboardingTour() {
                 </button>
               )}
               <button
-                onClick={() => (isLast ? markOnboardingSeen() : setStep((s) => s + 1))}
+                onClick={() => (isLast ? markOnboardingSeen(true) : setStep((s) => s + 1))}
                 className="px-4 py-2 bg-[#B23E00] text-white rounded-lg text-[13px] font-bold hover:bg-[#e04e00] transition-colors flex items-center gap-2"
               >
                 {isLast ? "Inizia" : "Avanti"} <ArrowRight className="w-3.5 h-3.5" />

@@ -5,6 +5,7 @@ from core.database import db
 from core.exceptions import NotFoundError
 from repositories.client_repository import client_repository
 from repositories.mandante_repository import mandante_repository
+from services.activation_service import mark_first_action_if_needed
 from services.commission_service import normalize_manual_commission
 
 
@@ -13,9 +14,18 @@ def _now_iso() -> str:
 
 
 class ClientService:
-    def __init__(self, repo=client_repository, mandante_repo=mandante_repository):
+    def __init__(
+        self,
+        repo=client_repository,
+        mandante_repo=mandante_repository,
+        mark_first_action=mark_first_action_if_needed,
+    ):
         self.repo = repo
         self.mandante_repo = mandante_repo
+        # Iniettabile per lo stesso motivo di LeadService.mark_first_action:
+        # tocca db.users direttamente, un test con solo FakeClientRepo non
+        # deve diventare dipendente da un Mongo reale raggiungibile.
+        self.mark_first_action = mark_first_action
 
     async def list_clients(
         self,
@@ -48,7 +58,15 @@ class ClientService:
             **payload.model_dump(),
             "created_at": _now_iso(),
         }
-        return await self.repo.insert(doc)
+        created = await self.repo.insert(doc)
+        # Campo aggiunto SOLO quando questo è davvero il primo cliente/lead/
+        # ordine mai creato da questo utente — vedi activation_service per il
+        # perché è atomico. Il frontend lo legge per tracciare l'evento GA4
+        # "first_real_action" (imbuto di attivazione trial), non è un dato di
+        # prodotto persistito sul cliente stesso.
+        if await self.mark_first_action(user["id"]):
+            created["_first_action"] = True
+        return created
 
     async def get_client(self, user: dict, cid: str) -> dict:
         c = await self.repo.find_one(cid, user["id"])

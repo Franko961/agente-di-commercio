@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { listClients, createClient, updateClient, deleteClient } from "../api/clients";
+import { trackEvent } from "../lib/analytics";
 
 /**
  * Elenco clienti filtrato + mutazioni, con ricarica automatica dopo ogni
@@ -27,6 +28,11 @@ export default function useClients(filters = {}) {
 
   const create = useCallback(async (payload) => {
     const created = await createClient(payload);
+    // _first_action è aggiunto dal backend SOLO quando questo è davvero il
+    // primo cliente/lead/ordine mai creato dall'utente (vedi
+    // activation_service lato backend) — segnale di attivazione trial per
+    // GA4, non un campo del cliente stesso.
+    if (created?._first_action) trackEvent("first_real_action", { type: "client" });
     await reload();
     return created;
   }, [reload]);

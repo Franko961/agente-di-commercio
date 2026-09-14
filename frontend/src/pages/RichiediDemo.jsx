@@ -15,8 +15,21 @@ export default function RichiediDemo() {
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [startTracked, setStartTracked] = useState(false);
 
-  const update = (field, value) => setForm((f) => ({ ...f, [field]: value }));
+  const update = (field, value) => {
+    // Una volta sola per visita, al primo carattere/interazione reale con
+    // un campo — non al render del form, altrimenti l'evento scatterebbe
+    // per chiunque atterra sulla pagina, non solo per chi inizia davvero a
+    // compilare. Serve a distinguere, in GA4, il tasso "visita → inizia a
+    // compilare" dal tasso "inizia a compilare → invia", due conversioni
+    // molto diverse che l'unico evento demo_richiesta_inviata non separa.
+    if (!startTracked) {
+      trackEvent("form_start", { location: "richiedi_demo" });
+      setStartTracked(true);
+    }
+    setForm((f) => ({ ...f, [field]: value }));
+  };
 
   const submit = async (e) => {
     e.preventDefault();

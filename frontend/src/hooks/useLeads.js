@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { listLeads, createLead, updateLead, deleteLead, updateLeadStatus, logLeadContact } from "../api/leads";
+import { trackEvent } from "../lib/analytics";
 
 /**
  * Elenco lead + mutazioni — stesso pattern di useClients/useEmployees, con
@@ -26,6 +27,8 @@ export default function useLeads() {
 
   const create = useCallback(async (payload) => {
     const created = await createLead(payload);
+    // Vedi useClients.js per il perché di questo campo.
+    if (created?._first_action) trackEvent("first_real_action", { type: "lead" });
     await reload();
     return created;
   }, [reload]);

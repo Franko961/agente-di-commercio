@@ -3,11 +3,18 @@ from typing import Optional
 from core.exceptions import NotFoundError
 from core.utils import gen_id, now_iso
 from repositories.lead_repository import lead_repository
+from services.activation_service import mark_first_action_if_needed
 
 
 class LeadService:
-    def __init__(self, repo=lead_repository):
+    def __init__(self, repo=lead_repository, mark_first_action=mark_first_action_if_needed):
         self.repo = repo
+        # Iniettabile (non solo importata a livello di modulo) perché tocca
+        # db.users direttamente — senza poterla sostituire, ogni test di
+        # questo service che oggi gira con un solo FakeLeadRepo, senza mai
+        # toccare Mongo, diventerebbe silenziosamente dipendente da un
+        # database reale raggiungibile.
+        self.mark_first_action = mark_first_action
 
     async def list_leads(self, user: dict) -> list:
         return await self.repo.find_many(user["id"])
@@ -22,7 +29,11 @@ class LeadService:
             "updated_at": now,
             "last_interaction_at": now,
         }
-        return await self.repo.insert(doc)
+        created = await self.repo.insert(doc)
+        # Vedi client_service.create_client per il perché di questo campo.
+        if await self.mark_first_action(user["id"]):
+            created["_first_action"] = True
+        return created
 
     async def update_lead(self, user: dict, lid: str, payload) -> None:
         # Modificare un lead (note, dati di contatto, ecc.) è di per sé

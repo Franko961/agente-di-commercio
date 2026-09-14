@@ -4,6 +4,7 @@ import {
   exitImpersonation as exitImpersonationApi, markOnboardingSeen as markOnboardingSeenApi,
   markCapterraReviewDismissed as markCapterraReviewDismissedApi,
 } from "../api/auth";
+import { trackEvent } from "../lib/analytics";
 
 const AuthContext = createContext(null);
 
@@ -42,6 +43,12 @@ export function AuthProvider({ children }) {
     const data = await loginApi(email, password);
     localStorage.setItem(HAS_SESSION_HINT_KEY, "1");
     setUser(data);
+    // Evento standard GA4 ("login"). Fatto scattare su OGNI accesso riuscito
+    // (non solo il primo) perché è così che GA4 valuta un funnel: basta che
+    // l'utente lo raggiunga almeno una volta nel periodo analizzato — non
+    // serve distinguere qui "primo" da "successivo", la distinzione la fa
+    // già onboarding_seen più avanti nel funnel (vedi markOnboardingSeen).
+    trackEvent("login", { method: "password" });
     return data;
   };
 
@@ -69,10 +76,16 @@ export function AuthProvider({ children }) {
     window.location.href = "/app/admin";
   };
 
-  const markOnboardingSeen = async () => {
+  const markOnboardingSeen = async (completed = false) => {
     // Ottimista: nasconde subito la guida anche se la chiamata al backend
     // fallisse o fosse lenta, così l'utente non resta bloccato a guardarla.
     setUser((prev) => (prev ? { ...prev, onboarding_seen: true } : prev));
+    // "completed" (arrivato all'ultimo step e cliccato "Inizia") vs
+    // "skipped" (pulsante "Salta", o dialog chiuso prima della fine): due
+    // segnali diversi per lo stesso evento — un tour saltato quasi subito
+    // non è lo stesso di uno guardato fino in fondo, anche se in entrambi i
+    // casi onboarding_seen diventa true e la guida non ricompare.
+    trackEvent("onboarding_completed", { outcome: completed ? "completed" : "skipped" });
     try { await markOnboardingSeenApi(); } catch (e) {}
   };
 

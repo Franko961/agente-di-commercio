@@ -33,6 +33,14 @@ def run(coro):
     return asyncio.run(coro)
 
 
+async def _no_first_action(user_id):
+    """Sostituisce mark_first_action_if_needed (che tocca db.users
+    direttamente) per non rendere questi test dipendenti da un Mongo
+    reale raggiungibile — non è il comportamento sotto test qui, vedi
+    test_activation_service.py per quello."""
+    return False
+
+
 class FakeOrderRepo:
     """A differenza del FakeOrderRepo di test_orders_update.py, questo
     applica DAVVERO l'unicità di (user_id, numero_ordine), come farebbe
@@ -159,13 +167,41 @@ def build_service(monkeypatch, order_repo=None):
     monkeypatch.setattr(
         order_service_mod, "commission_service", fake_commission_service
     )
-    service = OrderService(repo=order_repo, mandante_repo=FakeMandanteRepo())
+    service = OrderService(
+        repo=order_repo,
+        mandante_repo=FakeMandanteRepo(),
+        mark_first_action=_no_first_action,
+    )
     return service, order_repo
 
 
 FAKE_ITEMS = [
     {"description": "Prodotto test", "quantity": 1, "unit_price": 100, "discount": 0}
 ]
+
+
+def test_create_order_doc_espone_first_action_solo_quando_e_il_primo(monkeypatch):
+    calls = []
+
+    async def stub_mark_first_action(user_id):
+        calls.append(user_id)
+        return len(calls) == 1
+
+    fake_commission_service = FakeCommissionService()
+    monkeypatch.setattr(
+        order_service_mod, "commission_service", fake_commission_service
+    )
+    service = OrderService(
+        repo=FakeOrderRepo(),
+        mandante_repo=FakeMandanteRepo(),
+        mark_first_action=stub_mark_first_action,
+    )
+
+    first = run(service._create_order_doc({"id": "user-1"}, "c-1", "m-1", FAKE_ITEMS))
+    second = run(service._create_order_doc({"id": "user-1"}, "c-1", "m-1", FAKE_ITEMS))
+
+    assert first["_first_action"] is True
+    assert "_first_action" not in second
 
 
 def test_numeri_automatici_sequenziali_non_collidono(monkeypatch):
