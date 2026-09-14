@@ -40,3 +40,17 @@ export function getAiBriefing() {
 export function getAiSuggestions() {
   return api.get("/ai/suggestions").then(({ data }) => data);
 }
+
+// blob: registrazione audio da MediaRecorder (vedi hooks/useVoiceRecording.js)
+// — trascritta lato server (Whisper) al posto del riconoscimento vocale
+// nativo del browser, che Safari/WebKit non implementa (assente su ogni
+// browser su iPhone).
+export function transcribeAudio(blob) {
+  // L'estensione dichiarata dovrebbe rispecchiare il formato reale (Safari
+  // registra in audio/mp4, non webm) — Whisper riconosce comunque il
+  // contenuto vero, ma farla combaciare evita un disallineamento inutile.
+  const ext = blob.type.includes("mp4") ? "mp4" : blob.type.includes("ogg") ? "ogg" : "webm";
+  const formData = new FormData();
+  formData.append("file", blob, `voice.${ext}`);
+  return api.post("/ai/transcribe", formData).then(({ data }) => data);
+}

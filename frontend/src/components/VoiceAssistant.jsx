@@ -3,19 +3,8 @@ import { useLocation } from "react-router-dom";
 import { Mic, MicOff, Loader2, X, Volume2, VolumeX, Sparkles } from "lucide-react";
 import { getAiPendingActions, sendAiChatMessage, executeAiAction, cancelAiAction } from "../api/ai";
 import { cleanForSpeech } from "../utils/speechClean";
+import useVoiceRecording from "../hooks/useVoiceRecording";
 import AIActionConfirm from "./AIActionConfirm";
-
-// Messaggi specifici per i codici di errore della Web Speech API
-// (SpeechRecognitionErrorEvent.error), invece del generico "Non ho sentito
-// bene. Riprova." che confondeva casi molto diversi tra loro (permesso
-// negato, microfono assente, nessun audio rilevato, servizio irraggiungibile).
-const SPEECH_ERROR_MESSAGES = {
-  "not-allowed": "Permesso del microfono negato. Controlla le impostazioni del browser.",
-  "audio-capture": "Nessun microfono disponibile.",
-  "no-speech": "Non è stata rilevata alcuna voce. Riprova.",
-  "network": "Servizio di riconoscimento vocale non raggiungibile.",
-  "aborted": "Ascolto interrotto.",
-};
 
 /**
  * Pulsante microfono globale, sempre visibile in tutte le pagine dell'app (montato in Layout.jsx).
@@ -24,14 +13,13 @@ const SPEECH_ERROR_MESSAGES = {
  */
 export default function VoiceAssistant() {
   const location = useLocation();
-  const [status, setStatus] = useState("idle"); // idle | listening | sending | result | error
+  const [status, setStatus] = useState("idle"); // idle | sending | result | error
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [speaking, setSpeaking] = useState(false);
   const [pendingActions, setPendingActions] = useState([]);
   const [executingIdx, setExecutingIdx] = useState(null);
-  const recognitionRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
 
   // Recupera azioni economiche lasciate in sospeso (es. una vendita o una
@@ -138,50 +126,28 @@ export default function VoiceAssistant() {
     }
   };
 
-  const startListening = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setErrorMsg("Il tuo browser non supporta il riconoscimento vocale. Usa Chrome o Edge.");
+  const { status: voiceStatus, toggle: toggleVoice, stop: stopVoice } = useVoiceRecording({
+    onTranscribed: (text) => sendToAI(text),
+    onError: (msg) => {
+      setErrorMsg(msg);
       setStatus("error");
-      return;
-    }
-    stopSpeaking();
-    setQuestion("");
-    setAnswer("");
-    setErrorMsg("");
-    setPendingActions([]);
-    const rec = new SpeechRecognition();
-    rec.lang = "it-IT";
-    rec.continuous = false;
-    rec.interimResults = false;
-    rec.onresult = (e) => {
-      const transcript = e.results[0][0].transcript;
-      sendToAI(transcript);
-    };
-    rec.onerror = (event) => {
-      setErrorMsg(SPEECH_ERROR_MESSAGES[event.error] || "Errore nel riconoscimento vocale. Riprova.");
-      setStatus("error");
-    };
-    rec.onend = () => {
-      setStatus((s) => (s === "listening" ? "idle" : s));
-    };
-    recognitionRef.current = rec;
-    setStatus("listening");
-    rec.start();
-  };
+    },
+  });
 
   const handleMicClick = () => {
-    if (status === "listening") {
-      recognitionRef.current?.stop();
-      setStatus("idle");
-      return;
+    if (voiceStatus === "idle") {
+      stopSpeaking();
+      setQuestion("");
+      setAnswer("");
+      setErrorMsg("");
+      setPendingActions([]);
     }
-    startListening();
+    toggleVoice();
   };
 
   const close = () => {
     stopSpeaking();
-    recognitionRef.current?.stop();
+    stopVoice();
     setStatus("idle");
     setQuestion("");
     setAnswer("");
@@ -189,7 +155,7 @@ export default function VoiceAssistant() {
     setPendingActions([]);
   };
 
-  const isOpen = status !== "idle";
+  const isOpen = status !== "idle" || voiceStatus !== "idle";
 
   if (hideOnThisPage) return null;
 
@@ -210,7 +176,7 @@ export default function VoiceAssistant() {
             </button>
           </div>
 
-          {status === "listening" && (
+          {voiceStatus === "recording" && (
             <div className="flex items-center gap-2 text-[13px] text-[#52525B] py-3">
               <span className="relative flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
@@ -220,7 +186,13 @@ export default function VoiceAssistant() {
             </div>
           )}
 
-          {status === "sending" && (
+          {voiceStatus === "transcribing" && (
+            <div className="flex items-center gap-2 text-[13px] text-[#52525B] py-3">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Sto trascrivendo…
+            </div>
+          )}
+
+          {voiceStatus === "idle" && status === "sending" && (
             <div className="space-y-2">
               {question && <div className="text-[13px] text-[#52525B] italic">"{question}"</div>}
               <div className="flex items-center gap-2 text-[13px] text-[#52525B]">
@@ -251,7 +223,7 @@ export default function VoiceAssistant() {
                   {speaking ? "Interrompi" : "Riascolta"}
                 </button>
                 <button
-                  onClick={startListening}
+                  onClick={toggleVoice}
                   className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-widest text-[#B23E00]"
                 >
                   <Mic className="w-3.5 h-3.5" /> Nuova domanda
@@ -260,11 +232,11 @@ export default function VoiceAssistant() {
             </div>
           )}
 
-          {status === "error" && (
+          {voiceStatus === "idle" && status === "error" && (
             <div className="space-y-2">
               <div className="text-[13px] text-red-600">{errorMsg}</div>
               <button
-                onClick={startListening}
+                onClick={toggleVoice}
                 className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-widest text-[#B23E00]"
               >
                 <Mic className="w-3.5 h-3.5" /> Riprova
@@ -281,12 +253,12 @@ export default function VoiceAssistant() {
         aria-label="Parla con Salesfly"
         title="Parla con Salesfly"
         className={`flex items-center gap-2 rounded-full shadow-lg pl-4 pr-4 md:pr-5 py-3.5 md:py-3 transition-all duration-200 ${
-          status === "listening" ? "bg-red-500 hover:bg-red-600" : "bg-[#0A192F] hover:bg-[#172A45]"
+          voiceStatus === "recording" ? "bg-red-500 hover:bg-red-600" : "bg-[#0A192F] hover:bg-[#172A45]"
         } text-white`}
       >
-        {status === "sending" ? (
+        {status === "sending" || voiceStatus === "transcribing" ? (
           <Loader2 className="w-5 h-5 animate-spin shrink-0" />
-        ) : status === "listening" ? (
+        ) : voiceStatus === "recording" ? (
           <MicOff className="w-5 h-5 shrink-0" />
         ) : (
           <Mic className="w-5 h-5 shrink-0" />

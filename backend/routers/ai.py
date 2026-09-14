@@ -1,10 +1,11 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, UploadFile
 
 from core.security import forbid_demo_write, get_current_user, require_module
 from models.ai import AICancelActionIn, AIExecuteActionIn, AIQuery
 from services.ai_service import ai_service
+from services.transcription_service import transcribe_upload
 
 router = APIRouter(
     prefix="/api/ai", tags=["ai"], dependencies=[Depends(require_module("ai"))]
@@ -25,6 +26,18 @@ async def clear_ai_history(user=Depends(forbid_demo_write)):
 @router.post("/chat")
 async def ai_chat(payload: AIQuery, user=Depends(get_current_user)):
     return await ai_service.chat(user, payload)
+
+
+@router.post("/transcribe")
+async def ai_transcribe(file: UploadFile = File(...), user=Depends(get_current_user)):
+    """Trascrive un breve audio vocale registrato nel browser (MediaRecorder)
+    in testo, tramite Whisper — usato al posto del riconoscimento vocale
+    nativo del browser (non implementato da Safari/WebKit, quindi assente su
+    ogni browser su iPhone). Il testo trascritto va poi mandato a /chat
+    esattamente come un messaggio scritto: questa rotta non tocca il CRM,
+    solo la conversione audio -> testo."""
+    text = await transcribe_upload(file, user["id"])
+    return {"text": text}
 
 
 @router.post("/execute-action")
