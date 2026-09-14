@@ -448,7 +448,7 @@ class SubscriptionService:
                 "pending_paypal_subscription_id": None,
             },
         )
-        return {"ok": True, "status": "active"}
+        return {"ok": True, "status": "active", "plan": plan_id}
 
     # ---- PayPal: webhook lato server (fonte di verità) -------------------
 

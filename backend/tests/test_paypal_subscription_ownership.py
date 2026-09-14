@@ -120,7 +120,7 @@ def test_paypal_capture_con_id_atteso_viene_accettato(monkeypatch):
         service.paypal_capture({"id": "user-1"}, {"subscription_id": "I-REAL123"})
     )
 
-    assert result == {"ok": True, "status": "active"}
+    assert result == {"ok": True, "status": "active", "plan": "base"}
     assert repo.users_by_id["user-1"]["subscription_status"] == "active"
     assert repo.users_by_id["user-1"]["paypal_subscription_id"] == "I-REAL123"
     # Ripulito dopo la cattura riuscita, non deve restare in giro.
@@ -205,7 +205,7 @@ def test_paypal_capture_riaccetta_lid_gia_legato_in_precedenza(monkeypatch):
         service.paypal_capture({"id": "user-4"}, {"subscription_id": "I-GIA-MIO"})
     )
 
-    assert result == {"ok": True, "status": "active"}
+    assert result == {"ok": True, "status": "active", "plan": "base"}
 
 
 if __name__ == "__main__":
