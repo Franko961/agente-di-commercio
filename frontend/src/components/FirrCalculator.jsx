@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Calculator } from "lucide-react";
 import { formatEuro, parseItalianNumber } from "@/utils/fiscalCalc";
+import CalculatorCTA from "@/components/CalculatorCTA";
 
 // Calcolatore client-side, nessuna chiamata al backend: applica gli
 // scaglioni FIRR 2026 (AEC Commercio siglato il 4/6/2025, in vigore dal
@@ -130,6 +131,8 @@ export default function FirrCalculator() {
           <span className="font-mono font-black text-[#059669]">{formatEuro(firr)}</span>
         </div>
       </div>
+
+      <CalculatorCTA location="firr_calculator" />
 
       <p className="text-[11px] text-[#6B6B72] mt-4">
         Calcolo indicativo su un singolo anno e un singolo mandante, con gli scaglioni 2026: se hai

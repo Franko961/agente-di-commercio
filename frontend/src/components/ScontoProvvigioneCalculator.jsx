@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Calculator } from "lucide-react";
 import { formatEuro, parseItalianNumber } from "@/utils/fiscalCalc";
+import CalculatorCTA from "@/components/CalculatorCTA";
 
 // Calcolatore client-side, pura aritmetica — nessun dato fiscale da
 // verificare esternamente. Il punto centrale (spiegato anche nel testo
@@ -146,6 +147,8 @@ export default function ScontoProvvigioneCalculator() {
           </div>
         )}
       </div>
+
+      <CalculatorCTA location="sconto_provvigione_calculator" />
 
       <p className="text-[11px] text-[#6B6B72] mt-4">
         Se la provvigione è una percentuale fissa sul fatturato, la percentuale che perdi è sempre
