@@ -7,6 +7,7 @@ import {
   ENASARCO_QUOTA_AGENTE,
   ENASARCO_SOGLIE,
 } from "@/utils/fiscalCalc";
+import CalculatorCTA from "@/components/CalculatorCTA";
 
 // Calcolatore client-side, nessuna chiamata al backend: un numero inserito
 // a mano dal lettore, non dati reali dell'agente (per quelli vedi il
@@ -235,6 +236,8 @@ export default function RitenutaEnasarcoCalculator() {
           <span className="font-mono font-black text-[#059669]">{formatEuro(netto)}</span>
         </div>
       </div>
+
+      <CalculatorCTA location="ritenuta_enasarco_calculator" />
 
       <p className="text-[11px] text-[#6B6B72] mt-4">
         Calcolo indicativo, non sostituisce il commercialista: non considera eventuali note di

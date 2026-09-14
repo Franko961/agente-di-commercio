@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Calculator, AlertTriangle } from "lucide-react";
 import { formatEuro, parseItalianNumber } from "@/utils/fiscalCalc";
+import CalculatorCTA from "@/components/CalculatorCTA";
 
 // Calcolatore client-side, nessuna chiamata al backend. Dati verificati
 // via ricerca (settembre 2026, incrociando più fonti fiscali indipendenti):
@@ -133,6 +134,8 @@ export default function RegimeForfettarioCalculator() {
           <span className="font-mono font-black text-[#059669]">{formatEuro(imposta)}</span>
         </div>
       </div>
+
+      <CalculatorCTA location="regime_forfettario_calculator" />
 
       <p className="text-[11px] text-[#6B6B72] mt-4">
         Coefficiente di redditività 62%, valido per gli intermediari di commercio (ATECO 46.1x —
