@@ -66,6 +66,7 @@ export const THEME_RULES = [
   [(s) => s.includes("telefono"), "MOBILE", "1511707171634-5f897ff02aa9", "Tecnologia"],
   [(s) => s.includes("mobile"), "MOBILE", "1592890288564-76628a30a657", "Tecnologia"],
   [(s) => s.includes("dipendente-vs-partita-iva"), "RUOLO", "1429743305873-d4065c15f93e", "Guide"],
+  [(s) => s.includes("cambiare-mandante"), "TRANSIZIONE", "1679395561581-9d9bc2584047", "Vendita"],
 ];
 export const DEFAULT_THEME = { category: "GUIDA", photoId: "1612367980327-7454a7276aa7", macro: "Guide" };
 
