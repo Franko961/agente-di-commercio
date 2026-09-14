@@ -5,20 +5,10 @@ import {
 } from "../api/ai";
 import { Sparkles, Send, Lightbulb, Trash2, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 import { cleanForSpeech } from "../utils/speechClean";
+import useVoiceRecording from "../hooks/useVoiceRecording";
 import AIActionConfirm from "../components/AIActionConfirm";
 
 const WELCOME = { role: "assistant", text: "Ciao! Sono il tuo assistente commerciale. Posso suggerirti i clienti più importanti da visitare, analizzare il fatturato e darti consigli pratici. Cosa vuoi sapere?" };
-
-// Messaggi specifici per i codici di errore della Web Speech API
-// (SpeechRecognitionErrorEvent.error): prima ogni errore veniva ignorato in
-// silenzio (l'ascolto si fermava senza che l'utente capisse perché).
-const SPEECH_ERROR_MESSAGES = {
-  "not-allowed": "Permesso del microfono negato. Controlla le impostazioni del browser.",
-  "audio-capture": "Nessun microfono disponibile.",
-  "no-speech": "Non è stata rilevata alcuna voce. Riprova.",
-  "network": "Servizio di riconoscimento vocale non raggiungibile.",
-  "aborted": "Ascolto interrotto.",
-};
 
 export default function AIAssistant() {
   const [messages, setMessages] = useState([WELCOME]);
@@ -26,45 +16,11 @@ export default function AIAssistant() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [suggestions, setSuggestions] = useState([]);
-  const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [executingKey, setExecutingKey] = useState(null);
   const endRef = useRef(null);
-  const recognitionRef = useRef(null);
   const synthRef = useRef(window.speechSynthesis);
-
-  // Inizializza Speech Recognition
-  const initRecognition = useCallback(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return null;
-    const rec = new SpeechRecognition();
-    rec.lang = "it-IT";
-    rec.continuous = false;
-    rec.interimResults = false;
-    rec.onresult = (e) => {
-      const transcript = e.results[0][0].transcript;
-      setInput(transcript);
-      setListening(false);
-      // Invia automaticamente dopo la trascrizione
-      setTimeout(() => sendVoice(transcript), 100);
-    };
-    rec.onerror = (event) => {
-      setListening(false);
-      // A differenza del pannello vocale fluttuante (che è temporaneo), qui
-      // i messaggi restano nella cronologia della chat: mostriamo un
-      // messaggio solo per errori che richiedono un'azione da parte
-      // dell'utente (permesso, microfono, rete). "no-speech" e "aborted"
-      // sono frequenti e benigni (silenzio prolungato, stop manuale) e non
-      // vanno a intasare la conversazione con un messaggio ogni volta.
-      const actionable = ["not-allowed", "audio-capture", "network"];
-      if (actionable.includes(event.error)) {
-        setMessages(m => [...m, { role: "assistant", text: `⚠️ ${SPEECH_ERROR_MESSAGES[event.error]}` }]);
-      }
-    };
-    rec.onend = () => setListening(false);
-    return rec;
-  }, []);
 
   // Text-to-Speech
   const speak = useCallback((text) => {
@@ -91,21 +47,16 @@ export default function AIAssistant() {
     setSpeaking(false);
   };
 
-  const toggleListening = () => {
-    if (listening) {
-      recognitionRef.current?.stop();
-      setListening(false);
-      return;
-    }
-    const rec = initRecognition();
-    if (!rec) {
-      alert("Il tuo browser non supporta il riconoscimento vocale. Usa Chrome o Edge.");
-      return;
-    }
-    recognitionRef.current = rec;
-    rec.start();
-    setListening(true);
-  };
+  const { status: voiceStatus, toggle: toggleListening } = useVoiceRecording({
+    onTranscribed: (text) => {
+      setInput(text);
+      sendVoice(text);
+    },
+    // A differenza del pannello vocale fluttuante (temporaneo), qui i
+    // messaggi restano nella cronologia della chat.
+    onError: (msg) => setMessages((m) => [...m, { role: "assistant", text: `⚠️ ${msg}` }]),
+  });
+  const listening = voiceStatus === "recording";
 
   const sendVoice = async (text) => {
     if (!text.trim() || busy) return;
@@ -333,6 +284,12 @@ export default function AIAssistant() {
                 <div className="bg-[#B23E0010] border border-[#B23E0030] rounded-md p-3 font-mono text-[13px] text-[#B23E00]">In ascolto… parla ora</div>
               </div>
             )}
+            {voiceStatus === "transcribing" && (
+              <div className="flex gap-3">
+                <div className="w-7 h-7 rounded-md flex items-center justify-center bg-[#B23E00]"><Mic className="w-3.5 h-3.5 text-white animate-pulse" /></div>
+                <div className="bg-[#B23E0010] border border-[#B23E0030] rounded-md p-3 font-mono text-[13px] text-[#B23E00]">Sto trascrivendo…</div>
+              </div>
+            )}
             {speaking && !listening && (
               <div className="flex gap-3">
                 <div className="w-7 h-7 rounded-md flex items-center justify-center bg-[#059669]"><Volume2 className="w-3.5 h-3.5 text-white animate-pulse" /></div>
@@ -358,11 +315,11 @@ export default function AIAssistant() {
           {/* Input */}
           <form onSubmit={(e) => { e.preventDefault(); send(input); }} className="border-t border-[#E4E4E1] p-3 flex gap-2">
             <input data-testid="ai-input" value={input} onChange={(e) => setInput(e.target.value)}
-              placeholder={listening ? "Sto ascoltando…" : "Chiedi all'assistente o usa il microfono…"}
+              placeholder={listening ? "Sto ascoltando…" : voiceStatus === "transcribing" ? "Sto trascrivendo…" : "Chiedi all'assistente o usa il microfono…"}
               className={`flex-1 bg-white border rounded-md px-3 py-2 text-[13px] focus:outline-none transition-colors ${listening ? "border-[#B23E00] bg-[#B23E0005]" : "border-[#E4E4E1] focus:border-[#0A192F]"}`} />
             {/* Bottone microfono */}
-            <button type="button" onClick={toggleListening}
-              className={`px-3 py-2 rounded-md text-[13px] font-medium transition-all ${listening ? "bg-[#B23E00] text-white animate-pulse" : "border border-[#E4E4E1] text-[#52525B] hover:border-[#B23E00] hover:text-[#B23E00]"}`}
+            <button type="button" onClick={toggleListening} disabled={voiceStatus === "transcribing"}
+              className={`px-3 py-2 rounded-md text-[13px] font-medium transition-all disabled:opacity-50 ${listening ? "bg-[#B23E00] text-white animate-pulse" : "border border-[#E4E4E1] text-[#52525B] hover:border-[#B23E00] hover:text-[#B23E00]"}`}
               title={listening ? "Clicca per fermare" : "Parla con l'AI"}>
               {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
             </button>
