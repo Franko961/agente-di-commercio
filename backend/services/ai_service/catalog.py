@@ -16,6 +16,12 @@ from models.vehicle import VEHICLE_TYPES
 # senza che l'utente lo riveda.
 EXPENSE_CONFIRM_THRESHOLD = 100.0
 
+# Tetto per una singola chiamata al tool bulk add_leads — stesso ordine di
+# grandezza del cap già esistente su AppointmentBulkIn (models/appointment.py),
+# qui per evitare un incolla-e-importa enorme in un colpo solo (oltre un
+# certo numero conviene comunque dividerlo in più messaggi).
+MAX_BULK_LEADS = 50
+
 # Se un'azione resta in 'in_esecuzione' più a lungo di così, il server è
 # quasi certamente crashato (o è stato riavviato) esattamente tra la
 # transizione atomica e il salvataggio del risultato: la marchiamo 'fallita'
@@ -35,6 +41,7 @@ CRM_WRITE_TOOLS = {
     "add_client",
     "add_appointment",
     "add_lead",
+    "add_leads",
     "add_note_to_client",
     "add_offer",
     "add_expense",
@@ -55,6 +62,7 @@ TOOL_MODULE = {
     "search_clients": "clienti",
     "add_appointment": "agenda",
     "add_lead": "lead",
+    "add_leads": "lead",
     "add_offer": "offerte",
     "search_offers": "offerte",
     "add_expense": "spese",
@@ -208,6 +216,47 @@ CRM_TOOLS = [
                 "notes": {"type": "string", "description": "Note"},
             },
             "required": ["company_name"],
+        },
+    },
+    {
+        "name": "add_leads",
+        "description": (
+            "Aggiunge PIÙ lead/prospect alla pipeline in un'unica operazione. Usare SEMPRE "
+            "questo tool invece di chiamare add_lead più volte quando l'utente fornisce una "
+            "lista di più aziende/contatti da aggiungere tutti insieme come lead (es. un "
+            "elenco incollato in chat) — molto più affidabile di ripetere add_lead per ogni "
+            "elemento."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "leads": {
+                    "type": "array",
+                    "description": "Elenco dei lead da aggiungere",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "company_name": {
+                                "type": "string",
+                                "description": "Nome azienda",
+                            },
+                            "contact_name": {
+                                "type": "string",
+                                "description": "Nome referente",
+                            },
+                            "email": {"type": "string", "description": "Email"},
+                            "phone": {"type": "string", "description": "Telefono"},
+                            "value": {
+                                "type": "number",
+                                "description": "Valore stimato opportunità",
+                            },
+                            "notes": {"type": "string", "description": "Note"},
+                        },
+                        "required": ["company_name"],
+                    },
+                },
+            },
+            "required": ["leads"],
         },
     },
     {
@@ -528,7 +577,27 @@ ACTION_INTENT_KEYWORDS = {
         "prenota una visita",
         "segna appuntamento",
     ],
-    "add_lead": ["aggiungi lead", "nuovo lead", "crea lead", "aggiungi prospect"],
+    "add_lead": [
+        "aggiungi lead",
+        "nuovo lead",
+        "crea lead",
+        "aggiungi prospect",
+        # Varianti aggiunte dopo un bug reale (2026-09-15): Franco ha scritto
+        # "...inserisci questi dati come nuovi lead" e nessuna delle frasi
+        # sopra ha fatto match ("nuovi lead" plurale ≠ "nuovo lead", nessuna
+        # variante con "inserisci") — la rete di sicurezza anti-hallucination
+        # non è scattata e l'AI ha dichiarato un successo mai avvenuto.
+        # Frasi con verbo esplicito + dimostrativo, per restare precise e non
+        # scattare su una domanda generica come "quanti lead ho?".
+        "inserisci lead",
+        "inserisci questi lead",
+        "inserisci questi dati come lead",
+        "inserisci questi dati come nuovi lead",
+        "carica questi lead",
+        "importa questi lead",
+        "aggiungi questi lead",
+        "aggiungi i lead",
+    ],
     "add_note_to_client": ["aggiungi nota", "segna una nota", "aggiungi una nota"],
     "add_offer": [
         "registra vendita",
@@ -558,6 +627,17 @@ ACTION_INTENT_KEYWORDS = {
         "inserisci provvigione",
         "nuova provvigione",
     ],
+}
+
+
+# Alcuni intent possono essere soddisfatti da più di un tool: "lead" ora
+# copre sia add_lead (un lead alla volta) sia add_leads (bulk, aggiunto per
+# le richieste con più elementi in un colpo solo) — la rete di sicurezza in
+# orchestrator.py deve considerare l'intent soddisfatto se il modello ha
+# chiamato uno qualunque dei due, altrimenti forzerebbe un add_lead singolo
+# ridondante anche quando il bulk è già andato a buon fine.
+INTENT_TOOL_ALIASES = {
+    "add_lead": {"add_lead", "add_leads"},
 }
 
 
