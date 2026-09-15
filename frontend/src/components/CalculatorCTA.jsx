@@ -21,13 +21,22 @@ export default function CalculatorCTA({ location }) {
         <p className="text-[13px] font-medium text-[#0A0A0A] mb-1">
           Vuoi tenere sotto controllo automaticamente provvigioni e mandanti?
         </p>
-        <Link
-          to="/richiedi-demo"
-          onClick={() => trackEvent("cta_click", { location })}
-          className="inline-flex items-center gap-1.5 text-[13px] font-bold text-[#B23E00] hover:text-[#e04e00] transition-colors"
-        >
-          Prova SalesFly gratis <ArrowRight className="w-3.5 h-3.5" />
-        </Link>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          <Link
+            to="/richiedi-demo"
+            onClick={() => trackEvent("cta_click", { location })}
+            className="inline-flex items-center gap-1.5 text-[13px] font-bold text-[#B23E00] hover:text-[#e04e00] transition-colors"
+          >
+            Prova SalesFly gratis <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+          <Link
+            to="/prezzi"
+            onClick={() => trackEvent("cta_click", { location: `${location}_prezzi` })}
+            className="text-[13px] font-medium text-[#52525B] hover:text-[#0A192F] transition-colors underline underline-offset-2"
+          >
+            Vedi i prezzi
+          </Link>
+        </div>
       </div>
     </div>
   );
