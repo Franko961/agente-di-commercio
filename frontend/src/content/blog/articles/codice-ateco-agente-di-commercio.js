@@ -33,6 +33,7 @@ const article = {
       type: "p",
       text: "Ogni gruppo si divide poi in codici più specifici a sei cifre (es. 46.15.01 per mobili in legno e metallo, 46.15.02 per ferramenta e bricolage): quello giusto per la tua attività va individuato con il commercialista al momento dell'iscrizione, ma sapere già il gruppo corretto evita l'errore più comune — cercare un codice \"agente di commercio\" generico che semplicemente non esiste.",
     },
+    { type: "calculator", name: "atecoFinder" },
     { type: "h2", text: "Le due eccezioni che confondono di più: auto ed energia" },
     {
       type: "p",
