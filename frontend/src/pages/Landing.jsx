@@ -225,6 +225,14 @@ export default function Landing() {
             ))}
           </nav>
           <div className="flex items-center gap-1.5 sm:gap-3">
+            <Link
+              to="/prezzi"
+              className={`hidden sm:inline-block text-[13px] font-medium transition-colors duration-200 ${
+                scrolled ? "text-white/80 hover:text-white" : "text-[#3F3F46] hover:text-[#0A192F]"
+              }`}
+            >
+              Prezzi
+            </Link>
             <button
               onClick={() => navigate("/login")}
               className={`hidden sm:inline-block text-[13px] transition-colors duration-200 ${
@@ -432,15 +440,23 @@ export default function Landing() {
             <p className="text-white/60 text-[15px] mb-8 max-w-xl mx-auto">
               Prova SALESFLY gratis per {trialDays} giorni. Nessuna carta di credito, nessun vincolo.
             </p>
-            <button
-              onClick={() => {
-                trackEvent("cta_click", { location: "landing_bottom" });
-                navigate("/richiedi-demo");
-              }}
-              className="px-7 py-3.5 bg-[#B23E00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors inline-flex items-center gap-2"
-            >
-              Inizia gratis <ArrowRight className="w-4 h-4" />
-            </button>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                onClick={() => {
+                  trackEvent("cta_click", { location: "landing_bottom" });
+                  navigate("/richiedi-demo");
+                }}
+                className="px-7 py-3.5 bg-[#B23E00] text-white rounded-lg text-[15px] font-bold hover:bg-[#e04e00] transition-colors inline-flex items-center gap-2"
+              >
+                Inizia gratis <ArrowRight className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => navigate("/prezzi")}
+                className="px-7 py-3.5 border-2 border-white/30 text-white rounded-lg text-[15px] font-bold hover:bg-white/10 transition-colors"
+              >
+                Vedi i prezzi
+              </button>
+            </div>
             <div className="flex items-center justify-center gap-2 mt-6 text-white/40 text-[12px] font-mono uppercase tracking-widest">
               <ShieldCheck className="w-4 h-4" /> Dati protetti · Nessuna carta richiesta
             </div>

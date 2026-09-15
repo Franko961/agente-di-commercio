@@ -58,16 +58,25 @@ export default function CalcolatorePage({ calcKey }) {
               mandante — 14 giorni di prova gratuita, senza carta di credito.
             </p>
           </div>
-          <button
-            onClick={() => {
-              trackEvent("cta_click", { location: "calcolatore_page", calculator: calc.slug });
-              navigate("/richiedi-demo");
-            }}
-            className="shrink-0 inline-flex items-center gap-2 bg-[#B23E00] text-white rounded-lg px-5 py-3 text-[14px] font-bold hover:bg-[#e04e00] transition-colors whitespace-nowrap"
-          >
-            Inizia prova gratuita
-            <ArrowRight className="w-4 h-4" />
-          </button>
+          <div className="shrink-0 flex flex-col items-start sm:items-end gap-2">
+            <button
+              onClick={() => {
+                trackEvent("cta_click", { location: "calcolatore_page", calculator: calc.slug });
+                navigate("/richiedi-demo");
+              }}
+              className="inline-flex items-center gap-2 bg-[#B23E00] text-white rounded-lg px-5 py-3 text-[14px] font-bold hover:bg-[#e04e00] transition-colors whitespace-nowrap"
+            >
+              Inizia prova gratuita
+              <ArrowRight className="w-4 h-4" />
+            </button>
+            <Link
+              to="/prezzi"
+              onClick={() => trackEvent("cta_click", { location: "calcolatore_page_prezzi", calculator: calc.slug })}
+              className="text-[13px] text-white/60 hover:text-white underline underline-offset-2 transition-colors"
+            >
+              Vedi i prezzi
+            </Link>
+          </div>
         </div>
       </main>
 

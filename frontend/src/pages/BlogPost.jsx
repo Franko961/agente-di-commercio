@@ -58,14 +58,23 @@ function renderBlock(block, i, articleSlug) {
             <div className="font-cabinet font-black text-lg mb-1">{block.title}</div>
             <p className="text-[14px] text-white/70">{block.text}</p>
           </div>
-          <Link
-            to={block.href || "/richiedi-demo"}
-            onClick={() => trackEvent("cta_click", { location: "blog_article", article_slug: articleSlug })}
-            className="shrink-0 inline-flex items-center gap-2 bg-[#B23E00] text-white rounded-lg px-5 py-3 text-[14px] font-bold hover:bg-[#e04e00] transition-colors whitespace-nowrap"
-          >
-            {block.cta || "Inizia prova gratuita"}
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+          <div className="shrink-0 flex flex-col items-start md:items-end gap-2">
+            <Link
+              to={block.href || "/richiedi-demo"}
+              onClick={() => trackEvent("cta_click", { location: "blog_article", article_slug: articleSlug })}
+              className="inline-flex items-center gap-2 bg-[#B23E00] text-white rounded-lg px-5 py-3 text-[14px] font-bold hover:bg-[#e04e00] transition-colors whitespace-nowrap"
+            >
+              {block.cta || "Inizia prova gratuita"}
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+            <Link
+              to="/prezzi"
+              onClick={() => trackEvent("cta_click", { location: "blog_article_prezzi", article_slug: articleSlug })}
+              className="text-[13px] text-white/60 hover:text-white underline underline-offset-2 transition-colors"
+            >
+              Vedi i prezzi
+            </Link>
+          </div>
         </div>
       );
     case "p":
