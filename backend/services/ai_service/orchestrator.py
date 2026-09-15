@@ -104,7 +104,11 @@ async def chat(service, user: dict, payload) -> dict:
     intended_tool = detect_intended_tool(payload.message)
     # Alcuni intent sono soddisfatti da più di un tool (es. "lead" da
     # add_lead o dal bulk add_leads) — vedi INTENT_TOOL_ALIASES in catalog.py.
-    acceptable_tools = INTENT_TOOL_ALIASES.get(intended_tool, {intended_tool})
+    acceptable_tools = (
+        INTENT_TOOL_ALIASES.get(intended_tool, {intended_tool})
+        if intended_tool
+        else set()
+    )
     channel = getattr(payload, "channel", None) or "chat"
 
     try:
