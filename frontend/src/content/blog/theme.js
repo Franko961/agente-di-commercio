@@ -68,6 +68,7 @@ export const THEME_RULES = [
   [(s) => s.includes("dipendente-vs-partita-iva"), "RUOLO", "1429743305873-d4065c15f93e", "Guide"],
   [(s) => s.includes("cambiare-mandante"), "TRANSIZIONE", "1679395561581-9d9bc2584047", "Vendita"],
   [(s) => s.includes("whatsapp"), "WHATSAPP", "1554672408-17407e0322ce", "Tecnologia"],
+  [(s) => s.includes("codice-ateco"), "ATECO", "1553413077-190dd305871c", "Fisco"],
 ];
 export const DEFAULT_THEME = { category: "GUIDA", photoId: "1612367980327-7454a7276aa7", macro: "Guide" };
 
