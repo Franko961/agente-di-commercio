@@ -9,6 +9,7 @@ APPOINTMENT_STATUSES = ["pianificato", "completato", "annullato"]
 
 class AppointmentIn(BaseModel):
     client_id: Optional[str] = None
+    lead_id: Optional[str] = None
     title: str = Field(max_length=SHORT_TEXT_MAX_LENGTH)
     description: Optional[str] = Field("", max_length=LONG_TEXT_MAX_LENGTH)
     start: str

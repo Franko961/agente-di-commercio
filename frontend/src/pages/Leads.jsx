@@ -1,9 +1,10 @@
 ﻿import { useState } from "react";
-import { Plus, Trash2, Download, Pencil, PhoneCall, Clock, CalendarClock, Search, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Download, Pencil, PhoneCall, Clock, CalendarClock, CalendarPlus, Search, ChevronDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { toast } from "sonner";
 import { exportLeads } from "../utils/export";
 import { logLeadContact } from "../api/leads";
+import { createAppointment } from "../api/appointments";
 import useLeads from "../hooks/useLeads";
 import { parseISO, format } from "date-fns";
 import { it } from "date-fns/locale";
@@ -53,6 +54,7 @@ export default function Leads() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [loggingContact, setLoggingContact] = useState(null);
+  const [schedulingLead, setSchedulingLead] = useState(null);
   const [drag, setDrag] = useState(null);
   const [search, setSearch] = useState("");
   // Quante schede mostrare per colonna, per id colonna — sale di PAGE_SIZE
@@ -177,6 +179,9 @@ export default function Leads() {
                         <button onClick={() => setLoggingContact(l)} data-testid={`log-contact-${l.id}`} title="Registra contatto" aria-label="Registra contatto" className="text-[#6B6B72] hover:text-[#059669]">
                           <PhoneCall className="w-3.5 h-3.5" />
                         </button>
+                        <button onClick={() => setSchedulingLead(l)} data-testid={`schedule-appt-${l.id}`} title="Fissa appuntamento" aria-label="Fissa appuntamento" className="text-[#6B6B72] hover:text-[#B23E00]">
+                          <CalendarPlus className="w-3.5 h-3.5" />
+                        </button>
                         <button onClick={() => setEditing(l)} data-testid={`edit-lead-${l.id}`} title="Modifica" aria-label="Modifica lead" className="text-[#6B6B72] hover:text-[#0A192F]">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
@@ -260,7 +265,66 @@ export default function Leads() {
           onSaved={() => { load(); setLoggingContact(null); }}
         />
       )}
+
+      {schedulingLead && (
+        <ScheduleAppointmentDialog
+          lead={schedulingLead}
+          onClose={() => setSchedulingLead(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function ScheduleAppointmentDialog({ lead, onClose }) {
+  const [f, setF] = useState({
+    title: `Appuntamento — ${lead.company_name}`,
+    start: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+    location: "",
+  });
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await createAppointment({ ...f, start: new Date(f.start).toISOString(), lead_id: lead.id });
+      toast.success("Appuntamento creato, visibile in Agenda");
+      onClose();
+    } catch {
+      toast.error("Errore nella creazione dell'appuntamento");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Fissa appuntamento · {lead.company_name}</DialogTitle></DialogHeader>
+        <form onSubmit={submit} className="space-y-3">
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Titolo</label>
+            <input type="text" required value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })}
+                   className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
+          </div>
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Data e ora</label>
+            <input type="datetime-local" required value={f.start} onChange={(e) => setF({ ...f, start: e.target.value })}
+                   className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
+          </div>
+          <div>
+            <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Luogo (facoltativo)</label>
+            <input type="text" value={f.location} onChange={(e) => setF({ ...f, location: e.target.value })}
+                   className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]" />
+          </div>
+          <button data-testid="save-schedule-appt-button" type="submit" disabled={busy}
+                  className="w-full bg-[#0A192F] text-white py-2.5 rounded-md text-[13px] font-medium disabled:opacity-50">
+            {busy ? "Salvataggio…" : "Fissa appuntamento"}
+          </button>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
