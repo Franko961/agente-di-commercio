@@ -44,6 +44,14 @@ export const CALCULATORS = {
     component: lazy(() => import("@/components/ScontoProvvigioneCalculator")),
     articleSlug: "provvigioni-scalari-a-target",
   },
+  atecoFinder: {
+    slug: "codice-ateco",
+    title: "Trova il tuo codice ATECO",
+    description:
+      "Cerca il settore che rappresenti e trova il codice ATECO di intermediazione commerciale corrispondente, incluse le eccezioni (auto, energia).",
+    component: lazy(() => import("@/components/AtecoFinder")),
+    articleSlug: "codice-ateco-agente-di-commercio",
+  },
 };
 
 export function getCalculatorBySlug(slug) {

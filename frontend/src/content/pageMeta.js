@@ -126,6 +126,13 @@ const PAGES = {
     changefreq: "monthly",
     priority: "0.6",
   },
+  "/calcolatori/codice-ateco": {
+    title: "Trova il codice ATECO per il tuo settore — SALESFLY",
+    description:
+      "Cerca il tuo settore merceologico e trova il codice ATECO di intermediazione commerciale corrispondente, incluse le eccezioni auto ed energia. Gratuito, senza registrazione.",
+    changefreq: "monthly",
+    priority: "0.6",
+  },
 };
 
 // Stessi valori per ogni articolo blog (a differenza di slug/title/ecc.,

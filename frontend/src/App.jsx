@@ -119,6 +119,10 @@ function App() {
                 path="/calcolatori/sconto-provvigione"
                 element={<CalcolatorePage calcKey="scontoProvvigione" />}
               />
+              <Route
+                path="/calcolatori/codice-ateco"
+                element={<CalcolatorePage calcKey="atecoFinder" />}
+              />
               <Route path="/tour" element={<GuidedTour />} />
               <Route path="/perche-salesfly" element={<WhySalesFly />} />
               <Route path="/chi-siamo" element={<ChiSiamo />} />
