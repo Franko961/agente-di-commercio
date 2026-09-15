@@ -2,13 +2,15 @@ import logging
 
 from core.utils import gen_id, now_iso
 from repositories.appointment_repository import appointment_repository
+from repositories.lead_repository import lead_repository
 
 logger = logging.getLogger(__name__)
 
 
 class AppointmentService:
-    def __init__(self, repo=appointment_repository):
+    def __init__(self, repo=appointment_repository, lead_repo=lead_repository):
         self.repo = repo
+        self.lead_repo = lead_repo
 
     async def list_appointments(self, user: dict) -> list:
         return await self.repo.find_many(user["id"])
@@ -22,6 +24,15 @@ class AppointmentService:
         }
         doc = await self.repo.insert(doc)
         await self._push_to_google_calendar_safe(user["id"], doc, action="create")
+        if doc.get("lead_id"):
+            # Fissare un appuntamento con un lead è a tutti gli effetti
+            # un'interazione reale, stesso principio già applicato in
+            # lead_repository.py (update_status/log_contact) — senza
+            # questo, un lead con appuntamenti frequenti ma mai
+            # "contattato" via form risulterebbe comunque inattivo.
+            await self.lead_repo.update(
+                doc["lead_id"], user["id"], {"last_interaction_at": now_iso()}
+            )
         return doc
 
     async def create_many(self, user: dict, payloads: list) -> list:

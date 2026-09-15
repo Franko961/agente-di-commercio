@@ -1,6 +1,7 @@
 ﻿import { useEffect, useRef, useState } from "react";
 import { listAppointments, createAppointment, updateAppointment, deleteAppointment } from "../api/appointments";
 import { listClients } from "../api/clients";
+import { listLeads } from "../api/leads";
 import { Plus, Trash2, MapPin, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { format, parseISO, startOfWeek, addDays, isSameDay } from "date-fns";
@@ -10,14 +11,15 @@ import { toast } from "sonner";
 export default function Agenda() {
   const [appts, setAppts] = useState([]);
   const [clients, setClients] = useState([]);
+  const [leads, setLeads] = useState([]);
   const [open, setOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [base, setBase] = useState(new Date());
   const todayColRef = useRef(null);
 
   const load = async () => {
-    const [a, c] = await Promise.all([listAppointments(), listClients()]);
-    setAppts(a); setClients(c);
+    const [a, c, l] = await Promise.all([listAppointments(), listClients(), listLeads()]);
+    setAppts(a); setClients(c); setLeads(l);
   };
   useEffect(() => { load(); }, []);
 
@@ -55,7 +57,7 @@ export default function Agenda() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Nuovo appuntamento</DialogTitle></DialogHeader>
-            <ApptForm clients={clients} onSave={async (f) => { await createAppointment(f); load(); toast.success("Appuntamento creato"); setOpen(false); }} />
+            <ApptForm clients={clients} leads={leads} onSave={async (f) => { await createAppointment(f); load(); toast.success("Appuntamento creato"); setOpen(false); }} />
           </DialogContent>
         </Dialog>
       </div>
@@ -65,7 +67,7 @@ export default function Agenda() {
         <DialogContent>
           <DialogHeader><DialogTitle>Modifica appuntamento</DialogTitle></DialogHeader>
           {editTarget && (
-            <ApptForm clients={clients} initial={editTarget} submitLabel="Aggiorna" onSave={async (f) => {
+            <ApptForm clients={clients} leads={leads} initial={editTarget} submitLabel="Aggiorna" onSave={async (f) => {
               await updateAppointment(editTarget.id, f);
               load(); toast.success("Appuntamento aggiornato"); setEditTarget(null);
             }} />
@@ -99,11 +101,13 @@ export default function Agenda() {
                 {dayAppts.length === 0 && <div className="text-[11px] text-[#6B6B72]">—</div>}
                 {dayAppts.map((a) => {
                   const cli = clients.find(c => c.id === a.client_id);
+                  const ld = !cli && leads.find(l => l.id === a.lead_id);
                   return (
                     <div key={a.id} data-testid={`appt-${a.id}`} className="bg-[#F9F9F8] border-l-2 border-[#B23E00] p-2 rounded-r-md">
                       <div className="font-mono text-[10px] text-[#B23E00] font-bold">{format(parseISO(a.start), "HH:mm")}</div>
                       <div className="text-[12px] font-medium leading-tight mt-0.5">{a.title}</div>
                       {cli && <div className="text-[10px] text-[#52525B] mt-1 flex items-center gap-1"><MapPin className="w-2.5 h-2.5" />{cli.company_name}</div>}
+                      {ld && <div className="text-[10px] text-[#52525B] mt-1 flex items-center gap-1"><MapPin className="w-2.5 h-2.5" />{ld.company_name} · Lead</div>}
                       <div className="flex gap-2 mt-1.5">
                         <button onClick={() => setEditTarget({ ...a, start: format(parseISO(a.start), "yyyy-MM-dd'T'HH:mm") })}
                           className="text-[10px] text-[#6B6B72] hover:text-[#0A192F] flex items-center gap-0.5">
@@ -125,13 +129,25 @@ export default function Agenda() {
   );
 }
 
-function ApptForm({ clients, initial, onSave, submitLabel = "Salva appuntamento" }) {
+// Codifica il cliente/lead selezionato in un'unica stringa ("client:<id>" /
+// "lead:<id>" / "" per nessuno) così il form espone un solo menu "Contatto"
+// invece di due select separate — client_id e lead_id restano comunque due
+// campi indipendenti sul backend, ma lato UI si escludono a vicenda.
+const encodeContact = (f) => (f?.lead_id ? `lead:${f.lead_id}` : f?.client_id ? `client:${f.client_id}` : "");
+
+function ApptForm({ clients, leads, initial, onSave, submitLabel = "Salva appuntamento" }) {
   const [f, setF] = useState(initial || {
-    client_id: "", title: "", description: "",
+    client_id: "", lead_id: "", title: "", description: "",
     start: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
     location: "", status: "pianificato"
   });
   useEffect(() => { if (initial) setF(initial); }, [initial]);
+
+  const contact = encodeContact(f);
+  const setContact = (value) => {
+    const [kind, id] = value.split(":");
+    setF({ ...f, client_id: kind === "client" ? id : "", lead_id: kind === "lead" ? id : "" });
+  };
 
   return (
     <form onSubmit={async (e) => {
@@ -140,11 +156,16 @@ function ApptForm({ clients, initial, onSave, submitLabel = "Salva appuntamento"
       await onSave({ ...f, start });
     }} className="space-y-3">
       <div>
-        <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Cliente</label>
-        <select value={f.client_id} onChange={(e) => setF({ ...f, client_id: e.target.value })}
+        <label className="font-mono text-[10px] uppercase tracking-widest text-[#52525B] block mb-1.5">Contatto</label>
+        <select value={contact} onChange={(e) => setContact(e.target.value)}
           className="w-full bg-white border border-[#E4E4E1] rounded-md px-3 py-2 text-[13px]">
           <option value="">— seleziona —</option>
-          {clients.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
+          <optgroup label="Clienti">
+            {clients.map(c => <option key={c.id} value={`client:${c.id}`}>{c.company_name}</option>)}
+          </optgroup>
+          <optgroup label="Lead">
+            {leads.map(l => <option key={l.id} value={`lead:${l.id}`}>{l.company_name}</option>)}
+          </optgroup>
         </select>
       </div>
       <Field label="Titolo *" v={f.title} on={(v) => setF({ ...f, title: v })} required />
