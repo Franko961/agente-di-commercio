@@ -11,6 +11,7 @@ from core.utils import gen_id, now_iso
 from services.ai_service.catalog import (
     CRM_TOOLS,
     CRM_WRITE_TOOLS,
+    INTENT_TOOL_ALIASES,
     TOOL_MODULE,
     detect_intended_tool,
 )
@@ -61,7 +62,16 @@ async def chat(service, user: dict, payload) -> dict:
         "Se hai bisogno di informazioni aggiuntive (es. tramite ricerca web) prima di "
         "eseguire un'azione richiesta, esegui prima la ricerca e poi, nella stessa "
         "conversazione, richiama SEMPRE il tool CRM appropriato con i dati raccolti, "
-        "prima di confermare il completamento. Se non riesci a completare l'azione, dillo onestamente.\n\n"
+        "prima di confermare il completamento. Se non riesci a completare l'azione, dillo onestamente. "
+        "Questo vale anche nei turni successivi: se in un messaggio precedente hai detto di "
+        "star eseguendo un'azione (es. 'te lo sto aggiungendo...') ma non risulta un tool "
+        "eseguito con successo in quel turno, e l'utente ora chiede conferma (es. 'fatto?'), "
+        "NON confermarla come completata solo perché l'avevi annunciata: invoca davvero il "
+        "tool adesso, oppure di' onestamente che non è stata completata.\n\n"
+        "REGOLA SU RICHIESTE CON PIÙ ELEMENTI: quando l'utente fornisce una lista di più "
+        "lead, clienti o altri elementi da aggiungere tutti insieme (es. un elenco incollato "
+        "in chat), usa il tool bulk dedicato quando disponibile (es. add_leads per più lead) "
+        "invece di chiamare il tool singolo ripetutamente: è molto più affidabile.\n\n"
         "REGOLA SU VENDITE/OFFERTE, ORDINI, PROVVIGIONI E SPESE ELEVATE: i tool add_offer, "
         "add_order, add_commission e (per importi elevati) add_expense NON vengono eseguiti "
         "subito quando li chiami: l'operazione viene solo preparata e mostrata all'utente in "
@@ -92,6 +102,13 @@ async def chat(service, user: dict, payload) -> dict:
     ]
     crm_tool_names = {t["name"] for t in CRM_TOOLS}
     intended_tool = detect_intended_tool(payload.message)
+    # Alcuni intent sono soddisfatti da più di un tool (es. "lead" da
+    # add_lead o dal bulk add_leads) — vedi INTENT_TOOL_ALIASES in catalog.py.
+    acceptable_tools = (
+        INTENT_TOOL_ALIASES.get(intended_tool, {intended_tool})
+        if intended_tool
+        else set()
+    )
     channel = getattr(payload, "channel", None) or "chat"
 
     try:
@@ -113,7 +130,7 @@ async def chat(service, user: dict, payload) -> dict:
         # da fare qui.
         message = client_ai.messages.create(
             model=AI_MODEL,
-            max_tokens=1024,
+            max_tokens=4096,
             system=system,
             tools=all_tools,  # type: ignore[arg-type]
             messages=messages,  # type: ignore[arg-type]
@@ -244,7 +261,7 @@ async def chat(service, user: dict, payload) -> dict:
                 # non i TypedDict esatti attesi dagli stub dell'SDK.
                 message = client_ai.messages.create(
                     model=AI_MODEL,
-                    max_tokens=1024,
+                    max_tokens=4096,
                     system=system,
                     tools=all_tools,  # type: ignore[arg-type]
                     messages=messages,  # type: ignore[arg-type]
@@ -262,7 +279,7 @@ async def chat(service, user: dict, payload) -> dict:
             if (
                 intended_tool
                 and intended_tool in crm_tool_names
-                and intended_tool not in tools_invoked
+                and acceptable_tools.isdisjoint(tools_invoked)
                 and not forced_attempt_used
             ):
                 forced_attempt_used = True
@@ -275,7 +292,7 @@ async def chat(service, user: dict, payload) -> dict:
                 # singoli argomenti.
                 message = client_ai.messages.create(  # type: ignore[call-overload]
                     model=AI_MODEL,
-                    max_tokens=1024,
+                    max_tokens=4096,
                     system=system,
                     tools=all_tools,
                     tool_choice={"type": "tool", "name": intended_tool},
@@ -296,7 +313,7 @@ async def chat(service, user: dict, payload) -> dict:
         # Ultima rete di sicurezza: se nonostante tutto l'azione richiesta
         # non risulta eseguita, non lasciamo passare un testo che sembra
         # una conferma di successo senza che lo sia davvero.
-        if intended_tool and intended_tool not in tools_invoked:
+        if intended_tool and acceptable_tools.isdisjoint(tools_invoked):
             logger.warning(
                 f"AI intent '{intended_tool}' rilevato ma mai eseguito per user {user['id']}"
             )

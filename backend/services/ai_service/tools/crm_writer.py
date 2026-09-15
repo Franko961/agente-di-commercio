@@ -3,6 +3,7 @@ import logging
 from core.utils import gen_id, local_wallclock_to_utc_iso, now_iso
 from models.employee import EmployeeIn
 from models.vehicle import VehicleIn
+from services.ai_service.catalog import MAX_BULK_LEADS
 from services.ai_service.tools.search import search_clients, search_offers
 from services.employee_service import employee_service
 from services.vehicle_service import vehicle_service
@@ -113,6 +114,47 @@ async def _add_lead(lead_repo, tool_input: dict, user_id: str) -> str:
     return f"✅ Lead '{doc['company_name']}' aggiunto alla pipeline."
 
 
+async def _add_leads(lead_repo, tool_input: dict, user_id: str) -> str:
+    """Bulk di _add_lead: un incolla-e-importa di più lead non deve
+    dipendere dal modello che azzecca N chiamate separate al tool singolo
+    dentro il budget di token di un turno — vedi la nota su add_lead più
+    sopra per il bug reale che ha motivato questo tool."""
+    items = tool_input.get("leads") or []
+    if not items:
+        return "❌ Nessun lead da aggiungere."
+    if len(items) > MAX_BULK_LEADS:
+        return (
+            f"❌ Troppi lead in una volta sola (massimo {MAX_BULK_LEADS}): "
+            "dividi la richiesta in più gruppi."
+        )
+    docs = []
+    names = []
+    for item in items:
+        company_name = item.get("company_name", "")
+        if not company_name:
+            continue
+        docs.append(
+            {
+                "id": gen_id(),
+                "user_id": user_id,
+                "company_name": company_name,
+                "contact_name": item.get("contact_name", ""),
+                "email": item.get("email", ""),
+                "phone": item.get("phone", ""),
+                "estimated_value": item.get("value", 0),
+                "notes": item.get("notes", ""),
+                "status": "nuovo",
+                "created_at": now_iso(),
+            }
+        )
+        names.append(company_name)
+    if not docs:
+        return "❌ Nessun lead valido da aggiungere (manca il nome azienda)."
+    await lead_repo.insert_many(docs)
+    elenco = ", ".join(names)
+    return f"✅ {len(docs)} lead aggiunti alla pipeline: {elenco}."
+
+
 async def _add_note_to_client(client_repo, tool_input: dict, user_id: str) -> str:
     client_name = tool_input.get("client_name", "")
     note = tool_input.get("note", "")
@@ -174,6 +216,9 @@ async def execute_crm_tool(
 
         elif tool_name == "add_lead":
             return await _add_lead(service.lead_repo, tool_input, user_id)
+
+        elif tool_name == "add_leads":
+            return await _add_leads(service.lead_repo, tool_input, user_id)
 
         elif tool_name == "add_note_to_client":
             return await _add_note_to_client(service.client_repo, tool_input, user_id)

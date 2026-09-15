@@ -477,6 +477,97 @@ def test_add_offer_non_scrive_subito_ma_richiede_conferma():
     assert "1500.00" in confirm_result["message"] or "1500" in confirm_result["message"]
 
 
+def test_add_leads_bulk_soddisfa_intent_lead_senza_forzatura_ridondante():
+    """Bug reale del 2026-09-15: un intent "lead" ora è soddisfatto sia da
+    add_lead sia dal nuovo tool bulk add_leads (INTENT_TOOL_ALIASES) — se
+    il modello chiama subito add_leads per una richiesta con più lead, non
+    deve scattare una forzatura extra che chiamerebbe anche add_lead
+    (creando un lead singolo ridondante/inventato)."""
+    responses = {
+        "responses": [
+            make_message(
+                [
+                    make_tool_use_block(
+                        "add_leads",
+                        {
+                            "leads": [
+                                {"company_name": "Bar Rossi"},
+                                {"company_name": "Trattoria Verdi"},
+                            ]
+                        },
+                        "tu_1",
+                    )
+                ],
+                stop_reason="tool_use",
+            ),
+            make_message(
+                [make_text_block("✅ 2 lead aggiunti alla pipeline.")],
+                stop_reason="end_turn",
+            ),
+        ]
+    }
+    install_fake_anthropic(responses)
+    service, client_repo = build_service()
+    # build_service() usa FakeSimpleRepo per lead_repo di default, che non
+    # traccia gli insert: qui serve verificare gli insert_many, quindi
+    # sostituiamo lead_repo con un fake dedicato.
+    service.lead_repo = FakeLeadRepo()
+
+    payload = Payload(
+        "inserisci questi dati come nuovi lead: Bar Rossi, Trattoria Verdi"
+    )
+    result = asyncio.run(service.chat(FAKE_USER, payload))
+
+    assert len(service.lead_repo.inserted_many or []) == 2
+    assert result["actions"] == [
+        "✅ 2 lead aggiunti alla pipeline: Bar Rossi, Trattoria Verdi."
+    ]
+
+
+def test_max_tokens_e_4096_non_1024():
+    """Regressione: un budget troppo stretto (1024) è la causa principale
+    del bug reale del 2026-09-15 — il modello ha 'raccontato' di aver
+    aggiunto 12 lead senza mai chiamare il tool, verosimilmente perché ha
+    esaurito il budget di output prima di riuscirci. Guardia contro un
+    futuro abbassamento silenzioso di questo valore."""
+    responses = {
+        "responses": [
+            make_message(
+                [make_text_block("Ecco i 3 clienti da visitare questa settimana...")],
+                stop_reason="end_turn",
+            ),
+        ]
+    }
+    created_clients = []
+    fake_module = types.ModuleType("anthropic")
+
+    def _Anthropic(api_key=None):
+        client = FakeAnthropicClient(responses["responses"])
+        created_clients.append(client)
+        return client
+
+    fake_module.Anthropic = _Anthropic
+    sys.modules["anthropic"] = fake_module
+
+    service, client_repo = build_service()
+
+    payload = Payload("quali clienti devo visitare questa settimana?")
+    asyncio.run(service.chat(FAKE_USER, payload))
+
+    assert len(created_clients) == 1
+    calls = created_clients[0].messages.calls
+    assert len(calls) == 1
+    assert calls[0]["max_tokens"] == 4096
+
+
+class FakeLeadRepo:
+    def __init__(self):
+        self.inserted_many = None
+
+    async def insert_many(self, docs):
+        self.inserted_many = docs
+
+
 if __name__ == "__main__":
     test_forza_tool_choice_quando_il_modello_racconta_senza_eseguire()
     print("OK: test 1 - forzatura funziona")
@@ -486,3 +577,7 @@ if __name__ == "__main__":
     print("OK: test 3 - nessuna forzatura indebita")
     test_add_offer_non_scrive_subito_ma_richiede_conferma()
     print("OK: test 4 - add_offer richiede conferma prima di scrivere")
+    test_add_leads_bulk_soddisfa_intent_lead_senza_forzatura_ridondante()
+    print("OK: test 5 - add_leads bulk soddisfa l'intent senza forzatura ridondante")
+    test_max_tokens_e_4096_non_1024()
+    print("OK: test 6 - max_tokens è 4096")
