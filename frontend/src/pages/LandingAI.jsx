@@ -8,12 +8,14 @@ import PageMeta from "@/components/PageMeta";
 import usePlans from "../hooks/usePlans";
 import { trackEvent } from "@/lib/analytics";
 
-// Pagina di atterraggio dedicata a campagne pubblicitarie sull'assistente AI
-// (la differenziazione più unica del prodotto), non collegata dalla
-// navigazione principale — si arriva solo da un link diretto o da un
-// annuncio. Header ridotto a logo + singola call-to-action (niente link di
-// navigazione che distraggono dalla conversione, a differenza di
-// PublicHeader usato dalle pagine raggiungibili dal menu).
+// Pagina dedicata all'assistente AI (la differenziazione più unica del
+// prodotto) — sia per campagne pubblicitarie sia raggiungibile dal menu
+// principale (PUBLIC_NAV_LINKS, vedi content/publicNavLinks.js). Header
+// ridotto a logo + singola call-to-action (niente link di navigazione che
+// distraggono dalla conversione, a differenza di PublicHeader usato dalle
+// altre pagine raggiungibili dal menu) — scelta mantenuta anche ora che la
+// pagina è linkata dal menu: chi ci arriva da lì resta comunque su un
+// percorso a singola azione una volta dentro.
 //
 // Ogni azione elencata sotto è una delle CRM_TOOLS realmente disponibili
 // all'assistente (vedi backend/services/ai_service.py): non abbiamo scritto
