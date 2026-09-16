@@ -32,3 +32,7 @@ export function getAdminHealth(hours) {
 export function getAuditLog(page = 1, limit = 50) {
   return api.get("/admin/audit-log", { params: { page, limit } }).then(({ data }) => data);
 }
+
+export function getPublicAiChatLogs(page = 1, limit = 50) {
+  return api.get("/admin/public-ai-chat-logs", { params: { page, limit } }).then(({ data }) => data);
+}

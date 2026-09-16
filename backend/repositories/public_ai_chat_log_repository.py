@@ -16,12 +16,17 @@ class PublicAiChatLogRepository:
         doc.pop("_id", None)
         return doc
 
-    async def find_many(self, limit: int = 200) -> list:
+    async def find_page(self, page: int = 1, limit: int = 50) -> list:
+        skip = (page - 1) * limit
         return (
             await self.collection.find({}, {"_id": 0})
             .sort("created_at", -1)
+            .skip(skip)
             .to_list(limit)
         )
+
+    async def count(self) -> int:
+        return await self.collection.count_documents({})
 
 
 public_ai_chat_log_repository = PublicAiChatLogRepository()

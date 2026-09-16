@@ -46,6 +46,16 @@ async def admin_audit_log(page: int = 1, limit: int = 50, admin=Depends(require_
     return await admin_service.get_audit_log(page, limit)
 
 
+@router.get("/admin/public-ai-chat-logs")
+async def admin_public_ai_chat_logs(
+    page: int = 1, limit: int = 50, admin=Depends(require_admin)
+):
+    """Domande fatte alla chat AI pubblica della homepage (vedi
+    routers/public_ai.py) — log anonimo, nessun collegamento a un utente o
+    IP (vedi public_ai_chat_log_repository)."""
+    return await admin_service.get_public_ai_chat_logs(page, limit)
+
+
 @router.get("/admin/users")
 async def admin_users(admin=Depends(require_admin), page: int = 1, limit: int = 50):
     return await admin_service.list_users(page, limit)

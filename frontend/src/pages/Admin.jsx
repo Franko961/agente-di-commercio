@@ -1,19 +1,21 @@
 import { useState } from "react";
-import { TrendingUp, Activity, ShieldCheck, Star } from "lucide-react";
+import { TrendingUp, Activity, ShieldCheck, Star, MessageCircle } from "lucide-react";
 import BusinessTab from "../components/admin/BusinessTab";
 import HealthTab from "../components/admin/HealthTab";
 import AuditTab from "../components/admin/AuditTab";
 import FeedbackTab from "../components/admin/FeedbackTab";
+import PublicAiChatTab from "../components/admin/PublicAiChatTab";
 
 const TABS = [
   { key: "business", label: "Business", icon: TrendingUp },
   { key: "salute", label: "Salute applicativa", icon: Activity },
   { key: "audit", label: "Audit log", icon: ShieldCheck },
   { key: "feedback", label: "Feedback", icon: Star },
+  { key: "chat-ai", label: "Chat AI pubblica", icon: MessageCircle },
 ];
 
 export default function Admin() {
-  const [tab, setTab] = useState("business"); // business | salute | audit | feedback
+  const [tab, setTab] = useState("business"); // business | salute | audit | feedback | chat-ai
 
   return (
     <div className="p-4 md:p-8">
@@ -41,6 +43,7 @@ export default function Admin() {
       {tab === "salute" && <HealthTab />}
       {tab === "audit" && <AuditTab />}
       {tab === "feedback" && <FeedbackTab />}
+      {tab === "chat-ai" && <PublicAiChatTab />}
     </div>
   );
 }
