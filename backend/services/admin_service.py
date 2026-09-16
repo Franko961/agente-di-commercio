@@ -11,6 +11,7 @@ from core.rate_limit import check_and_record
 from core.security import EXTRA_MODULE_KEYS, MODULE_KEYS, create_impersonation_token
 from models.admin import IMPERSONATION_CATEGORIES
 from repositories.admin_repository import admin_repository
+from repositories.public_ai_chat_log_repository import public_ai_chat_log_repository
 from repositories.user_repository import user_repository
 from services.gdpr_service import gdpr_service
 
@@ -266,6 +267,11 @@ class AdminService:
             .to_list(limit)
         )
         total = await db.admin_audit_log.count_documents({})
+        return {"entries": entries, "total": total, "page": page}
+
+    async def get_public_ai_chat_logs(self, page: int = 1, limit: int = 50) -> dict:
+        entries = await public_ai_chat_log_repository.find_page(page, limit)
+        total = await public_ai_chat_log_repository.count()
         return {"entries": entries, "total": total, "page": page}
 
 
