@@ -98,6 +98,13 @@ EXCLUDED_FROM_USER_SCOPED_COLLECTIONS = {
     # 24 mesi, stesso principio di demo_requests (vedi
     # CONTACT_REQUEST_RETENTION_DAYS in services/startup/cleanup_jobs.py).
     "contact_requests",
+    # Domande fatte alla chat AI pubblica della homepage (vedi
+    # routers/public_ai.py, senza autenticazione): il documento salvato è
+    # {id, domanda, risposta, created_at}, apposta SENZA IP né user_id (l'IP
+    # resta solo, con TTL, nel rate limiter — vedi core/rate_limit.py), quindi
+    # non c'è nessuna traccia da seguire per collegarlo a una persona o a un
+    # account SalesFly, né tantomeno un export/cancellazione account da fare.
+    "public_ai_chat_logs",
     # Lock distribuiti per i cicli periodici multi-replica (vedi
     # repositories/job_lock_repository.py): un documento per NOME DI JOB
     # tecnico (es. "demo_reset", "health_alert"), non per utente — nessun

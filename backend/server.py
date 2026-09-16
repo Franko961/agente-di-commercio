@@ -58,6 +58,7 @@ from routers.mandanti import router as mandanti_router
 from routers.offers import router as offers_router
 from routers.orders import router as orders_router
 from routers.products import router as products_router
+from routers.public_ai import router as public_ai_router
 from routers.route_planning import router as route_planning_router
 from routers.settings import router as settings_router
 from routers.subscription import router as subscription_router
@@ -195,6 +196,7 @@ app.include_router(leads_router)
 app.include_router(appointments_router)
 app.include_router(mandanti_router)
 app.include_router(products_router)
+app.include_router(public_ai_router)
 app.include_router(offers_router)
 app.include_router(commissions_router)
 app.include_router(documents_router)
