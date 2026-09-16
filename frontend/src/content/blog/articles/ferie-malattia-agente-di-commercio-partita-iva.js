@@ -23,7 +23,7 @@ const article = {
     { type: "h2", text: "La polizza ENASARCO che in pochi conoscono" },
     {
       type: "p",
-      text: "Dal 2022 ENASARCO ha attivato, insieme a EMAPI, una polizza infortuni e sanitaria gratuita per tutti gli agenti iscritti — attiva automaticamente, senza nessun modulo da compilare in anticipo. Copre gli infortuni sia durante l'attività lavorativa sia nel tempo libero, oltre a prestazioni di diagnostica radiologica e, entro certi massimali, alcuni interventi. Rivolgendosi alle strutture convenzionate con EMAPI non serve nemmeno anticipare la spesa per poi chiedere il rimborso.",
+      text: "ENASARCO garantisce a tutti gli agenti iscritti una copertura infortuni e un piano sanitario gratuiti — attivi automaticamente, senza nessun modulo da compilare in anticipo. La copertura infortuni è gestita direttamente da ENASARCO in autoassicurazione; il piano sanitario 2024-2027 è affidato a Hygeia Mutua Sanitaria, con le prestazioni erogate tramite la rete convenzionata UniSalute. Copre gli infortuni sia durante l'attività lavorativa sia nel tempo libero, oltre a prestazioni di diagnostica radiologica e, entro certi massimali, alcuni interventi. Rivolgendosi alle strutture convenzionate UniSalute non serve nemmeno anticipare la spesa per poi chiedere il rimborso.",
     },
     { type: "h2", text: "Fino a 2.000€ se ti fermi almeno 21 giorni consecutivi" },
     {

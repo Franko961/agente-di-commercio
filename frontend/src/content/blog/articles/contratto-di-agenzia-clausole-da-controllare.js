@@ -23,7 +23,7 @@ const article = {
     { type: "h2", text: "La clausola di star del credere" },
     {
       type: "p",
-      text: "Lo star del credere (art. 1746 c.c., terzo comma) è la clausola con cui l'agente garantisce, in tutto o in parte, la solvibilità di un cliente. La legge la limita in modo preciso: non può essere una clausola generale valida per l'intero portafoglio clienti, ma va pattuita caso per caso su clienti o categorie di clienti specificamente individuati, e il compenso aggiuntivo riconosciuto per accettarla non può superare il rischio di insolvenza effettivamente coperto. Un contratto che la prevede in forma generica, senza questi limiti, merita di essere rinegoziato prima della firma.",
+      text: "Lo star del credere (art. 1746 c.c., terzo comma) è la clausola con cui l'agente garantisce, in tutto o in parte, la solvibilità di un cliente. La legge la limita in modo preciso: non può essere una clausola generale valida per l'intero portafoglio clienti, ma va pattuita caso per caso su affari di natura e importo specificamente individuati, e l'obbligazione di garanzia a carico dell'agente — cioè quanto può essere chiamato a coprire in caso di insolvenza del cliente — non può comunque superare la provvigione dovuta per quello specifico affare, a fronte di un compenso aggiuntivo adeguato riconosciuto per aver accettato il rischio. Un contratto che la prevede in forma generica, senza questi limiti, merita di essere rinegoziato prima della firma.",
     },
     { type: "h2", text: "Durata e preavviso di recesso" },
     {
