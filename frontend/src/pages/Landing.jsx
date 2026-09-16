@@ -13,6 +13,7 @@ import PageMeta from "../components/PageMeta";
 import Reveal from "../components/Reveal";
 import { getPublicFeedback } from "../api/feedback";
 import { trackEvent } from "../lib/analytics";
+import PublicAiChat from "../components/PublicAiChat";
 
 const FEATURES = [
   { icon: Users, title: "Clienti & anagrafiche", desc: "Tutti i tuoi clienti, contatti e storico visite in un unico posto, sempre a portata di mano." },
@@ -383,6 +384,22 @@ export default function Landing() {
               ))}
             </div>
           </div>
+        </section>
+
+        {/* Chat AI pubblica: informativa, non collegata al CRM di nessun
+        utente (vedi PublicAiChat.jsx e public_ai_chat_service.py) — dà a chi
+        visita il sito una risposta reale invece di dover cercare nel testo
+        della pagina. */}
+        <section className="px-6 py-16 bg-white border-y border-[#E4E4E1]">
+          <h2 className="font-cabinet font-black text-3xl tracking-tight text-center mb-3">
+            Hai una domanda? Chiedila direttamente
+          </h2>
+          <p className="text-[14px] text-[#52525B] text-center mb-10 max-w-xl mx-auto">
+            Un assistente AI risponde subito su prezzi, funzionalità e come funziona SalesFly.
+          </p>
+          <Reveal>
+            <PublicAiChat />
+          </Reveal>
         </section>
 
         {/* How it works */}
