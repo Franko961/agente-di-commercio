@@ -6,6 +6,7 @@
 // indietro quando "Chi siamo" era stato aggiunto solo a PublicHeader.jsx) —
 // un solo posto da aggiornare elimina la possibilità che riaccada.
 export const PUBLIC_NAV_LINKS = [
+  { to: "/assistente-ai", label: "Assistente AI" },
   { to: "/blog", label: "Blog" },
   { to: "/calcolatori", label: "Calcolatori" },
   { to: "/tour", label: "Tour guidato" },
