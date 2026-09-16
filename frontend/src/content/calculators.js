@@ -34,7 +34,7 @@ export const CALCULATORS = {
     description:
       "Stima l'imposta sostitutiva nel regime forfettario per agenti di commercio, con il coefficiente di redditività del 62%.",
     component: lazy(() => import("@/components/RegimeForfettarioCalculator")),
-    articleSlug: null,
+    articleSlug: "regime-forfettario-agente-di-commercio",
   },
   scontoProvvigione: {
     slug: "sconto-provvigione",

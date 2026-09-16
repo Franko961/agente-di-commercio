@@ -39,7 +39,7 @@ const article = {
     },
     {
       type: "p",
-      text: "Una differenza pratica da tenere a mente: in regime forfettario il contributo ENASARCO resta dovuto per intero, ma — a differenza del regime ordinario — non è deducibile dal reddito imponibile ai fini del calcolo delle imposte, perché nel forfettario le imposte si calcolano su un coefficiente di redditività applicato al fatturato lordo, non sul reddito al netto dei costi reali.",
+      text: "Una precisazione importante: in regime forfettario i costi reali dell'attività (carburante, telefono, materiale promozionale...) non si deducono singolarmente — sono già \"coperti\" dal coefficiente di redditività applicato al fatturato lordo. I contributi previdenziali obbligatori fanno eccezione a questa regola: l'articolo 10 del TUIR (confermato dalla Circolare dell'Agenzia delle Entrate n. 10/2016 sul regime forfettario) li rende deducibili dal reddito imponibile anche per chi è forfettario, quindi anche il contributo ENASARCO a carico dell'agente. Resta comunque dovuto per intero — la deduzione riduce le imposte da pagare, non l'importo del contributo stesso. Il calcolo completo, con soglie e aliquote del regime forfettario, è nell'articolo dedicato qui sotto.",
     },
     {
       type: "calculator",
