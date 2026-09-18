@@ -36,6 +36,11 @@ export const THEME_RULES = [
   [(s) => s.includes("organizzare-settimana"), "AGENDA", "1531346852511-e39bf96dc721", "Vendita"],
   [(s) => s.includes("diventare-agente-di-commercio-requisiti"), "REQUISITI", "1562564055-71e051d33c19", "Guide"],
   [(s) => s.includes("differenza-agente-commercio-agente-sportivo"), "PROFESSIONI", "1533073526757-2c8ca1df9f1c", "Guide"],
+  // Va prima della regola generica "contratto" qui sotto, altrimenti lo
+  // slug "recesso-contratto-di-agenzia" (che contiene "contratto" come
+  // sottostringa) finirebbe con la stessa copertina/cluster dell'articolo
+  // sulle clausole contrattuali, pur trattando un argomento distinto.
+  [(s) => s.includes("recesso-contratto"), "RECESSO", "1763729805496-b5dbf7f00c79", "Guide"],
   [(s) => s.includes("contratto"), "CONTRATTI", "1450101499163-c8848c66ca85", "Guide"],
   [(s) => s.includes("excel"), "MIGRAZIONE", "1487017159836-4e23ece2e4cf", "Guide"],
   [(s) => s.includes("due-minuti"), "SETUP", "1449247709967-d4461a6a6103", "Guide"],
