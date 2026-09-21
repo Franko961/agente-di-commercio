@@ -17,6 +17,7 @@
 export const THEME_RULES = [
   [(s) => s.includes("rimborso-tasse") || s.includes("universita"), "STUDIO", "1541339907198-e08756dedf3f", "Fisco"],
   [(s) => s.includes("bonus-scolastico"), "FAMIGLIA", "1603367563698-67012943fd67", "Fisco"],
+  [(s) => s.includes("fattura-provvigioni"), "FATTURA", "1654263736203-a289f57c0d82", "Fisco"],
   [(s) => s.includes("ritenuta-acconto"), "RITENUTA", "1554224154-26032ffc0d07", "Fisco"],
   [(s) => s.includes("firr"), "INDENNITÀ", "1707157284454-553ef0a4ed0d", "Fisco"],
   [(s) => s.includes("deducibilita-fiscale-auto"), "AUTO", "1616805111996-e39d9a19e35c", "Fisco"],
