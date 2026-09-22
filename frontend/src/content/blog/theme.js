@@ -20,6 +20,7 @@ export const THEME_RULES = [
   [(s) => s.includes("fattura-provvigioni"), "FATTURA", "1654263736203-a289f57c0d82", "Fisco"],
   [(s) => s.includes("ritenuta-acconto"), "RITENUTA", "1554224154-26032ffc0d07", "Fisco"],
   [(s) => s.includes("firr"), "INDENNITÀ", "1707157284454-553ef0a4ed0d", "Fisco"],
+  [(s) => s.includes("costo-carburante"), "CARBURANTE", "1654334036171-e01e52b2ce8e", "Fisco"],
   [(s) => s.includes("deducibilita-fiscale-auto"), "AUTO", "1616805111996-e39d9a19e35c", "Fisco"],
   [(s) => s.includes("verifica-partita-iva-vies"), "FISCO UE", "1608817576136-0f3a56922823", "Fisco"],
   [(s) => s.includes("scadenze-fiscali"), "SCADENZE", "1611988615248-5d4f0b9ac31e", "Fisco"],
