@@ -37,9 +37,9 @@ const PAGES = {
     priority: "0.8",
   },
   "/richiedi-demo": {
-    title: "Richiedi la Demo — SALESFLY",
+    title: "Inizia la tua prova gratuita — SALESFLY",
     description:
-      "Richiedi l'accesso alla demo di SALESFLY, il CRM per Agenti di Commercio. Riceverai subito il link di accesso via email.",
+      "Crea il tuo account SALESFLY in meno di un minuto e provalo gratuitamente per 14 giorni, senza carta di credito.",
     changefreq: "monthly",
     priority: "0.8",
   },
