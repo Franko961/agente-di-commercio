@@ -38,7 +38,7 @@ export default function Privacy() {
 
         <section>
           <h2 className="font-bold text-base mb-1">2. Dati raccolti</h2>
-          <p>Attraverso il form "Richiedi la Demo" raccogliamo i seguenti dati personali:</p>
+          <p>Attraverso il form "Inizia la tua prova gratuita" raccogliamo i seguenti dati personali:</p>
           <ul className="list-disc pl-5 mt-1 space-y-0.5">
             <li>Nome e cognome</li>
             <li>Indirizzo email</li>

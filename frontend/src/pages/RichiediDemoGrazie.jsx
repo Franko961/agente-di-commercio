@@ -29,8 +29,8 @@ export default function RichiediDemoGrazie() {
     <div className="min-h-screen bg-[#F9F9F8] flex flex-col">
       <PageMeta
         path="/richiedi-demo/grazie"
-        title="Richiesta inviata — SALESFLY"
-        description="La tua richiesta di accesso alla demo di SALESFLY è stata inviata."
+        title="Account creato — SALESFLY"
+        description="Il tuo account SALESFLY è stato creato con la prova gratuita di 14 giorni."
         noindex
       />
 

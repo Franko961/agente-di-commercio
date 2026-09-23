@@ -82,10 +82,11 @@ export default function RichiediDemo() {
 
       <main className="flex-1 px-6 py-16 max-w-lg mx-auto w-full">
         <div className="text-center mb-8">
-          <h1 className="font-cabinet font-black text-3xl mb-2">Richiedi la Demo</h1>
+          <h1 className="font-cabinet font-black text-3xl mb-2">Inizia la tua prova gratuita</h1>
           <p className="text-[#52525B] text-sm">
-            Compila il form: riceverai subito via email un link per impostare la tua password e potrai
-            usare SALESFLY gratis per {trialDays} giorni.
+            Crea il tuo account in meno di un minuto.
+            <br />
+            Prova SALESFLY gratuitamente per {trialDays} giorni. Nessuna carta di credito.
           </p>
         </div>
 
@@ -153,7 +154,7 @@ export default function RichiediDemo() {
               <Link to="/privacy" target="_blank" className="underline text-[#0A192F]">
                 informativa sulla privacy
               </Link>{" "}
-              e acconsento al trattamento dei miei dati per ricevere l'accesso alla demo. *
+              e acconsento al trattamento dei miei dati per creare il mio account. *
             </span>
           </label>
 
@@ -176,7 +177,7 @@ export default function RichiediDemo() {
             disabled={busy}
             className="w-full bg-[#0A192F] text-white rounded-md py-2.5 text-sm font-medium disabled:opacity-60"
           >
-            {busy ? "Invio in corso…" : "Richiedi accesso alla demo"}
+            {busy ? "Creazione in corso…" : "Crea il mio account gratis"}
           </button>
 
           <p className="text-[11px] text-[#999] text-center">* Campi obbligatori</p>
