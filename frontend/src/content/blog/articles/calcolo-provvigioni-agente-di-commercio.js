@@ -6,9 +6,9 @@
 // (scripts/prerender.js), non serve più toccarli a mano.
 const article = {
   slug: "come-calcolare-provvigioni-agente-di-commercio",
-  title: "Come si calcolano le provvigioni di un agente di commercio",
+  title: "Calcolo delle provvigioni di un agente di commercio",
   description:
-    "Guida pratica al calcolo delle provvigioni per un agente di commercio plurimandatario: provvigione maturata e liquidata, scala provvigionale, note di credito.",
+    "Come si calcola la provvigione di un agente di commercio: percentuale sul netto (senza IVA, sconti e resi), quando matura e diventa esigibile, scala premi e storni.",
   publishedAt: "2026-07-21",
   draft: false,
   blocks: [

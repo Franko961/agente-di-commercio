@@ -1,8 +1,8 @@
 const article = {
   slug: "deducibilita-fiscale-auto-agenti-commercio",
-  title: "Deducibilità fiscale dell'auto per agenti di commercio: limiti e percentuali",
+  title: "Deducibilità auto agenti di commercio: 80% e IVA",
   description:
-    "L'auto è lo strumento di lavoro di ogni agente plurimandatario, e la legge lo riconosce: percentuali di deducibilità e limiti di costo più favorevoli della regola generale. Guida con le cifre 2026, ordinario e forfettario.",
+    "Auto dell'agente di commercio: costi deducibili all'80% ai fini IRPEF, IVA detraibile fino al 100%, limite di costo 25.822,84 €. Cosa cambia in regime forfettario.",
   publishedAt: "2026-09-01",
   draft: false,
   blocks: [
