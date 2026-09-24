@@ -46,11 +46,43 @@ export function isPublicPath(pathname) {
   return Object.prototype.hasOwnProperty.call(PAGES, pathname) || pathname.startsWith("/blog/");
 }
 
+// Traffico interno (il fondatore o chi testa il sito): visitando UNA volta
+// /?interno=1 da un browser, questo memorizza un flag in localStorage e da
+// quel momento né Google Analytics né PostHog vengono caricati su quel
+// browser, anche dopo aver accettato i cookie. /?interno=0 lo rimuove.
+// Perché non un filtro per IP in GA4: l'IP di chi naviga da Chrome con il
+// proxy di Google (googlezip.net) è un IP condiviso di Google, non il suo —
+// un filtro per IP sarebbe inutile e rischierebbe di escludere visitatori
+// veri. Il flag va letto subito all'import del modulo (non al caricamento
+// di GA/PostHog): a quel punto il parametro nell'URL potrebbe essere già
+// sparito dopo una navigazione della SPA.
+const INTERNAL_TRAFFIC_KEY = "sf_traffico_interno";
+
+function syncInternalTrafficFlag() {
+  try {
+    const param = new URLSearchParams(window.location.search).get("interno");
+    if (param === "1") localStorage.setItem(INTERNAL_TRAFFIC_KEY, "1");
+    else if (param === "0") localStorage.removeItem(INTERNAL_TRAFFIC_KEY);
+  } catch {
+    // localStorage non disponibile (navigazione privata, blocco cookie): nessun flag.
+  }
+}
+
+export function isInternalTraffic() {
+  try {
+    return localStorage.getItem(INTERNAL_TRAFFIC_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+if (typeof window !== "undefined") syncInternalTrafficFlag();
+
 let googleAnalyticsLoaded = false;
 let postHogLoaded = false;
 
 export function loadGoogleAnalytics() {
-  if (googleAnalyticsLoaded || typeof window === "undefined") return;
+  if (googleAnalyticsLoaded || typeof window === "undefined" || isInternalTraffic()) return;
   googleAnalyticsLoaded = true;
 
   const script = document.createElement("script");
@@ -67,7 +99,7 @@ export function loadGoogleAnalytics() {
 }
 
 export function loadPostHog() {
-  if (postHogLoaded || typeof window === "undefined") return;
+  if (postHogLoaded || typeof window === "undefined" || isInternalTraffic()) return;
   postHogLoaded = true;
 
   // Snippet ufficiale PostHog (invariato rispetto a quello prima incollato
