@@ -35,7 +35,11 @@ const article = {
     },
     {
       type: "p",
-      text: "Il mandante può sottrarsi solo dimostrando che il ritardo dipende da una causa a lui non imputabile (art. 3). Le clausole che escludono gli interessi di mora sono considerate gravemente inique e quindi nulle (art. 7). In pratica: già dal 1° maggio, sul pagamento del primo trimestre, corrono interessi a un tasso molto più alto di quello legale ordinario, anche se nessuno ha ancora scritto una riga.",
+      text: "Il mandante può sottrarsi solo dimostrando che il ritardo dipende da una causa a lui non imputabile (art. 3). Le clausole che escludono gli interessi di mora sono considerate gravemente inique e quindi nulle (art. 7). In pratica, secondo il decreto: già dal 1° maggio, sul pagamento del primo trimestre, corrono interessi a un tasso molto più alto di quello legale ordinario, anche se nessuno ha ancora scritto una riga.",
+    },
+    {
+      type: "p",
+      text: "Un'avvertenza sul contratto: l'Accordo economico collettivo del settore commercio (testo unico del 16 febbraio 2009, art. 7), se si applica al rapporto, prevede gli interessi al tasso del D.Lgs. 231/2002 quando il pagamento è in ritardo di oltre quindici giorni rispetto al termine, e in quel caso per tutti i giorni di ritardo. Il decreto, da parte sua, non prevede alcun periodo di tolleranza. Quale disciplina richiama il proprio contratto va quindi verificato: in caso di dubbio su quale si applichi, è una domanda per un legale o per l'associazione di categoria.",
     },
     { type: "h2", text: "Secondo passo: la diffida scritta" },
     {
