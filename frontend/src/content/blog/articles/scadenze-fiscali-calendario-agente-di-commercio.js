@@ -28,7 +28,7 @@ const article = {
     { type: "h2", text: "ENASARCO: scadenze del mandante, ma da tenere sotto controllo" },
     {
       type: "p",
-      text: "I contributi ENASARCO si versano trimestralmente — 20 maggio, 20 agosto, 20 novembre e 20 febbraio dell'anno successivo, uno per ogni trimestre di competenza — ma il versamento lo effettua materialmente il mandante, non l'agente direttamente: la quota a tuo carico (8,5% del 17% totale) viene trattenuta in fattura e versata insieme alla quota del mandante. Non è quindi una scadenza da rispettare in prima persona, ma vale la pena segnarla: è il momento giusto per controllare nell'area riservata del sito ENASARCO che il versamento di ogni mandante sia arrivato regolarmente, invece di accorgersene anni dopo.",
+      text: "I contributi ENASARCO si versano trimestralmente — 20 maggio, 20 agosto, 20 novembre e 20 febbraio dell'anno successivo, uno per ogni trimestre di competenza — ma il versamento lo effettua materialmente il mandante, non l'agente direttamente: la quota a tuo carico (8,5% del 17% totale) viene trattenuta in fattura e versata insieme alla quota del mandante. Non è quindi una scadenza da rispettare in prima persona, ma vale la pena segnarla: è il momento giusto per controllare nell'area riservata del sito ENASARCO che il versamento di ogni mandante sia arrivato regolarmente, invece di accorgersene anni dopo. Come funzionano contributi e versamenti è spiegato in [ENASARCO: cos'è e come funziona](/blog/enasarco-cos-e-come-funziona).",
     },
     {
       type: "ul",

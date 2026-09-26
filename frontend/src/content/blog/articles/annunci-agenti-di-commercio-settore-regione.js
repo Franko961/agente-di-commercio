@@ -36,7 +36,7 @@ const article = {
     },
     {
       type: "p",
-      text: "Il resto — durata del contratto, preavviso, eventuale star del credere — va verificato nel contratto vero e proprio prima della firma, non fidandosi del solo annuncio: ne parliamo nel dettaglio nell'articolo dedicato alle clausole del contratto di agenzia qui sotto.",
+      text: "Il resto — durata del contratto, preavviso, eventuale star del credere — va verificato nel contratto vero e proprio prima della firma, non fidandosi del solo annuncio: ne parliamo nel dettaglio nell'[articolo dedicato alle clausole del contratto di agenzia](/blog/contratto-di-agenzia-clausole-da-controllare).",
     },
     {
       type: "cta",

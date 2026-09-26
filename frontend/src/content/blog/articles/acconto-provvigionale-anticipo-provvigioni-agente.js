@@ -19,7 +19,7 @@ const article = {
     {
       type: "ul",
       items: [
-        "Provvigione maturata: spetta all'agente perché l'affare si è concluso e il diritto è sorto (art. 1748 c.c.). Non va restituita salvo i casi limitati dello storno, spiegati nell'articolo dedicato.",
+        "Provvigione maturata: spetta all'agente perché l'affare si è concluso e il diritto è sorto (art. 1748 c.c.). Non va restituita salvo i casi limitati dello storno, spiegati nell'[articolo dedicato](/blog/storno-provvigioni-mancato-incasso).",
         "Acconto provvigionale: somma pagata prima che la provvigione sia maturata. È un anticipo su un diritto ancora incerto.",
         "Minimo garantito o compenso fisso: se il contratto lo prevede come compenso e non come anticipo, ha una natura diversa. La differenza decide se la somma va restituita, quindi va scritta chiaramente nel mandato.",
       ],
@@ -57,7 +57,7 @@ const article = {
     { type: "h2", text: "L'aspetto fiscale: anche l'anticipo si fattura" },
     {
       type: "p",
-      text: "In materia di IVA, le prestazioni di servizi si considerano effettuate al pagamento del corrispettivo (art. 6 DPR 633/1972), e un acconto ricevuto rende l'operazione effettuata per l'importo pagato. Per l'agente significa che ricevere un anticipo provvigionale impone di emettere fattura per quell'importo: la logica è la stessa spiegata nell'articolo sulla fattura delle provvigioni. Su come si trattino ritenuta d'acconto e contributo ENASARCO su un anticipo, e su come si sistemi la posizione se poi va restituito, conviene chiedere al proprio commercialista: dipende dal regime fiscale e dai casi concreti.",
+      text: "In materia di IVA, le prestazioni di servizi si considerano effettuate al pagamento del corrispettivo (art. 6 DPR 633/1972), e un acconto ricevuto rende l'operazione effettuata per l'importo pagato. Per l'agente significa che ricevere un anticipo provvigionale impone di emettere fattura per quell'importo: la logica è la stessa spiegata nell'[articolo sulla fattura delle provvigioni](/blog/fattura-provvigioni-agente-di-commercio). Su come si trattino ritenuta d'acconto e contributo ENASARCO su un anticipo, e su come si sistemi la posizione se poi va restituito, conviene chiedere al proprio commercialista: dipende dal regime fiscale e dai casi concreti.",
     },
     { type: "h2", text: "Cosa controllare nel contratto" },
     {

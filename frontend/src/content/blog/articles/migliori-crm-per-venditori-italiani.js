@@ -65,7 +65,7 @@ const article = {
     { type: "h2", text: "HubSpot" },
     {
       type: "p",
-      text: "HubSpot merita una menzione a parte: è un CRM generalista molto completo, con un piano gratuito e una linea a pagamento (Sales Hub) a prezzo per utente. Lo abbiamo confrontato in dettaglio, prezzi alla mano, in un articolo dedicato: leggi \"SalesFly vs HubSpot: quale CRM per un agente di commercio plurimandatario\" per l'analisi completa.",
+      text: "HubSpot merita una menzione a parte: è un CRM generalista molto completo, con un piano gratuito e una linea a pagamento (Sales Hub) a prezzo per utente. Lo abbiamo confrontato in dettaglio, prezzi alla mano, in un [articolo dedicato](/blog/salesfly-vs-hubspot-agenti-di-commercio): leggi \"SalesFly vs HubSpot: quale CRM per un agente di commercio plurimandatario\" per l'analisi completa.",
     },
     { type: "h2", text: "Cosa cercare davvero, se sei un agente plurimandatario" },
     {

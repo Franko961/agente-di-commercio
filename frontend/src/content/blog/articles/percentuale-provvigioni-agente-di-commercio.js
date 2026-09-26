@@ -35,9 +35,9 @@ const article = {
       items: [
         "Su quali affari spetta: clienti già acquisiti e zona riservata (art. 1748, secondo comma) possono dare diritto alla provvigione anche senza l'intervento dell'agente, salvo patto contrario. Un contratto che li esclude riduce di fatto quello che la percentuale vale.",
         "Ordini non confermati: secondo l'accordo del commercio, ai soli fini del diritto alla provvigione le proposte d'ordine non confermate per iscritto dal mandante entro 60 giorni dal ricevimento si intendono accettate per intero.",
-        "Scala premi: percentuali crescenti al superamento di soglie di fatturato, applicate solo alla parte eccedente o all'intero importo. Il funzionamento è spiegato nell'articolo sulle provvigioni scalari a target.",
+        "Scala premi: percentuali crescenti al superamento di soglie di fatturato, applicate solo alla parte eccedente o all'intero importo. Il funzionamento è spiegato nell'[articolo sulle provvigioni scalari a target](/blog/provvigioni-scalari-a-target).",
         "Tempi di pagamento e anticipi: la provvigione va liquidata entro l'ultimo giorno del mese successivo al trimestre di maturazione (art. 1749). Se previsti dal mandato, gli anticipi provvigionali, secondo l'accordo del commercio, sono pagati nella misura del 50% della provvigione per gli affari con esecuzione entro 90 giorni e del 35% per quelli oltre i 90 giorni.",
-        "Spese a carico dell'agente: l'agente non ha diritto al rimborso delle spese di agenzia (art. 1748, ultimo comma), e l'accordo del commercio aggiunge che un eventuale rimborso pattuito non può mai essere in forma percentuale. Carburante e viaggi restano un costo dell'agente, di cui si parla nell'articolo dedicato.",
+        "Spese a carico dell'agente: l'agente non ha diritto al rimborso delle spese di agenzia (art. 1748, ultimo comma), e l'accordo del commercio aggiunge che un eventuale rimborso pattuito non può mai essere in forma percentuale. Carburante e viaggi restano un costo dell'agente, di cui si parla nell'[articolo dedicato](/blog/costo-carburante-agente-di-commercio).",
       ],
     },
     { type: "h2", text: "Un esempio: la percentuale più alta non è sempre la più conveniente" },

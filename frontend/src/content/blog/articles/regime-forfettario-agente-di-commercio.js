@@ -42,7 +42,7 @@ const article = {
     },
     {
       type: "p",
-      text: "Per due argomenti specifici legati al regime forfettario — la deducibilità dell'auto e il funzionamento di ritenuta d'acconto ed ENASARCO in fattura — trovi le guide dedicate, con calcolatore, qui sotto tra gli articoli collegati: questa pagina non li ripete, mette solo in ordine il quadro generale del regime.",
+      text: "Per due argomenti specifici legati al regime forfettario — la [deducibilità dell'auto](/blog/deducibilita-fiscale-auto-agenti-commercio) e il funzionamento di [ritenuta d'acconto ed ENASARCO in fattura](/blog/ritenuta-acconto-contributi-enasarco-fattura) — trovi le guide dedicate (la seconda con calcolatore): questa pagina non li ripete, mette solo in ordine il quadro generale del regime.",
     },
     {
       type: "cta",

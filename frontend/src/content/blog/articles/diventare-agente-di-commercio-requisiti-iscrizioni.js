@@ -36,7 +36,7 @@ const article = {
     { type: "h2", text: "L'iscrizione ENASARCO" },
     {
       type: "p",
-      text: "Parallelamente, va attivata la posizione previdenziale presso ENASARCO — obbligatoria per chiunque operi in base a un contratto di agenzia, agente e mandante insieme, uno per ciascun rapporto in corso. Come funzionano contributi, aliquote e scadenze di versamento è l'argomento dell'articolo dedicato a cos'è e come funziona ENASARCO: qui vale la pena ricordare solo che l'iscrizione ENASARCO non sostituisce quella al Registro Imprese, sono due adempimenti distinti e ugualmente obbligatori, non alternativi.",
+      text: "Parallelamente, va attivata la posizione previdenziale presso ENASARCO — obbligatoria per chiunque operi in base a un contratto di agenzia, agente e mandante insieme, uno per ciascun rapporto in corso. Come funzionano contributi, aliquote e scadenze di versamento è l'argomento dell'[articolo dedicato a cos'è e come funziona ENASARCO](/blog/enasarco-cos-e-come-funziona): qui vale la pena ricordare solo che l'iscrizione ENASARCO non sostituisce quella al Registro Imprese, sono due adempimenti distinti e ugualmente obbligatori, non alternativi.",
     },
     { type: "h2", text: "Cosa si rischia senza i requisiti in regola" },
     {

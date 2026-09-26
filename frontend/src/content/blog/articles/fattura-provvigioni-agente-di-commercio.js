@@ -29,7 +29,7 @@ const article = {
     },
     {
       type: "p",
-      text: "Due dettagli che generano errori. Primo: ENASARCO non riduce la base su cui si calcola l'IVA, perché non è un corrispettivo ma una trattenuta operata dal mandante. Secondo: ritenuta ed ENASARCO sono importi che il mandante versa per conto dell'agente (il fisco e l'ente previdenziale), quindi si sottraggono dal totale in basso, non dall'imponibile. Le aliquote e le condizioni della base ridotta sono spiegate nell'articolo dedicato alla ritenuta d'acconto.",
+      text: "Due dettagli che generano errori. Primo: ENASARCO non riduce la base su cui si calcola l'IVA, perché non è un corrispettivo ma una trattenuta operata dal mandante. Secondo: ritenuta ed ENASARCO sono importi che il mandante versa per conto dell'agente (il fisco e l'ente previdenziale), quindi si sottraggono dal totale in basso, non dall'imponibile. Le aliquote e le condizioni della base ridotta sono spiegate nell'[articolo dedicato alla ritenuta d'acconto](/blog/ritenuta-acconto-contributi-enasarco-fattura).",
     },
     { type: "h2", text: "Un esempio: provvigione di 1.000 euro in regime ordinario" },
     {
@@ -45,12 +45,12 @@ const article = {
     },
     {
       type: "p",
-      text: "L'agente incassa 1.020 euro, ma il ricavo su cui pagherà le imposte resta 1.000: la ritenuta di 115 euro è un acconto sull'imposta dell'anno, si recupera in dichiarazione, e l'IVA di 220 euro entra nelle liquidazioni IVA. Il calcolatore nell'articolo sulla ritenuta permette di provare importi diversi.",
+      text: "L'agente incassa 1.020 euro, ma il ricavo su cui pagherà le imposte resta 1.000: la ritenuta di 115 euro è un acconto sull'imposta dell'anno, si recupera in dichiarazione, e l'IVA di 220 euro entra nelle liquidazioni IVA. Il calcolatore nell'[articolo sulla ritenuta](/blog/ritenuta-acconto-contributi-enasarco-fattura) permette di provare importi diversi.",
     },
     { type: "h2", text: "In regime forfettario: una fattura più leggera" },
     {
       type: "p",
-      text: "Con la stessa provvigione di 1.000 euro, in regime forfettario la fattura non riporta IVA e non applica ritenuta d'acconto. Resta il contributo ENASARCO (8,5%, quindi 85 euro), sempre dovuto e sempre esposto: il netto è 915 euro. Se l'importo supera 77,47 euro, sulla fattura va assolta l'imposta di bollo da 2 euro, di norma addebitata al mandante in fattura. Vanno inoltre inserite le diciture di legge sul regime e sull'esenzione dalla ritenuta, riportate nell'articolo sulla ritenuta d'acconto.",
+      text: "Con la stessa provvigione di 1.000 euro, in regime forfettario la fattura non riporta IVA e non applica ritenuta d'acconto. Resta il contributo ENASARCO (8,5%, quindi 85 euro), sempre dovuto e sempre esposto: il netto è 915 euro. Se l'importo supera 77,47 euro, sulla fattura va assolta l'imposta di bollo da 2 euro, di norma addebitata al mandante in fattura. Vanno inoltre inserite le diciture di legge sul regime e sull'esenzione dalla ritenuta, riportate nell'[articolo sulla ritenuta d'acconto](/blog/ritenuta-acconto-contributi-enasarco-fattura).",
     },
     { type: "h2", text: "Sempre in formato elettronico" },
     {

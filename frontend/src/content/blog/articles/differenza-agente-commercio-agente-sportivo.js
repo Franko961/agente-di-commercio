@@ -21,7 +21,7 @@ const article = {
     { type: "h2", text: "Come si diventa l'uno o l'altro" },
     {
       type: "p",
-      text: "Qui la differenza è più netta di quanto sembri. Per diventare agente di commercio non esiste un esame nazionale con commissione: bastano i requisiti morali e uno dei tre requisiti professionali alternativi previsti dalla Legge 204/1985 (un titolo di studio specifico, un corso regionale abilitante, o due anni di esperienza documentata negli ultimi cinque), poi l'iscrizione al Registro Imprese tramite ComUnica e la registrazione ENASARCO — ne parliamo nel dettaglio nell'articolo dedicato qui sotto.",
+      text: "Qui la differenza è più netta di quanto sembri. Per diventare agente di commercio non esiste un esame nazionale con commissione: bastano i requisiti morali e uno dei tre requisiti professionali alternativi previsti dalla Legge 204/1985 (un titolo di studio specifico, un corso regionale abilitante, o due anni di esperienza documentata negli ultimi cinque), poi l'iscrizione al Registro Imprese tramite ComUnica e la registrazione ENASARCO — ne parliamo nel dettaglio nell'[articolo su come diventare agente di commercio](/blog/diventare-agente-di-commercio-requisiti-iscrizioni).",
     },
     {
       type: "p",

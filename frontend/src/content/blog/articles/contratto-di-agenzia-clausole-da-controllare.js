@@ -38,7 +38,7 @@ const article = {
     { type: "h2", text: "Indennità di fine rapporto" },
     {
       type: "p",
-      text: "Alla cessazione del contratto, se non imputabile a un grave inadempimento dell'agente, spetta un'indennità (art. 1751 c.c.) calcolata secondo criteri che possono seguire il metodo del codice civile o quello, spesso meno favorevole, degli Accordi Economici Collettivi — la differenza tra i due può essere significativa, ed è un punto su cui è meglio informarsi prima di firmare, non al momento della cessazione. Per la parte previdenziale collegata (il FIRR gestito da ENASARCO), l'argomento è approfondito nell'articolo dedicato a ENASARCO.",
+      text: "Alla cessazione del contratto, se non imputabile a un grave inadempimento dell'agente, spetta un'indennità (art. 1751 c.c.) calcolata secondo criteri che possono seguire il metodo del codice civile o quello, spesso meno favorevole, degli Accordi Economici Collettivi — la differenza tra i due può essere significativa, ed è un punto su cui è meglio informarsi prima di firmare, non al momento della cessazione. Per la parte previdenziale collegata (il [FIRR](/blog/firr-agenti-commercio-calcolo-indennita) gestito da ENASARCO), l'argomento è approfondito nell'[articolo dedicato a ENASARCO](/blog/enasarco-cos-e-come-funziona).",
     },
     {
       type: "p",

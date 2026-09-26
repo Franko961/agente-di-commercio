@@ -37,7 +37,7 @@ const article = {
     { type: "h2", text: "L'agente non risponde dell'insolvenza del cliente" },
     {
       type: "p",
-      text: "Un'ultima tutela, spesso ignorata: al di fuori dei casi visti sopra, è vietato un patto che ponga a carico dell'agente una responsabilità generale per l'inadempimento del cliente finale. L'unica eccezione ammessa dalla legge è lo star del credere (art. 1746 c.c.) — una garanzia specifica, limitata e retribuita a parte, non un modo per scaricare genericamente il rischio di credito sull'agente. Ne parliamo nel dettaglio, insieme alle altre clausole da controllare in un contratto di agenzia, nell'articolo qui sotto.",
+      text: "Un'ultima tutela, spesso ignorata: al di fuori dei casi visti sopra, è vietato un patto che ponga a carico dell'agente una responsabilità generale per l'inadempimento del cliente finale. L'unica eccezione ammessa dalla legge è lo star del credere (art. 1746 c.c.) — una garanzia specifica, limitata e retribuita a parte, non un modo per scaricare genericamente il rischio di credito sull'agente. Ne parliamo nel dettaglio, insieme alle altre clausole da controllare in un contratto di agenzia, nell'[articolo sulle clausole del contratto di agenzia](/blog/contratto-di-agenzia-clausole-da-controllare).",
     },
     {
       type: "cta",

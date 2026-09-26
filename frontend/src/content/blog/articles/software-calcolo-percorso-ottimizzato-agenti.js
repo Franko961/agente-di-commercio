@@ -8,7 +8,7 @@ const article = {
   blocks: [
     {
       type: "p",
-      text: "Quando un software propone l'ordine di visita \"ottimizzato\" per una lista di clienti, cosa sta calcolando davvero, e quanto ci si può fidare? Non è un dettaglio da addetti ai lavori: capire come funziona l'algoritmo aiuta a capire perché il risultato è affidabile anche senza essere, in senso stretto, il percorso matematicamente perfetto. Di come pianificare in pratica il giro visite — punto di partenza, orari stimati, indirizzi sospetti — parliamo nell'articolo dedicato qui sotto; qui ci concentriamo su un solo punto: cosa succede dietro al pulsante \"ottimizza\".",
+      text: "Quando un software propone l'ordine di visita \"ottimizzato\" per una lista di clienti, cosa sta calcolando davvero, e quanto ci si può fidare? Non è un dettaglio da addetti ai lavori: capire come funziona l'algoritmo aiuta a capire perché il risultato è affidabile anche senza essere, in senso stretto, il percorso matematicamente perfetto. Di come pianificare in pratica il giro visite — punto di partenza, orari stimati, indirizzi sospetti — parliamo nell'[articolo sul giro visite](/blog/pianificare-giro-visite-agente-di-commercio); qui ci concentriamo su un solo punto: cosa succede dietro al pulsante \"ottimizza\".",
     },
     { type: "h2", text: "Perché il percorso \"perfetto\" è impossibile da calcolare" },
     {

@@ -47,7 +47,7 @@ const article = {
     },
     {
       type: "p",
-      text: "In sintesi: le percentuali più favorevoli riservate agli agenti di commercio (80% IRPEF, fino al 100% IVA) sono un vantaggio reale, ma solo per chi è in regime ordinario — è uno dei fattori concreti da mettere sul piatto quando si valuta se restare o passare al forfettario, insieme al discorso sulla ritenuta d'acconto trattato nell'articolo dedicato qui sotto.",
+      text: "In sintesi: le percentuali più favorevoli riservate agli agenti di commercio (80% IRPEF, fino al 100% IVA) sono un vantaggio reale, ma solo per chi è in regime ordinario — è uno dei fattori concreti da mettere sul piatto quando si valuta se restare o passare al forfettario, insieme al discorso sulla ritenuta d'acconto trattato nell'[articolo sulla ritenuta d'acconto e ENASARCO](/blog/ritenuta-acconto-contributi-enasarco-fattura).",
     },
     {
       type: "cta",
