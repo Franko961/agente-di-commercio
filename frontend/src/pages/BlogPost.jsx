@@ -77,6 +77,42 @@ function renderBlock(block, i, articleSlug) {
           ))}
         </ul>
       );
+    case "table":
+      // Tabella di confronto: block.head = intestazioni, block.rows = righe di
+      // celle (testo, con la stessa sintassi di link dei paragrafi). Scorre in
+      // orizzontale sotto i 640px invece di allargare la pagina.
+      return (
+        <div key={i} className="my-6 overflow-x-auto rounded-xl border border-[#E4E4E1] bg-white">
+          <table className="w-full min-w-[520px] text-left text-[14px] text-[#3F3F46]">
+            <thead className="bg-[#F1F1EE] text-[13px] text-[#0A192F]">
+              <tr>
+                {block.head.map((h, j) => (
+                  <th key={j} scope="col" className="px-4 py-3 font-bold">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {block.rows.map((row, r) => (
+                <tr key={r} className="border-t border-[#E4E4E1] align-top">
+                  {row.map((cell, c) =>
+                    c === 0 ? (
+                      <th key={c} scope="row" className="px-4 py-3 font-semibold text-[#0A192F]">
+                        {renderInline(cell, articleSlug)}
+                      </th>
+                    ) : (
+                      <td key={c} className="px-4 py-3">
+                        {renderInline(cell, articleSlug)}
+                      </td>
+                    ),
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
     case "cta":
       return (
         <div
