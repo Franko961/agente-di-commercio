@@ -10,6 +10,34 @@ import PublicFooter from "@/components/PublicFooter";
 import PageMeta from "@/components/PageMeta";
 import { trackEvent } from "@/lib/analytics";
 
+// Link interni dentro paragrafi e liste con la sintassi [testo](/percorso):
+// solo percorsi interni (devono iniziare con "/"), così un refuso non può
+// trasformarsi in un link esterno. Un testo senza questa sintassi torna
+// identico, quindi gli articoli esistenti non cambiano.
+const INLINE_LINK = /\[([^\]]+)\]\((\/[^)\s]*)\)/g;
+
+function renderInline(text, articleSlug) {
+  const parts = [];
+  let last = 0;
+  for (const m of text.matchAll(INLINE_LINK)) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    parts.push(
+      <Link
+        key={m.index}
+        to={m[2]}
+        onClick={() => trackEvent("blog_inline_link_click", { from: articleSlug, to: m[2] })}
+        className="text-[#B23E00] underline underline-offset-2 hover:text-[#0A192F]"
+      >
+        {m[1]}
+      </Link>,
+    );
+    last = m.index + m[0].length;
+  }
+  if (last === 0) return text;
+  if (last < text.length) parts.push(text.slice(last));
+  return parts;
+}
+
 function renderBlock(block, i, articleSlug) {
   switch (block.type) {
     case "calculator": {
@@ -45,7 +73,7 @@ function renderBlock(block, i, articleSlug) {
       return (
         <ul key={i} className="list-disc pl-5 space-y-2 my-4 text-[15px] text-[#3F3F46]">
           {block.items.map((item, j) => (
-            <li key={j}>{item}</li>
+            <li key={j}>{renderInline(item, articleSlug)}</li>
           ))}
         </ul>
       );
@@ -82,7 +110,7 @@ function renderBlock(block, i, articleSlug) {
     default:
       return (
         <p key={i} className="text-[15px] leading-relaxed text-[#3F3F46] mb-4">
-          {block.text}
+          {renderInline(block.text, articleSlug)}
         </p>
       );
   }

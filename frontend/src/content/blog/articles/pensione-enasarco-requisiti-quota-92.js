@@ -36,6 +36,10 @@ const article = {
       ],
     },
     {
+      type: "p",
+      text: "Perché la propria storia contributiva sia completa serve che ogni rapporto di agenzia sia stato registrato: come [verificare che il mandante abbia iscritto l'agente](/blog/iscrizione-enasarco-obbligo-mandante-agente) è spiegato in un articolo a parte. Per capire quanto contributo si versa ogni anno per ciascun rapporto, ci sono i [valori di minimale e massimale 2026](/blog/enasarco-minimali-massimali-2026); l'indennità che matura alla fine del rapporto è un'altra cosa ed è il [FIRR](/blog/firr-agenti-commercio-calcolo-indennita).",
+    },
+    {
       type: "cta",
       title: "Le provvigioni di ogni mandante, anno dopo anno",
       text: "In SalesFly ogni provvigione resta collegata al mandante e alla data in cui è maturata — utile quando arriva il momento di ricostruire la propria storia contributiva con ENASARCO.",

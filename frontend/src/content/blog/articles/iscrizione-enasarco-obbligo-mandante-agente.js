@@ -23,7 +23,7 @@ const article = {
     { type: "h2", text: "Perché conviene verificarlo comunque" },
     {
       type: "p",
-      text: "Il fatto che l'obbligo non sia tuo non significa che l'errore di un mandante non ricada su di te. Se un rapporto non risulta registrato, le provvigioni di quel mandante non generano contribuzione — niente accantonamento FIRR, niente montante ai fini della pensione ENASARCO, per tutto il periodo in cui il rapporto resta fuori dal sistema. È un problema che in genere si nota solo molto più avanti (quando si controlla il montante pensionistico, o alla cessazione del rapporto), non nell'immediato — motivo in più per controllare prima, non dopo.",
+      text: "Il fatto che l'obbligo non sia tuo non significa che l'errore di un mandante non ricada su di te. Se un rapporto non risulta registrato, le provvigioni di quel mandante non generano contribuzione — niente accantonamento [FIRR](/blog/firr-agenti-commercio-calcolo-indennita), niente montante ai fini della [pensione ENASARCO](/blog/pensione-enasarco-requisiti-quota-92), per tutto il periodo in cui il rapporto resta fuori dal sistema. È un problema che in genere si nota solo molto più avanti (quando si controlla il montante pensionistico, o alla cessazione del rapporto), non nell'immediato — motivo in più per controllare prima, non dopo.",
     },
     { type: "h2", text: "Cosa controllare, e cosa fare se manca" },
     {
@@ -34,6 +34,10 @@ const article = {
         "Se un rapporto non risulta, il primo passo è segnalarlo direttamente al mandante — è nel suo interesse sistemarlo prima che la sanzione diventi un problema anche per lui.",
         "Se il mandante non risponde o il problema persiste, ENASARCO ha un servizio di assistenza dedicato agli agenti (help.agenti@enasarco.it) per segnalare rapporti mancanti.",
       ],
+    },
+    {
+      type: "p",
+      text: "Con più mandanti il controllo va ripetuto per ciascuno di essi, perché ogni rapporto di agenzia ha la sua registrazione e i suoi versamenti: per l'impostazione generale vedi [gestire più mandanti in un solo CRM](/blog/gestire-piu-mandanti-crm). Il quadro completo di cosa sia ENASARCO è in [ENASARCO: cos'è e come funziona](/blog/enasarco-cos-e-come-funziona).",
     },
     {
       type: "cta",

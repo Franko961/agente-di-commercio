@@ -23,7 +23,7 @@ const article = {
     { type: "h2", text: "Attenzione: riguarda te che studi, non i tuoi figli" },
     {
       type: "p",
-      text: "È il punto su cui si fa più confusione. Questo rimborso è destinato all'iscritto ENASARCO che studia in prima persona — non copre automaticamente le tasse scolastiche o universitarie dei figli. Per chi ha figli a carico che studiano, ENASARCO gestisce una prestazione separata, il Bonus Scolastico (400€ per un figlio, importo maggiore con più figli, domande dal 1° settembre al 31 dicembre 2026): stesso periodo di apertura, ma finestra di domanda e importi diversi, ed è una prestazione a sé, da richiedere separatamente se è quella che serve davvero.",
+      text: "È il punto su cui si fa più confusione. Questo rimborso è destinato all'iscritto ENASARCO che studia in prima persona — non copre automaticamente le tasse scolastiche o universitarie dei figli. Per chi ha figli a carico che studiano, ENASARCO gestisce una prestazione separata, il [Bonus Scolastico](/blog/enasarco-bonus-scolastico-figli-2026) (400€ per un figlio, importo maggiore con più figli, domande dal 1° settembre al 31 dicembre 2026): stesso periodo di apertura, ma finestra di domanda e importi diversi, ed è una prestazione a sé, da richiedere separatamente se è quella che serve davvero.",
     },
     { type: "h2", text: "Come e quando fare domanda" },
     {
@@ -32,7 +32,7 @@ const article = {
     },
     {
       type: "p",
-      text: "Tenere traccia delle spese legate a ENASARCO — inclusa la documentazione di prestazioni come questa — insieme alle altre spese personali e aziendali aiuta ad avere un quadro chiaro nel tempo: è uno degli usi più comuni che gli agenti fanno della sezione Spese di SalesFly, con la categoria ENASARCO già pronta all'uso (ne parliamo più nel dettaglio nell'articolo dedicato a ENASARCO).",
+      text: "Tenere traccia delle spese legate a ENASARCO — inclusa la documentazione di prestazioni come questa — insieme alle altre spese personali e aziendali aiuta ad avere un quadro chiaro nel tempo: è uno degli usi più comuni che gli agenti fanno della sezione Spese di SalesFly, con la categoria ENASARCO già pronta all'uso (ne parliamo più nel dettaglio in [ENASARCO: cos'è e come funziona](/blog/enasarco-cos-e-come-funziona)).",
     },
     {
       type: "cta",

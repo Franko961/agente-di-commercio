@@ -35,7 +35,7 @@ const article = {
     { type: "h2", text: "L'aliquota resta al 17%, divisa a metà" },
     {
       type: "p",
-      text: "L'aliquota contributiva ENASARCO per il 2026 è confermata al 17% delle provvigioni maturate, ripartita in parti uguali tra mandante (8,50%) e agente (8,50%). È il mandante a versare l'intero contributo trimestralmente all'ente, trattenendo la quota a carico dell'agente direttamente dalle provvigioni liquidate — lo stesso meccanismo descritto nell'articolo dedicato a cos'è e come funziona ENASARCO, qui aggiornato con i nuovi importi 2026.",
+      text: "L'aliquota contributiva ENASARCO per il 2026 è confermata al 17% delle provvigioni maturate, ripartita in parti uguali tra mandante (8,50%) e agente (8,50%). È il mandante a versare l'intero contributo trimestralmente all'ente, trattenendo la quota a carico dell'agente direttamente dalle provvigioni liquidate — lo stesso meccanismo descritto nell'articolo dedicato a [cos'è e come funziona ENASARCO](/blog/enasarco-cos-e-come-funziona), qui aggiornato con i nuovi importi 2026.",
     },
     { type: "h2", text: "Il punto che conta di più per un plurimandatario" },
     {
@@ -48,7 +48,7 @@ const article = {
     },
     {
       type: "p",
-      text: "Come per le altre spese legate a ENASARCO, tenere traccia dei contributi versati da ciascun mandante aiuta ad accorgersi in tempo se un versamento non torna con i nuovi importi: nella sezione Spese di SalesFly la categoria ENASARCO è già pronta all'uso, e indicare il mandante di riferimento in ogni voce permette di isolare la posizione contributiva di ciascun rapporto invece di vederle mescolate in un unico totale.",
+      text: "Come per le altre spese legate a ENASARCO, tenere traccia dei contributi versati da ciascun mandante aiuta ad accorgersi in tempo se un versamento non torna con i nuovi importi: nella sezione Spese di SalesFly la categoria ENASARCO è già pronta all'uso, e indicare il mandante di riferimento in ogni voce permette di isolare la posizione contributiva di ciascun rapporto invece di vederle mescolate in un unico totale. Per vedere come il contributo si somma alla ritenuta d'acconto su una singola provvigione c'è il [calcolatore di ritenuta d'acconto e ENASARCO](/calcolatori/ritenuta-acconto-enasarco); l'impostazione con più mandanti è in [gestire più mandanti in un solo CRM](/blog/gestire-piu-mandanti-crm).",
     },
     {
       type: "cta",
