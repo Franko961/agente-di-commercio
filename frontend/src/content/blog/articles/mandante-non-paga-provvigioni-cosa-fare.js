@@ -44,7 +44,7 @@ const article = {
     { type: "h2", text: "Secondo passo: la diffida scritta" },
     {
       type: "p",
-      text: "Se il pagamento non arriva, la mossa successiva è una diffida per raccomandata A/R o PEC: indica l'importo dovuto (con riferimento all'estratto conto o alle fatture), i termini di scadenza, gli interessi maturati e un termine ragionevole per pagare, avvisando che in mancanza si agirà in giudizio. Ha due effetti concreti: mette per iscritto la pretesa, con data certa, e interrompe la prescrizione, che per le provvigioni è di cinque anni (vedi l'articolo dedicato alla prescrizione delle provvigioni). Per gli effetti conta la data in cui il mandante riceve la comunicazione.",
+      text: "Se il pagamento non arriva, la mossa successiva è una diffida per raccomandata A/R o PEC: indica l'importo dovuto (con riferimento all'estratto conto o alle fatture), i termini di scadenza, gli interessi maturati e un termine ragionevole per pagare, avvisando che in mancanza si agirà in giudizio. Ha due effetti concreti: mette per iscritto la pretesa, con data certa, e interrompe la prescrizione, che per le provvigioni è di cinque anni (vedi l'[articolo dedicato alla prescrizione delle provvigioni](/blog/prescrizione-provvigioni-agente-di-commercio)). Per gli effetti conta la data in cui il mandante riceve la comunicazione.",
     },
     { type: "h2", text: "Terzo passo: il decreto ingiuntivo" },
     {
@@ -54,12 +54,12 @@ const article = {
     { type: "h2", text: "Se il mandante dice \"il cliente non mi ha pagato\"" },
     {
       type: "p",
-      text: "È l'obiezione più comune, e la risposta dipende dal contratto. Senza una clausola di salvo buon fine, il mancato incasso del cliente non autorizza il mandante a non pagare. Con quella clausola l'esigibilità può essere legata al pagamento del cliente, ma non oltre il momento in cui il cliente avrebbe dovuto pagare, se il mandante ha eseguito correttamente la sua parte (art. 1748, quarto comma). E se la provvigione è già stata pagata, il mandante può chiederne la restituzione (storno) solo nei casi limitati previsti dal sesto comma, come l'accertata insolvenza del cliente. Il dettaglio è nell'articolo sullo storno delle provvigioni per mancato incasso.",
+      text: "È l'obiezione più comune, e la risposta dipende dal contratto. Senza una clausola di salvo buon fine, il mancato incasso del cliente non autorizza il mandante a non pagare. Con quella clausola l'esigibilità può essere legata al pagamento del cliente, ma non oltre il momento in cui il cliente avrebbe dovuto pagare, se il mandante ha eseguito correttamente la sua parte (art. 1748, quarto comma). E se la provvigione è già stata pagata, il mandante può chiederne la restituzione (storno) solo nei casi limitati previsti dal sesto comma, come l'accertata insolvenza del cliente. Il dettaglio è nell'[articolo sullo storno delle provvigioni per mancato incasso](/blog/storno-provvigioni-mancato-incasso).",
     },
     { type: "h2", text: "Quando il ritardo diventa una questione di rapporto" },
     {
       type: "p",
-      text: "Ritardi ripetuti o un rifiuto persistente di pagare possono integrare un inadempimento grave del mandante, tale da giustificare il recesso dell'agente per giusta causa, senza preavviso, e in quel caso l'indennità di fine rapporto resta dovuta, perché il recesso è giustificato da circostanze attribuibili al mandante (art. 1751, secondo comma). La soglia di gravità e le conseguenze sono nell'articolo sul recesso dal contratto di agenzia: è una decisione da prendere con un legale, perché sbagliare la valutazione espone l'agente a sua volta a una contestazione.",
+      text: "Ritardi ripetuti o un rifiuto persistente di pagare possono integrare un inadempimento grave del mandante, tale da giustificare il recesso dell'agente per giusta causa, senza preavviso, e in quel caso l'indennità di fine rapporto resta dovuta, perché il recesso è giustificato da circostanze attribuibili al mandante (art. 1751, secondo comma). La soglia di gravità e le conseguenze sono nell'[articolo sul recesso dal contratto di agenzia](/blog/recesso-contratto-di-agenzia): è una decisione da prendere con un legale, perché sbagliare la valutazione espone l'agente a sua volta a una contestazione.",
     },
     {
       type: "cta",

@@ -33,7 +33,7 @@ const article = {
     { type: "h2", text: "INPS, ENASARCO e assicurazione auto: le spese ricorrenti da non dimenticare" },
     {
       type: "p",
-      text: "Oltre alle spese di trasferta quotidiane, un agente plurimandatario sostiene costi ricorrenti che è facile trascurare proprio perché non legati a una singola visita: i contributi INPS, quelli ENASARCO versati tramite i mandanti (vedi l'approfondimento dedicato su come funziona ENASARCO), l'assicurazione dell'auto usata per il lavoro e le parcelle del commercialista. Registrarli con la stessa cura delle spese quotidiane, invece di ricostruirli a memoria a fine anno, aiuta ad avere un quadro contributivo aggiornato lungo tutto l'anno.",
+      text: "Oltre alle spese di trasferta quotidiane, un agente plurimandatario sostiene costi ricorrenti che è facile trascurare proprio perché non legati a una singola visita: i contributi INPS, quelli ENASARCO versati tramite i mandanti (vedi l'[approfondimento dedicato su come funziona ENASARCO](/blog/enasarco-cos-e-come-funziona)), l'assicurazione dell'auto usata per il lavoro e le parcelle del commercialista. Registrarli con la stessa cura delle spese quotidiane, invece di ricostruirli a memoria a fine anno, aiuta ad avere un quadro contributivo aggiornato lungo tutto l'anno.",
     },
     { type: "h2", text: "Documentazione e scontrini: perché conservarli conta più della cifra" },
     {

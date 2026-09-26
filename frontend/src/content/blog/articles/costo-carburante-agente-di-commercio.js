@@ -28,11 +28,11 @@ const article = {
     { type: "h2", text: "Regime ordinario o forfettario: l'aumento non pesa allo stesso modo" },
     {
       type: "p",
-      text: "Il regime fiscale scelto cambia quanto del rincaro resta davvero a carico dell'agente. In regime ordinario le spese auto — carburante compreso — sono deducibili all'80% ai fini IRPEF e l'IVA è detraibile fino al 100%, percentuali specifiche per agenti e rappresentanti e molto più favorevoli del 20% e 40% della regola generale (dettagli nell'articolo dedicato qui sotto): quando il prezzo del carburante sale, una parte reale dell'aumento viene recuperata in dichiarazione.",
+      text: "Il regime fiscale scelto cambia quanto del rincaro resta davvero a carico dell'agente. In regime ordinario le spese auto — carburante compreso — sono deducibili all'80% ai fini IRPEF e l'IVA è detraibile fino al 100%, percentuali specifiche per agenti e rappresentanti e molto più favorevoli del 20% e 40% della regola generale (dettagli nell'[articolo sulla deducibilità dell'auto](/blog/deducibilita-fiscale-auto-agenti-commercio)): quando il prezzo del carburante sale, una parte reale dell'aumento viene recuperata in dichiarazione.",
     },
     {
       type: "p",
-      text: "In regime forfettario la logica è opposta: il reddito imponibile si calcola applicando ai ricavi lordi un coefficiente di redditività fisso (62% per gli intermediari del commercio), non sottraendo le spese realmente sostenute. Un aumento del prezzo del carburante non riduce di un euro le tasse dovute, perché quella spesa non entra mai nel calcolo in modo analitico. In più, chi è forfettario non applica né detrae l'IVA: paga il carburante al prezzo pieno, IVA compresa, senza alcun recupero. Il risultato pratico: a parità di chilometri percorsi, un rincaro del carburante pesa di più su un forfettario che su un agente in regime ordinario, che almeno recupera l'80% ai fini IRPEF e fino al 100% di IVA. È un fattore in più da considerare per chi macina molti chilometri e sta valutando se restare o passare al forfettario — approfondito, insieme alle altre differenze, nell'articolo dedicato qui sotto.",
+      text: "In regime forfettario la logica è opposta: il reddito imponibile si calcola applicando ai ricavi lordi un coefficiente di redditività fisso (62% per gli intermediari del commercio), non sottraendo le spese realmente sostenute. Un aumento del prezzo del carburante non riduce di un euro le tasse dovute, perché quella spesa non entra mai nel calcolo in modo analitico. In più, chi è forfettario non applica né detrae l'IVA: paga il carburante al prezzo pieno, IVA compresa, senza alcun recupero. Il risultato pratico: a parità di chilometri percorsi, un rincaro del carburante pesa di più su un forfettario che su un agente in regime ordinario, che almeno recupera l'80% ai fini IRPEF e fino al 100% di IVA. È un fattore in più da considerare per chi macina molti chilometri e sta valutando se restare o passare al forfettario — approfondito, insieme alle altre differenze, nell'[articolo sul regime forfettario](/blog/regime-forfettario-agente-di-commercio).",
     },
     { type: "h2", text: "Cosa si può fare davvero" },
     {
@@ -45,7 +45,7 @@ const article = {
     },
     {
       type: "p",
-      text: "Su quest'ultimo punto vale la pena essere concreti: SalesFly calcola l'ordine di visita ottimale per una giornata, minimizzando i chilometri da percorrere tra le tappe invece di lasciare che sia l'agente a intuirlo sulla mappa. L'algoritmo lavora su distanze e tempi reali di percorrenza stradale, non in linea d'aria — come funziona nel dettaglio è spiegato nell'articolo dedicato qui sotto. Ogni chilometro evitato con un giro visite meglio ordinato è carburante che non si paga.",
+      text: "Su quest'ultimo punto vale la pena essere concreti: SalesFly calcola l'ordine di visita ottimale per una giornata, minimizzando i chilometri da percorrere tra le tappe invece di lasciare che sia l'agente a intuirlo sulla mappa. L'algoritmo lavora su distanze e tempi reali di percorrenza stradale, non in linea d'aria — come funziona nel dettaglio è spiegato nell'[articolo sul percorso ottimizzato](/blog/software-calcolo-percorso-ottimizzato-agenti). Ogni chilometro evitato con un giro visite meglio ordinato è carburante che non si paga.",
     },
     {
       type: "p",

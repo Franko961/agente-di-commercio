@@ -13,7 +13,7 @@ const article = {
     { type: "h2", text: "La formula: base di calcolo per percentuale" },
     {
       type: "p",
-      text: "La provvigione è la percentuale pattuita applicata a una base di calcolo. La percentuale la decide il contratto (nessuna norma la fissa: se ne parla nell'articolo dedicato alla percentuale delle provvigioni). La base, di norma, è il prezzo netto di fattura: senza IVA e al netto di sconti commerciali e resi. Anche questo criterio, però, lo stabiliscono le parti nel contratto. L'unico limite che l'accordo economico collettivo del commercio pone alla base è che non si possono dedurre gli sconti di valuta concordati per le condizioni di pagamento.",
+      text: "La provvigione è la percentuale pattuita applicata a una base di calcolo. La percentuale la decide il contratto (nessuna norma la fissa: se ne parla nell'[articolo dedicato alla percentuale delle provvigioni](/blog/percentuale-provvigioni-agente-di-commercio)). La base, di norma, è il prezzo netto di fattura: senza IVA e al netto di sconti commerciali e resi. Anche questo criterio, però, lo stabiliscono le parti nel contratto. L'unico limite che l'accordo economico collettivo del commercio pone alla base è che non si possono dedurre gli sconti di valuta concordati per le condizioni di pagamento.",
     },
     {
       type: "ul",
@@ -48,12 +48,12 @@ const article = {
     { type: "h2", text: "La scala premi" },
     {
       type: "p",
-      text: "Molti mandanti affiancano alla provvigione ordinaria una scala premi: al superamento di certe soglie di fatturato in un periodo, l'agente riceve un premio o una percentuale maggiorata, a volte solo sulla parte eccedente la soglia, altre volte sull'intero importo. È una delle clausole che cambia di più il conto a fine anno, e il modo in cui gli scaglioni si sommano tra loro è spiegato nell'articolo dedicato alle provvigioni scalari a target.",
+      text: "Molti mandanti affiancano alla provvigione ordinaria una scala premi: al superamento di certe soglie di fatturato in un periodo, l'agente riceve un premio o una percentuale maggiorata, a volte solo sulla parte eccedente la soglia, altre volte sull'intero importo. È una delle clausole che cambia di più il conto a fine anno, e il modo in cui gli scaglioni si sommano tra loro è spiegato nell'[articolo dedicato alle provvigioni scalari a target](/blog/provvigioni-scalari-a-target).",
     },
     { type: "h2", text: "Note di credito e storni" },
     {
       type: "p",
-      text: "Resi e note di credito, di norma, riducono la base su cui si calcola la provvigione, come nell'esempio sopra. Cosa succede quando la provvigione è già stata pagata è un'altra questione: il mandante può chiederne la restituzione solo nei casi limitati previsti dall'art. 1748, sesto comma, e non per qualsiasi motivo. Tenere traccia degli storni separatamente dalle nuove vendite è essenziale per capire il proprio andamento reale, invece di vedere solo il saldo netto; il dettaglio dei casi in cui lo storno è legittimo è nell'articolo sullo storno delle provvigioni per mancato incasso.",
+      text: "Resi e note di credito, di norma, riducono la base su cui si calcola la provvigione, come nell'esempio sopra. Cosa succede quando la provvigione è già stata pagata è un'altra questione: il mandante può chiederne la restituzione solo nei casi limitati previsti dall'art. 1748, sesto comma, e non per qualsiasi motivo. Tenere traccia degli storni separatamente dalle nuove vendite è essenziale per capire il proprio andamento reale, invece di vedere solo il saldo netto; il dettaglio dei casi in cui lo storno è legittimo è nell'[articolo sullo storno delle provvigioni per mancato incasso](/blog/storno-provvigioni-mancato-incasso).",
     },
     { type: "h2", text: "Come verificare un estratto conto" },
     {
@@ -63,13 +63,13 @@ const article = {
         "Controllare la base: prezzo netto di fattura o di listino, trattamento di sconti e resi, eventuali sconti di valuta (non deducibili secondo l'accordo del commercio).",
         "Controllare le percentuali per linea e per cliente, non solo il totale.",
         "Controllare le date: l'ordine nel trimestre giusto, il pagamento entro l'ultimo giorno del mese successivo.",
-        "Se qualcosa non torna, chiedere per iscritto le informazioni e l'estratto dei libri contabili: l'art. 1749 lo riconosce all'agente. Se il pagamento è in ritardo, il percorso è nell'articolo sul mandante che non paga le provvigioni.",
+        "Se qualcosa non torna, chiedere per iscritto le informazioni e l'estratto dei libri contabili: l'art. 1749 lo riconosce all'agente. Se il pagamento è in ritardo, il percorso è nell'[articolo sul mandante che non paga le provvigioni](/blog/mandante-non-paga-provvigioni-cosa-fare).",
       ],
     },
     { type: "h2", text: "Dalla provvigione a quanto resta in tasca" },
     {
       type: "p",
-      text: "La provvigione calcolata è un importo lordo: sul pagamento incidono poi la ritenuta d'acconto (se dovuta) e il contributo ENASARCO a carico dell'agente. Un esempio completo di fattura con tutte le voci, per il regime ordinario e per il forfettario, è nell'articolo sulla fattura delle provvigioni.",
+      text: "La provvigione calcolata è un importo lordo: sul pagamento incidono poi la ritenuta d'acconto (se dovuta) e il contributo ENASARCO a carico dell'agente. Un esempio completo di fattura con tutte le voci, per il regime ordinario e per il forfettario, è nell'[articolo sulla fattura delle provvigioni](/blog/fattura-provvigioni-agente-di-commercio).",
     },
     {
       type: "cta",
