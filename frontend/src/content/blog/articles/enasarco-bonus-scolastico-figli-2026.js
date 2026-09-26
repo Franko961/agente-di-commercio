@@ -8,7 +8,7 @@ const article = {
   blocks: [
     {
       type: "p",
-      text: "Con il rientro a scuola torna anche il Bonus Scolastico ENASARCO, la prestazione assistenziale pensata per gli iscritti con figli a carico che studiano — dalla primaria all'università. È una prestazione diversa dal rimborso tasse universitarie di cui abbiamo parlato di recente: quello riguarda l'iscritto che studia in prima persona, questo invece copre i figli.",
+      text: "Con il rientro a scuola torna anche il Bonus Scolastico ENASARCO, la prestazione assistenziale pensata per gli iscritti con figli a carico che studiano — dalla primaria all'università. È una prestazione diversa dal [rimborso tasse universitarie](/blog/enasarco-rimborso-tasse-studio-universita-2026) di cui abbiamo parlato di recente: quello riguarda l'iscritto che studia in prima persona, questo invece copre i figli.",
     },
     { type: "h2", text: "Chi può richiederlo" },
     {
@@ -31,7 +31,7 @@ const article = {
     },
     {
       type: "p",
-      text: "Come per le altre spese legate a ENASARCO, tenerne traccia insieme al resto delle spese personali e aziendali aiuta ad avere un quadro chiaro nel tempo: nella sezione Spese di SalesFly la categoria ENASARCO è già pronta all'uso per questo tipo di documentazione.",
+      text: "Come per le altre spese legate a ENASARCO, tenerne traccia insieme al resto delle spese personali e aziendali aiuta ad avere un quadro chiaro nel tempo: nella sezione Spese di SalesFly la categoria ENASARCO è già pronta all'uso per questo tipo di documentazione. Il funzionamento generale dell'ente è in [ENASARCO: cos'è e come funziona](/blog/enasarco-cos-e-come-funziona).",
     },
     {
       type: "cta",

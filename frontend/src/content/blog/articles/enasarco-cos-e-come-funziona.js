@@ -18,7 +18,7 @@ const article = {
     { type: "h2", text: "Chi deve iscriversi" },
     {
       type: "p",
-      text: "L'iscrizione a ENASARCO è obbligatoria per chiunque operi in base a un contratto di agenzia, sia come persona fisica sia come società. L'obbligo riguarda sia l'agente sia ciascun mandante con cui collabora: per un agente plurimandatario, questo significa avere una posizione contributiva alimentata da più case mandanti contemporaneamente, una per ciascun rapporto di agenzia in corso.",
+      text: "L'iscrizione a ENASARCO è obbligatoria per chiunque operi in base a un contratto di agenzia, sia come persona fisica sia come società. L'obbligo riguarda sia l'agente sia ciascun mandante con cui collabora: per un agente plurimandatario, questo significa avere una posizione contributiva alimentata da più case mandanti contemporaneamente, una per ciascun rapporto di agenzia in corso. Su chi debba occuparsi dell'iscrizione c'è un equivoco frequente, chiarito nell'articolo su [iscrizione ENASARCO: un obbligo del mandante](/blog/iscrizione-enasarco-obbligo-mandante-agente).",
     },
     { type: "h2", text: "Come funzionano i contributi" },
     {
@@ -29,14 +29,14 @@ const article = {
       type: "ul",
       items: [
         "Il contributo si calcola entro un tetto massimo annuo (il cosiddetto massimale provvigionale), oltre il quale non è più dovuto",
-        "Le aliquote e i massimali vengono aggiornati periodicamente da ENASARCO: vale sempre la pena verificare i valori in vigore sul sito ufficiale o con il proprio commercialista",
+        "Le aliquote e i massimali vengono aggiornati periodicamente da ENASARCO (qui i [valori di minimale e massimale 2026](/blog/enasarco-minimali-massimali-2026)): vale sempre la pena verificare i valori in vigore sul sito ufficiale o con il proprio commercialista",
         "Con più mandanti, ogni rapporto ha una propria base di calcolo separata",
       ],
     },
     { type: "h2", text: "Il FIRR: l'indennità di fine rapporto" },
     {
       type: "p",
-      text: "Oltre alla previdenza, ENASARCO gestisce il FIRR (Fondo Indennità Risoluzione Rapporto): un accantonamento, versato dal mandante, che si trasforma in un'indennità corrisposta all'agente quando il rapporto di agenzia termina — concettualmente simile al TFR di un lavoratore dipendente, ma calcolato con regole proprie legate alle provvigioni maturate nel corso del rapporto.",
+      text: "Oltre alla previdenza, ENASARCO gestisce il [FIRR](/blog/firr-agenti-commercio-calcolo-indennita) (Fondo Indennità Risoluzione Rapporto): un accantonamento, versato dal mandante, che si trasforma in un'indennità corrisposta all'agente quando il rapporto di agenzia termina — concettualmente simile al TFR di un lavoratore dipendente, ma calcolato con regole proprie legate alle provvigioni maturate nel corso del rapporto.",
     },
     { type: "h2", text: "Le scadenze di versamento" },
     {
@@ -45,7 +45,7 @@ const article = {
     },
     {
       type: "p",
-      text: "Tenere traccia dei contributi ENASARCO versati, insieme alle altre spese personali e aziendali (INPS, assicurazione auto, commercialista), aiuta ad avere un quadro chiaro della propria posizione contributiva nel tempo — è uno degli usi più comuni che gli agenti fanno della sezione Spese di SalesFly, con la categoria ENASARCO già pronta all'uso. Per un agente plurimandatario, indicare il mandante di riferimento nella descrizione o nelle note della spesa aiuta a distinguere i versamenti di ciascuno.",
+      text: "Tenere traccia dei contributi ENASARCO versati, insieme alle altre spese personali e aziendali (INPS, assicurazione auto, commercialista), aiuta ad avere un quadro chiaro della propria posizione contributiva nel tempo — è uno degli usi più comuni che gli agenti fanno della sezione Spese di SalesFly, con la categoria ENASARCO già pronta all'uso. Per un agente plurimandatario, indicare il mandante di riferimento nella descrizione o nelle note della spesa aiuta a distinguere i versamenti di ciascuno. Più in generale, [come gestire più mandanti in un solo CRM](/blog/gestire-piu-mandanti-crm) e [come si calcolano le provvigioni](/blog/come-calcolare-provvigioni-agente-di-commercio) sono i due temi su cui poggia tutto il resto.",
     },
     {
       type: "cta",

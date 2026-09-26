@@ -35,11 +35,11 @@ const article = {
     { type: "h2", text: "Il contributo ENASARCO: previdenza, non imposta" },
     {
       type: "p",
-      text: "Il contributo ENASARCO segue una logica completamente diversa dalla ritenuta d'acconto — è previdenza, non un anticipo d'imposta — e per questo si applica indipendentemente dal regime fiscale: forfettario compreso. L'aliquota complessiva 2026 è il 17% della provvigione, ripartita in parti uguali tra mandante e agente: 8,5% a testa. È la quota dell'8,5% a carico dell'agente quella che riduce l'incasso netto — l'altro 8,5% è un costo del mandante e non passa dalla fattura dell'agente. Per i massimali e i minimali contributivi 2026, distinti tra rapporto plurimandatario e monomandatario, trovi tutti i valori aggiornati nell'articolo dedicato qui sotto.",
+      text: "Il contributo ENASARCO segue una logica completamente diversa dalla ritenuta d'acconto — è previdenza, non un anticipo d'imposta — e per questo si applica indipendentemente dal regime fiscale: forfettario compreso. L'aliquota complessiva 2026 è il 17% della provvigione, ripartita in parti uguali tra mandante e agente: 8,5% a testa. È la quota dell'8,5% a carico dell'agente quella che riduce l'incasso netto — l'altro 8,5% è un costo del mandante e non passa dalla fattura dell'agente. Per i massimali e i minimali contributivi 2026, distinti tra rapporto plurimandatario e monomandatario, trovi tutti i valori aggiornati nell'articolo sui [minimali e massimali ENASARCO 2026](/blog/enasarco-minimali-massimali-2026).",
     },
     {
       type: "p",
-      text: "Una precisazione importante: in regime forfettario i costi reali dell'attività (carburante, telefono, materiale promozionale...) non si deducono singolarmente — sono già \"coperti\" dal coefficiente di redditività applicato al fatturato lordo. I contributi previdenziali obbligatori fanno eccezione a questa regola: l'articolo 10 del TUIR (confermato dalla Circolare dell'Agenzia delle Entrate n. 10/2016 sul regime forfettario) li rende deducibili dal reddito imponibile anche per chi è forfettario, quindi anche il contributo ENASARCO a carico dell'agente. Resta comunque dovuto per intero — la deduzione riduce le imposte da pagare, non l'importo del contributo stesso. Il calcolo completo, con soglie e aliquote del regime forfettario, è nell'articolo dedicato qui sotto.",
+      text: "Una precisazione importante: in regime forfettario i costi reali dell'attività (carburante, telefono, materiale promozionale...) non si deducono singolarmente — sono già \"coperti\" dal coefficiente di redditività applicato al fatturato lordo. I contributi previdenziali obbligatori fanno eccezione a questa regola: l'articolo 10 del TUIR (confermato dalla Circolare dell'Agenzia delle Entrate n. 10/2016 sul regime forfettario) li rende deducibili dal reddito imponibile anche per chi è forfettario, quindi anche il contributo ENASARCO a carico dell'agente. Resta comunque dovuto per intero — la deduzione riduce le imposte da pagare, non l'importo del contributo stesso. Il calcolo completo, con soglie e aliquote del regime forfettario, è nell'articolo sul [regime forfettario per l'agente di commercio](/blog/regime-forfettario-agente-di-commercio).",
     },
     {
       type: "calculator",
@@ -53,6 +53,10 @@ const article = {
         "Regime ordinario, base standard: ritenuta d'acconto all'11,5% + ENASARCO 8,5% a carico dell'agente.",
         "Regime ordinario, con dichiarazione di base ridotta comunicata entro il 31 dicembre dell'anno precedente: ritenuta d'acconto al 4,6% + ENASARCO 8,5% a carico dell'agente.",
       ],
+    },
+    {
+      type: "p",
+      text: "Per la fattura vera e propria — quando emetterla, cosa scrivere e come si espongono le trattenute — c'è la [guida alla fattura delle provvigioni](/blog/fattura-provvigioni-agente-di-commercio); per la provvigione di partenza, [come si calcolano le provvigioni](/blog/come-calcolare-provvigioni-agente-di-commercio).",
     },
     {
       type: "cta",
