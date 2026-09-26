@@ -67,6 +67,36 @@ const article = {
       type: "p",
       text: "HubSpot merita una menzione a parte: è un CRM generalista molto completo, con un piano gratuito e una linea a pagamento (Sales Hub) a prezzo per utente. Lo abbiamo confrontato in dettaglio, prezzi alla mano, in un [articolo dedicato](/blog/salesfly-vs-hubspot-agenti-di-commercio): leggi \"SalesFly vs HubSpot: quale CRM per un agente di commercio plurimandatario\" per l'analisi completa.",
     },
+    { type: "h2", text: "Qual è il CRM più adatto a un agente di commercio?" },
+    {
+      type: "p",
+      text: "Non c'è un vincitore assoluto: dipende da come lavori. Un team commerciale con campagne e funnel articolati ha bisogno di uno strumento generalista. Un agente che rappresenta più mandanti ha bisogno di altro, e la tabella mostra dove sta la differenza pratica. La colonna dei CRM generalisti si riferisce a quelli descritti sopra, in modo generale: le singole funzioni cambiano da prodotto a prodotto e da piano a piano, quindi verifica sempre il prodotto che ti interessa.",
+    },
+    {
+      type: "table",
+      head: ["Funzione", "CRM generalisti", "SalesFly"],
+      rows: [
+        ["Clienti e contatti", "Sì", "Sì"],
+        ["Lead e pipeline", "Sì", "Sì"],
+        ["Agenda e appuntamenti", "Sì", "Sì"],
+        ["Mandanti (più aziende rappresentate)", "Da configurare con campi personalizzati", "Nativo: ogni mandante è un elemento del CRM"],
+        ["Provvigioni per mandante, con aliquota e scala premi", "Da configurare", "Nativo: calcolate a ogni vendita"],
+        ["Ritenuta d'acconto e contributo ENASARCO nel netto stimato", "In genere non previsto", "Sì, con massimale e minimale"],
+        ["Assistente AI che aggiorna il CRM", "Varia da prodotto a prodotto", "Sì: aggiunge clienti, appuntamenti, lead e note"],
+        ["Giro visite ottimizzato su mappa", "Varia da prodotto a prodotto", "Sì, su distanze e tempi reali di strada"],
+      ],
+    },
+    {
+      type: "p",
+      text: "Due precisazioni per essere chiari. SalesFly è pensato per l'agente che lavora da solo, non per un team commerciale: non ha una pipeline condivisa tra più venditori né emette fatture elettroniche. Quanto al FIRR, non è una funzione dell'app: c'è un [calcolatore gratuito](/calcolatori/firr), senza registrazione, sul sito.",
+    },
+    {
+      type: "cta",
+      title: "Cerchi un CRM progettato per l'agente plurimandatario?",
+      text: "SalesFly nasce per gestire mandanti, provvigioni, clienti, agenda e attività sul territorio.",
+      href: "/richiedi-demo",
+      cta: "Scopri SalesFly",
+    },
     { type: "h2", text: "Cosa cercare davvero, se sei un agente plurimandatario" },
     {
       type: "p",
