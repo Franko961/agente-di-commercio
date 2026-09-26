@@ -221,6 +221,11 @@ export default function WhySalesFly() {
               Preferisci vedere prima come funziona? Fai il tour guidato
             </Link>
           </div>
+          <div className="mt-2">
+            <Link to="/crm-per-agenti-di-commercio" className="text-[13px] text-[#52525B] hover:text-[#0A192F] underline">
+              Cosa deve avere un CRM per agenti di commercio: la guida completa
+            </Link>
+          </div>
         </div>
       </main>
 

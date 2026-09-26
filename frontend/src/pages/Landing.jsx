@@ -476,6 +476,7 @@ export default function Landing() {
           </div>
           <nav className="flex items-center gap-6 text-[12px] text-[#52525B]">
             <Link to="/prezzi" className="hover:text-[#0A192F]">Prezzi</Link>
+            <Link to="/crm-per-agenti-di-commercio" className="hover:text-[#0A192F]">CRM per agenti</Link>
             <Link to="/blog" className="hover:text-[#0A192F]">Blog</Link>
             <Link to="/privacy" className="hover:text-[#0A192F]">Privacy</Link>
             <Link to="/termini" className="hover:text-[#0A192F]">Termini</Link>

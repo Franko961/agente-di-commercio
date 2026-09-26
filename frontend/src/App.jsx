@@ -65,6 +65,7 @@ const CalcolatorePage = lazy(() => import("./pages/CalcolatorePage"));
 const GuidedTour = lazy(() => import("./pages/GuidedTour"));
 const HelpCenter = lazy(() => import("./pages/HelpCenter"));
 const WhySalesFly = lazy(() => import("./pages/WhySalesFly"));
+const CrmPerAgenti = lazy(() => import("./pages/CrmPerAgenti"));
 const ChiSiamo = lazy(() => import("./pages/ChiSiamo"));
 const Contatti = lazy(() => import("./pages/Contatti"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
@@ -125,6 +126,7 @@ function App() {
               />
               <Route path="/tour" element={<GuidedTour />} />
               <Route path="/perche-salesfly" element={<WhySalesFly />} />
+              <Route path="/crm-per-agenti-di-commercio" element={<CrmPerAgenti />} />
               <Route path="/chi-siamo" element={<ChiSiamo />} />
               <Route path="/contatti" element={<Contatti />} />
               <Route path="/password-dimenticata" element={<ForgotPassword />} />

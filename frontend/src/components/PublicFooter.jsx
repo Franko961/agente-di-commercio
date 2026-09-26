@@ -1,4 +1,5 @@
-﻿import { Facebook, Star } from "lucide-react";
+﻿import { Link } from "react-router-dom";
+import { Facebook, Star } from "lucide-react";
 import { useCookieConsent } from "../contexts/CookieConsentContext";
 
 export default function PublicFooter() {
@@ -7,6 +8,9 @@ export default function PublicFooter() {
     <footer className="border-t border-[#E4E4E1] py-6 px-6">
       <div className="max-w-5xl mx-auto flex items-center justify-center gap-3 text-[12px] text-[#6B6B72] flex-wrap">
         <span>© 2026 SALESFLY. · Gestionale per agenti di commercio</span>
+        <Link to="/crm-per-agenti-di-commercio" className="underline hover:text-[#52525B]">
+          CRM per agenti di commercio
+        </Link>
         <button onClick={openPreferences} className="underline hover:text-[#52525B]">
           Preferenze cookie
         </button>

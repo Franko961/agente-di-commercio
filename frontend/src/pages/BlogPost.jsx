@@ -2,6 +2,7 @@
 import { useParams, Navigate, Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Calendar } from "lucide-react";
 import { getArticleBySlug, getPublishedArticles } from "@/content/blog";
+import { PILLAR, PILLAR_CLUSTER_SLUGS } from "@/content/blog/pillar";
 import { themeForSlug } from "@/content/blog/theme";
 import { CALCULATORS } from "@/content/calculators";
 import PublicHeader from "@/components/PublicHeader";
@@ -163,6 +164,21 @@ export default function BlogPost() {
         )}
 
         <article>{article.blocks.map((block, i) => renderBlock(block, i, article.slug))}</article>
+
+        {PILLAR_CLUSTER_SLUGS.includes(article.slug) && (
+          <Link
+            to={PILLAR.path}
+            onClick={() => trackEvent("pillar_link_click", { from: article.slug })}
+            className="block mt-10 bg-white border border-[#E4E4E1] rounded-xl p-6 hover:border-[#0A192F] transition-colors"
+          >
+            <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#B23E00] mb-2">Guida completa</div>
+            <div className="font-cabinet font-bold text-lg mb-2">{PILLAR.title}</div>
+            <p className="text-[14px] text-[#52525B] mb-3">{PILLAR.text}</p>
+            <span className="inline-flex items-center gap-1 text-[13px] text-[#B23E00] font-medium">
+              Leggi la guida <ArrowRight className="w-3.5 h-3.5" />
+            </span>
+          </Link>
+        )}
 
         {relatedArticles.length > 0 && (
           <div className="mt-16 pt-10 border-t border-[#E4E4E1]">

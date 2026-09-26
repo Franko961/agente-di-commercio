@@ -50,6 +50,13 @@ const PAGES = {
     changefreq: "monthly",
     priority: "0.8",
   },
+  "/crm-per-agenti-di-commercio": {
+    title: "CRM per agenti di commercio: cosa deve avere e come scegliere",
+    description:
+      "Cosa deve fare un CRM per un agente plurimandatario: mandanti, provvigioni, giro visite, mobile e AI. La guida con gli approfondimenti e cosa SalesFly non fa.",
+    changefreq: "monthly",
+    priority: "0.9",
+  },
   "/tour": {
     title: "Tour guidato — SALESFLY",
     description:
