@@ -25,6 +25,29 @@ const article = {
         "Supporto in italiano, con chi il mestiere lo conosce — non un centralino internazionale che smista il ticket a chi capita.",
       ],
     },
+    { type: "h2", text: "Cosa deve avere un CRM per agenti di commercio" },
+    {
+      type: "p",
+      text: "Al di là dell'etichetta \"italiano\", queste sono le funzioni che fanno la differenza nel lavoro di un agente plurimandatario. Per ciascuna trovi l'approfondimento, con i limiti dichiarati dove ci sono.",
+    },
+    {
+      type: "ul",
+      items: [
+        "Gestione mandanti: ogni casa mandante con le proprie regole, non un campo personalizzato. Vedi [gestire più mandanti in un solo CRM](/blog/gestire-piu-mandanti-crm).",
+        "Provvigioni: aliquota e scala premi per mandante, maturate e incassate distinte. Vedi [come si calcolano le provvigioni](/blog/come-calcolare-provvigioni-agente-di-commercio).",
+        "Clienti: anagrafica, storico e note in un posto solo, con l'importazione da Excel. Vedi [passare da Excel al CRM](/blog/passare-da-excel-al-crm-agenti).",
+        "Agenda: appuntamenti e giro visite organizzati per zona. Vedi [pianificare il giro visite](/blog/pianificare-giro-visite-agente-di-commercio).",
+        "Giro visite ottimizzato: l'ordine di visita che riduce i chilometri, su distanze reali di strada. Vedi [come funziona il percorso ottimizzato](/blog/software-calcolo-percorso-ottimizzato-agenti).",
+        "Offerte, ordini e catalogo: tutto collegato al cliente, con il catalogo digitale al posto del cartaceo. Vedi [il catalogo digitale per agenti](/blog/catalogo-digitale-agenti-di-commercio).",
+        "ENASARCO: nel netto stimato entrano ritenuta d'acconto e contributo ENASARCO, con massimale e minimale. Per capire l'ente vedi [ENASARCO: cos'è e come funziona](/blog/enasarco-cos-e-come-funziona).",
+        "FIRR: non è una funzione dell'app, ma c'è un [calcolatore gratuito](/calcolatori/firr), senza registrazione, e la [guida al FIRR](/blog/firr-agenti-commercio-calcolo-indennita).",
+        "AI: un assistente che aggiorna il CRM invece di limitarsi a consigliare. Vedi [CRM con intelligenza artificiale per venditori](/blog/crm-intelligenza-artificiale-per-venditori).",
+      ],
+    },
+    {
+      type: "p",
+      text: "L'elenco completo, con tutti gli approfondimenti e una sezione su cosa SalesFly non fa, è nella [guida al CRM per agenti di commercio](/crm-per-agenti-di-commercio). Per un confronto con gli altri CRM, vedi [i migliori CRM per venditori italiani](/blog/migliori-crm-per-venditori-italiani).",
+    },
     { type: "h2", text: "Una nota onesta sul cloud" },
     {
       type: "p",
