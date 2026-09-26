@@ -1,8 +1,8 @@
 const article = {
   slug: "firr-agenti-commercio-calcolo-indennita",
-  title: "FIRR agenti di commercio: calcolo dell'indennità di fine rapporto",
+  title: "FIRR agenti di commercio 2026: calcolo e scaglioni",
   description:
-    "Cos'è il FIRR, chi lo versa, quando spetta e come si calcola con i nuovi scaglioni 2026 (aggiornati per la prima volta dal 1989): guida con calcolatore per mono e plurimandatari.",
+    "Calcolo FIRR 2026 per agenti di commercio: nuovi scaglioni, esempio pratico, differenze tra mono e plurimandatario e calcolatore online.",
   publishedAt: "2026-08-31",
   draft: false,
   blocks: [
@@ -31,7 +31,7 @@ const article = {
       type: "p",
       text: "Attenzione a dove cerchi questi dati: al momento in cui scriviamo, diverse guide online riportano ancora i vecchi scaglioni (quelli fermi al 2025) presentandoli come attuali — probabilmente contenuti non aggiornati dopo la firma dell'accordo. Abbiamo verificato le cifre sopra incrociando più fonti indipendenti, inclusa la federazione di categoria che ha partecipato alla trattativa.",
     },
-    { type: "h2", text: "Come si calcola: un esempio" },
+    { type: "h2", text: "Calcolo FIRR 2026: esempio pratico" },
     {
       type: "p",
       text: "Il calcolo è a scaglioni progressivi, applicato separatamente per ogni mandante: si applica l'aliquota di ogni fascia solo alla parte di provvigioni che rientra in quella fascia, non all'intero importo. Un agente plurimandatario con 15.000€ di provvigioni nell'anno da un singolo mandante, mandato attivo tutto l'anno: 4% × 12.000€ = 480€, più 2% × (15.000 − 12.000) = 60€. Totale FIRR accantonato per quell'anno su quel mandante: 540€.",
@@ -41,13 +41,30 @@ const article = {
       text: "Se il mandato è iniziato o terminato a metà anno, gli scaglioni si riducono in proporzione ai mesi di attività effettiva — non si applicano per intero a un rapporto di pochi mesi. E soprattutto: il calcolo è per mandante, non complessivo. Un plurimandatario con 3 mandanti ha 3 accantonamenti FIRR distinti, ciascuno calcolato sulle provvigioni di quel singolo rapporto.",
     },
     {
+      type: "p",
+      text: "Gli stessi scaglioni applicati ad altri tre casi (importi ipotetici, a scopo di esempio):",
+    },
+    {
+      type: "ul",
+      items: [
+        "Plurimandatario, 20.000€ di provvigioni nell'anno, mandato attivo per 12 mesi: 4% × 12.000€ = 480€, 2% × 6.000€ = 120€, 1% × 2.000€ = 20€. FIRR accantonato: 620€.",
+        "Monomandatario, 30.000€ di provvigioni nell'anno, mandato attivo per 12 mesi: 4% × 24.000€ = 960€, 2% × 6.000€ = 120€. FIRR accantonato: 1.080€.",
+        "Plurimandatario, mandato di 6 mesi, 9.000€ di provvigioni: gli scaglioni si dimezzano (6.000€ e 9.000€), quindi 4% × 6.000€ = 240€, 2% × 3.000€ = 60€. FIRR accantonato: 300€.",
+      ],
+    },
+    { type: "h2", text: "Calcola il tuo FIRR 2026" },
+    {
+      type: "p",
+      text: "Inserisci le provvigioni dell'anno per un mandante, scegli il tipo di mandato e i mesi di attività: il calcolatore applica gli scaglioni 2026. Se preferisci, lo stesso calcolatore è disponibile [in una pagina a sé](/calcolatori/firr).",
+    },
+    {
       type: "calculator",
       name: "firr",
     },
     { type: "h2", text: "Come si riceve materialmente il FIRR" },
     {
       type: "p",
-      text: "Alla cessazione del mandato, ENASARCO liquida direttamente all'agente le somme accantonate fino a quel momento per quel mandante — non è il mandante a pagarle di tasca propria in quel momento, semplicemente perché le ha già versate anno per anno durante il rapporto. Fa eccezione la quota dell'ultimo anno, non ancora versata al fondo al momento della cessazione: quella la salda direttamente il mandante. Gli importi accantonati restano comunque consultabili nell'area riservata del sito ENASARCO.",
+      text: "Alla cessazione del mandato, ENASARCO liquida direttamente all'agente le somme accantonate fino a quel momento per quel mandante — non è il mandante a pagarle di tasca propria in quel momento, semplicemente perché le ha già versate anno per anno durante il rapporto. Fa eccezione la quota dell'ultimo anno, non ancora versata al fondo al momento della cessazione: quella la salda direttamente il mandante. Gli importi accantonati restano comunque consultabili nell'area riservata del sito ENASARCO. Come e con quali conseguenze può finire un rapporto di agenzia è spiegato nell'[articolo sul recesso dal contratto](/blog/recesso-contratto-di-agenzia).",
     },
     {
       type: "cta",
